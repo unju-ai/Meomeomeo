@@ -1,0 +1,5 @@
+# Pin Rojo for this repo. Install with: aftman install
+# https://github.com/LPGhatguy/aftman
+
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"

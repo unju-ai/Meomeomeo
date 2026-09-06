@@ -1,0 +1,103 @@
+{
+  "name": "MeoMeoMeo",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "CameraMaxZoomDistance": 48,
+        "CameraMinZoomDistance": 8,
+        "EnableMouseLockOption": true
+      },
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "Client": {
+          "$path": "src/client"
+        }
+      },
+      "StarterCharacterScripts": {
+        "$className": "StarterCharacterScripts",
+        "$ignoreUnknownInstances": true
+      }
+    },
+
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$ignoreUnknownInstances": true
+    },
+
+    "Teams": {
+      "$className": "Teams",
+      "BlueWhiskers": {
+        "$className": "Team",
+        "$properties": {
+          "AutoAssignable": false,
+          "TeamColor": "Bright blue"
+        }
+      },
+      "RedPaws": {
+        "$className": "Team",
+        "$properties": {
+          "AutoAssignable": false,
+          "TeamColor": "Bright red"
+        }
+      }
+    },
+
+    "VoiceChatService": {
+      "$className": "VoiceChatService",
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "EnableDefaultVoice": true,
+        "UseAudioApi": "Enabled"
+      }
+    },
+
+    "SoundService": {
+      "$className": "SoundService",
+      "$ignoreUnknownInstances": true
+    },
+
+    "Lighting": {
+      "$className": "Lighting",
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "ClockTime": 16.4,
+        "Brightness": 2.2,
+        "Ambient": [0.42, 0.34, 0.30],
+        "OutdoorAmbient": [0.58, 0.48, 0.40],
+        "GeographicLatitude": 28,
+        "GlobalShadows": true,
+        "EnvironmentDiffuseScale": 0.4,
+        "EnvironmentSpecularScale": 0.3
+      }
+    },
+
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "Gravity": 196.2
+      }
+    }
+  }
+}

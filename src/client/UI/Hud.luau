@@ -1,0 +1,98 @@
+--!strict
+
+local Players = game:GetService("Players")
+
+local Theme = require(script.Parent.Parent.Theme)
+local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+
+local AbilityBar = require(script.Parent.AbilityBar)
+local ChampionSelect = require(script.Parent.ChampionSelect)
+local LobbyPanel = require(script.Parent.LobbyPanel)
+local NpcChatPanel = require(script.Parent.NpcChatPanel)
+local VoiceHud = require(script.Parent.VoiceHud)
+
+local Hud = {}
+
+export type HudApi = {
+	gui: ScreenGui,
+	lobby: LobbyPanel.LobbyApi,
+	select: ChampionSelect.SelectApi,
+	abilities: AbilityBar.BarApi,
+	voice: VoiceHud.VoiceHudApi,
+	chat: NpcChatPanel.ChatApi,
+	banner: (text: string) -> (),
+	ticker: (text: string) -> (),
+	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
+}
+
+function Hud.create(): HudApi
+	local player = Players.LocalPlayer
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "MeoHud"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	local ticker = Theme.text(gui, "Ticker", "🐾 MEO stocks warming up…", 13, Theme.ink, Theme.fontMono)
+	ticker.AnchorPoint = Vector2.new(0.5, 0)
+	ticker.Position = UDim2.new(0.5, 0, 0, 8)
+	ticker.Size = UDim2.fromOffset(640, 22)
+	ticker.BackgroundColor3 = Theme.amber
+	ticker.BackgroundTransparency = 0.12
+	ticker.TextXAlignment = Enum.TextXAlignment.Center
+	Theme.corner(ticker, 8)
+	Theme.pad(ticker, 4)
+
+	local banner = Theme.text(gui, "Banner", "", 20, Theme.cream, Theme.fontTitle)
+	banner.AnchorPoint = Vector2.new(0.5, 0)
+	banner.Position = UDim2.new(0.5, 0, 0, 40)
+	banner.Size = UDim2.fromOffset(720, 28)
+	banner.TextXAlignment = Enum.TextXAlignment.Center
+	banner.TextStrokeTransparency = 0.4
+
+	local lobby = LobbyPanel.create(gui)
+	local select = ChampionSelect.create(gui)
+	local abilities = AbilityBar.create(gui)
+	local voice = VoiceHud.create(gui)
+	local chat = NpcChatPanel.create(gui)
+
+	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
+		local phase = snapshot.phase
+		lobby.setVisible(phase == "Lobby")
+		select.setVisible(phase == "ChampionSelect")
+		abilities.setVisible(phase == "InProgress")
+		if phase == "Lobby" then
+			lobby.update(snapshot)
+			banner.Text = ""
+		elseif phase == "ChampionSelect" then
+			select.update(snapshot, localUserId)
+			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
+		elseif phase == "InProgress" then
+			local mine = snapshot.players[tostring(localUserId)]
+			banner.Text = if mine then `{mine.team} · smash the other nexus` else "Spectating"
+		elseif phase == "Ended" then
+			abilities.setVisible(false)
+			lobby.setVisible(true)
+			banner.Text = `{snapshot.winner or "??"} wins — returning to lobby`
+		end
+	end
+
+	return {
+		gui = gui,
+		lobby = lobby,
+		select = select,
+		abilities = abilities,
+		voice = voice,
+		chat = chat,
+		banner = function(text: string)
+			banner.Text = text
+		end,
+		ticker = function(text: string)
+			ticker.Text = text
+		end,
+		applyPhase = applyPhase,
+	}
+end
+
+return Hud

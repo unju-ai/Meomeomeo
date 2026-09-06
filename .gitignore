@@ -1,0 +1,33 @@
+# Roblox place / model binaries
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+*.rbxl.lock
+
+# Rojo
+sourcemap.json
+*.project.json.bak
+
+# Secrets — never commit live AI keys
+.env
+.env.*
+!.env.example
+Secrets.luau
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Package managers / tooling
+Packages/
+ServerPackages/
+DevPackages/
+
+# Logs
+*.log
