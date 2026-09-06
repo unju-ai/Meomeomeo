@@ -16,8 +16,13 @@ local Config = {
 		PracticeEnabled = true,
 		StartingGold = 500,
 		KillGold = 180,
+		AssistGold = 60,
+		AssistWindow = 8,
 		TowerGold = 120,
 		MinionGold = 18,
+		MinionXp = 12,
+		KillXp = 50,
+		AssistXp = 20,
 	},
 
 	Combat = {
@@ -25,6 +30,14 @@ local Config = {
 		RegenPerSecond = 4,
 		ManaRegenPerSecond = 6,
 		StructureTouchRadius = 18,
+	},
+
+	AutoAttack = {
+		Range = 26,
+		AcquireRange = 36,
+		Interval = 1.05,
+		Windup = 0.16,
+		BaseDamage = 24,
 	},
 
 	Minions = {

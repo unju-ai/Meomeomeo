@@ -35,6 +35,14 @@ local Constants = {
 		Bot = 80,
 	},
 
+	-- Matches MapBuilder ground (420 x 280 centered at origin).
+	MapBounds = {
+		MinX = -210,
+		MaxX = 210,
+		MinZ = -140,
+		MaxZ = 140,
+	},
+
 	Collision = {
 		Map = Enum.RaycastFilterType.Exclude,
 	},

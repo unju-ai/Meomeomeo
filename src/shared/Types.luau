@@ -58,6 +58,7 @@ export type MatchPlayer = {
 	deaths: number,
 	assists: number,
 	gold: number,
+	xp: number,
 	connected: boolean,
 	items: { string },
 }
@@ -72,6 +73,8 @@ export type CombatState = {
 	armor: number,
 	cooldowns: { [AbilitySlot]: number },
 	alive: boolean,
+	nextAutoAttack: number,
+	attackTarget: string?,
 }
 
 export type MatchSnapshot = {
@@ -98,6 +101,23 @@ export type AbilityRequest = {
 	slot: AbilitySlot,
 	aimPosition: Vector3,
 	targetUserId: number?,
+}
+
+export type AttackKind = "player" | "minion" | "objective" | "stop"
+
+export type AttackRequest = {
+	kind: AttackKind,
+	userId: number?,
+	minionId: string?,
+	objectiveId: string?,
+	position: Vector3?,
+}
+
+export type PingPayload = {
+	userId: number,
+	team: TeamId,
+	position: Vector3,
+	at: number,
 }
 
 export type AbilityResult = {

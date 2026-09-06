@@ -135,6 +135,18 @@ Remotes.function_("BuyItem").OnServerInvoke = function(player: Player, itemId: u
 	return ShopService.buy(player, itemId)
 end
 
+Remotes.function_("IssueAttack").OnServerInvoke = function(player: Player, request: unknown)
+	return CombatService.issueAttack(player, request)
+end
+
+Remotes.function_("AttackMove").OnServerInvoke = function(player: Player, position: unknown)
+	return CombatService.attackMove(player, position)
+end
+
+Remotes.function_("MinimapPing").OnServerInvoke = function(player: Player, position: unknown)
+	return MatchService.ping(player, position)
+end
+
 local function sendLobby(player: Player)
 	task.defer(function()
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot()))
