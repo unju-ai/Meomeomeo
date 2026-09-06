@@ -17,6 +17,7 @@ local MatchService = require(script.Match.MatchService)
 local MatchmakingService = require(script.Match.MatchmakingService)
 local MemeStockService = require(script.Economy.MemeStockService)
 local MintService = require(script.Mint.MintService)
+local ShopService = require(script.Match.ShopService)
 local VoiceService = require(script.Voice.VoiceService)
 
 local function ensureTeam(name: string, color: BrickColor)
@@ -124,6 +125,14 @@ end
 
 Remotes.function_("ClaimMeo404").OnServerInvoke = function(player: Player, purchaseId: unknown)
 	return MintService.claim(player, purchaseId)
+end
+
+Remotes.function_("GetShopStatus").OnServerInvoke = function(player: Player)
+	return ShopService.status(player)
+end
+
+Remotes.function_("BuyItem").OnServerInvoke = function(player: Player, itemId: unknown)
+	return ShopService.buy(player, itemId)
 end
 
 local function sendLobby(player: Player)

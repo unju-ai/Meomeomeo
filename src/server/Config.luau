@@ -17,6 +17,7 @@ local Config = {
 		StartingGold = 500,
 		KillGold = 180,
 		TowerGold = 120,
+		MinionGold = 18,
 	},
 
 	Combat = {
@@ -24,6 +25,42 @@ local Config = {
 		RegenPerSecond = 4,
 		ManaRegenPerSecond = 6,
 		StructureTouchRadius = 18,
+	},
+
+	Minions = {
+		FirstWaveDelay = 6,
+		WaveInterval = 22,
+		PerLane = 3,
+		Health = 95,
+		Damage = 14,
+		AttackRange = 15,
+		AttackInterval = 1.15,
+		Speed = 18,
+		HitRadius = 10,
+	},
+
+	Towers = {
+		Range = 44,
+		Damage = 50,
+		Interval = 1.25,
+		NexusRange = 36,
+		NexusDamage = 58,
+		AggroSeconds = 4,
+	},
+
+	-- All 3 outer towers on a team must fall before that nexus takes damage.
+	Nexus = {
+		TowersRequiredDown = 3,
+	},
+
+	Vision = {
+		ChampionRadius = 54,
+		TowerRadius = 46,
+		MinionRadius = 28,
+	},
+
+	Shop = {
+		FountainRadius = 32,
 	},
 
 	Voice = {

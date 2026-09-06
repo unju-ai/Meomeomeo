@@ -154,6 +154,7 @@ function MapBuilder.build(): Folder
 	local bases = folder(root, "Bases")
 	local npcs = folder(root, "Npcs")
 	local spawns = folder(root, "Spawns")
+	folder(root, "Minions")
 
 	-- Ground + river + jungle
 	part(terrain, "Ground", Vector3.new(420, 2, 280), CFrame.new(0, -1, 0), Color3.fromRGB(126, 168, 92))
@@ -228,6 +229,7 @@ function MapBuilder.build(): Folder
 	root:SetAttribute("LobbySpawn", lobbySpawn.Name)
 	root:SetAttribute("BlueSpawn", blueSpawn.Name)
 	root:SetAttribute("RedSpawn", redSpawn.Name)
+	MapBuilder.refreshNexusGate()
 
 	return root
 end
@@ -264,7 +266,7 @@ function MapBuilder.getObjectivePart(id: string): BasePart?
 	return nil
 end
 
-function MapBuilder.objectiveStates(): { [string]: Types.ObjectiveState }
+local function readObjectives(): { [string]: Types.ObjectiveState }
 	local map = MapBuilder.get()
 	local objectives = map:FindFirstChild("Objectives")
 	local states: { [string]: Types.ObjectiveState } = {}
@@ -279,14 +281,16 @@ function MapBuilder.objectiveStates(): { [string]: Types.ObjectiveState }
 			if typeof(id) == "string" and (team == "Blue" or team == "Red") and (kind == "Tower" or kind == "Nexus") then
 				local maxHealth = child:GetAttribute("MaxHealth")
 				local health = child:GetAttribute("Health")
+				local hp = if typeof(health) == "number" then health else 1000
 				states[id] = {
 					id = id,
 					team = team,
 					kind = kind,
 					lane = (child:GetAttribute("Lane") :: string?) or "Mid",
 					maxHealth = if typeof(maxHealth) == "number" then maxHealth else 1000,
-					health = if typeof(health) == "number" then health else 1000,
-					alive = child.Transparency < 0.9,
+					health = hp,
+					alive = hp > 0,
+					vulnerable = kind ~= "Nexus",
 				}
 			end
 		end
@@ -294,4 +298,90 @@ function MapBuilder.objectiveStates(): { [string]: Types.ObjectiveState }
 	return states
 end
 
+function MapBuilder.livingTowerCount(team: Types.TeamId): number
+	local count = 0
+	for _, state in readObjectives() do
+		if state.team == team and state.kind == "Tower" and state.alive then
+			count += 1
+		end
+	end
+	return count
+end
+
+function MapBuilder.towerCount(team: Types.TeamId): number
+	local count = 0
+	for _, state in readObjectives() do
+		if state.team == team and state.kind == "Tower" then
+			count += 1
+		end
+	end
+	return count
+end
+
+function MapBuilder.isNexusVulnerable(team: Types.TeamId): boolean
+	local Config = require(script.Parent.Parent.Config)
+	local down = MapBuilder.towerCount(team) - MapBuilder.livingTowerCount(team)
+	return down >= Config.Nexus.TowersRequiredDown
+end
+
+function MapBuilder.objectiveStates(): { [string]: Types.ObjectiveState }
+	local states = readObjectives()
+	for _, state in states do
+		if state.kind == "Nexus" then
+			state.vulnerable = MapBuilder.isNexusVulnerable(state.team)
+		end
+	end
+	return states
+end
+
+function MapBuilder.refreshNexusGate()
+	local map = MapBuilder.get()
+	local objectives = map:FindFirstChild("Objectives")
+	if not objectives then
+		return
+	end
+	for _, child in objectives:GetChildren() do
+		if child:IsA("BasePart") and child:GetAttribute("Kind") == "Nexus" then
+			local team = child:GetAttribute(Constants.Attributes.Team)
+			if team == "Blue" or team == "Red" then
+				local open = MapBuilder.isNexusVulnerable(team)
+				child:SetAttribute("Vulnerable", open)
+				local label = child:FindFirstChild("Label")
+				if label and label:IsA("BillboardGui") then
+					local text = label:FindFirstChildWhichIsA("TextLabel")
+					if text then
+						text.Text = if open then `{team} Nexus (OPEN)` else `{team} Nexus (gated)`
+					end
+				end
+				local hp = child:GetAttribute("Health")
+				if typeof(hp) ~= "number" or hp > 0 then
+					child.Transparency = if open then 0 else 0.35
+				end
+			end
+		end
+	end
+end
+
+function MapBuilder.minionFolder(): Folder
+	local map = MapBuilder.get()
+	local existing = map:FindFirstChild("Minions")
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+	local folderInstance = Instance.new("Folder")
+	folderInstance.Name = "Minions"
+	folderInstance.Parent = map
+	return folderInstance
+end
+
+function MapBuilder.laneZ(lane: string): number
+	if lane == "Top" then
+		return -80
+	elseif lane == "Bot" then
+		return 80
+	end
+	return 0
+end
+
 return MapBuilder
+

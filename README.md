@@ -16,6 +16,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs
+- Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
@@ -51,8 +52,9 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 - **Practice match** — one player, Blue team, attack Red towers/nexus to end the game.
 - **Queue** — starts a real match when at least `Config.Match.MinPlayersToStart` (default 2) players are waiting.
-- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats and structures.
+- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, and (if ungated) structures.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
+- **Practice loop for the new slice:** lock a cat → buy at the Blue fountain (**B**, or talk to Pawmart) → last-hit lane kittens → take all **3 Red towers** → Red nexus billboard flips to `(OPEN)` → smash it. Enemy towers will shoot you if you dive. Fog hides Red units until you, your minions, or a Blue tower can see them.
 
 ## How the MOBA loop works
 
@@ -65,7 +67,12 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
-- **Combat:** `CombatService` applies heals/dashes/AoE around the aim point. Tower gating / minions / vision are intentionally not in this pass.
+- **Combat:** `CombatService` applies heals/dashes/AoE around the aim point. Abilities also last-hit minions and respect nexus gating.
+- **Minion waves:** every ~22s both teams spawn 3 kittens per lane. They walk toward the enemy nexus, fight, and grant last-hit gold.
+- **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
+- **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
+- **Vision:** stub fog — enemy champs/minions are hidden unless an ally champ, minion, or tower is in radius (`VisionUpdated`).
+- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots. Server checks gold and location.
 
 Tune timers and team size in `src/server/Config.luau`.
 
@@ -197,11 +204,11 @@ Classic 404: **1 whole token (1e18) ↔ 1 NFT**. Transfers across that boundary 
 ## Project layout
 
 ```
-src/shared/          Types, remotes, constants, champion catalog
+src/shared/          Types, remotes, constants, champion catalog, item catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
-  Match/             Matchmaking, match lifecycle, combat
+  Match/             Matchmaking, match lifecycle, combat, minions, towers, vision, shop
   Voice/             VoiceChatService wrapper
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
@@ -217,8 +224,8 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 ## Next suggested steps
 
 1. Real cat meshes / animations and a proper camera/minimap.
-2. Minion waves, tower targeting, vision, and “can’t hit nexus until inner towers are down.”
-3. Item shop wired to the Pawmart clerks (gold already exists on the match player).
+2. Champion auto-attack, last-hit assist gold, and inner/inhibitor towers.
+3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
 5. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
 6. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.

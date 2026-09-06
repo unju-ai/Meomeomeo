@@ -14,6 +14,10 @@ local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MemeStockService = require(script.Parent.Parent.Economy.MemeStockService)
+local MinionService = require(script.Parent.MinionService)
+local ShopService = require(script.Parent.ShopService)
+local TowerService = require(script.Parent.TowerService)
+local VisionService = require(script.Parent.VisionService)
 local VoiceService = require(script.Parent.Parent.Voice.VoiceService)
 
 local MatchService = {}
@@ -123,7 +127,12 @@ local function beginFight()
 	end
 
 	VoiceService.onTeamsChanged()
-	AiChatService.announce("Cats out of the bag — match is LIVE. Smash the other nexus. Meow.")
+	ShopService.clearAll()
+	MapBuilder.refreshNexusGate()
+	MinionService.start()
+	TowerService.start()
+	VisionService.start()
+	AiChatService.announce("Cats out of the bag — match is LIVE. Smash three towers, then the nexus. Meow.")
 	broadcast()
 end
 
@@ -135,6 +144,9 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	current.winner = winner
 	current.endedAt = Workspace:GetServerTimeNow()
 	current.phaseEndsAt = Workspace:GetServerTimeNow() + Config.Match.PostMatchSeconds
+	MinionService.stop()
+	TowerService.stop()
+	VisionService.stop()
 	AiChatService.announce(`{winner} Whiskers win! {reason}`)
 	broadcast()
 
@@ -147,6 +159,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 		for _, player in Players:GetPlayers() do
 			assignRobloxTeam(player, nil)
 			CombatService.clear(player.UserId)
+			ShopService.clear(player.UserId)
 			teleport(player, nil)
 		end
 		VoiceService.onTeamsChanged()
@@ -186,6 +199,7 @@ function MatchService.start(participants: { Player }, practice: boolean)
 			assists = 0,
 			gold = Config.Match.StartingGold,
 			connected = true,
+			items = {},
 		}
 		assignRobloxTeam(player, team)
 		teleport(player, nil)
@@ -263,18 +277,20 @@ end
 function MatchService.init(cleared: () -> ())
 	onMatchCleared = cleared
 
+	local function addGold(player: Player, amount: number)
+		if not current then
+			return
+		end
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if matchPlayer then
+			matchPlayer.gold += amount
+			broadcast()
+		end
+	end
+
 	CombatService.init({
 		getSnapshot = MatchService.snapshot,
-		addGold = function(player: Player, amount: number)
-			if not current then
-				return
-			end
-			local matchPlayer = current.players[tostring(player.UserId)]
-			if matchPlayer then
-				matchPlayer.gold += amount
-				broadcast()
-			end
-		end,
+		addGold = addGold,
 		onPlayerKilled = function(killer: Player, victim: Player)
 			if not current then
 				return
@@ -303,8 +319,63 @@ function MatchService.init(cleared: () -> ())
 				local winner: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
 				MatchService.endMatch(winner, `{objective.team} nexus is a scratch post.`)
 			else
+				if MapBuilder.isNexusVulnerable(objective.team) then
+					AiChatService.announce(`{objective.team} nexus is exposed! All towers are down.`)
+				end
 				broadcast()
 			end
+		end,
+	})
+
+	MinionService.init({
+		getPhase = function()
+			return if current then current.phase else nil
+		end,
+		damagePlayerNear = CombatService.damagePlayersNear,
+		damageObjectiveNear = CombatService.damageObjectiveNear,
+		onLastHit = function(player: Player, gold: number)
+			addGold(player, gold)
+		end,
+	})
+
+	TowerService.init({
+		getSnapshot = MatchService.snapshot,
+		damagePlayer = CombatService.applyDamageToPlayer,
+		characterRoot = CombatService.characterRoot,
+	})
+
+	VisionService.init({
+		getSnapshot = MatchService.snapshot,
+		characterRoot = CombatService.characterRoot,
+	})
+
+	ShopService.init({
+		getSnapshot = MatchService.snapshot,
+		goldOf = function(player: Player)
+			local matchPlayer = if current then current.players[tostring(player.UserId)] else nil
+			return if matchPlayer then matchPlayer.gold else 0
+		end,
+		spendGold = function(player: Player, amount: number)
+			if not current then
+				return false
+			end
+			local matchPlayer = current.players[tostring(player.UserId)]
+			if not matchPlayer or matchPlayer.gold < amount then
+				return false
+			end
+			matchPlayer.gold -= amount
+			broadcast()
+			return true
+		end,
+		onLoadoutChanged = function(player: Player)
+			if current then
+				local matchPlayer = current.players[tostring(player.UserId)]
+				if matchPlayer then
+					matchPlayer.items = ShopService.owned(player.UserId)
+				end
+			end
+			CombatService.reapplyItems(player)
+			broadcast()
 		end,
 	})
 

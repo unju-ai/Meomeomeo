@@ -21,12 +21,16 @@ export type RemoteName =
 	| "LinkWallet"
 	| "SimulateStudioPurchase"
 	| "ClaimMeo404"
+	| "BuyItem"
+	| "GetShopStatus"
 	| "MatchStateChanged"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
 	| "VoiceStatusChanged"
 	| "MarketUpdated"
 	| "MintStatusChanged"
+	| "ShopUpdated"
+	| "VisionUpdated"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -44,6 +48,8 @@ local FUNCTION_NAMES = {
 	"LinkWallet",
 	"SimulateStudioPurchase",
 	"ClaimMeo404",
+	"BuyItem",
+	"GetShopStatus",
 }
 
 local EVENT_NAMES = {
@@ -53,6 +59,8 @@ local EVENT_NAMES = {
 	"VoiceStatusChanged",
 	"MarketUpdated",
 	"MintStatusChanged",
+	"ShopUpdated",
+	"VisionUpdated",
 }
 
 local function getFolder(): Folder
