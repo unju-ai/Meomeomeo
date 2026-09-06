@@ -10,6 +10,8 @@ local enabled = false
 local subject: BasePart? = nil
 
 local OFFSET = Vector3.new(0, 28, 22)
+local shakeUntil = 0
+local shakeAmp = 0
 
 local function step()
 	if not enabled then
@@ -21,8 +23,16 @@ local function step()
 		return
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
+	local extra = Vector3.zero
+	if os.clock() < shakeUntil and shakeAmp > 0 then
+		extra = Vector3.new(
+			(math.random() - 0.5) * 2 * shakeAmp,
+			(math.random() - 0.5) * 1.1 * shakeAmp,
+			(math.random() - 0.5) * 2 * shakeAmp
+		)
+	end
 	local lookAt = root.Position + Vector3.new(0, 3, 0)
-	camera.CFrame = CFrame.lookAt(root.Position + OFFSET, lookAt)
+	camera.CFrame = CFrame.lookAt(root.Position + OFFSET + extra, lookAt)
 end
 
 function CameraFollow.setEnabled(on: boolean)
@@ -51,6 +61,11 @@ end
 
 function CameraFollow.isEnabled(): boolean
 	return enabled
+end
+
+function CameraFollow.shake(amplitude: number, duration: number)
+	shakeAmp = math.max(0, amplitude)
+	shakeUntil = os.clock() + math.max(0, duration)
 end
 
 return CameraFollow

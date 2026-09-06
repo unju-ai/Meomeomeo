@@ -14,6 +14,7 @@ local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
+local SettingsPanel = require(script.Parent.SettingsPanel)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 
@@ -32,6 +33,7 @@ export type HudApi = {
 	scoreboard: Scoreboard.BoardApi,
 	feed: KillFeed.FeedApi,
 	endScreen: EndScreen.EndApi,
+	settings: SettingsPanel.SettingsApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -75,6 +77,13 @@ function Hud.create(): HudApi
 	local feed = KillFeed.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local endScreen = EndScreen.create(gui)
+	local startVolume = player:GetAttribute("MeoSfxVolume")
+	local startMuted = player:GetAttribute("MeoSfxMuted")
+	local settings = SettingsPanel.create(
+		gui,
+		if typeof(startVolume) == "number" then startVolume :: number else 0.8,
+		startMuted == true
+	)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -118,6 +127,7 @@ function Hud.create(): HudApi
 		scoreboard = scoreboard,
 		feed = feed,
 		endScreen = endScreen,
+		settings = settings,
 		banner = function(text: string)
 			banner.Text = text
 		end,

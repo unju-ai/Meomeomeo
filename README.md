@@ -24,7 +24,8 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **⚙ SFX slider**
+- Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -64,6 +65,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
+- **SFX** (top-right, under voice) — master volume and mute. Sounds are placeholders (`rbxasset://sounds/…`); swap ids in `src/client/Audio/SoundIds.luau`.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
 - **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → walk a lane and fight the Red **(Bot)** cat + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
 
@@ -263,6 +265,31 @@ Point `Nft404.Provider = "http"` and `ClaimApiUrl` at your hosted handler (`brid
 
 Classic 404: **1 whole token (1e18) ↔ 1 NFT**. Transfers across that boundary mint or burn NFTs. `mintFromEntitlement` is minter-only and rejects reused ids. Details in `contracts/README.md`.
 
+## Audio & juice (client)
+
+All gameplay SFX are **client-only**. They do not change combat, queue, bots, or Meo404 DataStores.
+
+Cues live in `src/client/Audio/SoundIds.luau`. Defaults are Roblox engine builtins so the repo stays free of `.ogg` / `.mp3` binaries:
+
+| Cue | Hook | Default `SoundId` |
+| --- | --- | --- |
+| `AutoHit` | Successful AA lock / swing (`IssueAttack`, `CombatUpdated` cadence). Debounced 140ms. | `rbxasset://sounds/hit.wav` |
+| `AbilityCast` | `UseAbility` / Whisker Lens | `rbxasset://sounds/swoosh.wav` |
+| `LevelUp` | Kill feed `level` + combat level edge | `rbxasset://sounds/electronicpingshort.wav` |
+| `Kill` | Kill feed `kill` | `rbxasset://sounds/snap.wav` |
+| `TowerDown` | Kill feed `tower` + subtle camera shake | `rbxasset://sounds/collision.wav` |
+| `NexusDown` | Kill feed `nexus` + slightly stronger shake | `rbxasset://sounds/collision.wav` |
+| `RecallLoop` | `CombatState.recalling` (loop until cancel/finish) | `rbxasset://sounds/action_get_up.mp3` |
+| `ShopBuy` | Pawmart buy success | `rbxasset://sounds/switch.wav` |
+| `WardPlace` | Trinket **4** success | `rbxasset://sounds/button.wav` |
+| `MatchFound` | `QueueUpdated.phase == "Found"` (+ Victory stinger) | `rbxasset://sounds/electronicpingshort.wav` |
+| `Announcer` | Kitty Caster lines that are not already a feed cue | `rbxasset://sounds/electronicpingshort.wav` |
+| `Heal` | Local HP jump on `CombatUpdated` | `rbxasset://sounds/electronicpingshort.wav` |
+
+**Swap for real assets:** upload to Creator Store → copy the numeric id → set `id = "rbxassetid://YOUR_ID"` on that cue. Tweak `volume` / `playbackSpeed` in the same table. Mute and master volume go through `SoundService.MeoSfx` (`SoundGroup`). Session slider values sit on the local player as `MeoSfxVolume` / `MeoSfxMuted`.
+
+Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, `LEVEL n!` pop, `CameraFollow.shake` on tower/nexus.
+
 ## Meme stocks (side system)
 
 `src/server/Economy/MemeStockService.luau` keeps server-authored champion tickers and a **yarn** wallet. Prices wander; kills bump the killer’s cat. The top HUD tape is cosmetic for now (`CheerTicker` remote exists for later shop/wager UI). Turn it off with `Config.Economy.Enabled = false`.
@@ -280,7 +307,7 @@ src/server/
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -292,7 +319,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 1. Smarter bots: jungle path, ward/lens use, skillshot leading, last-hit CS, tower dive rules, Hard difficulty.
 2. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
+4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Real cat meshes / animations.
