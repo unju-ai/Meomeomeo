@@ -19,6 +19,7 @@ local hud = Hud.create()
 
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
+local lastVision: Types.VisionFrame = { players = {}, minions = {} }
 local lastErrorAt = 0
 
 local SLOT_KEYS: { [Enum.KeyCode]: Types.AbilitySlot } = {
@@ -40,7 +41,7 @@ local function refreshBars()
 	if not mine then
 		return
 	end
-	hud.abilities.update(mine.championId, latestCombat, mine.gold, `{mine.kills} / {mine.deaths} / {mine.assists}`)
+	hud.abilities.update(mine.championId, latestCombat, mine.gold, `{mine.kills} / {mine.deaths} / {mine.assists}`, mine.xp)
 end
 
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
@@ -53,6 +54,9 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	latestMatch = snapshot :: Types.MatchSnapshot
 	hud.applyPhase(latestMatch, player.UserId)
 	refreshBars()
+	if latestMatch.phase == "InProgress" then
+		hud.minimap.update(latestMatch, lastVision, player.UserId)
+	end
 end
 
 hud.lobby.onQueue(function()
@@ -194,8 +198,6 @@ Remotes.event("ShopUpdated").OnClientEvent:Connect(function(status)
 	end
 end)
 
-local lastVision: Types.VisionFrame = { players = {}, minions = {} }
-
 local function applyVision()
 	if not latestMatch or latestMatch.phase ~= "InProgress" then
 		return
@@ -242,7 +244,37 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 	if typeof(frame) == "table" then
 		lastVision = frame :: Types.VisionFrame
 		applyVision()
+		if latestMatch and latestMatch.phase == "InProgress" then
+			hud.minimap.update(latestMatch, lastVision, player.UserId)
+		end
 	end
+end)
+
+hud.minimap.onPing(function(position: Vector3)
+	Remotes.function_("MinimapPing"):InvokeServer(position)
+end)
+
+Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local ping = payload :: Types.PingPayload
+	hud.minimap.showPing(ping)
+	toast(`Ping · {if ping.userId == player.UserId then "you" else "ally"}`)
+	local marker = Instance.new("Part")
+	marker.Name = "MeoPing"
+	marker.Anchored = true
+	marker.CanCollide = false
+	marker.Material = Enum.Material.Neon
+	marker.Color = Color3.fromRGB(255, 196, 74)
+	marker.Size = Vector3.new(5, 0.5, 5)
+	marker.CFrame = CFrame.new(ping.position)
+	marker.Parent = Workspace
+	task.delay(2.4, function()
+		if marker.Parent then
+			marker:Destroy()
+		end
+	end)
 end)
 
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
@@ -302,8 +334,92 @@ local function aimPoint(): Vector3
 	return ray.Origin + ray.Direction * 80
 end
 
+local function pickAttack(): Types.AttackRequest?
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+	local mouse = UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	if player.Character then
+		params.FilterDescendantsInstances = { player.Character }
+	end
+	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
+	if not hit then
+		return nil
+	end
+	local inst = hit.Instance
+	local model = inst:FindFirstAncestorOfClass("Model")
+	if model then
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			local other = Players:GetPlayerFromCharacter(model)
+			if other and other ~= player then
+				return { kind = "player", userId = other.UserId }
+			end
+		end
+	end
+	local minionId = inst:GetAttribute(Constants.Attributes.MinionId)
+	if typeof(minionId) == "string" then
+		return { kind = "minion", minionId = minionId }
+	end
+	local objectiveId = inst:GetAttribute(Constants.Attributes.ObjectiveId)
+	if typeof(objectiveId) == "string" then
+		return { kind = "objective", objectiveId = objectiveId }
+	end
+	return nil
+end
+
+local function reportAttack(result: any)
+	if result and result.ok == false and result.error then
+		if os.clock() - lastErrorAt > 0.4 then
+			lastErrorAt = os.clock()
+			toast(result.error)
+		end
+	elseif result and result.combat then
+		latestCombat = result.combat
+		refreshBars()
+	end
+end
+
+local attackMoveArmed = false
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.X then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			attackMoveArmed = true
+			toast("Attack-move — click the ground or a target")
+		end
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.S then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			attackMoveArmed = false
+			reportAttack(Remotes.function_("IssueAttack"):InvokeServer({ kind = "stop" }))
+		end
+		return
+	end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if not latestMatch or latestMatch.phase ~= "InProgress" then
+			return
+		end
+		local mouse = UserInputService:GetMouseLocation()
+		if hud.minimap.contains(mouse.X, mouse.Y) then
+			return
+		end
+		local target = pickAttack()
+		if target then
+			attackMoveArmed = false
+			reportAttack(Remotes.function_("IssueAttack"):InvokeServer(target))
+		elseif attackMoveArmed then
+			attackMoveArmed = false
+			reportAttack(Remotes.function_("AttackMove"):InvokeServer(aimPoint()))
+		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.B then
@@ -367,8 +483,9 @@ task.spawn(function()
 		elseif latestMatch and latestMatch.phase == "InProgress" then
 			refreshBars()
 			applyVision()
+			hud.minimap.update(latestMatch, lastVision, player.UserId)
 		end
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. QWER to brawl, talk to fountain cats.")
+print("[Meo Meo Meo] Client HUD ready. LMB to auto-attack, X-click to attack-move, QWER to brawl.")

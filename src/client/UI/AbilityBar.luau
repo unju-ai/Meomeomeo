@@ -10,7 +10,7 @@ local AbilityBar = {}
 export type BarApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
-	update: (championId: string?, combat: Types.CombatState?, gold: number, kda: string) -> (),
+	update: (championId: string?, combat: Types.CombatState?, gold: number, kda: string, xp: number?) -> (),
 }
 
 function AbilityBar.create(parent: Instance): BarApi
@@ -84,11 +84,22 @@ function AbilityBar.create(parent: Instance): BarApi
 		setVisible = function(visible: boolean)
 			root.Visible = visible
 		end,
-		update = function(championId: string?, combat: Types.CombatState?, gold: number, kda: string)
+		update = function(championId: string?, combat: Types.CombatState?, gold: number, kda: string, xp: number?)
 			local champ = if championId then ChampionCatalog.get(championId) else nil
 			local shield = if combat then (combat.shield or 0) else 0
-			meta.Text = `{(if champ then champ.name else "Cat")} · {kda} · {gold}g`
+			local xpBit = if typeof(xp) == "number" then ` · {math.floor(xp)}xp` else ""
+			local aaBit = ""
+			if combat then
+				local waitAA = (combat.nextAutoAttack or 0) - workspace:GetServerTimeNow()
+				if waitAA > 0.05 then
+					aaBit = ` · AA {string.format("%.1f", waitAA)}s`
+				elseif combat.attackTarget then
+					aaBit = ` · AA {combat.attackTarget}`
+				end
+			end
+			meta.Text = `{(if champ then champ.name else "Cat")} · {kda} · {gold}g{xpBit}`
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
+				.. aaBit
 			if combat then
 				hpFill.Size = UDim2.fromScale(if combat.maxHealth > 0 then combat.health / combat.maxHealth else 0, 1)
 				mpFill.Size = UDim2.fromScale(if combat.maxMana > 0 then combat.mana / combat.maxMana else 0, 1)

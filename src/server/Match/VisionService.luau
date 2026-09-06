@@ -99,6 +99,27 @@ function VisionService.frameFor(player: Player): Types.VisionFrame
 	return { players = visiblePlayers, minions = visibleMinions }
 end
 
+function VisionService.canSeePlayer(viewer: Player, target: Player): boolean
+	if viewer == target then
+		return true
+	end
+	for _, userId in VisionService.frameFor(viewer).players do
+		if userId == target.UserId then
+			return true
+		end
+	end
+	return false
+end
+
+function VisionService.canSeeMinion(viewer: Player, minionId: string): boolean
+	for _, id in VisionService.frameFor(viewer).minions do
+		if id == minionId then
+			return true
+		end
+	end
+	return false
+end
+
 function VisionService.stop()
 	running = false
 end

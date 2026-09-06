@@ -23,6 +23,9 @@ export type RemoteName =
 	| "ClaimMeo404"
 	| "BuyItem"
 	| "GetShopStatus"
+	| "IssueAttack"
+	| "AttackMove"
+	| "MinimapPing"
 	| "MatchStateChanged"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -31,6 +34,7 @@ export type RemoteName =
 	| "MintStatusChanged"
 	| "ShopUpdated"
 	| "VisionUpdated"
+	| "PingReceived"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -50,6 +54,9 @@ local FUNCTION_NAMES = {
 	"ClaimMeo404",
 	"BuyItem",
 	"GetShopStatus",
+	"IssueAttack",
+	"AttackMove",
+	"MinimapPing",
 }
 
 local EVENT_NAMES = {
@@ -61,6 +68,7 @@ local EVENT_NAMES = {
 	"MintStatusChanged",
 	"ShopUpdated",
 	"VisionUpdated",
+	"PingReceived",
 }
 
 local function getFolder(): Folder

@@ -10,6 +10,7 @@ local ChampionSelect = require(script.Parent.ChampionSelect)
 local LobbyPanel = require(script.Parent.LobbyPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
+local Minimap = require(script.Parent.Minimap)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 
@@ -24,6 +25,7 @@ export type HudApi = {
 	voice: VoiceHud.VoiceHudApi,
 	chat: NpcChatPanel.ChatApi,
 	shop: ShopPanel.ShopApi,
+	minimap: Minimap.MinimapApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -62,6 +64,7 @@ function Hud.create(): HudApi
 	local voice = VoiceHud.create(gui)
 	local chat = NpcChatPanel.create(gui)
 	local shop = ShopPanel.create(gui)
+	local minimap = Minimap.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -71,6 +74,7 @@ function Hud.create(): HudApi
 		end
 		select.setVisible(phase == "ChampionSelect")
 		abilities.setVisible(phase == "InProgress")
+		minimap.setVisible(phase == "InProgress")
 		if phase ~= "InProgress" then
 			shop.setVisible(false)
 		end
@@ -82,7 +86,7 @@ function Hud.create(): HudApi
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
-			banner.Text = if mine then `{mine.team} · 3 towers, then nexus · B shop` else "Spectating"
+			banner.Text = if mine then `{mine.team} · LMB attack · X-click move · B shop` else "Spectating"
 		elseif phase == "Ended" then
 			abilities.setVisible(false)
 			lobby.setVisible(true)
@@ -99,6 +103,7 @@ function Hud.create(): HudApi
 		voice = voice,
 		chat = chat,
 		shop = shop,
+		minimap = minimap,
 		banner = function(text: string)
 			banner.Text = text
 		end,

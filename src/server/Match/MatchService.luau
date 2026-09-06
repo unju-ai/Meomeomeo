@@ -156,9 +156,9 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 			return
 		end
 		current = nil
+		CombatService.clearAll()
 		for _, player in Players:GetPlayers() do
 			assignRobloxTeam(player, nil)
-			CombatService.clear(player.UserId)
 			ShopService.clear(player.UserId)
 			teleport(player, nil)
 		end
@@ -198,6 +198,7 @@ function MatchService.start(participants: { Player }, practice: boolean)
 			deaths = 0,
 			assists = 0,
 			gold = Config.Match.StartingGold,
+			xp = 0,
 			connected = true,
 			items = {},
 		}
@@ -288,10 +289,20 @@ function MatchService.init(cleared: () -> ())
 		end
 	end
 
+	local function addXp(player: Player, amount: number)
+		if not current then
+			return
+		end
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if matchPlayer then
+			matchPlayer.xp += amount
+		end
+	end
+
 	CombatService.init({
 		getSnapshot = MatchService.snapshot,
 		addGold = addGold,
-		onPlayerKilled = function(killer: Player, victim: Player)
+		onPlayerKilled = function(killer: Player, victim: Player, assists: { Player })
 			if not current then
 				return
 			end
@@ -300,6 +311,7 @@ function MatchService.init(cleared: () -> ())
 			if k then
 				k.kills += 1
 				k.gold += Config.Match.KillGold
+				k.xp += Config.Match.KillXp
 				if k.championId then
 					MemeStockService.bumpChampion(k.championId, 0.12)
 				end
@@ -307,7 +319,18 @@ function MatchService.init(cleared: () -> ())
 			if v then
 				v.deaths += 1
 			end
-			AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}. Brutal.`)
+			local assistNames = {}
+			for _, helper in assists do
+				local helperMatch = current.players[tostring(helper.UserId)]
+				if helperMatch then
+					helperMatch.assists += 1
+					helperMatch.gold += Config.Match.AssistGold
+					helperMatch.xp += Config.Match.AssistXp
+					table.insert(assistNames, helper.DisplayName)
+				end
+			end
+			local extra = if #assistNames > 0 then ` Assists: {table.concat(assistNames, ", ")}.` else ""
+			AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}.{extra} Brutal.`)
 			broadcast()
 		end,
 		onObjectiveDestroyed = function(attacker: Player?, objective: Types.ObjectiveState)
@@ -335,6 +358,7 @@ function MatchService.init(cleared: () -> ())
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
 		onLastHit = function(player: Player, gold: number)
+			addXp(player, Config.Match.MinionXp)
 			addGold(player, gold)
 		end,
 	})
@@ -379,6 +403,39 @@ function MatchService.init(cleared: () -> ())
 			broadcast()
 		end,
 	})
+
+	function MatchService.ping(player: Player, position: unknown): Types.TradeResult
+		if not current or current.phase ~= "InProgress" then
+			return { ok = false, error = "Ping during a match." }
+		end
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if not matchPlayer then
+			return { ok = false, error = "You are not in this match." }
+		end
+		if typeof(position) ~= "Vector3" then
+			return { ok = false, error = "Need a map point." }
+		end
+		local dest = position :: Vector3
+		local bounds = Constants.MapBounds
+		dest = Vector3.new(
+			math.clamp(dest.X, bounds.MinX, bounds.MaxX),
+			4,
+			math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
+		)
+		local payload: Types.PingPayload = {
+			userId = player.UserId,
+			team = matchPlayer.team,
+			position = dest,
+			at = Workspace:GetServerTimeNow(),
+		}
+		for _, other in Players:GetPlayers() do
+			local otherMatch = current.players[tostring(other.UserId)]
+			if otherMatch and otherMatch.team == matchPlayer.team then
+				Remotes.event("PingReceived"):FireClient(other, payload)
+			end
+		end
+		return { ok = true }
+	end
 
 	Players.PlayerRemoving:Connect(function(player)
 		if not current then

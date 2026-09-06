@@ -13,18 +13,32 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
 local TowerService = require(script.Parent.TowerService)
+local VisionService = require(script.Parent.VisionService)
 
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	onPlayerKilled: (killer: Player, victim: Player) -> (),
+	onPlayerKilled: (killer: Player, victim: Player, assists: { Player }) -> (),
 	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
 	addGold: (player: Player, amount: number) -> (),
+}
+
+type AttackLock = {
+	kind: "player" | "minion" | "objective",
+	userId: number?,
+	minionId: string?,
+	objectiveId: string?,
+	moveTo: Vector3?,
+	windupEnds: number?,
 }
 
 local CombatService = {}
 
 local combat: { [number]: Types.CombatState } = {}
+local locks: { [number]: AttackLock } = {}
+local nextAA: { [number]: number } = {}
+local recentHits: { [number]: { [number]: number } } = {}
 local matchApi: MatchApi? = nil
+local tickAutoAttack: (player: Player) -> ()
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -82,8 +96,12 @@ function CombatService.reset(player: Player, championId: string)
 		armor = bonuses.armor,
 		cooldowns = emptyCooldowns(),
 		alive = true,
+		nextAutoAttack = 0,
+		attackTarget = nil,
 	}
 	combat[player.UserId] = state
+	locks[player.UserId] = nil
+	nextAA[player.UserId] = 0
 	player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
 	applyHumanoid(player, state)
 	ShopService.applyMovement(player)
@@ -116,13 +134,23 @@ end
 
 function CombatService.clear(userId: number)
 	combat[userId] = nil
+	locks[userId] = nil
+	nextAA[userId] = nil
+	recentHits[userId] = nil
+end
+
+function CombatService.clearAll()
+	table.clear(combat)
+	table.clear(locks)
+	table.clear(nextAA)
+	table.clear(recentHits)
 end
 
 function CombatService.init(api: MatchApi)
 	matchApi = api
 
 	Players.PlayerRemoving:Connect(function(player)
-		combat[player.UserId] = nil
+		CombatService.clear(player.UserId)
 	end)
 
 	local function hookCharacter(player: Player)
@@ -161,6 +189,21 @@ function CombatService.init(api: MatchApi)
 			end
 		end
 	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			local snapshot = if matchApi then matchApi.getSnapshot() else nil
+			if not snapshot or snapshot.phase ~= "InProgress" then
+				continue
+			end
+			for _, player in Players:GetPlayers() do
+				if locks[player.UserId] then
+					tickAutoAttack(player)
+				end
+			end
+		end
+	end)
 end
 
 local function killPlayer(victim: Player, killer: Player?)
@@ -181,8 +224,34 @@ local function killPlayer(victim: Player, killer: Player?)
 	end
 
 	if killer and matchApi then
-		matchApi.onPlayerKilled(killer, victim)
+		local assists: { Player } = {}
+		local snapshot = matchApi.getSnapshot()
+		local bag = recentHits[victim.UserId]
+		recentHits[victim.UserId] = nil
+		if snapshot and bag then
+			local killerMatch = snapshot.players[tostring(killer.UserId)]
+			local t = now()
+			for userId, at in bag do
+				if userId ~= killer.UserId and t - at <= Config.Match.AssistWindow then
+					local other = Players:GetPlayerByUserId(userId)
+					local otherMatch = snapshot.players[tostring(userId)]
+					if other and killerMatch and otherMatch and otherMatch.team == killerMatch.team then
+						table.insert(assists, other)
+					end
+				end
+			end
+		end
+		matchApi.onPlayerKilled(killer, victim, assists)
 	end
+end
+
+local function noteAssist(attacker: Player, victim: Player)
+	local bag = recentHits[victim.UserId]
+	if not bag then
+		bag = {}
+		recentHits[victim.UserId] = bag
+	end
+	bag[attacker.UserId] = now()
 end
 
 local function damagePlayer(attacker: Player?, target: Player, amount: number)
@@ -206,6 +275,7 @@ local function damagePlayer(attacker: Player?, target: Player, amount: number)
 	applyHumanoid(target, state)
 	Remotes.event("CombatUpdated"):FireClient(target, state)
 	if attacker and matchApi then
+		noteAssist(attacker, target)
 		local snapshot = matchApi.getSnapshot()
 		local victim = if snapshot then snapshot.players[tostring(target.UserId)] else nil
 		if victim then
@@ -334,6 +404,360 @@ function CombatService.damageObjectiveNear(attackerTeam: Types.TeamId, position:
 			end
 		end
 	end
+end
+
+local function aaDamage(player: Player): number
+	local state = combat[player.UserId]
+	return Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
+end
+
+local function pushCombat(player: Player)
+	local state = combat[player.UserId]
+	if not state then
+		return
+	end
+	state.nextAutoAttack = nextAA[player.UserId] or 0
+	local lock = locks[player.UserId]
+	if lock then
+		if lock.kind == "player" and lock.userId then
+			local other = Players:GetPlayerByUserId(lock.userId)
+			state.attackTarget = if other then other.DisplayName else "champion"
+		elseif lock.kind == "minion" then
+			state.attackTarget = "kitten"
+		elseif lock.kind == "objective" then
+			state.attackTarget = lock.objectiveId or "structure"
+		end
+	else
+		state.attackTarget = nil
+	end
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
+local function walkToward(player: Player, dest: Vector3)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:MoveTo(Vector3.new(dest.X, dest.Y, dest.Z))
+	end
+end
+
+local function resolveTarget(lock: AttackLock): (Vector3?, string?)
+	if lock.kind == "player" and lock.userId then
+		local other = Players:GetPlayerByUserId(lock.userId)
+		if not other then
+			return nil, "gone"
+		end
+		local otherState = combat[other.UserId]
+		if not otherState or not otherState.alive then
+			return nil, "dead"
+		end
+		local root = characterRoot(other)
+		if not root then
+			return nil, "gone"
+		end
+		return root.Position, nil
+	elseif lock.kind == "minion" and lock.minionId then
+		local minion = MinionService.get(lock.minionId)
+		if not minion or minion.health <= 0 or not minion.part.Parent then
+			return nil, "dead"
+		end
+		return minion.part.Position, nil
+	elseif lock.kind == "objective" and lock.objectiveId then
+		local part = MapBuilder.getObjectivePart(lock.objectiveId)
+		if not part then
+			return nil, "gone"
+		end
+		local hp = part:GetAttribute("Health")
+		if typeof(hp) == "number" and hp <= 0 then
+			return nil, "dead"
+		end
+		return part.Position, nil
+	end
+	return nil, "gone"
+end
+
+local function visibleTo(player: Player, lock: AttackLock): boolean
+	if lock.kind == "objective" then
+		return true
+	end
+	if lock.kind == "player" and lock.userId then
+		local other = Players:GetPlayerByUserId(lock.userId)
+		return other ~= nil and VisionService.canSeePlayer(player, other)
+	end
+	if lock.kind == "minion" and lock.minionId then
+		return VisionService.canSeeMinion(player, lock.minionId)
+	end
+	return false
+end
+
+local function strike(player: Player, lock: AttackLock)
+	local power = aaDamage(player)
+	if lock.kind == "player" and lock.userId then
+		local other = Players:GetPlayerByUserId(lock.userId)
+		if other then
+			damagePlayer(player, other, power)
+		end
+	elseif lock.kind == "minion" and lock.minionId then
+		local minion = MinionService.get(lock.minionId)
+		if minion then
+			TowerService.noteThreat(player, minion.team)
+			MinionService.applyDamage(player, minion.id, power)
+		end
+	elseif lock.kind == "objective" and lock.objectiveId then
+		local part = MapBuilder.getObjectivePart(lock.objectiveId)
+		if part then
+			local team = part:GetAttribute(Constants.Attributes.Team)
+			if team == "Blue" or team == "Red" then
+				TowerService.noteThreat(player, team)
+			end
+			damageObjective(player, part, power)
+		end
+	end
+end
+
+local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3): AttackLock?
+	local best: AttackLock? = nil
+	local bestDist = Config.AutoAttack.AcquireRange
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot then
+		return nil
+	end
+	for _, other in Players:GetPlayers() do
+		local otherMatch = snapshot.players[tostring(other.UserId)]
+		local otherRoot = characterRoot(other)
+		local otherState = combat[other.UserId]
+		if otherMatch and otherMatch.team ~= team and otherRoot and otherState and otherState.alive then
+			local d = (otherRoot.Position - origin).Magnitude
+			if d <= bestDist and VisionService.canSeePlayer(player, other) then
+				best = { kind = "player", userId = other.UserId }
+				bestDist = d
+			end
+		end
+	end
+	for _, minion in MinionService.list() do
+		if minion.team ~= team then
+			local d = (minion.part.Position - origin).Magnitude
+			if d <= bestDist and VisionService.canSeeMinion(player, minion.id) then
+				best = { kind = "minion", minionId = minion.id }
+				bestDist = d
+			end
+		end
+	end
+	local map = MapBuilder.get()
+	local objectives = map:FindFirstChild("Objectives")
+	if objectives then
+		for _, child in objectives:GetChildren() do
+			if child:IsA("BasePart") then
+				local objTeam = child:GetAttribute(Constants.Attributes.Team)
+				local hp = child:GetAttribute("Health")
+				if objTeam ~= team and typeof(hp) == "number" and hp > 0 then
+					local d = (child.Position - origin).Magnitude
+					if d <= bestDist then
+						local id = child:GetAttribute(Constants.Attributes.ObjectiveId)
+						if typeof(id) == "string" then
+							best = { kind = "objective", objectiveId = id }
+							bestDist = d
+						end
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+tickAutoAttack = function(player: Player)
+	local state = combat[player.UserId]
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not state or not state.alive or not snapshot or snapshot.phase ~= "InProgress" then
+		return
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local root = characterRoot(player)
+	if not matchPlayer or not root then
+		return
+	end
+
+	local lock = locks[player.UserId]
+	if lock and not lock.userId and not lock.minionId and not lock.objectiveId then
+		local acquired = acquireNear(player, matchPlayer.team, root.Position)
+		if acquired then
+			acquired.moveTo = lock.moveTo
+			lock = acquired
+			locks[player.UserId] = lock
+		end
+	end
+	if not lock then
+		return
+	end
+
+	if lock.userId or lock.minionId or lock.objectiveId then
+		if not visibleTo(player, lock) then
+			if lock.moveTo then
+				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
+			else
+				locks[player.UserId] = nil
+				pushCombat(player)
+			end
+			return
+		end
+		local pos = resolveTarget(lock)
+		if not pos then
+			if lock.moveTo then
+				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
+			else
+				locks[player.UserId] = nil
+				pushCombat(player)
+			end
+			return
+		end
+		local dist = (pos - root.Position).Magnitude
+		if dist > Config.AutoAttack.Range then
+			lock.windupEnds = nil
+			walkToward(player, pos)
+			return
+		end
+		if lock.kind == "objective" and lock.objectiveId then
+			local part = MapBuilder.getObjectivePart(lock.objectiveId)
+			local kind = if part then part:GetAttribute("Kind") else nil
+			local team = if part then part:GetAttribute(Constants.Attributes.Team) else nil
+			if kind == "Nexus" and (team == "Blue" or team == "Red") and not MapBuilder.isNexusVulnerable(team) then
+				lock.windupEnds = nil
+				return
+			end
+		end
+		local readyAt = nextAA[player.UserId] or 0
+		local t = now()
+		if t < readyAt then
+			return
+		end
+		if not lock.windupEnds then
+			lock.windupEnds = t + Config.AutoAttack.Windup
+			return
+		end
+		if t < lock.windupEnds then
+			return
+		end
+		if not visibleTo(player, lock) then
+			lock.windupEnds = nil
+			return
+		end
+		strike(player, lock)
+		lock.windupEnds = nil
+		nextAA[player.UserId] = t + Config.AutoAttack.Interval
+		pushCombat(player)
+		return
+	end
+
+	if lock.moveTo then
+		local remaining = lock.moveTo - root.Position
+		if remaining.Magnitude <= 3 then
+			locks[player.UserId] = nil
+			pushCombat(player)
+			return
+		end
+		walkToward(player, lock.moveTo)
+	end
+end
+
+function CombatService.issueAttack(player: Player, request: unknown): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local state = combat[player.UserId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if typeof(request) ~= "table" then
+		return { ok = false, error = "Invalid attack." }
+	end
+	local kind = (request :: any).kind
+	if kind == "stop" then
+		locks[player.UserId] = nil
+		pushCombat(player)
+		return { ok = true, combat = state }
+	end
+
+	local lock: AttackLock
+	if kind == "player" then
+		local userId = (request :: any).userId
+		if typeof(userId) ~= "number" then
+			return { ok = false, error = "No champion targeted." }
+		end
+		local other = Players:GetPlayerByUserId(userId)
+		local otherMatch = snapshot.players[tostring(userId)]
+		if not other or not otherMatch or otherMatch.team == matchPlayer.team then
+			return { ok = false, error = "Not an enemy champion." }
+		end
+		if not VisionService.canSeePlayer(player, other) then
+			return { ok = false, error = "No vision." }
+		end
+		lock = { kind = "player", userId = userId }
+	elseif kind == "minion" then
+		local minionId = (request :: any).minionId
+		if typeof(minionId) ~= "string" then
+			return { ok = false, error = "No kitten targeted." }
+		end
+		local minion = MinionService.get(minionId)
+		if not minion or minion.team == matchPlayer.team then
+			return { ok = false, error = "Not an enemy kitten." }
+		end
+		if not VisionService.canSeeMinion(player, minionId) then
+			return { ok = false, error = "No vision." }
+		end
+		lock = { kind = "minion", minionId = minionId }
+	elseif kind == "objective" then
+		local objectiveId = (request :: any).objectiveId
+		if typeof(objectiveId) ~= "string" then
+			return { ok = false, error = "No structure targeted." }
+		end
+		local part = MapBuilder.getObjectivePart(objectiveId)
+		if not part then
+			return { ok = false, error = "Unknown structure." }
+		end
+		local team = part:GetAttribute(Constants.Attributes.Team)
+		if team == matchPlayer.team then
+			return { ok = false, error = "That's your tower." }
+		end
+		lock = { kind = "objective", objectiveId = objectiveId }
+	else
+		return { ok = false, error = "Unknown attack." }
+	end
+
+	locks[player.UserId] = lock
+	pushCombat(player)
+	tickAutoAttack(player)
+	return { ok = true, combat = state }
+end
+
+function CombatService.attackMove(player: Player, position: unknown): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local state = combat[player.UserId]
+	if not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if typeof(position) ~= "Vector3" then
+		return { ok = false, error = "Need a ground point." }
+	end
+	local dest = position :: Vector3
+	local bounds = Constants.MapBounds
+	dest = Vector3.new(
+		math.clamp(dest.X, bounds.MinX, bounds.MaxX),
+		2,
+		math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
+	)
+	locks[player.UserId] = { kind = "player", moveTo = dest }
+	pushCombat(player)
+	tickAutoAttack(player)
+	return { ok = true, combat = state }
 end
 
 function CombatService.useAbility(player: Player, request: unknown): Types.AbilityResult
