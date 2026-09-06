@@ -35,6 +35,8 @@ export type RemoteName =
 	| "UseLens"
 	| "InviteParty"
 	| "GetQueueStatus"
+	| "GetTutorialStatus"
+	| "SetTutorialDone"
 	| "MatchStateChanged"
 	| "QueueUpdated"
 	| "CombatUpdated"
@@ -78,6 +80,8 @@ local FUNCTION_NAMES = {
 	"UseLens",
 	"InviteParty",
 	"GetQueueStatus",
+	"GetTutorialStatus",
+	"SetTutorialDone",
 }
 
 local EVENT_NAMES = {

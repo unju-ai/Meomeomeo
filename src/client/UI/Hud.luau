@@ -15,6 +15,7 @@ local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
 local HelpPanel = require(script.Parent.HelpPanel)
+local TutorialTips = require(script.Parent.TutorialTips)
 local SettingsPanel = require(script.Parent.SettingsPanel)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
@@ -36,6 +37,7 @@ export type HudApi = {
 	endScreen: EndScreen.EndApi,
 	settings: SettingsPanel.SettingsApi,
 	help: HelpPanel.HelpApi,
+	tips: TutorialTips.TipsApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -87,6 +89,7 @@ function Hud.create(): HudApi
 		startMuted == true
 	)
 	local help = HelpPanel.create(gui)
+	local tips = TutorialTips.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -134,6 +137,7 @@ function Hud.create(): HudApi
 		endScreen = endScreen,
 		settings = settings,
 		help = help,
+		tips = tips,
 		banner = function(text: string)
 			banner.Text = text
 		end,

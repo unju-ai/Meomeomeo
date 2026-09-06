@@ -31,6 +31,7 @@ local LINES: { { string } } = {
 	{ "Minimap", "Click to ping teammates" },
 	{ "Talk", "Fountain / jungle cats" },
 	{ "Practice", "Easy / Normal / Hard (Hard dodges + lens)" },
+	{ "Tips", "First Practice cards · replay from lobby" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi
@@ -48,7 +49,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 	root.Name = "HelpPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0, 16, 0.48, 0)
-	root.Size = UDim2.fromOffset(320, 444)
+	root.Size = UDim2.fromOffset(320, 466)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 28

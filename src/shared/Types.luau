@@ -284,6 +284,11 @@ export type Entitlement = {
 
 export type PersistMode = "DataStore" | "Memory"
 
+export type TutorialStatus = {
+	done: boolean,
+	persistMode: PersistMode,
+}
+
 export type MintStatus = {
 	wallet: string?,
 	productId: number,

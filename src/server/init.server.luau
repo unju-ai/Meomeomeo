@@ -7,6 +7,7 @@ local Teams = game:GetService("Teams")
 local Config = require(script.Config)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 
@@ -18,6 +19,7 @@ local MatchmakingService = require(script.Match.MatchmakingService)
 local MemeStockService = require(script.Economy.MemeStockService)
 local MintService = require(script.Mint.MintService)
 local ShopService = require(script.Match.ShopService)
+local TutorialStore = require(script.Tutorial.TutorialStore)
 local VoiceService = require(script.Voice.VoiceService)
 
 local function ensureTeam(name: string, color: BrickColor)
@@ -188,8 +190,28 @@ Remotes.function_("UseLens").OnServerInvoke = function(player: Player)
 	return CombatService.useLens(player)
 end
 
+Remotes.function_("GetTutorialStatus").OnServerInvoke = function(player: Player)
+	local done = TutorialStore.isDone(player.UserId)
+	player:SetAttribute(Constants.Attributes.TutorialDone, done)
+	return {
+		done = done,
+		persistMode = TutorialStore.persistMode(),
+	}
+end
+
+Remotes.function_("SetTutorialDone").OnServerInvoke = function(player: Player)
+	TutorialStore.markDone(player.UserId)
+	player:SetAttribute(Constants.Attributes.TutorialDone, true)
+	return {
+		done = true,
+		persistMode = TutorialStore.persistMode(),
+	}
+end
+
 local function sendLobby(player: Player)
 	task.defer(function()
+		local done = TutorialStore.isDone(player.UserId)
+		player:SetAttribute(Constants.Attributes.TutorialDone, done)
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 		Remotes.event("VoiceStatusChanged"):FireClient(player, VoiceService.getStatus(player))
 		Remotes.event("MintStatusChanged"):FireClient(player, MintService.getStatus(player))

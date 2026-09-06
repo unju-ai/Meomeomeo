@@ -30,6 +30,7 @@ local Constants = {
 		WardId = "MeoWardId",
 		Recalling = "MeoRecalling",
 		UserId = "MeoUserId",
+		TutorialDone = "MeoTutorialDone",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },
