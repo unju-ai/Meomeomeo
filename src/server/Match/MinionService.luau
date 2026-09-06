@@ -23,6 +23,7 @@ type Api = {
 	damagePlayerNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
 	damageObjectiveNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
 	onLastHit: (player: Player, gold: number) -> (),
+	onMinionDied: (position: Vector3, minionTeam: Types.TeamId, lastHitter: Player?) -> (),
 }
 
 local MinionService = {}
@@ -172,10 +173,15 @@ function MinionService.applyDamage(attacker: Player?, minionId: string, amount: 
 	minion.health = math.max(0, minion.health - amount)
 	stamp(minion.part, minion)
 	if minion.health <= 0 then
+		local pos = minion.part.Position
+		local team = minion.team
 		minion.part:Destroy()
 		minions[minionId] = nil
-		if attacker and api then
-			api.onLastHit(attacker, Config.Match.MinionGold)
+		if api then
+			if attacker then
+				api.onLastHit(attacker, Config.Match.MinionGold)
+			end
+			api.onMinionDied(pos, team, attacker)
 		end
 		return true
 	end

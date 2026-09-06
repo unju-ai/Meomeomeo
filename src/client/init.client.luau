@@ -41,7 +41,7 @@ local function refreshBars()
 	if not mine then
 		return
 	end
-	hud.abilities.update(mine.championId, latestCombat, mine.gold, `{mine.kills} / {mine.deaths} / {mine.assists}`, mine.xp)
+	hud.abilities.update(mine, latestCombat)
 end
 
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
@@ -174,6 +174,12 @@ end)
 Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 	if typeof(payload) == "table" and typeof((payload :: any).text) == "string" then
 		toast(`{(payload :: any).speaker or "Kitty Caster"}: {(payload :: any).text}`)
+	end
+end)
+
+Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
+	if typeof(event) == "table" and typeof((event :: any).text) == "string" then
+		hud.feed.push(event :: Types.FeedEvent)
 	end
 end)
 

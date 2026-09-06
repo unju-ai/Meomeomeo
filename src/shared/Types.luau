@@ -4,6 +4,8 @@ export type TeamId = "Blue" | "Red"
 export type MatchPhase = "Lobby" | "ChampionSelect" | "InProgress" | "Ended"
 export type AbilitySlot = "Q" | "W" | "E" | "R"
 export type AbilityKind = "damage" | "heal" | "buff" | "dash" | "shield" | "stun"
+export type AbilityRanks = { Q: number, W: number, E: number, R: number }
+export type FeedKind = "kill" | "tower" | "nexus" | "level"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
 
@@ -59,6 +61,9 @@ export type MatchPlayer = {
 	assists: number,
 	gold: number,
 	xp: number,
+	level: number,
+	ranks: AbilityRanks,
+	respawnAt: number?,
 	connected: boolean,
 	items: { string },
 }
@@ -70,11 +75,15 @@ export type CombatState = {
 	maxMana: number,
 	shield: number,
 	bonusDamage: number,
+	abilityPower: number,
 	armor: number,
 	cooldowns: { [AbilitySlot]: number },
 	alive: boolean,
 	nextAutoAttack: number,
 	attackTarget: string?,
+	level: number,
+	ranks: AbilityRanks,
+	respawnAt: number?,
 }
 
 export type MatchSnapshot = {
@@ -117,6 +126,12 @@ export type PingPayload = {
 	userId: number,
 	team: TeamId,
 	position: Vector3,
+	at: number,
+}
+
+export type FeedEvent = {
+	kind: FeedKind,
+	text: string,
 	at: number,
 }
 

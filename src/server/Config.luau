@@ -20,9 +20,17 @@ local Config = {
 		AssistWindow = 8,
 		TowerGold = 120,
 		MinionGold = 18,
-		MinionXp = 12,
-		KillXp = 50,
-		AssistXp = 20,
+		MinionXp = 18,
+		NearbyMinionXp = 10,
+		NearbyXpRadius = 42,
+		KillXp = 80,
+		AssistXp = 30,
+	},
+
+	-- Levels 1–18. See Shared.Progression for the XP curve and auto-ranks.
+	Progression = {
+		MaxLevel = 18,
+		RUnlockLevel = 6,
 	},
 
 	Combat = {
