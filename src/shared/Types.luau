@@ -3,7 +3,7 @@
 export type TeamId = "Blue" | "Red"
 export type MatchPhase = "Lobby" | "ChampionSelect" | "InProgress" | "Ended"
 export type AbilitySlot = "Q" | "W" | "E" | "R"
-export type AbilityKind = "damage" | "heal" | "buff" | "dash"
+export type AbilityKind = "damage" | "heal" | "buff" | "dash" | "shield" | "stun"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
 
@@ -17,6 +17,8 @@ export type AbilityDef = {
 	radius: number,
 	damage: number,
 	heal: number,
+	shield: number,
+	stunSeconds: number,
 	kind: AbilityKind,
 }
 
@@ -26,6 +28,7 @@ export type ChampionDef = {
 	title: string,
 	role: string,
 	blurb: string,
+	ticker: string?,
 	color: Color3,
 	maxHealth: number,
 	maxMana: number,
@@ -62,6 +65,7 @@ export type CombatState = {
 	maxHealth: number,
 	mana: number,
 	maxMana: number,
+	shield: number,
 	cooldowns: { [AbilitySlot]: number },
 	alive: boolean,
 }

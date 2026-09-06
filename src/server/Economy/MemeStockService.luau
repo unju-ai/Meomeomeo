@@ -20,7 +20,7 @@ local yarn: { [number]: number } = {}
 local function seed()
 	tickers = {}
 	for _, champ in ChampionCatalog.all() do
-		local symbol = string.upper(string.sub(champ.name, 1, 4))
+		local symbol = champ.ticker or string.upper(string.sub(champ.name, 1, 4))
 		tickers[champ.id] = {
 			symbol = symbol,
 			name = champ.name,
