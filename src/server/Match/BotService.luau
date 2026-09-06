@@ -14,6 +14,7 @@ local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
+local TowerService = require(script.Parent.TowerService)
 local WardService = require(script.Parent.WardService)
 
 type Tune = {
@@ -28,6 +29,10 @@ type Tune = {
 	SkillshotSpeed: number,
 	Jungle: boolean,
 	Ward: boolean,
+	Dodge: boolean,
+	AvoidAoe: boolean,
+	DiveIq: boolean,
+	UseLens: boolean,
 	ShopItems: { string },
 }
 
@@ -40,6 +45,8 @@ type BotBrain = {
 	nextAbility: number,
 	jungler: boolean,
 	warded: boolean,
+	dodgeUntil: number,
+	dodgeDest: Vector3?,
 }
 
 local BotService = {}
@@ -360,6 +367,122 @@ local function lanePushed(team: Types.TeamId, lane: string): boolean
 	return follow.X < -18
 end
 
+local function enemyTowerAt(team: Types.TeamId, position: Vector3): (Vector3?, number?, Types.TeamId?)
+	for _, state in MapBuilder.objectiveStates() do
+		if state.alive and state.team ~= team then
+			local part = MapBuilder.getObjectivePart(state.id)
+			if part then
+				local range = if state.kind == "Nexus" then Config.Towers.NexusRange else Config.Towers.Range
+				if (part.Position - position).Magnitude <= range then
+					return part.Position, range, state.team
+				end
+			end
+		end
+	end
+	return nil, nil, nil
+end
+
+local function waveCountUnder(team: Types.TeamId, towerPos: Vector3, range: number): (number, number)
+	local allies = 0
+	local enemies = 0
+	for _, minion in MinionService.list() do
+		if (minion.part.Position - towerPos).Magnitude <= range + 4 then
+			if minion.team == team then
+				allies += 1
+			else
+				enemies += 1
+			end
+		end
+	end
+	return allies, enemies
+end
+
+local function targetHpRatio(hunt: Hunt): number
+	if hunt.kind == "player" and hunt.userId then
+		local combat = CombatService.get(hunt.userId)
+		if combat and combat.maxHealth > 0 then
+			return combat.health / combat.maxHealth
+		end
+	end
+	if hunt.health and hunt.health > 0 then
+		return 1
+	end
+	return 1
+end
+
+local function allowDive(tune: Tune, brain: BotBrain, team: Types.TeamId, origin: Vector3, dest: Vector3, hunt: Hunt?): boolean
+	local towerPos, range, defender = enemyTowerAt(team, dest)
+	if not towerPos or not range or not defender then
+		return true
+	end
+	if not tune.DiveIq then
+		return false
+	end
+	local aggro = TowerService.aggroUserId(defender)
+	local allies, enemies = waveCountUnder(team, towerPos, range)
+	local crashing = allies >= 2 and allies > enemies
+	local hp = if hunt then targetHpRatio(hunt) else 1
+	local killDive = hunt ~= nil and hunt.isChampion and hp <= (if currentDifficulty == "Hard" then 0.38 else 0.24)
+	local short = (origin - towerPos).Magnitude <= range + 6
+	if aggro == brain.userId and not killDive then
+		return false
+	end
+	if crashing then
+		return true
+	end
+	if killDive and short then
+		return true
+	end
+	if currentDifficulty == "Hard" and killDive then
+		return true
+	end
+	return false
+end
+
+local function sidestepFromCast(cast: CombatService.AbilityCast)
+	local tune = tunables(currentDifficulty)
+	if currentDifficulty == "Easy" then
+		return
+	end
+	local line = cast.mode == "line" and tune.Dodge
+	local aoe = cast.mode == "ground" and tune.AvoidAoe
+	if not line and not aoe then
+		return
+	end
+	local snapshot = matchSnapshot()
+	if not snapshot then
+		return
+	end
+	for _, brain in brains do
+		local matchPlayer = snapshot.players[tostring(brain.userId)]
+		local root = CombatService.rootOf(brain.userId)
+		local combat = CombatService.get(brain.userId)
+		if not matchPlayer or matchPlayer.team == cast.team or not root or not combat or not combat.alive then
+			continue
+		end
+		local pad = if currentDifficulty == "Hard" then 6 else 4
+		if not Targeting.hits(cast.mode, cast.origin, cast.dest, root.Position, cast.radius + pad) then
+			continue
+		end
+		local flat = Targeting.flat(cast.origin, cast.dest)
+		local perp = Vector3.new(-flat.Z, 0, flat.X)
+		if perp.Magnitude < 0.5 then
+			perp = Vector3.new(1, 0, 0)
+		else
+			perp = perp.Unit
+		end
+		local away = root.Position - cast.origin
+		if away:Dot(perp) < 0 then
+			perp = -perp
+		end
+		local dist = if currentDifficulty == "Hard" then 12 else 8
+		local dest = root.Position + perp * dist
+		root.CFrame = CFrame.new(dest.X, root.Position.Y, dest.Z)
+		brain.dodgeUntil = Workspace:GetServerTimeNow() + 0.32
+		brain.dodgeDest = dest + perp * 4
+	end
+end
+
 local function nearbyCamp(team: Types.TeamId, origin: Vector3): Hunt?
 	local best: Hunt? = nil
 	local bestDist = 92
@@ -409,6 +532,17 @@ local function think(brain: BotBrain, dt: number)
 		return
 	end
 
+	if brain.dodgeUntil > now and brain.dodgeDest then
+		stepToward(brain.userId, brain.dodgeDest, dt)
+		return
+	end
+
+	local hereTower = enemyTowerAt(team, root.Position)
+	if hereTower and not allowDive(tune, brain, team, root.Position, root.Position, nil) then
+		stepToward(brain.userId, fountain, dt)
+		return
+	end
+
 	if atFountain and brain.visitedLane and brain.bought < #tune.ShopItems then
 		local nextItem = tune.ShopItems[brain.bought + 1]
 		local def = if nextItem then ItemCatalog.get(nextItem) else nil
@@ -420,6 +554,17 @@ local function think(brain: BotBrain, dt: number)
 		end
 		if hpRatio < 0.92 then
 			return
+		end
+	end
+
+	if tune.UseLens and ShopService.has(brain.userId, "WhiskerLens") and now >= WardService.lensReadyAt(brain.userId) then
+		for _, ward in WardService.list() do
+			if ward.team ~= team and WardService.canSee(team, ward.id, root.Position) then
+				if (ward.part.Position - root.Position).Magnitude <= Config.Vision.LensRadius then
+					CombatService.useLensFor(brain.userId)
+					break
+				end
+			end
 		end
 	end
 
@@ -452,6 +597,10 @@ local function think(brain: BotBrain, dt: number)
 
 	local hunt = nearestHunt(team, root.Position, brain.userId, tune)
 	if hunt then
+		if not allowDive(tune, brain, team, root.Position, hunt.position, hunt) then
+			stepToward(brain.userId, fountain, dt)
+			return
+		end
 		local dist = (hunt.position - root.Position).Magnitude
 		if dist > Config.AutoAttack.Range then
 			stepToward(brain.userId, hunt.position, dt)
@@ -557,6 +706,8 @@ function BotService.start()
 				nextAbility = 0,
 				jungler = jungler,
 				warded = false,
+				dodgeUntil = 0,
+				dodgeDest = nil,
 			}
 		end
 	end
@@ -583,13 +734,24 @@ function BotService.start()
 						local combat = CombatService.get(brain.userId)
 						if root and combat and combat.alive then
 							local matchPlayer = snapshotNow.players[tostring(brain.userId)]
-							if matchPlayer then
-								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, tunables(currentDifficulty))
+							local walkTune = tunables(currentDifficulty)
+							local nowWalk = Workspace:GetServerTimeNow()
+							if matchPlayer and brain.dodgeUntil > nowWalk and brain.dodgeDest then
+								stepToward(brain.userId, brain.dodgeDest, dt)
+							elseif matchPlayer then
+								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, walkTune)
 								if hunt and (hunt.position - root.Position).Magnitude > Config.AutoAttack.Range then
-									stepToward(brain.userId, hunt.position, dt)
+									if allowDive(walkTune, brain, matchPlayer.team, root.Position, hunt.position, hunt) then
+										stepToward(brain.userId, hunt.position, dt)
+									else
+										stepToward(brain.userId, fountainPos(matchPlayer.team), dt)
+									end
 								elseif not hunt then
 									local follow = waveFollow(matchPlayer.team, brain.lane)
-									stepToward(brain.userId, follow or Vector3.new(lanePushX(matchPlayer.team), 3, assignedZ(brain.lane)), dt)
+									local dest = follow or Vector3.new(lanePushX(matchPlayer.team), 3, assignedZ(brain.lane))
+									if allowDive(walkTune, brain, matchPlayer.team, root.Position, dest, nil) then
+										stepToward(brain.userId, dest, dt)
+									end
 								end
 							end
 						end
@@ -600,5 +762,7 @@ function BotService.start()
 		end
 	end)
 end
+
+CombatService.onAbilityCast(sidestepFromCast)
 
 return BotService
