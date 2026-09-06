@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -40,6 +41,14 @@ local function broadcast()
 		current.objectives = MapBuilder.objectiveStates()
 	end
 	Remotes.event("MatchStateChanged"):FireAllClients(current)
+end
+
+local function feed(kind: Types.FeedKind, text: string)
+	Remotes.event("KillFeed"):FireAllClients({
+		kind = kind,
+		text = text,
+		at = Workspace:GetServerTimeNow(),
+	} :: Types.FeedEvent)
 end
 
 local function teleport(player: Player, team: Types.TeamId?)
@@ -199,6 +208,9 @@ function MatchService.start(participants: { Player }, practice: boolean)
 			assists = 0,
 			gold = Config.Match.StartingGold,
 			xp = 0,
+			level = 1,
+			ranks = Progression.autoRanks(1),
+			respawnAt = nil,
 			connected = true,
 			items = {},
 		}
@@ -289,48 +301,73 @@ function MatchService.init(cleared: () -> ())
 		end
 	end
 
-	local function addXp(player: Player, amount: number)
-		if not current then
+	local function grantXp(player: Player, amount: number)
+		if not current or amount <= 0 then
 			return
 		end
 		local matchPlayer = current.players[tostring(player.UserId)]
-		if matchPlayer then
-			matchPlayer.xp += amount
+		if not matchPlayer then
+			return
+		end
+		matchPlayer.xp += amount
+		local after = Progression.levelFromXp(matchPlayer.xp)
+		if after > matchPlayer.level then
+			matchPlayer.level = after
+			matchPlayer.ranks = Progression.autoRanks(after)
+			CombatService.applyLevel(player, after)
+			feed("level", `{player.DisplayName} grew another life — level {after}`)
+			AiChatService.announce(`{player.DisplayName} hit level {after}. Sharper claws.`)
 		end
 	end
 
 	CombatService.init({
 		getSnapshot = MatchService.snapshot,
 		addGold = addGold,
-		onPlayerKilled = function(killer: Player, victim: Player, assists: { Player })
+		setRespawnAt = function(player: Player, at: number?)
 			if not current then
 				return
 			end
-			local k = current.players[tostring(killer.UserId)]
-			local v = current.players[tostring(victim.UserId)]
-			if k then
-				k.kills += 1
-				k.gold += Config.Match.KillGold
-				k.xp += Config.Match.KillXp
-				if k.championId then
-					MemeStockService.bumpChampion(k.championId, 0.12)
-				end
+			local matchPlayer = current.players[tostring(player.UserId)]
+			if matchPlayer then
+				matchPlayer.respawnAt = at
+				broadcast()
 			end
+		end,
+		onPlayerKilled = function(killer: Player?, victim: Player, assists: { Player })
+			if not current then
+				return
+			end
+			local v = current.players[tostring(victim.UserId)]
 			if v then
 				v.deaths += 1
 			end
-			local assistNames = {}
-			for _, helper in assists do
-				local helperMatch = current.players[tostring(helper.UserId)]
-				if helperMatch then
-					helperMatch.assists += 1
-					helperMatch.gold += Config.Match.AssistGold
-					helperMatch.xp += Config.Match.AssistXp
-					table.insert(assistNames, helper.DisplayName)
+			if killer then
+				local k = current.players[tostring(killer.UserId)]
+				if k then
+					k.kills += 1
+					k.gold += Config.Match.KillGold
+					grantXp(killer, Config.Match.KillXp)
+					if k.championId then
+						MemeStockService.bumpChampion(k.championId, 0.12)
+					end
 				end
+				local assistNames = {}
+				for _, helper in assists do
+					local helperMatch = current.players[tostring(helper.UserId)]
+					if helperMatch then
+						helperMatch.assists += 1
+						helperMatch.gold += Config.Match.AssistGold
+						grantXp(helper, Config.Match.AssistXp)
+						table.insert(assistNames, helper.DisplayName)
+					end
+				end
+				local extra = if #assistNames > 0 then ` · {table.concat(assistNames, ", ")} lent a paw` else ""
+				feed("kill", `{killer.DisplayName} scratched {victim.DisplayName} into next week{extra}`)
+				AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}.{extra}. Brutal.`)
+			else
+				feed("kill", `{victim.DisplayName} got batted by a tower (or a kitten)`)
+				AiChatService.announce(`{victim.DisplayName} face-planted. Fountain time.`)
 			end
-			local extra = if #assistNames > 0 then ` Assists: {table.concat(assistNames, ", ")}.` else ""
-			AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}.{extra} Brutal.`)
 			broadcast()
 		end,
 		onObjectiveDestroyed = function(attacker: Player?, objective: Types.ObjectiveState)
@@ -338,6 +375,11 @@ function MatchService.init(cleared: () -> ())
 				return
 			end
 			local who = if attacker then attacker.DisplayName else "Lane kittens"
+			if objective.kind == "Nexus" then
+				feed("nexus", `{who} unplugged the {objective.team} yarn core`)
+			else
+				feed("tower", `{who} knocked over the {objective.team} scratching post`)
+			end
 			AiChatService.announce(`{who} melted the {objective.team} {objective.kind}!`)
 			if objective.kind == "Nexus" then
 				local winner: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
@@ -358,8 +400,34 @@ function MatchService.init(cleared: () -> ())
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
 		onLastHit = function(player: Player, gold: number)
-			addXp(player, Config.Match.MinionXp)
+			grantXp(player, Config.Match.MinionXp)
 			addGold(player, gold)
+		end,
+		onMinionDied = function(position: Vector3, minionTeam: Types.TeamId, lastHitter: Player?)
+			if not current then
+				return
+			end
+			local leveled = false
+			for _, player in Players:GetPlayers() do
+				if lastHitter and player == lastHitter then
+					continue
+				end
+				local matchPlayer = current.players[tostring(player.UserId)]
+				local root = CombatService.characterRoot(player)
+				local combat = CombatService.get(player.UserId)
+				if matchPlayer and root and combat and combat.alive and matchPlayer.team ~= minionTeam then
+					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
+						local before = matchPlayer.level
+						grantXp(player, Config.Match.NearbyMinionXp)
+						if matchPlayer.level > before then
+							leveled = true
+						end
+					end
+				end
+			end
+			if leveled then
+				broadcast()
+			end
 		end,
 	})
 

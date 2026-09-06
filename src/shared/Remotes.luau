@@ -35,6 +35,7 @@ export type RemoteName =
 	| "ShopUpdated"
 	| "VisionUpdated"
 	| "PingReceived"
+	| "KillFeed"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -69,6 +70,7 @@ local EVENT_NAMES = {
 	"ShopUpdated",
 	"VisionUpdated",
 	"PingReceived",
+	"KillFeed",
 }
 
 local function getFolder(): Folder

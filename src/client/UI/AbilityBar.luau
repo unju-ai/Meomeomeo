@@ -2,6 +2,7 @@
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -10,7 +11,7 @@ local AbilityBar = {}
 export type BarApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
-	update: (championId: string?, combat: Types.CombatState?, gold: number, kda: string, xp: number?) -> (),
+	update: (matchPlayer: Types.MatchPlayer, combat: Types.CombatState?) -> (),
 }
 
 function AbilityBar.create(parent: Instance): BarApi
@@ -18,7 +19,7 @@ function AbilityBar.create(parent: Instance): BarApi
 	root.Name = "AbilityBar"
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.new(0.5, 0, 1, -16)
-	root.Size = UDim2.fromOffset(560, 118)
+	root.Size = UDim2.fromOffset(560, 136)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -26,13 +27,13 @@ function AbilityBar.create(parent: Instance): BarApi
 	Theme.stroke(root, Theme.peach, 2, 0.2)
 	Theme.pad(root, 10)
 
-	local meta = Theme.text(root, "Meta", "Champion · 0 / 0 / 0 · 0g", 14, Theme.cream, Theme.fontTitle)
-	meta.Size = UDim2.new(1, 0, 0, 20)
+	local meta = Theme.text(root, "Meta", "Champion · Lv 1 · 0 / 0 / 0 · 0g", 14, Theme.cream, Theme.fontTitle)
+	meta.Size = UDim2.new(1, 0, 0, 18)
 
 	local hp = Instance.new("Frame")
 	hp.Name = "HP"
 	hp.BackgroundColor3 = Theme.panelAlt
-	hp.Position = UDim2.fromOffset(0, 24)
+	hp.Position = UDim2.fromOffset(0, 22)
 	hp.Size = UDim2.new(1, 0, 0, 10)
 	hp.Parent = root
 	Theme.corner(hp, 6)
@@ -45,7 +46,7 @@ function AbilityBar.create(parent: Instance): BarApi
 	local mp = Instance.new("Frame")
 	mp.Name = "MP"
 	mp.BackgroundColor3 = Theme.panelAlt
-	mp.Position = UDim2.fromOffset(0, 38)
+	mp.Position = UDim2.fromOffset(0, 36)
 	mp.Size = UDim2.new(1, 0, 0, 8)
 	mp.Parent = root
 	Theme.corner(mp, 6)
@@ -55,9 +56,22 @@ function AbilityBar.create(parent: Instance): BarApi
 	mpFill.Parent = mp
 	Theme.corner(mpFill, 6)
 
+	local xp = Instance.new("Frame")
+	xp.Name = "XP"
+	xp.BackgroundColor3 = Theme.panelAlt
+	xp.Position = UDim2.fromOffset(0, 48)
+	xp.Size = UDim2.new(1, 0, 0, 6)
+	xp.Parent = root
+	Theme.corner(xp, 6)
+	local xpFill = Instance.new("Frame")
+	xpFill.BackgroundColor3 = Theme.amber
+	xpFill.Size = UDim2.fromScale(0, 1)
+	xpFill.Parent = xp
+	Theme.corner(xpFill, 6)
+
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
-	row.Position = UDim2.fromOffset(0, 52)
+	row.Position = UDim2.fromOffset(0, 60)
 	row.Size = UDim2.new(1, 0, 0, 56)
 	row.Parent = root
 	Theme.list(row, 8, Enum.FillDirection.Horizontal)
@@ -79,15 +93,30 @@ function AbilityBar.create(parent: Instance): BarApi
 		slots[slot] = label
 	end
 
+	local death = Theme.text(root, "Death", "", 16, Theme.coral, Theme.fontTitle)
+	death.AnchorPoint = Vector2.new(0.5, 0.5)
+	death.Position = UDim2.fromScale(0.5, 0.5)
+	death.Size = UDim2.new(1, -16, 0, 28)
+	death.TextXAlignment = Enum.TextXAlignment.Center
+	death.BackgroundColor3 = Theme.ink
+	death.BackgroundTransparency = 0.2
+	death.Visible = false
+	death.ZIndex = 5
+	Theme.corner(death, 10)
+
 	return {
 		root = root,
 		setVisible = function(visible: boolean)
 			root.Visible = visible
+			if not visible then
+				death.Visible = false
+			end
 		end,
-		update = function(championId: string?, combat: Types.CombatState?, gold: number, kda: string, xp: number?)
-			local champ = if championId then ChampionCatalog.get(championId) else nil
+		update = function(matchPlayer: Types.MatchPlayer, combat: Types.CombatState?)
+			local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
+			local level = matchPlayer.level or 1
+			local _, into, need = Progression.progress(matchPlayer.xp or 0)
 			local shield = if combat then (combat.shield or 0) else 0
-			local xpBit = if typeof(xp) == "number" then ` · {math.floor(xp)}xp` else ""
 			local aaBit = ""
 			if combat then
 				local waitAA = (combat.nextAutoAttack or 0) - workspace:GetServerTimeNow()
@@ -97,23 +126,40 @@ function AbilityBar.create(parent: Instance): BarApi
 					aaBit = ` · AA {combat.attackTarget}`
 				end
 			end
-			meta.Text = `{(if champ then champ.name else "Cat")} · {kda} · {gold}g{xpBit}`
+			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.gold}g`
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. aaBit
+			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
 			if combat then
 				hpFill.Size = UDim2.fromScale(if combat.maxHealth > 0 then combat.health / combat.maxHealth else 0, 1)
 				mpFill.Size = UDim2.fromScale(if combat.maxMana > 0 then combat.mana / combat.maxMana else 0, 1)
 				local t = workspace:GetServerTimeNow()
+				local ranks = combat.ranks or matchPlayer.ranks or Progression.emptyRanks()
 				if champ then
 					for _, slot in Constants.Slots do
 						local ability = champ.abilities[slot]
 						local readyAt = combat.cooldowns[slot]
 						local cd = if readyAt then math.max(0, readyAt - t) else 0
-						slots[slot].Text = if cd > 0.15
-							then `{slot}  {ability.name}\n{string.format("%.1f", cd)}s`
-							else `{slot}  {ability.name}`
+						local rank = ranks[slot] or 0
+						local rankBit = if rank > 0 then ` {rank}` else " —"
+						if rank <= 0 then
+							slots[slot].Text = `{slot}{rankBit}\n{if slot == "R" then "Lv 6" else "soon"}`
+						elseif cd > 0.15 then
+							slots[slot].Text = `{slot}{rankBit}  {ability.name}\n{string.format("%.1f", cd)}s`
+						else
+							slots[slot].Text = `{slot}{rankBit}  {ability.name}`
+						end
 					end
 				end
+				if not combat.alive then
+					local left = math.max(0, (combat.respawnAt or matchPlayer.respawnAt or t) - t)
+					death.Visible = true
+					death.Text = `Respawn at fountain · {string.format("%.1f", left)}s`
+				else
+					death.Visible = false
+				end
+			else
+				death.Visible = false
 			end
 		end,
 	}

@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -17,9 +18,10 @@ local VisionService = require(script.Parent.VisionService)
 
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	onPlayerKilled: (killer: Player, victim: Player, assists: { Player }) -> (),
+	onPlayerKilled: (killer: Player?, victim: Player, assists: { Player }) -> (),
 	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
 	addGold: (player: Player, amount: number) -> (),
+	setRespawnAt: (player: Player, at: number?) -> (),
 }
 
 type AttackLock = {
@@ -37,8 +39,41 @@ local combat: { [number]: Types.CombatState } = {}
 local locks: { [number]: AttackLock } = {}
 local nextAA: { [number]: number } = {}
 local recentHits: { [number]: { [number]: number } } = {}
+local deathToken: { [number]: number } = {}
 local matchApi: MatchApi? = nil
 local tickAutoAttack: (player: Player) -> ()
+
+local function currentLevel(player: Player): number
+	if matchApi then
+		local snapshot = matchApi.getSnapshot()
+		local matchPlayer = if snapshot then snapshot.players[tostring(player.UserId)] else nil
+		if matchPlayer then
+			return matchPlayer.level
+		end
+	end
+	return 1
+end
+
+local function fillVitals(state: Types.CombatState, player: Player, champ: Types.ChampionDef, level: number, full: boolean)
+	local shop = ShopService.bonuses(player.UserId)
+	local growth = Progression.statGrowth(level)
+	local healthRatio = if state.maxHealth > 0 then state.health / state.maxHealth else 1
+	local manaRatio = if state.maxMana > 0 then state.mana / state.maxMana else 1
+	state.maxHealth = champ.maxHealth + shop.maxHealth + growth.maxHealth
+	state.maxMana = champ.maxMana + shop.maxMana + growth.maxMana
+	if full then
+		state.health = state.maxHealth
+		state.mana = state.maxMana
+	else
+		state.health = math.clamp(state.maxHealth * healthRatio, 1, state.maxHealth)
+		state.mana = math.clamp(state.maxMana * manaRatio, 0, state.maxMana)
+	end
+	state.bonusDamage = shop.bonusDamage + growth.bonusDamage
+	state.abilityPower = growth.abilityPower
+	state.armor = shop.armor
+	state.level = level
+	state.ranks = Progression.autoRanks(level)
+end
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -68,7 +103,12 @@ local function applyHumanoid(player: Player, state: Types.CombatState)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.MaxHealth = state.maxHealth
-		humanoid.Health = math.max(1, state.health)
+		-- Soft-death keeps the Roblox character alive so we own the timer.
+		humanoid.Health = if state.alive then math.max(1, state.health) else 1
+		if not state.alive then
+			humanoid.WalkSpeed = 0
+			humanoid.JumpPower = 0
+		end
 	end
 end
 
@@ -85,20 +125,25 @@ function CombatService.reset(player: Player, championId: string)
 	if not champ then
 		return
 	end
-	local bonuses = ShopService.bonuses(player.UserId)
+	local level = currentLevel(player)
 	local state: Types.CombatState = {
-		health = champ.maxHealth + bonuses.maxHealth,
-		maxHealth = champ.maxHealth + bonuses.maxHealth,
-		mana = champ.maxMana + bonuses.maxMana,
-		maxMana = champ.maxMana + bonuses.maxMana,
+		health = 1,
+		maxHealth = 1,
+		mana = 0,
+		maxMana = 0,
 		shield = 0,
-		bonusDamage = bonuses.bonusDamage,
-		armor = bonuses.armor,
+		bonusDamage = 0,
+		abilityPower = 0,
+		armor = 0,
 		cooldowns = emptyCooldowns(),
 		alive = true,
 		nextAutoAttack = 0,
 		attackTarget = nil,
+		level = level,
+		ranks = Progression.autoRanks(level),
+		respawnAt = nil,
 	}
+	fillVitals(state, player, champ, level, true)
 	combat[player.UserId] = state
 	locks[player.UserId] = nil
 	nextAA[player.UserId] = 0
@@ -118,17 +163,26 @@ function CombatService.reapplyItems(player: Player)
 	if not champ then
 		return
 	end
-	local bonuses = ShopService.bonuses(player.UserId)
-	local healthRatio = if state.maxHealth > 0 then state.health / state.maxHealth else 1
-	local manaRatio = if state.maxMana > 0 then state.mana / state.maxMana else 1
-	state.maxHealth = champ.maxHealth + bonuses.maxHealth
-	state.maxMana = champ.maxMana + bonuses.maxMana
-	state.health = math.clamp(state.maxHealth * healthRatio, 1, state.maxHealth)
-	state.mana = math.clamp(state.maxMana * manaRatio, 0, state.maxMana)
-	state.bonusDamage = bonuses.bonusDamage
-	state.armor = bonuses.armor
+	fillVitals(state, player, champ, state.level, false)
 	applyHumanoid(player, state)
 	ShopService.applyMovement(player)
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
+function CombatService.applyLevel(player: Player, level: number)
+	local state = combat[player.UserId]
+	local champId = player:GetAttribute(Constants.Attributes.ChampionId)
+	if not state or typeof(champId) ~= "string" then
+		return
+	end
+	local champ = ChampionCatalog.get(champId)
+	if not champ then
+		return
+	end
+	fillVitals(state, player, champ, level, false)
+	if state.alive then
+		applyHumanoid(player, state)
+	end
 	Remotes.event("CombatUpdated"):FireClient(player, state)
 end
 
@@ -137,6 +191,7 @@ function CombatService.clear(userId: number)
 	locks[userId] = nil
 	nextAA[userId] = nil
 	recentHits[userId] = nil
+	deathToken[userId] = (deathToken[userId] or 0) + 1
 end
 
 function CombatService.clearAll()
@@ -144,6 +199,7 @@ function CombatService.clearAll()
 	table.clear(locks)
 	table.clear(nextAA)
 	table.clear(recentHits)
+	table.clear(deathToken)
 end
 
 function CombatService.init(api: MatchApi)
@@ -162,6 +218,11 @@ function CombatService.init(api: MatchApi)
 				end
 				local matchPlayer = snapshot.players[tostring(player.UserId)]
 				if matchPlayer and matchPlayer.championId then
+					local existing = combat[player.UserId]
+					if existing and not existing.alive then
+						applyHumanoid(player, existing)
+						return
+					end
 					CombatService.reset(player, matchPlayer.championId)
 				end
 			end)
@@ -206,6 +267,40 @@ function CombatService.init(api: MatchApi)
 	end)
 end
 
+function CombatService.respawn(player: Player)
+	local state = combat[player.UserId]
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not state or not snapshot or snapshot.phase ~= "InProgress" then
+		return
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	if not matchPlayer or not matchPlayer.championId then
+		return
+	end
+	state.alive = true
+	state.respawnAt = nil
+	state.shield = 0
+	locks[player.UserId] = nil
+	local champ = ChampionCatalog.get(matchPlayer.championId)
+	if champ then
+		fillVitals(state, player, champ, matchPlayer.level, true)
+	end
+	local spawn = MapBuilder.getSpawn(matchPlayer.team)
+	player.RespawnLocation = spawn
+	local character = player.Character
+	if character then
+		pcall(function()
+			character:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
+		end)
+	end
+	applyHumanoid(player, state)
+	ShopService.applyMovement(player)
+	if matchApi then
+		matchApi.setRespawnAt(player, nil)
+	end
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
 local function killPlayer(victim: Player, killer: Player?)
 	local state = combat[victim.UserId]
 	if not state or not state.alive then
@@ -213,22 +308,30 @@ local function killPlayer(victim: Player, killer: Player?)
 	end
 	state.alive = false
 	state.health = 0
+	locks[victim.UserId] = nil
+	local wait = Progression.respawnSeconds(state.level)
+	state.respawnAt = now() + wait
+	applyHumanoid(victim, state)
 	Remotes.event("CombatUpdated"):FireClient(victim, state)
-
-	local character = victim.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.Health = 0
-		end
+	if matchApi then
+		matchApi.setRespawnAt(victim, state.respawnAt)
 	end
 
-	if killer and matchApi then
+	local token = (deathToken[victim.UserId] or 0) + 1
+	deathToken[victim.UserId] = token
+	task.delay(wait, function()
+		if deathToken[victim.UserId] ~= token then
+			return
+		end
+		CombatService.respawn(victim)
+	end)
+
+	if matchApi then
 		local assists: { Player } = {}
 		local snapshot = matchApi.getSnapshot()
 		local bag = recentHits[victim.UserId]
 		recentHits[victim.UserId] = nil
-		if snapshot and bag then
+		if killer and snapshot and bag then
 			local killerMatch = snapshot.players[tostring(killer.UserId)]
 			local t = now()
 			for userId, at in bag do
@@ -796,6 +899,13 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 	if not state.alive then
 		return { ok = false, error = "You are down. Wait for respawn." }
 	end
+	local rank = if state.ranks then state.ranks[slot] else 0
+	if (rank or 0) <= 0 then
+		if slot == "R" then
+			return { ok = false, error = `Ultimate unlocks at level {Progression.RUnlockLevel}.` }
+		end
+		return { ok = false, error = "That ability is not learned yet." }
+	end
 
 	local t = now()
 	if state.cooldowns[slot] > t then
@@ -818,10 +928,14 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
-	local power = ability.damage
+	local scale = Progression.rankScale(rank)
+	local ap = state.abilityPower or 0
+	local power = 0
 	if ability.damage > 0 then
-		power += state.bonusDamage or 0
+		power = ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35
 	end
+	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
+	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
 
 	if ability.kind == "dash" and distance > 1 then
 		local travel = math.min(distance, ability.range)
@@ -829,25 +943,25 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		root.CFrame = CFrame.new(goal.X, root.Position.Y, goal.Z)
 	end
 
-	if ability.heal > 0 then
+	if healAmount > 0 then
 		for _, other in Players:GetPlayers() do
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
 				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
-					healPlayer(other, ability.heal)
+					healPlayer(other, healAmount)
 				end
 			end
 		end
 	end
 
-	if (ability.shield or 0) > 0 then
+	if shieldAmount > 0 then
 		for _, other in Players:GetPlayers() do
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
 				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
-					shieldPlayer(other, ability.shield or 0)
+					shieldPlayer(other, shieldAmount)
 				end
 			end
 		end

@@ -10,6 +10,7 @@ local ChampionSelect = require(script.Parent.ChampionSelect)
 local LobbyPanel = require(script.Parent.LobbyPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
+local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
@@ -26,6 +27,7 @@ export type HudApi = {
 	chat: NpcChatPanel.ChatApi,
 	shop: ShopPanel.ShopApi,
 	minimap: Minimap.MinimapApi,
+	feed: KillFeed.FeedApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -56,6 +58,7 @@ function Hud.create(): HudApi
 	banner.Size = UDim2.fromOffset(720, 28)
 	banner.TextXAlignment = Enum.TextXAlignment.Center
 	banner.TextStrokeTransparency = 0.4
+	banner.ZIndex = 10
 
 	local lobby = LobbyPanel.create(gui)
 	local mint = MintPanel.create(gui)
@@ -65,6 +68,7 @@ function Hud.create(): HudApi
 	local chat = NpcChatPanel.create(gui)
 	local shop = ShopPanel.create(gui)
 	local minimap = Minimap.create(gui)
+	local feed = KillFeed.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -75,6 +79,7 @@ function Hud.create(): HudApi
 		select.setVisible(phase == "ChampionSelect")
 		abilities.setVisible(phase == "InProgress")
 		minimap.setVisible(phase == "InProgress")
+		feed.setVisible(phase == "InProgress")
 		if phase ~= "InProgress" then
 			shop.setVisible(false)
 		end
@@ -104,6 +109,7 @@ function Hud.create(): HudApi
 		chat = chat,
 		shop = shop,
 		minimap = minimap,
+		feed = feed,
 		banner = function(text: string)
 			banner.Text = text
 		end,

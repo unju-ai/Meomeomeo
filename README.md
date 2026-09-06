@@ -17,12 +17,12 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
-- Champion auto-attack, assist gold, XP stub, and a client minimap (click-to-ping)
+- Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, and a client minimap
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, minimap, voice pill, NPC chat, **Mint Meo 404** panel
+- Playful HUD: lobby, draft, ability bar (level / XP / ranks / respawn), kill feed, minimap, voice pill, NPC chat, **Mint Meo 404** panel
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -57,7 +57,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, and (if ungated) structures.
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, and visible enemies/minions. Click it to ping teammates.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock a cat → buy Longclaw at the Blue fountain (**B**) → **left-click** Red kittens to last-hit (watch gold + XP on the bar) → take all **3 Red towers** (minimap dots go dark) → Red nexus reads `(OPEN)` → AA or QWER it. Fog hides Red units on the world and the minimap until you, your wave, or a Blue tower can see them. Assist gold needs a teammate (Queue, 2+ players).
+- **Practice loop:** lock a cat → last-hit Red kittens (gold + **XP bar**) → hit **level 6** to unlock R → dive a Red tower (it will kill you) → watch the **respawn timer**, then pop at the Blue fountain full HP/mana → take 3 towers → smash the `(OPEN)` nexus. Kill feed (top) calls out towers and level-ups. Assist gold still needs a teammate.
 
 ## How the MOBA loop works
 
@@ -65,14 +65,16 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  Lobby
 ```
 
-- **Server owns** gold, health, mana, cooldowns, auto-attacks, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `SelectChampion`); they never set prices or wallets.
+- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
 - **Combat:** `CombatService` applies heals/dashes/AoE around the aim point. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions and respect nexus gating + vision.
 - **Assists:** if an ally damaged a champion within 8s of the kill, they get assist gold/XP (`AssistGold = 60`, kill bounty stays `180`). Minion last-hits stay last-hit only.
-- **Death / XP stub:** dying respawns at your fountain (existing `RespawnSeconds`). Last-hits, kills, and assists add XP on the HUD (no level curve yet).
+- **Levels 1–18:** shared `Progression.luau`. XP to next level = `40 + (level-1)*28`. Last-hits (`18` XP), nearby minion deaths (`10` XP in 42 studs), kills (`80`), assists (`30`). On level-up: +72 HP, +28 mana, +3 AD, +4 AP. **Ranks auto-assign** (Q then W then E, max 5). **R unlocks at 6**, ranks again at 11 and 16. No + buttons.
+- **Death:** soft-death (character stays, combat drops). Respawn = `6 + (level-1)*0.55` seconds at your fountain with full HP/mana. HUD shows the timer. Kill/assist gold unchanged.
+- **Kill feed:** top-of-screen cat copy for kills, towers, nexus, and level-ups (`KillFeed`).
 - **Minion waves:** every ~22s both teams spawn 3 kittens per lane. They walk toward the enemy nexus, fight, and grant last-hit gold.
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
@@ -210,7 +212,7 @@ Classic 404: **1 whole token (1e18) ↔ 1 NFT**. Transfers across that boundary 
 ## Project layout
 
 ```
-src/shared/          Types, remotes, constants, champion catalog, item catalog
+src/shared/          Types, remotes, constants, champion catalog, item catalog, progression
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -220,7 +222,7 @@ src/server/
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, entitlements, claim API stub
-src/client/          HUD, lobby, mint panel, draft, abilities, minimap, voice, NPC chat
+src/client/          HUD, lobby, mint panel, draft, abilities, kill feed, minimap, voice, NPC chat
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -230,7 +232,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 ## Next suggested steps
 
 1. Real cat meshes / animations and a follow camera.
-2. Inner / inhibitor towers and a real XP/level curve.
+2. Inner / inhibitor towers and a follow camera.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
 5. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
