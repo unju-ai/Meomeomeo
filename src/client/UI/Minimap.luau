@@ -55,7 +55,7 @@ function Minimap.create(parent: Instance): MinimapApi
 	root.AnchorPoint = Vector2.new(1, 1)
 	root.Position = UDim2.new(1, -16, 1, -16)
 	root.Size = UDim2.fromOffset(200, 136)
-	root.BackgroundColor3 = Color3.fromRGB(86, 122, 64)
+	root.BackgroundColor3 = Color3.fromRGB(48, 64, 46)
 	root.Visible = false
 	root.Parent = parent
 	Theme.corner(root, 12)
@@ -66,8 +66,8 @@ function Minimap.create(parent: Instance): MinimapApi
 	river.AnchorPoint = Vector2.new(0.5, 0)
 	river.Position = UDim2.fromScale(0.5, 0)
 	river.Size = UDim2.fromScale(0.07, 1)
-	river.BackgroundColor3 = Color3.fromRGB(90, 160, 210)
-	river.BackgroundTransparency = 0.25
+	river.BackgroundColor3 = Color3.fromRGB(48, 92, 148)
+	river.BackgroundTransparency = 0.12
 	river.BorderSizePixel = 0
 	river.ZIndex = 1
 	river.Parent = root
@@ -79,11 +79,29 @@ function Minimap.create(parent: Instance): MinimapApi
 		lane.AnchorPoint = Vector2.new(0, 0.5)
 		lane.Position = UDim2.fromScale(0.04, sy)
 		lane.Size = UDim2.fromScale(0.92, 0.03)
-		lane.BackgroundColor3 = Color3.fromRGB(196, 176, 132)
-		lane.BackgroundTransparency = 0.15
+		lane.BackgroundColor3 = Color3.fromRGB(214, 176, 110)
+		lane.BackgroundTransparency = 0.08
 		lane.BorderSizePixel = 0
 		lane.ZIndex = 1
 		lane.Parent = root
+	end
+
+	for _, pocket in {
+		{ name = "JungleNW", pos = Vector3.new(-70, 0, -90), w = 0.2, h = 0.16 },
+		{ name = "JungleSE", pos = Vector3.new(70, 0, 90), w = 0.2, h = 0.16 },
+	} do
+		local sx, sy = worldToScale(pocket.pos)
+		local patch = Instance.new("Frame")
+		patch.Name = pocket.name
+		patch.AnchorPoint = Vector2.new(0.5, 0.5)
+		patch.Position = UDim2.fromScale(sx, sy)
+		patch.Size = UDim2.fromScale(pocket.w, pocket.h)
+		patch.BackgroundColor3 = Color3.fromRGB(36, 58, 40)
+		patch.BackgroundTransparency = 0.15
+		patch.BorderSizePixel = 0
+		patch.ZIndex = 1
+		patch.Parent = root
+		Theme.corner(patch, 6)
 	end
 
 	local title = Theme.text(root, "Title", "Rift  ·  click to ping", 11, Theme.cream, Theme.fontMono)
