@@ -3,6 +3,16 @@
 -- Server-only tunables. Do not put live API keys or chain private keys here.
 -- AI / claim HTTP secrets may be pasted locally for experiments — never commit.
 -- The Meo404 minter key belongs on a hosted backend, not in this ModuleScript.
+--
+-- PRODUCTION CHECKLIST — 0 / "" is the Studio-safe stub. Fill locally before publish.
+-- See PLAYTEST.md and README "Production config".
+--   Match.MatchPlaceId            published PlaceId for ReserveServer (0 = in-place)
+--   Match.LobbyPlaceId            published lobby PlaceId for "Back to lobby" (0 = remember origin)
+--   Match.MinPlayersToStart       2 for testing; 6 (3v3) or 10 (5v5) live
+--   Nft404.DeveloperProductId     Creator Dashboard Developer Product (0 = Studio mock grant)
+--   Nft404.ClaimApiUrl            hosted POST /v1/meo404 ("" + Provider=mock until the bridge is live)
+--   Nft404.ClaimApiSecret         Bearer shared secret — NEVER a chain key; never commit
+--   Ai.Endpoint / Ai.ApiKey       only if Ai.Provider = "http"; never commit a real key
 
 export type VoiceMode = "Team" | "Proximity"
 

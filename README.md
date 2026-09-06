@@ -10,6 +10,8 @@ Meme stocks are a **side system**: champion tickers drift in the HUD and bump on
 
 This repo is a playable **scaffold** (architecture + stubs), not a finished live-ops title.
 
+**Want to run it today?** Follow **[PLAYTEST.md](PLAYTEST.md)** (Rojo → Practice → keybinds → Meo404 Studio mock → publish checklist). In Play, click **?** or hold **H**.
+
 ## What’s in the scaffold
 
 - Rojo-ready `src/` layout that syncs into Roblox Studio
@@ -24,14 +26,16 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **⚙ SFX slider**
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, **?** / hold **H** help
 - Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
 ## Open with Rojo + Roblox Studio
 
-1. Install [Rojo](https://rojo.space/) 7.x (`aftman install` if you use [Aftman](https://github.com/LPGhatguy/aftman) — see `aftman.toml`).
+Full walkthrough (Practice vs Queue, Meo404 API Services, publish ids): **[PLAYTEST.md](PLAYTEST.md)**.
+
+1. Install [Rojo](https://rojo.space/) 7.x (`aftman install` if you use [Aftman](https://github.com/LPGhatguy/aftman) — `aftman.toml` pins **Rojo 7.4.4**; keep the Studio plugin on the same 7.x line).
 2. Install the [Rojo Studio plugin](https://www.roblox.com/library/13916111004/Rojo-7).
 3. From this repo:
 
@@ -40,7 +44,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
    ```
 
 4. In Studio: create a new place (or open an existing one), click the Rojo plugin, **Connect**.
-5. Press Play. Use **Practice match** to walk the full loop alone.
+5. Press Play. Use **Practice match** to walk the full loop alone. **?** or hold **H** lists keybinds.
 
 `default.project.json` maps:
 
@@ -66,6 +70,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - **SFX** (top-right, under voice) — master volume and mute. Sounds are placeholders (`rbxasset://sounds/…`); swap ids in `src/client/Audio/SoundIds.luau`.
+- **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
 - **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → walk a lane and fight the Red **(Bot)** cat + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
 
@@ -103,6 +108,22 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
 Tune timers and team size in `src/server/Config.luau`.
+
+## Production config (placeholders)
+
+`0` / `""` is Studio-safe. Fill **locally** before a live place. Never commit secrets. Same list is commented at the top of `src/server/Config.luau`.
+
+| Field | Default | Production |
+| --- | --- | --- |
+| `Match.MatchPlaceId` | `0` | Published PlaceId for `ReserveServer` (this lobby or a dedicated match place). `0` = start in this server. |
+| `Match.LobbyPlaceId` | `0` | Published lobby PlaceId for reserved-server “Back to lobby”. `0` = remember the place they queued from. |
+| `Match.MinPlayersToStart` | `2` | `6` (3v3) or `10` (5v5) for a real pop. |
+| `Nft404.DeveloperProductId` | `0` | Creator Dashboard Developer Product id. `0` = Studio **GrantProduct** mock only. |
+| `Nft404.ClaimApiUrl` | `""` | Hosted `POST /v1/meo404`. Keep `Provider = "mock"` until the bridge is live. |
+| `Nft404.ClaimApiSecret` | `""` | Shared Bearer secret with the bridge. **Not** a chain key. Never commit. |
+| `Ai.Endpoint` / `Ai.ApiKey` | `""` | Only if `Ai.Provider = "http"`. Never commit a real key. |
+
+Steps to wire PlaceIds and the Developer Product: [PLAYTEST.md](PLAYTEST.md) §§6–7.
 
 ## Reserved-server matchmaking
 
@@ -297,6 +318,7 @@ Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint hea
 ## Project layout
 
 ```
+PLAYTEST.md          Studio / publish walkthrough + keybind sheet
 src/shared/          Types, remotes, constants, champion catalog, item catalog, progression, targeting
 src/server/
   init.server.luau   Wires remotes + services

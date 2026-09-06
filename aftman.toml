@@ -1,5 +1,12 @@
 # Pin Rojo for this repo. Install with: aftman install
 # https://github.com/LPGhatguy/aftman
+#
+# Rojo 7.4.4 is the verified pin (Aug 2024). Rojo 7.7.0 (Jul 2026) adds
+# websockets + syncback — only bump if the Studio plugin matches the CLI.
+# Mixing 7.4 serve with a 7.7 plugin (or the reverse) often fails to connect.
+#
+# selene 0.31.0 is optional: `selene src` against selene.toml (std = roblox).
 
 [tools]
 rojo = "rojo-rbx/rojo@7.4.4"
+selene = "Kampfkarren/selene@0.31.0"

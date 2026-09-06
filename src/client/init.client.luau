@@ -669,6 +669,9 @@ UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Tab then
 		hud.scoreboard.setVisible(false)
 	end
+	if input.KeyCode == Enum.KeyCode.H then
+		hud.help.setHeld(false)
+	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if slot and armedSlot == slot then
 		castAbility(slot)
@@ -697,6 +700,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			hud.scoreboard.update(latestMatch, player.UserId)
 			hud.scoreboard.setVisible(true)
 		end
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.H then
+		hud.help.setHeld(true)
 		return
 	end
 	if processed then
