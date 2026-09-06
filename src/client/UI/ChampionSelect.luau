@@ -1,6 +1,7 @@
 --!strict
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
+local ChampionLooks = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionLooks"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -65,12 +66,47 @@ function ChampionSelect.create(parent: Instance): SelectApi
 		Theme.stroke(card, champ.color, 2, 0.1)
 		Theme.pad(card, 10)
 
-		local name = Theme.text(card, "Name", champ.name, 18, Theme.cream, Theme.fontTitle)
-		name.Size = UDim2.new(1, 0, 0, 22)
+		local look = ChampionLooks.get(champ.id)
+		local icon = Instance.new("Frame")
+		icon.Name = "Look"
+		icon.AnchorPoint = Vector2.new(1, 0)
+		icon.Position = UDim2.new(1, 0, 0, 0)
+		icon.Size = UDim2.fromOffset(44, 38)
+		icon.BackgroundColor3 = look.body
+		icon.BorderSizePixel = 0
+		icon.ZIndex = 2
+		icon.Parent = card
+		Theme.corner(icon, 10)
+		Theme.stroke(icon, look.accent, 2, 0.15)
+		for _, side in { -1, 1 } do
+			local ear = Instance.new("Frame")
+			ear.Name = if side < 0 then "EarL" else "EarR"
+			ear.AnchorPoint = Vector2.new(0.5, 1)
+			ear.Position = UDim2.new(0.5 + side * 0.28, 0, 0.18, 0)
+			ear.Size = UDim2.fromOffset(11, 13)
+			ear.BackgroundColor3 = look.accent
+			ear.BorderSizePixel = 0
+			ear.Rotation = side * -20
+			ear.ZIndex = 3
+			ear.Parent = icon
+			Theme.corner(ear, 3)
+		end
+		local strip = Instance.new("Frame")
+		strip.Name = "Accent"
+		strip.AnchorPoint = Vector2.new(0, 1)
+		strip.Position = UDim2.fromScale(0, 1)
+		strip.Size = UDim2.new(1, 0, 0, 6)
+		strip.BackgroundColor3 = look.neon
+		strip.BorderSizePixel = 0
+		strip.ZIndex = 3
+		strip.Parent = icon
 
-		local role = Theme.text(card, "Role", `{champ.role} · {champ.title}`, 11, champ.color)
+		local name = Theme.text(card, "Name", champ.name, 18, Theme.cream, Theme.fontTitle)
+		name.Size = UDim2.new(1, -52, 0, 22)
+
+		local role = Theme.text(card, "Role", `{champ.role} · {look.label}`, 11, champ.color)
 		role.Position = UDim2.fromOffset(0, 22)
-		role.Size = UDim2.new(1, 0, 0, 16)
+		role.Size = UDim2.new(1, -52, 0, 16)
 
 		local blurb = Theme.text(card, "Blurb", champ.blurb, 12, Theme.peach)
 		blurb.Position = UDim2.fromOffset(0, 40)

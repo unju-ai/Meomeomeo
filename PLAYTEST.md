@@ -1,14 +1,14 @@
 # Playtest Meo Meo Meo
 
-Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–12). In Play, press **?** or hold **H** for the same keybinds.
+Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–16). In Play, press **?** or hold **H** for the same keybinds.
 
 Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
-## 0. What you have after PRs 1–12
+## 0. What you have after PRs 1–16
 
 Playable scaffold: lobby → practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → lobby.
 
-Also: reserved-server-ready queue (in-place fallback), practice bots, voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice.
+Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, **distinct champion silhouettes** (primitive Parts, no mesh binaries).
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
@@ -62,7 +62,7 @@ rojo serve
    - **Easy** — slow, panicky, sloppy CS, two items, 0.88× damage. No dodge; will not dive towers.
    - **Normal** — last-hits, leads and sidesteps skillshots, dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early ward, kill-dives, uses Whisker Lens on revealed enemy wards.
-2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read).
+2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`).
 3. Walk a lane. **LMB** a bot or minion. Hold **Q** if the kit is a line skillshot, release to fire.
 4. **4** drop a trinket. **B** at fountain → buy **Whisker Lens** → **5** if you see an enemy ward.
 5. **F** recall (7s). **Tab** scoreboard (bots tagged).
@@ -148,6 +148,10 @@ Also for a live place:
 
 `src/client/Audio/SoundIds.luau` uses engine `rbxasset://sounds/…` so git stays binary-free. Swap any cue to `rbxassetid://YOUR_ID` after a Creator Store upload. Mute from the **SFX** panel.
 
+## 8b. Champion looks (placeholders)
+
+`ChampionLooks` + `ChampionAppearance` dress locked cats from engine `Part`s (ears, tail, team collar, archetype flair). No `rbxm` / mesh binaries. `HumanoidRootPart` stays the combat box. To swap real meshes later, replace the `MeoAppearance` folder recipes and keep the same root — see README.
+
 ## 9. If something is quiet / missing
 
 - No SFX: click **SFX**, unmute, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
@@ -155,7 +159,8 @@ Also for a live place:
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
 - Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.
 - Bots idle: you are still in **Champion select** — lock a cat and wait for the timer.
+- Bots look like the same box: Rojo-sync `Shared.ChampionLooks` + `Server.World.ChampionAppearance`, then start a new Practice.
 
 ## 10. Still stubbed (do not expect)
 
-SIWE wallet proof, live reserved-teleport playtest in this cloud agent, real cat meshes, fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX/music, compliance-cleared Robux 404 product.
+SIWE wallet proof, live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX/music, compliance-cleared Robux 404 product.
