@@ -1,5 +1,6 @@
 --!strict
 
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
 local Workspace = game:GetService("Workspace")
@@ -30,11 +31,35 @@ local function part(parent: Instance, name: string, size: Vector3, cframe: CFram
 	return p
 end
 
+-- Visual-only kit: never collides, never steals click/AA raycasts, never blocks bots.
+local function decor(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, extras: { [string]: any }?): Part
+	local merged: { [string]: any } = {
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+	}
+	if extras then
+		for key, value in extras do
+			merged[key] = value
+		end
+	end
+	return part(parent, name, size, cframe, color, merged)
+end
+
 local function folder(parent: Instance, name: string): Folder
 	local f = Instance.new("Folder")
 	f.Name = name
 	f.Parent = parent
 	return f
+end
+
+local function lamp(parent: BasePart, color: Color3, brightness: number, range: number)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Brightness = brightness
+	light.Range = range
+	light.Parent = parent
 end
 
 local function spawnLocation(parent: Instance, name: string, position: Vector3, team: Team?, color: Color3): SpawnLocation
@@ -76,6 +101,80 @@ local function billboard(adornee: BasePart, text: string, color: Color3)
 	label.Parent = gui
 end
 
+local function applyNightMarketLighting()
+	Lighting.ClockTime = 21.15
+	Lighting.Brightness = 1.4
+	Lighting.Ambient = Color3.fromRGB(52, 42, 68)
+	Lighting.OutdoorAmbient = Color3.fromRGB(78, 62, 96)
+	Lighting.GeographicLatitude = 28
+	Lighting.GlobalShadows = true
+	Lighting.EnvironmentDiffuseScale = 0.35
+	Lighting.EnvironmentSpecularScale = 0.22
+	Lighting.FogColor = Color3.fromRGB(36, 28, 52)
+	Lighting.FogStart = 90
+	Lighting.FogEnd = 460
+
+	local function ensure(className: string, name: string): Instance
+		local existing = Lighting:FindFirstChild(name)
+		if existing then
+			return existing
+		end
+		local inst = Instance.new(className)
+		inst.Name = name
+		inst.Parent = Lighting
+		return inst
+	end
+
+	local atmosphere = ensure("Atmosphere", "MeoAtmosphere") :: Atmosphere
+	atmosphere.Density = 0.32
+	atmosphere.Offset = 0.18
+	atmosphere.Color = Color3.fromRGB(118, 96, 148)
+	atmosphere.Decay = Color3.fromRGB(92, 58, 48)
+	atmosphere.Glare = 0.12
+	atmosphere.Haze = 1.35
+
+	local cc = ensure("ColorCorrectionEffect", "MeoColor") :: ColorCorrectionEffect
+	cc.Enabled = true
+	cc.Brightness = 0.02
+	cc.Contrast = 0.08
+	cc.Saturation = 0.12
+	cc.TintColor = Color3.fromRGB(255, 236, 220)
+
+	local bloom = ensure("BloomEffect", "MeoBloom") :: BloomEffect
+	bloom.Enabled = true
+	bloom.Intensity = 0.28
+	bloom.Size = 12
+	bloom.Threshold = 0.85
+end
+
+local function dressTower(objective: Part, team: Types.TeamId, position: Vector3)
+	local accent = if team == "Blue" then Color3.fromRGB(180, 210, 255) else Color3.fromRGB(255, 190, 170)
+	local yarn = Color3.fromRGB(255, 196, 90)
+	decor(objective, "EarL", Vector3.new(1.6, 2.4, 1.1), CFrame.new(position + Vector3.new(-2.1, 12.4, 0)), accent)
+	decor(objective, "EarR", Vector3.new(1.6, 2.4, 1.1), CFrame.new(position + Vector3.new(2.1, 12.4, 0)), accent)
+	decor(objective, "Yarn", Vector3.new(2.2, 2.2, 2.2), CFrame.new(position + Vector3.new(0, 13.6, 0)), yarn, {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+	})
+	local collar = decor(objective, "Collar", Vector3.new(9.2, 0.7, 9.2), CFrame.new(position + Vector3.new(0, 6, 0)), accent, {
+		Material = Enum.Material.Neon,
+		Transparency = 0.35,
+	})
+	lamp(collar, accent, 0.35, 14)
+end
+
+local function dressNexus(objective: Part, team: Types.TeamId, position: Vector3)
+	local accent = if team == "Blue" then Color3.fromRGB(160, 200, 255) else Color3.fromRGB(255, 170, 160)
+	decor(objective, "EarL", Vector3.new(2.4, 3.2, 1.6), CFrame.new(position + Vector3.new(-3.2, 8.2, 0)), accent)
+	decor(objective, "EarR", Vector3.new(2.4, 3.2, 1.6), CFrame.new(position + Vector3.new(3.2, 8.2, 0)), accent)
+	for i, offset in { Vector3.new(7, -4, 5), Vector3.new(-7, -4, 5), Vector3.new(0, -4, -8) } do
+		decor(objective, `Yarn{i}`, Vector3.new(2.4, 2.4, 2.4), CFrame.new(position + offset), Color3.fromRGB(255, 196, 90), {
+			Shape = Enum.PartType.Ball,
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end
+end
+
 local function makeObjective(
 	parent: Instance,
 	id: string,
@@ -107,6 +206,11 @@ local function makeObjective(
 
 	local suffix = if lane ~= "Base" then ` ({lane})` else ""
 	billboard(objective, `{team} {kind}{suffix}`, Color3.new(1, 1, 1))
+	if kind == "Nexus" then
+		dressNexus(objective, team, position)
+	else
+		dressTower(objective, team, position)
+	end
 	return objective
 end
 
@@ -141,11 +245,96 @@ local function makeCatNpc(parent: Instance, id: string, name: string, position: 
 	return model
 end
 
+local function catStatue(parent: Instance, name: string, position: Vector3, fur: Color3, facing: number)
+	local root = CFrame.new(position) * CFrame.Angles(0, facing, 0)
+	decor(parent, `{name}Body`, Vector3.new(2.4, 1.5, 3.4), root * CFrame.new(0, 1.1, 0), fur)
+	decor(parent, `{name}Head`, Vector3.new(1.6, 1.6, 1.6), root * CFrame.new(0, 2.4, -1.2), fur, { Shape = Enum.PartType.Ball })
+	decor(parent, `{name}EarL`, Vector3.new(0.5, 0.9, 0.45), root * CFrame.new(-0.45, 3.3, -1.2), fur)
+	decor(parent, `{name}EarR`, Vector3.new(0.5, 0.9, 0.45), root * CFrame.new(0.45, 3.3, -1.2), fur)
+	decor(parent, `{name}Tail`, Vector3.new(0.4, 0.4, 2.1), root * CFrame.new(0.8, 1.3, 1.8), fur)
+end
+
+local function fountainKit(parent: Instance, team: Types.TeamId, center: Vector3)
+	local color = if team == "Blue" then Color3.fromRGB(70, 120, 210) else Color3.fromRGB(210, 80, 80)
+	local warm = Color3.fromRGB(255, 196, 110)
+	part(parent, `{team}FountainPad`, Vector3.new(40, 1, 40), CFrame.new(center.X, 0.12, center.Z), color, {
+		Material = Enum.Material.Marble,
+	})
+	decor(parent, `{team}FountainRim`, Vector3.new(28, 0.5, 28), CFrame.new(center.X, 0.55, center.Z), warm, {
+		Material = Enum.Material.Neon,
+		Transparency = 0.4,
+	})
+	for i, offset in {
+		Vector3.new(-16, 0, -16),
+		Vector3.new(16, 0, -16),
+		Vector3.new(-16, 0, 16),
+		Vector3.new(16, 0, 16),
+	} do
+		local pillar = decor(
+			parent,
+			`{team}Pillar{i}`,
+			Vector3.new(2.2, 10, 2.2),
+			CFrame.new(center + offset + Vector3.new(0, 5.4, 0)),
+			color:Lerp(Color3.new(1, 1, 1), 0.15),
+			{ Material = Enum.Material.Concrete }
+		)
+		local lantern = decor(
+			parent,
+			`{team}Lantern{i}`,
+			Vector3.new(1.1, 1.1, 1.1),
+			CFrame.new(center + offset + Vector3.new(0, 11, 0)),
+			warm,
+			{ Shape = Enum.PartType.Ball, Material = Enum.Material.Neon }
+		)
+		lamp(lantern, warm, 0.45, 18)
+		lamp(pillar, color, 0.15, 10)
+	end
+	local facing = if team == "Blue" then 0 else math.pi
+	catStatue(parent, `{team}Statue`, center + Vector3.new(if team == "Blue" then 14 else -14, 0, 14), color:Lerp(Color3.fromRGB(240, 210, 170), 0.35), facing)
+end
+
+local function campPedestal(parent: Instance, id: string, position: Vector3, color: Color3, label: string)
+	local pad = decor(parent, `{id}Pad`, Vector3.new(8.5, 0.4, 8.5), CFrame.new(position.X, 0.22, position.Z), color, {
+		Material = Enum.Material.Slate,
+		Transparency = 0.05,
+	})
+	decor(parent, `{id}Ring`, Vector3.new(7.2, 0.18, 7.2), CFrame.new(position.X, 0.48, position.Z), color:Lerp(Color3.new(1, 1, 1), 0.25), {
+		Material = Enum.Material.Neon,
+		Transparency = 0.45,
+	})
+	local marker = decor(parent, `{id}Yarn`, Vector3.new(1.3, 1.3, 1.3), CFrame.new(position.X, 1.1, position.Z), color, {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+	})
+	lamp(marker, color, 0.25, 10)
+	billboard(pad, label, Color3.fromRGB(255, 236, 210))
+	local gui = pad:FindFirstChild("Label")
+	if gui and gui:IsA("BillboardGui") then
+		gui.AlwaysOnTop = false
+		gui.MaxDistance = 70
+		gui.StudsOffset = Vector3.new(0, 3.2, 0)
+	end
+end
+
+local function brushPocket(parent: Instance, name: string, position: Vector3, size: Vector3)
+	decor(parent, name, size, CFrame.new(position), Color3.fromRGB(36, 72, 48), {
+		Material = Enum.Material.Glass,
+		Transparency = 0.62,
+	})
+	decor(parent, `{name}Fog`, size * 0.7, CFrame.new(position + Vector3.new(0, 2, 0)), Color3.fromRGB(70, 90, 80), {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.ForceField,
+		Transparency = 0.82,
+	})
+end
+
 function MapBuilder.build(): Folder
 	local existing = Workspace:FindFirstChild(Constants.MapFolderName)
 	if existing then
 		existing:Destroy()
 	end
+
+	applyNightMarketLighting()
 
 	local root = folder(Workspace, Constants.MapFolderName)
 	local terrain = folder(root, "Terrain")
@@ -154,49 +343,86 @@ function MapBuilder.build(): Folder
 	local bases = folder(root, "Bases")
 	local npcs = folder(root, "Npcs")
 	local spawns = folder(root, "Spawns")
+	local decorFolder = folder(root, "Decor")
 	folder(root, "Minions")
 	folder(root, "Jungle")
 	folder(root, "Wards")
 
-	-- Ground + river + jungle
-	part(terrain, "Ground", Vector3.new(420, 2, 280), CFrame.new(0, -1, 0), Color3.fromRGB(126, 168, 92))
-	part(terrain, "River", Vector3.new(28, 1.2, 280), CFrame.new(0, 0.2, 0), Color3.fromRGB(90, 160, 210), {
+	-- Ground + river + jungle (same bounds as Constants.MapBounds / minimap).
+	part(terrain, "Ground", Vector3.new(420, 2, 280), CFrame.new(0, -1, 0), Color3.fromRGB(58, 78, 52))
+	part(terrain, "River", Vector3.new(28, 1.2, 280), CFrame.new(0, 0.2, 0), Color3.fromRGB(48, 92, 148), {
 		Material = Enum.Material.Glass,
-		Transparency = 0.25,
+		Transparency = 0.18,
 	})
-	part(terrain, "JungleNorth", Vector3.new(90, 1.4, 50), CFrame.new(-70, 0.3, -90), Color3.fromRGB(70, 110, 60))
-	part(terrain, "JungleSouth", Vector3.new(90, 1.4, 50), CFrame.new(70, 0.3, 90), Color3.fromRGB(70, 110, 60))
-	part(terrain, "LobbyPad", Vector3.new(36, 1.2, 36), CFrame.new(0, 0.6, 0), Color3.fromRGB(255, 214, 170), {
+	decor(terrain, "RiverFoamW", Vector3.new(2.2, 0.35, 280), CFrame.new(-14.4, 0.55, 0), Color3.fromRGB(180, 220, 240), {
+		Material = Enum.Material.Neon,
+		Transparency = 0.55,
+	})
+	decor(terrain, "RiverFoamE", Vector3.new(2.2, 0.35, 280), CFrame.new(14.4, 0.55, 0), Color3.fromRGB(180, 220, 240), {
+		Material = Enum.Material.Neon,
+		Transparency = 0.55,
+	})
+	part(terrain, "JungleNorth", Vector3.new(90, 1.4, 50), CFrame.new(-70, 0.3, -90), Color3.fromRGB(42, 72, 48))
+	part(terrain, "JungleSouth", Vector3.new(90, 1.4, 50), CFrame.new(70, 0.3, 90), Color3.fromRGB(42, 72, 48))
+	part(terrain, "LobbyPad", Vector3.new(36, 1.2, 36), CFrame.new(0, 0.6, 0), Color3.fromRGB(255, 200, 140), {
 		Material = Enum.Material.Marble,
 	})
 
-	-- Three lanes
-	local laneColor = Color3.fromRGB(196, 176, 132)
+	-- Three lanes — same Z as Constants.LaneZ so bots / minions / minimap stay aligned.
+	local laneColor = Color3.fromRGB(214, 176, 110)
+	local laneInner = Color3.fromRGB(92, 64, 40)
 	for _, spec in {
 		{ name = "Top", z = -80 },
 		{ name = "Mid", z = 0 },
 		{ name = "Bot", z = 80 },
 	} do
 		part(lanes, spec.name, Vector3.new(320, 0.8, 16), CFrame.new(0, 0.4, spec.z), laneColor)
+		decor(lanes, `{spec.name}Inner`, Vector3.new(320, 0.12, 4.5), CFrame.new(0, 0.86, spec.z), laneInner, {
+			Transparency = 0.15,
+		})
+		for x = -140, 140, 40 do
+			decor(lanes, `{spec.name}Dot{x}`, Vector3.new(2.2, 0.28, 2.2), CFrame.new(x, 0.95, spec.z), Color3.fromRGB(255, 220, 140), {
+				Material = Enum.Material.Neon,
+				Transparency = 0.25,
+			})
+		end
 	end
+
+	-- Brush sits in jungle pockets only — off the 16-stud lane corridors.
+	brushPocket(decorFolder, "BrushNW", Vector3.new(-88, 3.2, -108), Vector3.new(22, 7, 16))
+	brushPocket(decorFolder, "BrushNE", Vector3.new(-48, 3.2, -78), Vector3.new(16, 6, 14))
+	brushPocket(decorFolder, "BrushSE", Vector3.new(88, 3.2, 108), Vector3.new(22, 7, 16))
+	brushPocket(decorFolder, "BrushSW", Vector3.new(48, 3.2, 78), Vector3.new(16, 6, 14))
+	brushPocket(decorFolder, "BrushCrabN", Vector3.new(-22, 2.8, -48), Vector3.new(12, 5, 10))
+	brushPocket(decorFolder, "BrushCrabS", Vector3.new(22, 2.8, 48), Vector3.new(12, 5, 10))
+
+	-- Camp pedestals match JungleService spawn XZ (Decor folder, not Jungle).
+	campPedestal(decorFolder, "YarnGolemNW", Vector3.new(-70, 0, -100), Color3.fromRGB(230, 190, 110), "Yarn Golem")
+	campPedestal(decorFolder, "PigeonsNW", Vector3.new(-100, 0, -88), Color3.fromRGB(170, 168, 176), "Pigeons")
+	campPedestal(decorFolder, "YarnGolemSE", Vector3.new(70, 0, 100), Color3.fromRGB(230, 190, 110), "Yarn Golem")
+	campPedestal(decorFolder, "PigeonsSE", Vector3.new(100, 0, 88), Color3.fromRGB(170, 168, 176), "Pigeons")
+	campPedestal(decorFolder, "RiverCrabN", Vector3.new(0, 0, -48), Color3.fromRGB(90, 170, 160), "River Crab")
+	campPedestal(decorFolder, "RiverCrabS", Vector3.new(0, 0, 48), Color3.fromRGB(90, 170, 160), "River Crab")
 
 	local blueTeam = Teams:FindFirstChild(Constants.Teams.BlueInstance) :: Team?
 	local redTeam = Teams:FindFirstChild(Constants.Teams.RedInstance) :: Team?
 
 	part(bases, "BlueKeep", Vector3.new(48, 8, 48), CFrame.new(-170, 4, 0), Color3.fromRGB(60, 100, 170), {
-		Transparency = 0.35,
+		Transparency = 0.45,
 		CanCollide = false,
 	})
 	part(bases, "RedKeep", Vector3.new(48, 8, 48), CFrame.new(170, 4, 0), Color3.fromRGB(170, 70, 70), {
-		Transparency = 0.35,
+		Transparency = 0.45,
 		CanCollide = false,
 	})
+	fountainKit(bases, "Blue", Vector3.new(-176, 0, 0))
+	fountainKit(bases, "Red", Vector3.new(176, 0, 0))
 
 	local lobbySpawn = spawnLocation(spawns, "Lobby", Vector3.new(0, 1.4, 0), nil, Color3.fromRGB(255, 196, 140))
 	local blueSpawn = spawnLocation(spawns, "BlueFountain", Vector3.new(-176, 1.4, 0), blueTeam, Color3.fromRGB(90, 160, 255))
 	local redSpawn = spawnLocation(spawns, "RedFountain", Vector3.new(176, 1.4, 0), redTeam, Color3.fromRGB(255, 110, 110))
 
-	-- Towers + nexuses (outer → inner → nexus)
+	-- Towers + nexuses (outer → inner → nexus). Positions unchanged.
 	local defs: {
 		{
 			id: string,
@@ -398,4 +624,3 @@ function MapBuilder.laneZ(lane: string): number
 end
 
 return MapBuilder
-

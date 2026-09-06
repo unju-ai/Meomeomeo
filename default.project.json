@@ -81,14 +81,45 @@
       "$className": "Lighting",
       "$ignoreUnknownInstances": true,
       "$properties": {
-        "ClockTime": 16.4,
-        "Brightness": 2.2,
-        "Ambient": [0.42, 0.34, 0.30],
-        "OutdoorAmbient": [0.58, 0.48, 0.40],
+        "ClockTime": 21.15,
+        "Brightness": 1.4,
+        "Ambient": [0.204, 0.165, 0.267],
+        "OutdoorAmbient": [0.306, 0.243, 0.376],
         "GeographicLatitude": 28,
         "GlobalShadows": true,
-        "EnvironmentDiffuseScale": 0.4,
-        "EnvironmentSpecularScale": 0.3
+        "EnvironmentDiffuseScale": 0.35,
+        "EnvironmentSpecularScale": 0.22,
+        "FogColor": [0.141, 0.110, 0.204],
+        "FogStart": 90,
+        "FogEnd": 460
+      },
+      "MeoAtmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.32,
+          "Offset": 0.18,
+          "Color": [0.463, 0.376, 0.580],
+          "Decay": [0.361, 0.227, 0.188],
+          "Glare": 0.12,
+          "Haze": 1.35
+        }
+      },
+      "MeoColor": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "Brightness": 0.02,
+          "Contrast": 0.08,
+          "Saturation": 0.12,
+          "TintColor": [1, 0.925, 0.863]
+        }
+      },
+      "MeoBloom": {
+        "$className": "BloomEffect",
+        "$properties": {
+          "Intensity": 0.28,
+          "Size": 12,
+          "Threshold": 0.85
+        }
       }
     },
 
