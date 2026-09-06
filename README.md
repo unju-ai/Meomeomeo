@@ -53,7 +53,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 ### Playtest tips
 
-- **Practice match** — one player, Blue team, attack Red towers/nexus to end the game.
+- **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal**. Attack bots, towers, then the nexus.
 - **Queue** — starts a real match when at least `Config.Match.MinPlayersToStart` (default 2) players are waiting.
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire. Instant/self and ground AoEs still fire on press.
@@ -65,7 +65,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → hold **Q** in fountain to see the line indicator, release to fire → walk to river, press **4** to drop a trinket → walk away and confirm the ward still spots jungle/lane on the minimap → **B** at fountain, buy **Whisker Lens**, press **5** (pulse; in solo there are no enemy wards) → press **F** to test recall → NW jungle last-hit → Tab score → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player: enemy wards are stealthed until a lens sweep or you walk within 14 studs; **LMB** to scratch them down.
+- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → walk a lane and fight the Red **(Bot)** cat + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -74,7 +74,8 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 ```
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
-- **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue.
+- **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
+- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). A small FSM lanes with the wave, auto-attacks the nearest valid target, casts a ready ability when an enemy is in range, retreats to fountain on low HP, and buys Longclaw / Yarnplate after visiting lane. Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). Easy bots think slower, retreat earlier, and cast less. Queue matches fill each side to 3 if underfilled. See `Config.Bots`.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
@@ -232,7 +233,7 @@ src/shared/          Types, remotes, constants, champion catalog, item catalog, 
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
-  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, wards, shop
+  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
@@ -247,18 +248,19 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
-2. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-3. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
-4. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
-5. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
-6. Real cat meshes / animations.
-7. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
-8. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
-9. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
-10. DataStores for cosmetics funded by yarn / meme-stock wagers.
-11. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
-12. Compliance review before any live Developer Product that mentions 404 / NFTs.
+1. Smarter bots: jungle path, ward/lens use, skillshot leading, last-hit CS, tower dive rules, Hard difficulty.
+2. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
+3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
+4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
+5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
+6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
+7. Real cat meshes / animations.
+8. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
+9. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
+10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
+11. DataStores for cosmetics funded by yarn / meme-stock wagers.
+12. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
+13. Compliance review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets
 

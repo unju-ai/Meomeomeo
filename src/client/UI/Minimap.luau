@@ -152,10 +152,10 @@ function Minimap.create(parent: Instance): MinimapApi
 			for _, id in vision.minions do
 				visibleMinions[id] = true
 			end
+			local map = Workspace:FindFirstChild(Constants.MapFolderName)
 
 			for id, objective in snapshot.objectives do
 				local part = nil
-				local map = Workspace:FindFirstChild(Constants.MapFolderName)
 				local folder = if map then map:FindFirstChild("Objectives") else nil
 				if folder then
 					local child = folder:FindFirstChild(id)
@@ -175,25 +175,46 @@ function Minimap.create(parent: Instance): MinimapApi
 				end
 			end
 
+			local function placeChampion(userId: number, rootPart: BasePart, matchPlayer: Types.MatchPlayer)
+				local mine = snapshot.players[tostring(localUserId)]
+				local ally = mine ~= nil and matchPlayer.team == mine.team
+				if not (ally or visiblePlayers[userId]) then
+					return
+				end
+				local color = if userId == localUserId
+					then Theme.cream
+					elseif matchPlayer.team == "Blue" then Theme.blue
+					else Theme.red
+				local size = if userId == localUserId then 9 elseif matchPlayer.isBot then 6 else 7
+				place(`p-{userId}`, rootPart.Position, size, color)
+				seen[`p-{userId}`] = true
+			end
+
 			for _, other in Players:GetPlayers() do
 				local matchPlayer = snapshot.players[tostring(other.UserId)]
 				local character = other.Character
 				local rootPart = if character then character:FindFirstChild("HumanoidRootPart") else nil
 				if matchPlayer and rootPart and rootPart:IsA("BasePart") then
-					local ally = matchPlayer.team == (snapshot.players[tostring(localUserId)] and snapshot.players[tostring(localUserId)].team)
-					if ally or visiblePlayers[other.UserId] then
-						local color = if other.UserId == localUserId
-							then Theme.cream
-							elseif matchPlayer.team == "Blue" then Theme.blue
-							else Theme.red
-						local size = if other.UserId == localUserId then 9 else 7
-						place(`p-{other.UserId}`, rootPart.Position, size, color)
-						seen[`p-{other.UserId}`] = true
+					placeChampion(other.UserId, rootPart, matchPlayer)
+				end
+			end
+
+			local bots = if map then map:FindFirstChild("Bots") else nil
+			if bots then
+				for _, child in bots:GetChildren() do
+					if child:IsA("Model") then
+						local userId = child:GetAttribute(Constants.Attributes.UserId)
+						local rootPart = child:FindFirstChild("HumanoidRootPart")
+						if typeof(userId) == "number" and rootPart and rootPart:IsA("BasePart") then
+							local matchPlayer = snapshot.players[tostring(userId)]
+							if matchPlayer then
+								placeChampion(userId, rootPart, matchPlayer)
+							end
+						end
 					end
 				end
 			end
 
-			local map = Workspace:FindFirstChild(Constants.MapFolderName)
 			local minions = if map then map:FindFirstChild("Minions") else nil
 			local mine = snapshot.players[tostring(localUserId)]
 			if minions then

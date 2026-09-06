@@ -94,7 +94,17 @@ function ChampionSelect.create(parent: Instance): SelectApi
 			local remaining = if snapshot.phaseEndsAt then math.max(0, math.floor(snapshot.phaseEndsAt - workspace:GetServerTimeNow())) else 0
 			title.Text = if snapshot.practice then `Practice draft · {remaining}s` else `Pick your cat · {remaining}s`
 			if mine then
-				hint.Text = `You are {mine.team}. Locked: {mine.championId or "none"}`
+				if snapshot.practice then
+					local bots = 0
+					for _, other in snapshot.players do
+						if other.isBot then
+							bots += 1
+						end
+					end
+					hint.Text = `You are {mine.team}. Red is {bots} practice bots ({snapshot.botDifficulty or "Normal"}). Locked: {mine.championId or "none"}`
+				else
+					hint.Text = `You are {mine.team}. Locked: {mine.championId or "none"}`
+				end
 			end
 			for id, card in cards do
 				local taken = false

@@ -21,11 +21,11 @@ local WardService = require(script.Parent.WardService)
 
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	onPlayerKilled: (killer: Player?, victim: Player, assists: { Player }) -> (),
-	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
-	addGold: (player: Player, amount: number) -> (),
-	addDamageDealt: (player: Player, amount: number) -> (),
-	setRespawnAt: (player: Player, at: number?) -> (),
+	onPlayerKilled: (killerUserId: number?, victimUserId: number, assists: { number }) -> (),
+	onObjectiveDestroyed: (attackerUserId: number?, objective: Types.ObjectiveState) -> (),
+	addGold: (userId: number, amount: number) -> (),
+	addDamageDealt: (userId: number, amount: number) -> (),
+	setRespawnAt: (userId: number, at: number?) -> (),
 }
 
 type AttackLock = {
@@ -49,13 +49,47 @@ local deathToken: { [number]: number } = {}
 local recallToken: { [number]: number } = {}
 local recallOrigin: { [number]: Vector3 } = {}
 local matchApi: MatchApi? = nil
-local tickAutoAttack: (player: Player) -> ()
+local boundModels: { [number]: Model } = {}
+local tickAutoAttack: (userId: number) -> ()
 local interruptRecall: (player: Player) -> ()
 
-local function currentLevel(player: Player): number
+local function playerOf(userId: number): Player?
+	return Players:GetPlayerByUserId(userId)
+end
+
+local function modelOf(userId: number): Model?
+	local bound = boundModels[userId]
+	if bound and bound.Parent then
+		return bound
+	end
+	local player = playerOf(userId)
+	return if player then player.Character else nil
+end
+
+local function rootOf(userId: number): BasePart?
+	local model = modelOf(userId)
+	if not model then
+		return nil
+	end
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root
+	end
+	return nil
+end
+
+local function fireCombat(userId: number)
+	local state = combat[userId]
+	local player = playerOf(userId)
+	if state and player then
+		Remotes.event("CombatUpdated"):FireClient(player, state)
+	end
+end
+
+local function currentLevel(userId: number): number
 	if matchApi then
 		local snapshot = matchApi.getSnapshot()
-		local matchPlayer = if snapshot then snapshot.players[tostring(player.UserId)] else nil
+		local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
 		if matchPlayer then
 			return matchPlayer.level
 		end
@@ -63,8 +97,8 @@ local function currentLevel(player: Player): number
 	return 1
 end
 
-local function fillVitals(state: Types.CombatState, player: Player, champ: Types.ChampionDef, level: number, full: boolean)
-	local shop = ShopService.bonuses(player.UserId)
+local function fillVitals(state: Types.CombatState, userId: number, champ: Types.ChampionDef, level: number, full: boolean)
+	local shop = ShopService.bonuses(userId)
 	local growth = Progression.statGrowth(level)
 	local healthRatio = if state.maxHealth > 0 then state.health / state.maxHealth else 1
 	local manaRatio = if state.maxMana > 0 then state.mana / state.maxMana else 1
@@ -92,20 +126,8 @@ local function emptyCooldowns(): { [Types.AbilitySlot]: number }
 	return { Q = 0, W = 0, E = 0, R = 0 }
 end
 
-local function characterRoot(player: Player): BasePart?
-	local character = player.Character
-	if not character then
-		return nil
-	end
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		return root
-	end
-	return nil
-end
-
-local function applyHumanoid(player: Player, state: Types.CombatState)
-	local character = player.Character
+local function applyHumanoid(userId: number, state: Types.CombatState)
+	local character = modelOf(userId)
 	if not character then
 		return
 	end
@@ -172,9 +194,9 @@ local function completeRecall(player: Player)
 			character:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
 		end)
 	end
-	applyHumanoid(player, state)
+	applyHumanoid(player.UserId, state)
 	ShopService.applyMovement(player)
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	fireCombat(player.UserId)
 end
 
 function CombatService.startRecall(player: Player): Types.AbilityResult
@@ -191,7 +213,7 @@ function CombatService.startRecall(player: Player): Types.AbilityResult
 		interruptRecall(player)
 		return { ok = true, combat = state }
 	end
-	local root = characterRoot(player)
+	local root = rootOf(player.UserId)
 	if not root then
 		return { ok = false, error = "No character." }
 	end
@@ -221,20 +243,36 @@ function CombatService.startRecall(player: Player): Types.AbilityResult
 	return { ok = true, combat = state }
 end
 
+function CombatService.bindCharacter(userId: number, model: Model)
+	boundModels[userId] = model
+end
+
+function CombatService.unbindCharacter(userId: number)
+	boundModels[userId] = nil
+end
+
+function CombatService.rootOf(userId: number): BasePart?
+	return rootOf(userId)
+end
+
+function CombatService.modelOf(userId: number): Model?
+	return modelOf(userId)
+end
+
 function CombatService.characterRoot(player: Player): BasePart?
-	return characterRoot(player)
+	return rootOf(player.UserId)
 end
 
 function CombatService.get(userId: number): Types.CombatState?
 	return combat[userId]
 end
 
-function CombatService.reset(player: Player, championId: string)
+local function resetFor(userId: number, championId: string)
 	local champ = ChampionCatalog.get(championId) or ChampionCatalog.get(ChampionCatalog.defaultId())
 	if not champ then
 		return
 	end
-	local level = currentLevel(player)
+	local level = currentLevel(userId)
 	local state: Types.CombatState = {
 		health = 1,
 		maxHealth = 1,
@@ -257,24 +295,70 @@ function CombatService.reset(player: Player, championId: string)
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
-	fillVitals(state, player, champ, level, true)
-	combat[player.UserId] = state
-	locks[player.UserId] = nil
-	nextAA[player.UserId] = 0
-	recallOrigin[player.UserId] = nil
-	recallToken[player.UserId] = (recallToken[player.UserId] or 0) + 1
-	player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
-	player:SetAttribute(Constants.Attributes.Recalling, nil)
-	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
-	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
-	applyHumanoid(player, state)
-	ShopService.applyMovement(player)
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	fillVitals(state, userId, champ, level, true)
+	combat[userId] = state
+	locks[userId] = nil
+	nextAA[userId] = 0
+	recallOrigin[userId] = nil
+	recallToken[userId] = (recallToken[userId] or 0) + 1
+	local player = playerOf(userId)
+	if player then
+		player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
+		player:SetAttribute(Constants.Attributes.Recalling, nil)
+		ShopService.applyMovement(player)
+	end
+	local model = modelOf(userId)
+	if model then
+		model:SetAttribute(Constants.Attributes.ChampionId, champ.id)
+	end
+	state.trinketReadyAt = WardService.trinketReadyAt(userId)
+	state.lensReadyAt = WardService.lensReadyAt(userId)
+	applyHumanoid(userId, state)
+	fireCombat(userId)
+end
+
+function CombatService.reset(player: Player, championId: string)
+	resetFor(player.UserId, championId)
+end
+
+function CombatService.resetBot(userId: number, championId: string)
+	resetFor(userId, championId)
+end
+
+function CombatService.reapplyItemsFor(userId: number)
+	local state = combat[userId]
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
+	local champId = if matchPlayer then matchPlayer.championId else nil
+	if not state or typeof(champId) ~= "string" then
+		return
+	end
+	local champ = ChampionCatalog.get(champId)
+	if not champ then
+		return
+	end
+	fillVitals(state, userId, champ, state.level, false)
+	if state.alive then
+		applyHumanoid(userId, state)
+	end
+	local player = playerOf(userId)
+	if player then
+		ShopService.applyMovement(player)
+	else
+		ShopService.applyMovementToModel(modelOf(userId), userId)
+	end
+	fireCombat(userId)
 end
 
 function CombatService.reapplyItems(player: Player)
-	local state = combat[player.UserId]
-	local champId = player:GetAttribute(Constants.Attributes.ChampionId)
+	CombatService.reapplyItemsFor(player.UserId)
+end
+
+function CombatService.applyLevelFor(userId: number, level: number)
+	local state = combat[userId]
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
+	local champId = if matchPlayer then matchPlayer.championId else nil
 	if not state or typeof(champId) ~= "string" then
 		return
 	end
@@ -282,27 +366,15 @@ function CombatService.reapplyItems(player: Player)
 	if not champ then
 		return
 	end
-	fillVitals(state, player, champ, state.level, false)
-	applyHumanoid(player, state)
-	ShopService.applyMovement(player)
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	fillVitals(state, userId, champ, level, false)
+	if state.alive then
+		applyHumanoid(userId, state)
+	end
+	fireCombat(userId)
 end
 
 function CombatService.applyLevel(player: Player, level: number)
-	local state = combat[player.UserId]
-	local champId = player:GetAttribute(Constants.Attributes.ChampionId)
-	if not state or typeof(champId) ~= "string" then
-		return
-	end
-	local champ = ChampionCatalog.get(champId)
-	if not champ then
-		return
-	end
-	fillVitals(state, player, champ, level, false)
-	if state.alive then
-		applyHumanoid(player, state)
-	end
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	CombatService.applyLevelFor(player.UserId, level)
 end
 
 function CombatService.clear(userId: number)
@@ -311,9 +383,10 @@ function CombatService.clear(userId: number)
 	nextAA[userId] = nil
 	recentHits[userId] = nil
 	recallOrigin[userId] = nil
+	boundModels[userId] = nil
 	deathToken[userId] = (deathToken[userId] or 0) + 1
 	recallToken[userId] = (recallToken[userId] or 0) + 1
-	local player = Players:GetPlayerByUserId(userId)
+	local player = playerOf(userId)
 	if player then
 		player:SetAttribute(Constants.Attributes.Recalling, nil)
 	end
@@ -330,6 +403,7 @@ function CombatService.clearAll()
 	table.clear(deathToken)
 	table.clear(recallToken)
 	table.clear(recallOrigin)
+	table.clear(boundModels)
 end
 
 function CombatService.init(api: MatchApi)
@@ -350,7 +424,7 @@ function CombatService.init(api: MatchApi)
 				if matchPlayer and matchPlayer.championId then
 					local existing = combat[player.UserId]
 					if existing and not existing.alive then
-						applyHumanoid(player, existing)
+						applyHumanoid(player.UserId, existing)
 						return
 					end
 					CombatService.reset(player, matchPlayer.championId)
@@ -370,15 +444,15 @@ function CombatService.init(api: MatchApi)
 			if not snapshot or snapshot.phase ~= "InProgress" then
 				continue
 			end
-			for _, player in Players:GetPlayers() do
-				local state = combat[player.UserId]
-				if state and state.alive then
-					local atFountain = ShopService.atFountain(player)
+			for userId, state in combat do
+				if state.alive then
+					local root = rootOf(userId)
+					local atFountain = if root then ShopService.nearFountain(userId, root.Position) else false
 					local hpRegen = if atFountain then Config.Combat.FountainHpRegen else Config.Combat.RegenPerSecond
 					local mpRegen = if atFountain then Config.Combat.FountainManaRegen else Config.Combat.ManaRegenPerSecond
 					state.health = math.min(state.maxHealth, state.health + hpRegen)
 					state.mana = math.min(state.maxMana, state.mana + mpRegen)
-					applyHumanoid(player, state)
+					applyHumanoid(userId, state)
 				end
 			end
 		end
@@ -391,125 +465,141 @@ function CombatService.init(api: MatchApi)
 			if not snapshot or snapshot.phase ~= "InProgress" then
 				continue
 			end
-			for _, player in Players:GetPlayers() do
-				local state = combat[player.UserId]
-				if state and state.recalling and state.alive then
-					local root = characterRoot(player)
-					local origin = recallOrigin[player.UserId]
+			for userId, state in combat do
+				local player = playerOf(userId)
+				if player and state.recalling and state.alive then
+					local root = rootOf(userId)
+					local origin = recallOrigin[userId]
 					if root and origin and (root.Position - origin).Magnitude > Config.Combat.RecallMoveCancel then
 						interruptRecall(player)
 					end
 				end
-				if locks[player.UserId] then
-					tickAutoAttack(player)
+				if locks[userId] then
+					tickAutoAttack(userId)
 				end
 			end
 		end
 	end)
 end
 
-function CombatService.respawn(player: Player)
-	local state = combat[player.UserId]
+function CombatService.respawnUser(userId: number)
+	local state = combat[userId]
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not state or not snapshot or snapshot.phase ~= "InProgress" then
 		return
 	end
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local matchPlayer = snapshot.players[tostring(userId)]
 	if not matchPlayer or not matchPlayer.championId then
 		return
 	end
 	state.alive = true
 	state.respawnAt = nil
 	state.shield = 0
-	locks[player.UserId] = nil
+	locks[userId] = nil
 	local champ = ChampionCatalog.get(matchPlayer.championId)
 	if champ then
-		fillVitals(state, player, champ, matchPlayer.level, true)
+		fillVitals(state, userId, champ, matchPlayer.level, true)
 	end
 	local spawn = MapBuilder.getSpawn(matchPlayer.team)
-	player.RespawnLocation = spawn
-	local character = player.Character
+	local player = playerOf(userId)
+	if player then
+		player.RespawnLocation = spawn
+	end
+	local character = modelOf(userId)
 	if character then
 		pcall(function()
 			character:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
 		end)
 	end
-	applyHumanoid(player, state)
-	ShopService.applyMovement(player)
-	if matchApi then
-		matchApi.setRespawnAt(player, nil)
+	applyHumanoid(userId, state)
+	if player then
+		ShopService.applyMovement(player)
+	else
+		ShopService.applyMovementToModel(character, userId)
 	end
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	if matchApi then
+		matchApi.setRespawnAt(userId, nil)
+	end
+	fireCombat(userId)
 end
 
-local function killPlayer(victim: Player, killer: Player?)
-	local state = combat[victim.UserId]
+function CombatService.respawn(player: Player)
+	CombatService.respawnUser(player.UserId)
+end
+
+local function killUser(victimUserId: number, killerUserId: number?)
+	local state = combat[victimUserId]
 	if not state or not state.alive then
 		return
 	end
 	state.alive = false
 	state.health = 0
-	locks[victim.UserId] = nil
-	interruptRecall(victim)
+	locks[victimUserId] = nil
+	local victimPlayer = playerOf(victimUserId)
+	if victimPlayer then
+		interruptRecall(victimPlayer)
+	end
 	local wait = Progression.respawnSeconds(state.level)
 	state.respawnAt = now() + wait
-	applyHumanoid(victim, state)
-	Remotes.event("CombatUpdated"):FireClient(victim, state)
+	applyHumanoid(victimUserId, state)
+	fireCombat(victimUserId)
 	if matchApi then
-		matchApi.setRespawnAt(victim, state.respawnAt)
+		matchApi.setRespawnAt(victimUserId, state.respawnAt)
 	end
 
-	local token = (deathToken[victim.UserId] or 0) + 1
-	deathToken[victim.UserId] = token
+	local token = (deathToken[victimUserId] or 0) + 1
+	deathToken[victimUserId] = token
 	task.delay(wait, function()
-		if deathToken[victim.UserId] ~= token then
+		if deathToken[victimUserId] ~= token then
 			return
 		end
-		CombatService.respawn(victim)
+		CombatService.respawnUser(victimUserId)
 	end)
 
 	if matchApi then
-		local assists: { Player } = {}
+		local assists: { number } = {}
 		local snapshot = matchApi.getSnapshot()
-		local bag = recentHits[victim.UserId]
-		recentHits[victim.UserId] = nil
-		if killer and snapshot and bag then
-			local killerMatch = snapshot.players[tostring(killer.UserId)]
+		local bag = recentHits[victimUserId]
+		recentHits[victimUserId] = nil
+		if killerUserId and snapshot and bag then
+			local killerMatch = snapshot.players[tostring(killerUserId)]
 			local t = now()
 			for userId, at in bag do
-				if userId ~= killer.UserId and t - at <= Config.Match.AssistWindow then
-					local other = Players:GetPlayerByUserId(userId)
+				if userId ~= killerUserId and t - at <= Config.Match.AssistWindow then
 					local otherMatch = snapshot.players[tostring(userId)]
-					if other and killerMatch and otherMatch and otherMatch.team == killerMatch.team then
-						table.insert(assists, other)
+					if killerMatch and otherMatch and otherMatch.team == killerMatch.team then
+						table.insert(assists, userId)
 					end
 				end
 			end
 		end
-		matchApi.onPlayerKilled(killer, victim, assists)
+		matchApi.onPlayerKilled(killerUserId, victimUserId, assists)
 	end
 end
 
-local function noteAssist(attacker: Player, victim: Player)
-	local bag = recentHits[victim.UserId]
+local function noteAssist(attackerUserId: number, victimUserId: number)
+	local bag = recentHits[victimUserId]
 	if not bag then
 		bag = {}
-		recentHits[victim.UserId] = bag
+		recentHits[victimUserId] = bag
 	end
-	bag[attacker.UserId] = now()
+	bag[attackerUserId] = now()
 end
 
-local function damagePlayer(attacker: Player?, target: Player, amount: number)
-	if attacker and attacker == target then
+local function damageUser(attackerUserId: number?, targetUserId: number, amount: number)
+	if attackerUserId and attackerUserId == targetUserId then
 		return
 	end
-	local state = combat[target.UserId]
+	local state = combat[targetUserId]
 	if not state or not state.alive then
 		return
 	end
 	local reduced = amount * (1 - (state.armor or 0))
 	if reduced > 0 then
-		interruptRecall(target)
+		local targetPlayer = playerOf(targetUserId)
+		if targetPlayer then
+			interruptRecall(targetPlayer)
+		end
 	end
 	local remaining = reduced
 	if (state.shield or 0) > 0 then
@@ -520,26 +610,30 @@ local function damagePlayer(attacker: Player?, target: Player, amount: number)
 	if remaining > 0 then
 		state.health = math.max(0, state.health - remaining)
 	end
-	applyHumanoid(target, state)
-	Remotes.event("CombatUpdated"):FireClient(target, state)
-	if attacker and matchApi then
+	applyHumanoid(targetUserId, state)
+	fireCombat(targetUserId)
+	if attackerUserId and matchApi then
 		if reduced > 0 then
-			matchApi.addDamageDealt(attacker, reduced)
+			matchApi.addDamageDealt(attackerUserId, reduced)
 		end
-		noteAssist(attacker, target)
+		noteAssist(attackerUserId, targetUserId)
 		local snapshot = matchApi.getSnapshot()
-		local victim = if snapshot then snapshot.players[tostring(target.UserId)] else nil
+		local victim = if snapshot then snapshot.players[tostring(targetUserId)] else nil
 		if victim then
-			TowerService.noteThreat(attacker, victim.team)
+			TowerService.noteThreat(attackerUserId, victim.team)
 		end
 	end
 	if state.health <= 0 then
-		killPlayer(target, attacker)
+		killUser(targetUserId, attackerUserId)
 	end
 end
 
+function CombatService.applyDamageToUser(targetUserId: number, amount: number)
+	damageUser(nil, targetUserId, amount)
+end
+
 function CombatService.applyDamageToPlayer(target: Player, amount: number)
-	damagePlayer(nil, target, amount)
+	damageUser(nil, target.UserId, amount)
 end
 
 function CombatService.damagePlayersNear(attackerTeam: Types.TeamId, position: Vector3, range: number, amount: number)
@@ -547,31 +641,30 @@ function CombatService.damagePlayersNear(attackerTeam: Types.TeamId, position: V
 	if not snapshot then
 		return
 	end
-	for _, other in Players:GetPlayers() do
-		local otherMatch = snapshot.players[tostring(other.UserId)]
-		local otherRoot = characterRoot(other)
-		if otherMatch and otherMatch.team ~= attackerTeam and otherRoot then
+	for _, otherMatch in snapshot.players do
+		local otherRoot = rootOf(otherMatch.userId)
+		if otherMatch.team ~= attackerTeam and otherRoot then
 			if (otherRoot.Position - position).Magnitude <= range then
-				damagePlayer(nil, other, amount)
+				damageUser(nil, otherMatch.userId, amount)
 			end
 		end
 	end
 end
 
-local function shieldPlayer(target: Player, amount: number)
-	local state = combat[target.UserId]
+local function shieldUser(targetUserId: number, amount: number)
+	local state = combat[targetUserId]
 	if not state or not state.alive or amount <= 0 then
 		return
 	end
 	state.shield = math.min(state.maxHealth, state.shield + amount)
-	Remotes.event("CombatUpdated"):FireClient(target, state)
+	fireCombat(targetUserId)
 end
 
-local function stunPlayer(target: Player, seconds: number)
+local function stunUser(targetUserId: number, seconds: number)
 	if seconds <= 0 then
 		return
 	end
-	local character = target.Character
+	local character = modelOf(targetUserId)
 	if not character then
 		return
 	end
@@ -593,17 +686,17 @@ local function stunPlayer(target: Player, seconds: number)
 	end)
 end
 
-local function healPlayer(target: Player, amount: number)
-	local state = combat[target.UserId]
+local function healUser(targetUserId: number, amount: number)
+	local state = combat[targetUserId]
 	if not state or not state.alive then
 		return
 	end
 	state.health = math.min(state.maxHealth, state.health + amount)
-	applyHumanoid(target, state)
-	Remotes.event("CombatUpdated"):FireClient(target, state)
+	applyHumanoid(targetUserId, state)
+	fireCombat(targetUserId)
 end
 
-local function damageObjective(attacker: Player?, part: BasePart, amount: number)
+local function damageObjective(attackerUserId: number?, part: BasePart, amount: number)
 	local id = part:GetAttribute(Constants.Attributes.ObjectiveId)
 	if typeof(id) ~= "string" then
 		return
@@ -630,11 +723,11 @@ local function damageObjective(attacker: Player?, part: BasePart, amount: number
 			if objective then
 				objective.alive = false
 				objective.health = 0
-				if attacker then
-					matchApi.addGold(attacker, Config.Match.TowerGold)
+				if attackerUserId then
+					matchApi.addGold(attackerUserId, Config.Match.TowerGold)
 				end
 				-- Minions can melt a tower/nexus; the match still has to resolve.
-				matchApi.onObjectiveDestroyed(attacker, objective)
+				matchApi.onObjectiveDestroyed(attackerUserId, objective)
 				MapBuilder.refreshNexusGate()
 			end
 		end
@@ -657,22 +750,23 @@ function CombatService.damageObjectiveNear(attackerTeam: Types.TeamId, position:
 	end
 end
 
-local function aaDamage(player: Player): number
-	local state = combat[player.UserId]
+local function aaDamage(userId: number): number
+	local state = combat[userId]
 	return Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
 end
 
-local function pushCombat(player: Player)
-	local state = combat[player.UserId]
+local function pushCombat(userId: number)
+	local state = combat[userId]
 	if not state then
 		return
 	end
-	state.nextAutoAttack = nextAA[player.UserId] or 0
-	local lock = locks[player.UserId]
+	state.nextAutoAttack = nextAA[userId] or 0
+	local lock = locks[userId]
 	if lock then
 		if lock.kind == "player" and lock.userId then
-			local other = Players:GetPlayerByUserId(lock.userId)
-			state.attackTarget = if other then other.DisplayName else "champion"
+			local snapshot = if matchApi then matchApi.getSnapshot() else nil
+			local other = if snapshot then snapshot.players[tostring(lock.userId)] else nil
+			state.attackTarget = if other then other.displayName else "champion"
 		elseif lock.kind == "minion" then
 			state.attackTarget = "kitten"
 		elseif lock.kind == "jungle" then
@@ -685,33 +779,30 @@ local function pushCombat(player: Player)
 	else
 		state.attackTarget = nil
 	end
-	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
-	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	state.trinketReadyAt = WardService.trinketReadyAt(userId)
+	state.lensReadyAt = WardService.lensReadyAt(userId)
+	fireCombat(userId)
 end
 
-local function walkToward(player: Player, dest: Vector3)
-	local character = player.Character
+local function walkToward(userId: number, dest: Vector3)
+	local character = modelOf(userId)
 	if not character then
 		return
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
+	local root = rootOf(userId)
+	if humanoid and root and not root.Anchored then
 		humanoid:MoveTo(Vector3.new(dest.X, dest.Y, dest.Z))
 	end
 end
 
 local function resolveTarget(lock: AttackLock): (Vector3?, string?)
 	if lock.kind == "player" and lock.userId then
-		local other = Players:GetPlayerByUserId(lock.userId)
-		if not other then
-			return nil, "gone"
-		end
-		local otherState = combat[other.UserId]
+		local otherState = combat[lock.userId]
 		if not otherState or not otherState.alive then
 			return nil, "dead"
 		end
-		local root = characterRoot(other)
+		local root = rootOf(lock.userId)
 		if not root then
 			return nil, "gone"
 		end
@@ -748,70 +839,65 @@ local function resolveTarget(lock: AttackLock): (Vector3?, string?)
 	return nil, "gone"
 end
 
-local function visibleTo(player: Player, lock: AttackLock): boolean
+local function visibleTo(viewerUserId: number, lock: AttackLock): boolean
 	if lock.kind == "objective" then
 		return true
 	end
 	if lock.kind == "player" and lock.userId then
-		local other = Players:GetPlayerByUserId(lock.userId)
-		return other ~= nil and VisionService.canSeePlayer(player, other)
+		return VisionService.canSeeChampion(viewerUserId, lock.userId)
 	end
 	if lock.kind == "minion" and lock.minionId then
-		return VisionService.canSeeMinion(player, lock.minionId)
+		return VisionService.canSeeMinion(viewerUserId, lock.minionId)
 	end
 	if lock.kind == "jungle" and lock.jungleId then
-		return VisionService.canSeeJungle(player, lock.jungleId)
+		return VisionService.canSeeJungle(viewerUserId, lock.jungleId)
 	end
 	if lock.kind == "ward" and lock.wardId then
-		return VisionService.canSeeWard(player, lock.wardId)
+		return VisionService.canSeeWard(viewerUserId, lock.wardId)
 	end
 	return false
 end
 
-local function strike(player: Player, lock: AttackLock)
-	local power = aaDamage(player)
+local function strike(attackerUserId: number, lock: AttackLock)
+	local power = aaDamage(attackerUserId)
 	if lock.kind == "player" and lock.userId then
-		local other = Players:GetPlayerByUserId(lock.userId)
-		if other then
-			damagePlayer(player, other, power)
-		end
+		damageUser(attackerUserId, lock.userId, power)
 	elseif lock.kind == "minion" and lock.minionId then
 		local minion = MinionService.get(lock.minionId)
 		if minion then
-			TowerService.noteThreat(player, minion.team)
-			MinionService.applyDamage(player, minion.id, power)
+			TowerService.noteThreat(attackerUserId, minion.team)
+			MinionService.applyDamage(attackerUserId, minion.id, power)
 		end
 	elseif lock.kind == "jungle" and lock.jungleId then
-		JungleService.applyDamage(player, lock.jungleId, power)
+		JungleService.applyDamage(attackerUserId, lock.jungleId, power)
 	elseif lock.kind == "objective" and lock.objectiveId then
 		local part = MapBuilder.getObjectivePart(lock.objectiveId)
 		if part then
 			local team = part:GetAttribute(Constants.Attributes.Team)
 			if team == "Blue" or team == "Red" then
-				TowerService.noteThreat(player, team)
+				TowerService.noteThreat(attackerUserId, team)
 			end
-			damageObjective(player, part, power)
+			damageObjective(attackerUserId, part, power)
 		end
 	elseif lock.kind == "ward" and lock.wardId then
-		WardService.applyDamage(player, lock.wardId, power)
+		WardService.applyDamage(playerOf(attackerUserId), lock.wardId, power)
 	end
 end
 
-local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3): AttackLock?
+local function acquireNear(viewerUserId: number, team: Types.TeamId, origin: Vector3): AttackLock?
 	local best: AttackLock? = nil
 	local bestDist = Config.AutoAttack.AcquireRange
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot then
 		return nil
 	end
-	for _, other in Players:GetPlayers() do
-		local otherMatch = snapshot.players[tostring(other.UserId)]
-		local otherRoot = characterRoot(other)
-		local otherState = combat[other.UserId]
-		if otherMatch and otherMatch.team ~= team and otherRoot and otherState and otherState.alive then
+	for _, otherMatch in snapshot.players do
+		local otherRoot = rootOf(otherMatch.userId)
+		local otherState = combat[otherMatch.userId]
+		if otherMatch.team ~= team and otherRoot and otherState and otherState.alive then
 			local d = (otherRoot.Position - origin).Magnitude
-			if d <= bestDist and VisionService.canSeePlayer(player, other) then
-				best = { kind = "player", userId = other.UserId }
+			if d <= bestDist and VisionService.canSeeChampion(viewerUserId, otherMatch.userId) then
+				best = { kind = "player", userId = otherMatch.userId }
 				bestDist = d
 			end
 		end
@@ -819,7 +905,7 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 	for _, minion in MinionService.list() do
 		if minion.team ~= team then
 			local d = (minion.part.Position - origin).Magnitude
-			if d <= bestDist and VisionService.canSeeMinion(player, minion.id) then
+			if d <= bestDist and VisionService.canSeeMinion(viewerUserId, minion.id) then
 				best = { kind = "minion", minionId = minion.id }
 				bestDist = d
 			end
@@ -827,7 +913,7 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 	end
 	for _, monster in JungleService.list() do
 		local d = (monster.part.Position - origin).Magnitude
-		if d <= bestDist and VisionService.canSeeJungle(player, monster.id) then
+		if d <= bestDist and VisionService.canSeeJungle(viewerUserId, monster.id) then
 			best = { kind = "jungle", jungleId = monster.id }
 			bestDist = d
 		end
@@ -855,7 +941,7 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 	for _, ward in WardService.list() do
 		if ward.team ~= team then
 			local d = (ward.part.Position - origin).Magnitude
-			if d <= bestDist and VisionService.canSeeWard(player, ward.id) then
+			if d <= bestDist and VisionService.canSeeWard(viewerUserId, ward.id) then
 				best = { kind = "ward", wardId = ward.id }
 				bestDist = d
 			end
@@ -864,25 +950,25 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 	return best
 end
 
-tickAutoAttack = function(player: Player)
-	local state = combat[player.UserId]
+tickAutoAttack = function(userId: number)
+	local state = combat[userId]
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not state or not state.alive or not snapshot or snapshot.phase ~= "InProgress" then
 		return
 	end
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
-	local root = characterRoot(player)
+	local matchPlayer = snapshot.players[tostring(userId)]
+	local root = rootOf(userId)
 	if not matchPlayer or not root then
 		return
 	end
 
-	local lock = locks[player.UserId]
+	local lock = locks[userId]
 	if lock and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId and not lock.wardId then
-		local acquired = acquireNear(player, matchPlayer.team, root.Position)
+		local acquired = acquireNear(userId, matchPlayer.team, root.Position)
 		if acquired then
 			acquired.moveTo = lock.moveTo
 			lock = acquired
-			locks[player.UserId] = lock
+			locks[userId] = lock
 		end
 	end
 	if not lock then
@@ -890,29 +976,29 @@ tickAutoAttack = function(player: Player)
 	end
 
 	if lock.userId or lock.minionId or lock.objectiveId or lock.jungleId or lock.wardId then
-		if not visibleTo(player, lock) then
+		if not visibleTo(userId, lock) then
 			if lock.moveTo then
-				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
+				locks[userId] = { kind = "player", moveTo = lock.moveTo }
 			else
-				locks[player.UserId] = nil
-				pushCombat(player)
+				locks[userId] = nil
+				pushCombat(userId)
 			end
 			return
 		end
 		local pos = resolveTarget(lock)
 		if not pos then
 			if lock.moveTo then
-				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
+				locks[userId] = { kind = "player", moveTo = lock.moveTo }
 			else
-				locks[player.UserId] = nil
-				pushCombat(player)
+				locks[userId] = nil
+				pushCombat(userId)
 			end
 			return
 		end
 		local dist = (pos - root.Position).Magnitude
 		if dist > Config.AutoAttack.Range then
 			lock.windupEnds = nil
-			walkToward(player, pos)
+			walkToward(userId, pos)
 			return
 		end
 		if lock.kind == "objective" and lock.objectiveId then
@@ -924,7 +1010,7 @@ tickAutoAttack = function(player: Player)
 				return
 			end
 		end
-		local readyAt = nextAA[player.UserId] or 0
+		local readyAt = nextAA[userId] or 0
 		local t = now()
 		if t < readyAt then
 			return
@@ -936,35 +1022,35 @@ tickAutoAttack = function(player: Player)
 		if t < lock.windupEnds then
 			return
 		end
-		if not visibleTo(player, lock) then
+		if not visibleTo(userId, lock) then
 			lock.windupEnds = nil
 			return
 		end
-		strike(player, lock)
+		strike(userId, lock)
 		lock.windupEnds = nil
-		nextAA[player.UserId] = t + Config.AutoAttack.Interval
-		pushCombat(player)
+		nextAA[userId] = t + Config.AutoAttack.Interval
+		pushCombat(userId)
 		return
 	end
 
 	if lock.moveTo then
 		local remaining = lock.moveTo - root.Position
 		if remaining.Magnitude <= 3 then
-			locks[player.UserId] = nil
-			pushCombat(player)
+			locks[userId] = nil
+			pushCombat(userId)
 			return
 		end
-		walkToward(player, lock.moveTo)
+		walkToward(userId, lock.moveTo)
 	end
 end
 
-function CombatService.issueAttack(player: Player, request: unknown): Types.AbilityResult
+function CombatService.issueAttackFor(userId: number, request: unknown): Types.AbilityResult
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return { ok = false, error = "Match is not in progress." }
 	end
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
-	local state = combat[player.UserId]
+	local matchPlayer = snapshot.players[tostring(userId)]
+	local state = combat[userId]
 	if not matchPlayer or not state or not state.alive then
 		return { ok = false, error = "You are down. Wait for respawn." }
 	end
@@ -972,28 +1058,30 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		return { ok = false, error = "Invalid attack." }
 	end
 	local kind = (request :: any).kind
+	local player = playerOf(userId)
 	if kind == "stop" then
-		interruptRecall(player)
-		locks[player.UserId] = nil
-		pushCombat(player)
+		if player then
+			interruptRecall(player)
+		end
+		locks[userId] = nil
+		pushCombat(userId)
 		return { ok = true, combat = state }
 	end
 
 	local lock: AttackLock
 	if kind == "player" then
-		local userId = (request :: any).userId
-		if typeof(userId) ~= "number" then
+		local targetId = (request :: any).userId
+		if typeof(targetId) ~= "number" then
 			return { ok = false, error = "No champion targeted." }
 		end
-		local other = Players:GetPlayerByUserId(userId)
-		local otherMatch = snapshot.players[tostring(userId)]
-		if not other or not otherMatch or otherMatch.team == matchPlayer.team then
+		local otherMatch = snapshot.players[tostring(targetId)]
+		if not otherMatch or otherMatch.team == matchPlayer.team then
 			return { ok = false, error = "Not an enemy champion." }
 		end
-		if not VisionService.canSeePlayer(player, other) then
+		if not VisionService.canSeeChampion(userId, targetId) then
 			return { ok = false, error = "No vision." }
 		end
-		lock = { kind = "player", userId = userId }
+		lock = { kind = "player", userId = targetId }
 	elseif kind == "minion" then
 		local minionId = (request :: any).minionId
 		if typeof(minionId) ~= "string" then
@@ -1003,7 +1091,7 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		if not minion or minion.team == matchPlayer.team then
 			return { ok = false, error = "Not an enemy kitten." }
 		end
-		if not VisionService.canSeeMinion(player, minionId) then
+		if not VisionService.canSeeMinion(userId, minionId) then
 			return { ok = false, error = "No vision." }
 		end
 		lock = { kind = "minion", minionId = minionId }
@@ -1016,7 +1104,7 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		if not monster or monster.health <= 0 then
 			return { ok = false, error = "That camp is gone." }
 		end
-		if not VisionService.canSeeJungle(player, jungleId) then
+		if not VisionService.canSeeJungle(userId, jungleId) then
 			return { ok = false, error = "No vision." }
 		end
 		lock = { kind = "jungle", jungleId = jungleId }
@@ -1046,7 +1134,7 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		if ward.team == matchPlayer.team then
 			return { ok = false, error = "That's your yarn eye." }
 		end
-		if not VisionService.canSeeWard(player, wardId) then
+		if not VisionService.canSeeWard(userId, wardId) then
 			return { ok = false, error = "No vision on that ward." }
 		end
 		lock = { kind = "ward", wardId = wardId }
@@ -1054,11 +1142,17 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		return { ok = false, error = "Unknown attack." }
 	end
 
-	interruptRecall(player)
-	locks[player.UserId] = lock
-	pushCombat(player)
-	tickAutoAttack(player)
+	if player then
+		interruptRecall(player)
+	end
+	locks[userId] = lock
+	pushCombat(userId)
+	tickAutoAttack(userId)
 	return { ok = true, combat = state }
+end
+
+function CombatService.issueAttack(player: Player, request: unknown): Types.AbilityResult
+	return CombatService.issueAttackFor(player.UserId, request)
 end
 
 function CombatService.attackMove(player: Player, position: unknown): Types.AbilityResult
@@ -1082,18 +1176,18 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 	)
 	interruptRecall(player)
 	locks[player.UserId] = { kind = "player", moveTo = dest }
-	pushCombat(player)
-	tickAutoAttack(player)
+	pushCombat(player.UserId)
+	tickAutoAttack(player.UserId)
 	return { ok = true, combat = state }
 end
 
-function CombatService.useAbility(player: Player, request: unknown): Types.AbilityResult
+function CombatService.useAbilityFor(userId: number, request: unknown): Types.AbilityResult
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return { ok = false, error = "Match is not in progress." }
 	end
 
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local matchPlayer = snapshot.players[tostring(userId)]
 	if not matchPlayer or not matchPlayer.championId then
 		return { ok = false, error = "Pick a champion first." }
 	end
@@ -1116,7 +1210,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		return { ok = false, error = "Unknown champion." }
 	end
 	local ability = champ.abilities[slot]
-	local state = combat[player.UserId]
+	local state = combat[userId]
 	if not ability or not state then
 		return { ok = false, error = "Combat state missing." }
 	end
@@ -1139,7 +1233,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		return { ok = false, error = "Not enough mana." }
 	end
 
-	local root = characterRoot(player)
+	local root = rootOf(userId)
 	if not root then
 		return { ok = false, error = "No character." }
 	end
@@ -1162,7 +1256,10 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		return Targeting.hits(mode, origin, dest, position, ability.radius + extra)
 	end
 
-	interruptRecall(player)
+	local player = playerOf(userId)
+	if player then
+		interruptRecall(player)
+	end
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
 	local scale = Progression.rankScale(rank)
@@ -1182,48 +1279,44 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 	end
 
 	if healAmount > 0 then
-		for _, other in Players:GetPlayers() do
-			local otherMatch = snapshot.players[tostring(other.UserId)]
-			local otherRoot = characterRoot(other)
-			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) or other == player then
-					healPlayer(other, healAmount)
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team == matchPlayer.team and otherRoot then
+				if hitsPoint(otherRoot.Position, 0) or otherMatch.userId == userId then
+					healUser(otherMatch.userId, healAmount)
 				end
 			end
 		end
 	end
 
 	if shieldAmount > 0 then
-		for _, other in Players:GetPlayers() do
-			local otherMatch = snapshot.players[tostring(other.UserId)]
-			local otherRoot = characterRoot(other)
-			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) or other == player then
-					shieldPlayer(other, shieldAmount)
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team == matchPlayer.team and otherRoot then
+				if hitsPoint(otherRoot.Position, 0) or otherMatch.userId == userId then
+					shieldUser(otherMatch.userId, shieldAmount)
 				end
 			end
 		end
 	end
 
 	if (ability.stunSeconds or 0) > 0 then
-		for _, other in Players:GetPlayers() do
-			local otherMatch = snapshot.players[tostring(other.UserId)]
-			local otherRoot = characterRoot(other)
-			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team ~= matchPlayer.team and otherRoot then
 				if hitsPoint(otherRoot.Position, 0) then
-					stunPlayer(other, ability.stunSeconds or 0)
+					stunUser(otherMatch.userId, ability.stunSeconds or 0)
 				end
 			end
 		end
 	end
 
 	if power > 0 then
-		for _, other in Players:GetPlayers() do
-			local otherMatch = snapshot.players[tostring(other.UserId)]
-			local otherRoot = characterRoot(other)
-			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team ~= matchPlayer.team and otherRoot then
 				if hitsPoint(otherRoot.Position, 0) then
-					damagePlayer(player, other, power)
+					damageUser(userId, otherMatch.userId, power)
 				end
 			end
 		end
@@ -1233,17 +1326,17 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			if minion.team ~= matchPlayer.team then
 				if hitsPoint(minion.part.Position, Config.Minions.HitRadius) then
 					minionHit = true
-					MinionService.applyDamage(player, minion.id, power)
+					MinionService.applyDamage(userId, minion.id, power)
 				end
 			end
 		end
 		if minionHit then
 			local foeTeam: Types.TeamId = if matchPlayer.team == "Blue" then "Red" else "Blue"
-			TowerService.noteThreat(player, foeTeam)
+			TowerService.noteThreat(userId, foeTeam)
 		end
 		for _, monster in JungleService.list() do
 			if hitsPoint(monster.part.Position, Config.Minions.HitRadius) then
-				JungleService.applyDamage(player, monster.id, power)
+				JungleService.applyDamage(userId, monster.id, power)
 			end
 		end
 		WardService.damageWhere(player, matchPlayer.team, function(position: Vector3)
@@ -1257,9 +1350,9 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 				if child:IsA("BasePart") then
 					local team = child:GetAttribute(Constants.Attributes.Team)
 					if team ~= matchPlayer.team and hitsPoint(child.Position, Config.Combat.StructureTouchRadius) then
-						damageObjective(player, child, power)
+						damageObjective(userId, child, power)
 						if team == "Blue" or team == "Red" then
-							TowerService.noteThreat(player, team)
+							TowerService.noteThreat(userId, team)
 						end
 					end
 				end
@@ -1267,10 +1360,14 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		end
 	end
 
-	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
-	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	state.trinketReadyAt = WardService.trinketReadyAt(userId)
+	state.lensReadyAt = WardService.lensReadyAt(userId)
+	fireCombat(userId)
 	return { ok = true, combat = state }
+end
+
+function CombatService.useAbility(player: Player, request: unknown): Types.AbilityResult
+	return CombatService.useAbilityFor(player.UserId, request)
 end
 
 function CombatService.placeWard(player: Player, position: unknown): Types.AbilityResult

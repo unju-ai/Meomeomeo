@@ -12,9 +12,9 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	spendGold: (player: Player, amount: number) -> boolean,
-	goldOf: (player: Player) -> number,
-	onLoadoutChanged: (player: Player) -> (),
+	spendGold: (userId: number, amount: number) -> boolean,
+	goldOf: (userId: number) -> number,
+	onLoadoutChanged: (userId: number) -> (),
 }
 
 local ShopService = {}
@@ -43,76 +43,91 @@ function ShopService.bonuses(userId: number): Types.ItemBonuses
 	return ItemCatalog.bonuses(listOf(userId))
 end
 
-function ShopService.atFountain(player: Player): boolean
+function ShopService.nearFountain(userId: number, position: Vector3): boolean
 	local snapshot = if api then api.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return false
 	end
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local matchPlayer = snapshot.players[tostring(userId)]
 	if not matchPlayer then
 		return false
 	end
+	local spawn = MapBuilder.getSpawn(matchPlayer.team)
+	return (position - spawn.Position).Magnitude <= Config.Shop.FountainRadius
+end
+
+function ShopService.atFountain(player: Player): boolean
 	local character = player.Character
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if not (root and root:IsA("BasePart")) then
 		return false
 	end
-	local spawn = MapBuilder.getSpawn(matchPlayer.team)
-	return (root.Position - spawn.Position).Magnitude <= Config.Shop.FountainRadius
+	return ShopService.nearFountain(player.UserId, root.Position)
 end
 
 function ShopService.status(player: Player): Types.ShopStatus
 	return {
-		gold = if api then api.goldOf(player) else 0,
+		gold = if api then api.goldOf(player.UserId) else 0,
 		atFountain = ShopService.atFountain(player),
 		owned = ShopService.owned(player.UserId),
 		items = ItemCatalog.all(),
 	}
 end
 
-function ShopService.applyMovement(player: Player)
-	local character = player.Character
-	if not character then
+function ShopService.applyMovementToModel(model: Model?, userId: number)
+	if not model then
 		return
 	end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
-	if player:GetAttribute(Constants.Attributes.Recalling) == true then
+	local player = Players:GetPlayerByUserId(userId)
+	if player and player:GetAttribute(Constants.Attributes.Recalling) == true then
 		humanoid.WalkSpeed = 0
 		humanoid.JumpPower = 0
 		return
 	end
-	humanoid.WalkSpeed = 16 + ShopService.bonuses(player.UserId).walkSpeed
+	humanoid.WalkSpeed = 16 + ShopService.bonuses(userId).walkSpeed
 	if humanoid.JumpPower <= 0 then
 		humanoid.JumpPower = 50
 	end
+end
+
+function ShopService.applyMovement(player: Player)
+	ShopService.applyMovementToModel(player.Character, player.UserId)
+end
+
+function ShopService.grant(userId: number, itemId: string): Types.TradeResult
+	local item = ItemCatalog.get(itemId)
+	if not item then
+		return { ok = false, error = "Unknown item." }
+	end
+	local bag = listOf(userId)
+	if table.find(bag, item.id) then
+		return { ok = false, error = "Already own that." }
+	end
+	if not api or not api.spendGold(userId, item.cost) then
+		return { ok = false, error = "Not enough gold." }
+	end
+	table.insert(bag, item.id)
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		ShopService.applyMovement(player)
+		Remotes.event("ShopUpdated"):FireClient(player, ShopService.status(player))
+	end
+	api.onLoadoutChanged(userId)
+	return { ok = true }
 end
 
 function ShopService.buy(player: Player, itemId: unknown): Types.TradeResult
 	if typeof(itemId) ~= "string" then
 		return { ok = false, error = "Unknown item." }
 	end
-	local item = ItemCatalog.get(itemId)
-	if not item then
-		return { ok = false, error = "Unknown item." }
-	end
 	if not ShopService.atFountain(player) then
 		return { ok = false, error = "Shop at your fountain (or press B there)." }
 	end
-	local bag = listOf(player.UserId)
-	if table.find(bag, item.id) then
-		return { ok = false, error = "Already own that." }
-	end
-	if not api or not api.spendGold(player, item.cost) then
-		return { ok = false, error = "Not enough gold." }
-	end
-	table.insert(bag, item.id)
-	ShopService.applyMovement(player)
-	api.onLoadoutChanged(player)
-	Remotes.event("ShopUpdated"):FireClient(player, ShopService.status(player))
-	return { ok = true }
+	return ShopService.grant(player.UserId, itemId)
 end
 
 function ShopService.clear(userId: number)

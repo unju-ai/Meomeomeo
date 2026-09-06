@@ -13,7 +13,7 @@ local WardService = require(script.Parent.WardService)
 
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	characterRoot: (player: Player) -> BasePart?,
+	rootOf: (userId: number) -> BasePart?,
 }
 
 local VisionService = {}
@@ -32,10 +32,9 @@ local function sources(team: Types.TeamId): { VisionSource }
 	if not snapshot then
 		return points
 	end
-	for _, player in Players:GetPlayers() do
-		local matchPlayer = snapshot.players[tostring(player.UserId)]
-		local root = api.characterRoot(player)
-		if matchPlayer and matchPlayer.team == team and root then
+	for _, matchPlayer in snapshot.players do
+		local root = api.rootOf(matchPlayer.userId)
+		if matchPlayer.team == team and root then
 			table.insert(points, { position = root.Position, kind = "unit" })
 		end
 	end
@@ -72,7 +71,7 @@ local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "m
 	return false
 end
 
-function VisionService.frameFor(player: Player): Types.VisionFrame
+function VisionService.frameForUser(userId: number): Types.VisionFrame
 	local empty: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
 	if not api then
 		return empty
@@ -81,18 +80,17 @@ function VisionService.frameFor(player: Player): Types.VisionFrame
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return empty
 	end
-	local mine = snapshot.players[tostring(player.UserId)]
+	local mine = snapshot.players[tostring(userId)]
 	if not mine then
 		return empty
 	end
 
 	local visiblePlayers = {}
-	for _, other in Players:GetPlayers() do
-		local otherMatch = snapshot.players[tostring(other.UserId)]
-		local root = api.characterRoot(other)
-		if otherMatch and root then
+	for _, otherMatch in snapshot.players do
+		local root = api.rootOf(otherMatch.userId)
+		if root then
 			if otherMatch.team == mine.team or seen(root.Position, mine.team, "champion") then
-				table.insert(visiblePlayers, other.UserId)
+				table.insert(visiblePlayers, otherMatch.userId)
 			end
 		end
 	end
@@ -111,26 +109,34 @@ function VisionService.frameFor(player: Player): Types.VisionFrame
 		end
 	end
 
-	local root = api.characterRoot(player)
+	local root = api.rootOf(userId)
 	local visibleWards = WardService.visibleToTeam(mine.team, if root then root.Position else nil)
 
 	return { players = visiblePlayers, minions = visibleMinions, jungle = visibleJungle, wards = visibleWards }
 end
 
-function VisionService.canSeePlayer(viewer: Player, target: Player): boolean
-	if viewer == target then
+function VisionService.frameFor(player: Player): Types.VisionFrame
+	return VisionService.frameForUser(player.UserId)
+end
+
+function VisionService.canSeeChampion(viewerUserId: number, targetUserId: number): boolean
+	if viewerUserId == targetUserId then
 		return true
 	end
-	for _, userId in VisionService.frameFor(viewer).players do
-		if userId == target.UserId then
+	for _, userId in VisionService.frameForUser(viewerUserId).players do
+		if userId == targetUserId then
 			return true
 		end
 	end
 	return false
 end
 
-function VisionService.canSeeMinion(viewer: Player, minionId: string): boolean
-	for _, id in VisionService.frameFor(viewer).minions do
+function VisionService.canSeePlayer(viewer: Player, target: Player): boolean
+	return VisionService.canSeeChampion(viewer.UserId, target.UserId)
+end
+
+function VisionService.canSeeMinion(viewerUserId: number, minionId: string): boolean
+	for _, id in VisionService.frameForUser(viewerUserId).minions do
 		if id == minionId then
 			return true
 		end
@@ -138,8 +144,8 @@ function VisionService.canSeeMinion(viewer: Player, minionId: string): boolean
 	return false
 end
 
-function VisionService.canSeeJungle(viewer: Player, jungleId: string): boolean
-	for _, id in VisionService.frameFor(viewer).jungle do
+function VisionService.canSeeJungle(viewerUserId: number, jungleId: string): boolean
+	for _, id in VisionService.frameForUser(viewerUserId).jungle do
 		if id == jungleId then
 			return true
 		end
@@ -147,8 +153,8 @@ function VisionService.canSeeJungle(viewer: Player, jungleId: string): boolean
 	return false
 end
 
-function VisionService.canSeeWard(viewer: Player, wardId: string): boolean
-	for _, id in VisionService.frameFor(viewer).wards do
+function VisionService.canSeeWard(viewerUserId: number, wardId: string): boolean
+	for _, id in VisionService.frameForUser(viewerUserId).wards do
 		if id == wardId then
 			return true
 		end

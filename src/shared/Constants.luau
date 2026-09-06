@@ -29,6 +29,7 @@ local Constants = {
 		JungleId = "MeoJungleId",
 		WardId = "MeoWardId",
 		Recalling = "MeoRecalling",
+		UserId = "MeoUserId",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },

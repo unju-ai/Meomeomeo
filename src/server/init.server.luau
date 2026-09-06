@@ -60,6 +60,7 @@ local function withQueue(snapshot: Types.MatchSnapshot?): Types.MatchSnapshot?
 		endedAt = nil,
 		winner = nil,
 		mvpUserId = nil,
+		botDifficulty = nil,
 		players = {},
 		objectives = MapBuilder.objectiveStates(),
 		queueCount = MatchmakingService.queueCount(),
@@ -76,8 +77,8 @@ Remotes.function_("LeaveQueue").OnServerInvoke = function(player: Player)
 	return MatchmakingService.leave(player)
 end
 
-Remotes.function_("StartPractice").OnServerInvoke = function(player: Player)
-	return MatchmakingService.practice(player)
+Remotes.function_("StartPractice").OnServerInvoke = function(player: Player, difficulty: unknown)
+	return MatchmakingService.practice(player, difficulty)
 end
 
 Remotes.function_("SelectChampion").OnServerInvoke = function(player: Player, championId: unknown)

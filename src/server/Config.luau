@@ -108,6 +108,28 @@ local Config = {
 		FountainRadius = 32,
 	},
 
+	-- Practice / underfilled-queue AI. Finite state machine, not ML.
+	Bots = {
+		PracticeEnemies = 3,
+		PracticeAllies = 0,
+		QueueFillTo = 3,
+		DefaultDifficulty = "Normal" :: "Easy" | "Normal",
+		Pool = { "NyanRocket", "Bytekit", "Shadowpounce", "ChonkKnight", "SirScratchalot", "Chromeclaw" },
+		ShopItems = { "Longclaw", "Yarnplate" },
+		Easy = {
+			ThinkInterval = 0.55,
+			RetreatHp = 0.42,
+			AbilityChance = 0.45,
+			ExtraAaDelay = 0.25,
+		},
+		Normal = {
+			ThinkInterval = 0.28,
+			RetreatHp = 0.28,
+			AbilityChance = 0.85,
+			ExtraAaDelay = 0,
+		},
+	},
+
 	Voice = {
 		-- Team = only teammates hear you (Audio API access lists).
 		-- Proximity = default Roblox spatial voice.

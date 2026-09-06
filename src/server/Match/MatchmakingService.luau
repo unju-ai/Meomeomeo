@@ -9,6 +9,14 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local MatchmakingService = {}
 
 local queue: { Player } = {}
+local lastDifficulty: Types.BotDifficulty = Config.Bots.DefaultDifficulty
+
+local function parseDifficulty(value: unknown): Types.BotDifficulty
+	if value == "Easy" then
+		return "Easy"
+	end
+	return "Normal"
+end
 
 local function queued(player: Player): boolean
 	return table.find(queue, player) ~= nil
@@ -75,7 +83,7 @@ function MatchmakingService.leave(player: Player): Types.TradeResult
 	return { ok = true }
 end
 
-function MatchmakingService.practice(player: Player): Types.TradeResult
+function MatchmakingService.practice(player: Player, difficulty: unknown): Types.TradeResult
 	if not Config.Match.PracticeEnabled then
 		return { ok = false, error = "Practice is disabled." }
 	end
@@ -83,7 +91,8 @@ function MatchmakingService.practice(player: Player): Types.TradeResult
 		return { ok = false, error = "A match is already running." }
 	end
 	remove(player)
-	local ok, err = MatchService.start({ player }, true)
+	lastDifficulty = parseDifficulty(difficulty)
+	local ok, err = MatchService.start({ player }, true, lastDifficulty)
 	if not ok then
 		return { ok = false, error = err }
 	end
@@ -108,7 +117,7 @@ function MatchmakingService.playAgain(player: Player): Types.TradeResult
 	if MatchService.isEnded() then
 		MatchService.returnToLobby(false)
 	end
-	return MatchmakingService.practice(player)
+	return MatchmakingService.practice(player, lastDifficulty)
 end
 
 function MatchmakingService.init()

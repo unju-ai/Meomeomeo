@@ -15,13 +15,17 @@ export type EndApi = {
 }
 
 local function champName(matchPlayer: Types.MatchPlayer): string
+	local name = matchPlayer.displayName
 	if matchPlayer.championId then
 		local champ = ChampionCatalog.get(matchPlayer.championId)
 		if champ then
-			return champ.name
+			name = champ.name
 		end
 	end
-	return matchPlayer.displayName
+	if matchPlayer.isBot and not string.find(name, "%(Bot%)") then
+		name = `{name} (Bot)`
+	end
+	return name
 end
 
 function EndScreen.create(parent: Instance): EndApi
