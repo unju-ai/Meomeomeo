@@ -325,6 +325,16 @@ function CombatService.resetBot(userId: number, championId: string)
 	resetFor(userId, championId)
 end
 
+local outgoingAmp: { [number]: number } = {}
+
+function CombatService.setOutgoingAmp(userId: number, amp: number)
+	outgoingAmp[userId] = amp
+end
+
+function CombatService.getOutgoingAmp(userId: number): number
+	return outgoingAmp[userId] or 1
+end
+
 function CombatService.reapplyItemsFor(userId: number)
 	local state = combat[userId]
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
@@ -384,6 +394,7 @@ function CombatService.clear(userId: number)
 	recentHits[userId] = nil
 	recallOrigin[userId] = nil
 	boundModels[userId] = nil
+	outgoingAmp[userId] = nil
 	deathToken[userId] = (deathToken[userId] or 0) + 1
 	recallToken[userId] = (recallToken[userId] or 0) + 1
 	local player = playerOf(userId)
@@ -404,6 +415,7 @@ function CombatService.clearAll()
 	table.clear(recallToken)
 	table.clear(recallOrigin)
 	table.clear(boundModels)
+	table.clear(outgoingAmp)
 end
 
 function CombatService.init(api: MatchApi)
@@ -752,7 +764,8 @@ end
 
 local function aaDamage(userId: number): number
 	local state = combat[userId]
-	return Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
+	local base = Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
+	return base * (outgoingAmp[userId] or 1)
 end
 
 local function pushCombat(userId: number)
@@ -1266,7 +1279,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	local ap = state.abilityPower or 0
 	local power = 0
 	if ability.damage > 0 then
-		power = ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35
+		power = (ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35) * (outgoingAmp[userId] or 1)
 	end
 	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
 	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0

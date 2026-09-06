@@ -4,13 +4,32 @@ local Workspace = game:GetService("Workspace")
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
+local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
+local WardService = require(script.Parent.WardService)
+
+type Tune = {
+	ThinkInterval: number,
+	RetreatHp: number,
+	AbilityChance: number,
+	ExtraAaDelay: number,
+	DamageAmp: number,
+	LastHit: boolean,
+	LastHitMul: number,
+	LeadShots: boolean,
+	SkillshotSpeed: number,
+	Jungle: boolean,
+	Ward: boolean,
+	ShopItems: { string },
+}
 
 type BotBrain = {
 	userId: number,
@@ -19,6 +38,8 @@ type BotBrain = {
 	bought: number,
 	nextThink: number,
 	nextAbility: number,
+	jungler: boolean,
+	warded: boolean,
 }
 
 local BotService = {}
@@ -121,8 +142,13 @@ local function makeBotModel(matchPlayer: Types.MatchPlayer): Model
 	return model
 end
 
-local function tunables(difficulty: Types.BotDifficulty): { ThinkInterval: number, RetreatHp: number, AbilityChance: number, ExtraAaDelay: number }
-	return if difficulty == "Easy" then Config.Bots.Easy else Config.Bots.Normal
+local function tunables(difficulty: Types.BotDifficulty): Tune
+	if difficulty == "Easy" then
+		return Config.Bots.Easy
+	elseif difficulty == "Hard" then
+		return Config.Bots.Hard
+	end
+	return Config.Bots.Normal
 end
 
 local currentDifficulty: Types.BotDifficulty = "Normal"
@@ -188,21 +214,55 @@ local function waveFollow(team: Types.TeamId, lane: string): Vector3?
 end
 
 type Hunt = {
-	kind: "player" | "minion" | "objective",
+	kind: "player" | "minion" | "objective" | "jungle",
 	userId: number?,
 	minionId: string?,
 	objectiveId: string?,
+	jungleId: string?,
 	position: Vector3,
 	isChampion: boolean,
+	health: number?,
 }
 
-local function nearestHunt(team: Types.TeamId, origin: Vector3): Hunt?
+local lastSeen: { [number]: { pos: Vector3, t: number } } = {}
+
+local function recordSeen(userId: number, position: Vector3)
+	lastSeen[userId] = { pos = position, t = os.clock() }
+end
+
+local function leadAim(tune: Tune, targetUserId: number?, targetPos: Vector3, origin: Vector3): Vector3
+	if not tune.LeadShots or not targetUserId then
+		return targetPos
+	end
+	local sample = lastSeen[targetUserId]
+	local now = os.clock()
+	local vel = Vector3.zero
+	if sample then
+		local dt = now - sample.t
+		if dt > 0.04 and dt < 0.9 then
+			local raw = (targetPos - sample.pos) / dt
+			vel = Vector3.new(raw.X, 0, raw.Z)
+		end
+	end
+	recordSeen(targetUserId, targetPos)
+	local dist = (targetPos - origin).Magnitude
+	local travel = math.clamp(dist / math.max(tune.SkillshotSpeed, 20), 0, 0.55)
+	return targetPos + vel * travel
+end
+
+local function aaGuess(userId: number): number
+	local state = CombatService.get(userId)
+	local base = Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
+	return base * CombatService.getOutgoingAmp(userId)
+end
+
+local function nearestChampion(team: Types.TeamId, origin: Vector3, radius: number): Hunt?
 	local snapshot = matchSnapshot()
 	if not snapshot then
 		return nil
 	end
 	local best: Hunt? = nil
-	local bestDist = 48
+	local bestDist = radius
 	for _, other in snapshot.players do
 		if other.team ~= team then
 			local combat = CombatService.get(other.userId)
@@ -212,16 +272,57 @@ local function nearestHunt(team: Types.TeamId, origin: Vector3): Hunt?
 				if d <= bestDist then
 					bestDist = d
 					best = { kind = "player", userId = other.userId, position = root.Position, isChampion = true }
+					recordSeen(other.userId, root.Position)
 				end
 			end
 		end
 	end
+	return best
+end
+
+local function lastHitMinion(team: Types.TeamId, origin: Vector3, userId: number, tune: Tune): Hunt?
+	local threshold = aaGuess(userId) * tune.LastHitMul
+	local best: Hunt? = nil
+	local bestHp = 1e9
 	for _, minion in MinionService.list() do
 		if minion.team ~= team then
 			local d = (minion.part.Position - origin).Magnitude
-			if d <= bestDist then
-				bestDist = d
-				best = { kind = "minion", minionId = minion.id, position = minion.part.Position, isChampion = false }
+			if d <= 42 and minion.health <= threshold and minion.health < bestHp then
+				bestHp = minion.health
+				best = {
+					kind = "minion",
+					minionId = minion.id,
+					position = minion.part.Position,
+					isChampion = false,
+					health = minion.health,
+				}
+			end
+		end
+	end
+	return best
+end
+
+local function nearestHunt(team: Types.TeamId, origin: Vector3, userId: number, tune: Tune): Hunt?
+	local champ = nearestChampion(team, origin, Config.AutoAttack.AcquireRange + 8)
+	if champ then
+		return champ
+	end
+	if tune.LastHit then
+		local ripe = lastHitMinion(team, origin, userId, tune)
+		if ripe then
+			return ripe
+		end
+	end
+	local best: Hunt? = nil
+	local bestDist = if tune.LastHit then 28 else 48
+	if not tune.LastHit then
+		for _, minion in MinionService.list() do
+			if minion.team ~= team then
+				local d = (minion.part.Position - origin).Magnitude
+				if d <= bestDist then
+					bestDist = d
+					best = { kind = "minion", minionId = minion.id, position = minion.part.Position, isChampion = false }
+				end
 			end
 		end
 	end
@@ -242,6 +343,39 @@ local function nearestHunt(team: Types.TeamId, origin: Vector3): Hunt?
 						end
 					end
 				end
+			end
+		end
+	end
+	return best
+end
+
+local function lanePushed(team: Types.TeamId, lane: string): boolean
+	local follow = waveFollow(team, lane)
+	if not follow then
+		return false
+	end
+	if team == "Blue" then
+		return follow.X > 18
+	end
+	return follow.X < -18
+end
+
+local function nearbyCamp(team: Types.TeamId, origin: Vector3): Hunt?
+	local best: Hunt? = nil
+	local bestDist = 92
+	for _, monster in JungleService.list() do
+		local sameSide = (team == "Blue" and monster.spawn.X <= 24) or (team == "Red" and monster.spawn.X >= -24)
+		if sameSide then
+			local d = (monster.part.Position - origin).Magnitude
+			if d <= bestDist then
+				bestDist = d
+				best = {
+					kind = "jungle",
+					jungleId = monster.id,
+					position = monster.part.Position,
+					isChampion = false,
+					health = monster.health,
+				}
 			end
 		end
 	end
@@ -275,9 +409,10 @@ local function think(brain: BotBrain, dt: number)
 		return
 	end
 
-	if atFountain and brain.visitedLane and brain.bought < #Config.Bots.ShopItems then
-		local nextItem = Config.Bots.ShopItems[brain.bought + 1]
-		if nextItem and matchPlayer.gold >= 200 then
+	if atFountain and brain.visitedLane and brain.bought < #tune.ShopItems then
+		local nextItem = tune.ShopItems[brain.bought + 1]
+		local def = if nextItem then ItemCatalog.get(nextItem) else nil
+		if nextItem and def and matchPlayer.gold >= def.cost then
 			local result = ShopService.grant(brain.userId, nextItem)
 			if result.ok then
 				brain.bought += 1
@@ -288,7 +423,34 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
-	local hunt = nearestHunt(team, root.Position)
+	if tune.Ward and brain.jungler and not brain.warded and brain.visitedLane then
+		local started = snapshot.startedAt
+		local early = typeof(started) == "number" and (now - started) <= 80
+		if early and now >= WardService.trinketReadyAt(brain.userId) then
+			local towardRiver = Vector3.new(if team == "Blue" then 18 else -18, 0, 0)
+			local dest = root.Position + towardRiver
+			local placed = WardService.placeTrinketFor(brain.userId, team, dest, root)
+			if placed.ok then
+				brain.warded = true
+			end
+		end
+	end
+
+	local threat = nearestChampion(team, root.Position, Config.AutoAttack.AcquireRange + 8)
+	if not threat and tune.Jungle and brain.jungler and lanePushed(team, brain.lane) then
+		local camp = nearbyCamp(team, root.Position)
+		if camp then
+			local dist = (camp.position - root.Position).Magnitude
+			if dist > Config.AutoAttack.Range then
+				stepToward(brain.userId, camp.position, dt)
+			else
+				CombatService.issueAttackFor(brain.userId, { kind = "jungle", jungleId = camp.jungleId })
+			end
+			return
+		end
+	end
+
+	local hunt = nearestHunt(team, root.Position, brain.userId, tune)
 	if hunt then
 		local dist = (hunt.position - root.Position).Magnitude
 		if dist > Config.AutoAttack.Range then
@@ -298,6 +460,8 @@ local function think(brain: BotBrain, dt: number)
 				CombatService.issueAttackFor(brain.userId, { kind = "player", userId = hunt.userId })
 			elseif hunt.kind == "minion" then
 				CombatService.issueAttackFor(brain.userId, { kind = "minion", minionId = hunt.minionId })
+			elseif hunt.kind == "jungle" then
+				CombatService.issueAttackFor(brain.userId, { kind = "jungle", jungleId = hunt.jungleId })
 			else
 				CombatService.issueAttackFor(brain.userId, { kind = "objective", objectiveId = hunt.objectiveId })
 			end
@@ -311,7 +475,11 @@ local function think(brain: BotBrain, dt: number)
 					local rank = if combat.ranks then combat.ranks[slot] else 0
 					if ability and (rank or 0) > 0 and combat.cooldowns[slot] <= now and combat.mana >= ability.manaCost then
 						if dist <= ability.range + 8 then
-							CombatService.useAbilityFor(brain.userId, { slot = slot, aimPosition = hunt.position })
+							local aim = hunt.position
+							if Targeting.of(ability) == "line" then
+								aim = leadAim(tune, hunt.userId, hunt.position, root.Position)
+							end
+							CombatService.useAbilityFor(brain.userId, { slot = slot, aimPosition = aim })
 							brain.nextAbility = now + 0.8 + tune.ExtraAaDelay
 							break
 						end
@@ -342,6 +510,7 @@ function BotService.stop()
 		end
 	end
 	table.clear(brains)
+	table.clear(lastSeen)
 	local map = Workspace:FindFirstChild(Constants.MapFolderName)
 	local folder = if map then map:FindFirstChild("Bots") else nil
 	if folder then
@@ -359,6 +528,8 @@ function BotService.start()
 
 	local lanes = Constants.Lanes
 	local laneIndex: { [string]: number } = { Blue = 0, Red = 0 }
+	local junglerAssigned: { [string]: boolean } = {}
+	local tune = tunables(currentDifficulty)
 
 	for _, matchPlayer in snapshot.players do
 		if matchPlayer.isBot and matchPlayer.championId then
@@ -367,11 +538,16 @@ function BotService.start()
 			local model = makeBotModel(matchPlayer)
 			CombatService.bindCharacter(matchPlayer.userId, model)
 			CombatService.resetBot(matchPlayer.userId, matchPlayer.championId)
+			CombatService.setOutgoingAmp(matchPlayer.userId, tune.DamageAmp)
 			local spawn = MapBuilder.getSpawn(matchPlayer.team)
 			local offsetZ = assignedZ(lane) * 0.12
 			pcall(function()
 				model:PivotTo(spawn.CFrame + Vector3.new(0, 4, offsetZ))
 			end)
+			local jungler = tune.Jungle and lane == "Mid" and not junglerAssigned[matchPlayer.team]
+			if jungler then
+				junglerAssigned[matchPlayer.team] = true
+			end
 			brains[matchPlayer.userId] = {
 				userId = matchPlayer.userId,
 				lane = lane,
@@ -379,6 +555,8 @@ function BotService.start()
 				bought = 0,
 				nextThink = 0,
 				nextAbility = 0,
+				jungler = jungler,
+				warded = false,
 			}
 		end
 	end
@@ -406,7 +584,7 @@ function BotService.start()
 						if root and combat and combat.alive then
 							local matchPlayer = snapshotNow.players[tostring(brain.userId)]
 							if matchPlayer then
-								local hunt = nearestHunt(matchPlayer.team, root.Position)
+								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, tunables(currentDifficulty))
 								if hunt and (hunt.position - root.Position).Magnitude > Config.AutoAttack.Range then
 									stepToward(brain.userId, hunt.position, dt)
 								elseif not hunt then

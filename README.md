@@ -58,7 +58,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 ### Playtest tips
 
-- **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal**. Attack bots, towers, then the nexus.
+- **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire. Instant/self and ground AoEs still fire on press.
@@ -82,7 +82,7 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
-- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). A small FSM lanes with the wave, auto-attacks the nearest valid target, casts a ready ability when an enemy is in range, retreats to fountain on low HP, and buys Longclaw / Yarnplate after visiting lane. Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). Easy bots think slower, retreat earlier, and cast less. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on. Practice is always **in-place** (never teleports).
+- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). **Easy** thinks slowly, retreats early (~42% HP), AAs anything, no skillshot lead, buys Longclaw + Yarnplate, 0.88× damage. **Normal** last-hits low-HP minions, leads line shots, mid can take a nearby camp when the wave is pushed, buys four Pawmart items. **Hard** thinks faster, retreats later (~16% HP), 1.22× damage, tighter CS, better lead, fuller build (incl. Whisker Lens), and drops one early trinket ward. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on (uses the last practice difficulty). Practice is always **in-place** (never teleports).
 - **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
@@ -338,7 +338,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Smarter bots: jungle path, ward/lens use, skillshot leading, last-hit CS, tower dive rules, Hard difficulty.
+1. Smarter bots: Hard CS/lead/jungle/ward is in. Next: tower dive rules, lens use, jungle path between camps, skillshot dodge.
 2. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
