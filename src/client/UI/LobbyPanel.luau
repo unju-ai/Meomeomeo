@@ -16,6 +16,7 @@ export type LobbyApi = {
 	onPractice: ((difficulty: Types.BotDifficulty) -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onInvite: (() -> ()) -> (),
+	onShowTips: (() -> ()) -> (),
 	difficulty: () -> Types.BotDifficulty,
 }
 
@@ -32,8 +33,14 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	Theme.pad(root, 22)
 
 	local title = Theme.text(root, "Title", "MEO MEO MEO", 36, Theme.amber, Theme.fontTitle)
-	title.Size = UDim2.new(1, 0, 0, 40)
+	title.Size = UDim2.new(1, -120, 0, 40)
 	title.TextXAlignment = Enum.TextXAlignment.Center
+
+	local tipsBtn = Theme.button(root, "ShowTips", "Show tips", Theme.cream)
+	tipsBtn.AnchorPoint = Vector2.new(1, 0)
+	tipsBtn.Position = UDim2.new(1, 0, 0, 4)
+	tipsBtn.Size = UDim2.fromOffset(112, 32)
+	tipsBtn.TextSize = 14
 
 	local subtitle = Theme.text(root, "Sub", "A cat MOBA. Lanes, nexuses, voice, chaos.", 16, Theme.cream, Theme.fontBody)
 	subtitle.Position = UDim2.fromOffset(0, 44)
@@ -106,6 +113,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local practiceHandler: ((Types.BotDifficulty) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local inviteHandler: (() -> ())? = nil
+	local tipsHandler: (() -> ())? = nil
 
 	local function paintDifficulty()
 		easyBtn.BackgroundColor3 = if difficulty == "Easy" then Theme.mint else Theme.peach
@@ -197,6 +205,11 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 			mintHandler()
 		end
 	end)
+	tipsBtn.MouseButton1Click:Connect(function()
+		if tipsHandler then
+			tipsHandler()
+		end
+	end)
 
 	return {
 		root = root,
@@ -234,6 +247,9 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onInvite = function(fn)
 			inviteHandler = fn
+		end,
+		onShowTips = function(fn)
+			tipsHandler = fn
 		end,
 		difficulty = function()
 			return difficulty

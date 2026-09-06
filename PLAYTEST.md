@@ -1,14 +1,14 @@
 # Playtest Meo Meo Meo
 
-Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–18). In Play, press **?** or hold **H** for the same keybinds.
+Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–19). In Play, press **?** or hold **H** for the same keybinds.
 
 Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
-## 0. What you have after PRs 1–18
+## 0. What you have after PRs 1–19
 
 Playable scaffold: lobby → practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → lobby.
 
-Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, **map art pass** (night-market lighting, readable lanes, fountain kits, jungle pedestals).
+Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
@@ -58,7 +58,7 @@ rojo serve
 
 ## 3. First session — Practice (solo)
 
-1. Lobby → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**.
+1. Lobby → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**. After lock-in, a cream/coral **tip card** (top-left) walks move/AA/QWER/shop/recall/ward/Tab/nexus. **Next** or **Skip all**. Combat still works — the card is not a modal. Lobby **Show tips** replays anytime. Skip/finish persists (`MeoTutorial_v1` DataStore, memory fallback in Studio).
    - **Easy** — slow, panicky, sloppy CS, two items, 0.88× damage. No dodge; will not dive towers.
    - **Normal** — last-hits, leads and sidesteps skillshots, dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early ward, kill-dives, uses Whisker Lens on revealed enemy wards.
@@ -170,6 +170,7 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 - Bots look like the same box: Rojo-sync `Shared.ChampionLooks` + `Server.World.ChampionAppearance`, then start a new Practice.
 - No cast/hit VFX: Rojo-sync so `MeoRemotes.CombatFx` exists, then start a new Practice (FX are server-confirmed, not the hold-to-aim indicator).
 - Map still looks like a green slab: Rojo-sync `Server.World.MapBuilder` and replay Practice (lighting is applied on `MapBuilder.build`).
+- No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
 
 ## 10. Still stubbed (do not expect)
 

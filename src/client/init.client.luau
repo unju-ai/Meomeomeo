@@ -34,6 +34,11 @@ end)
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
+local tutorialDone = player:GetAttribute(Constants.Attributes.TutorialDone) == true
+
+local function tutorialIsDone(): boolean
+	return tutorialDone or player:GetAttribute(Constants.Attributes.TutorialDone) == true
+end
 
 local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
 local armedSlot: Types.AbilitySlot? = nil
@@ -74,6 +79,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
 	hud.applyPhase(latestMatch, player.UserId)
+	hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
 	refreshBars()
 	if latestMatch.phase == "InProgress" then
 		hud.minimap.update(latestMatch, lastVision, player.UserId)
@@ -168,6 +174,21 @@ hud.lobby.onPractice(function(difficulty)
 	if result and result.ok == false then
 		toast(result.error or "Practice failed")
 	end
+end)
+
+hud.lobby.onShowTips(function()
+	hud.tips.replay()
+end)
+
+hud.tips.onDismissed(function(permanent: boolean)
+	if not permanent then
+		return
+	end
+	tutorialDone = true
+	player:SetAttribute(Constants.Attributes.TutorialDone, true)
+	task.spawn(function()
+		Remotes.function_("SetTutorialDone"):InvokeServer()
+	end)
 end)
 
 hud.endScreen.onLobby(function()
@@ -330,6 +351,9 @@ Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
 		end
 		if feed.kind == "tower" then
 			ScreenJuice.shakeTower()
+			if latestMatch and latestMatch.practice then
+				hud.tips.notifyTower()
+			end
 		elseif feed.kind == "nexus" then
 			ScreenJuice.shakeNexus()
 		end
@@ -813,6 +837,11 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 task.spawn(function()
+	local tutorial = Remotes.function_("GetTutorialStatus"):InvokeServer()
+	if typeof(tutorial) == "table" and (tutorial :: any).done == true then
+		tutorialDone = true
+		player:SetAttribute(Constants.Attributes.TutorialDone, true)
+	end
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 	local voice = Remotes.function_("GetVoiceStatus"):InvokeServer()
 	if typeof(voice) == "table" then
@@ -842,6 +871,22 @@ task.spawn(function()
 			refreshBars()
 			applyVision()
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
+			if latestMatch.practice then
+				local mine = latestMatch.players[tostring(player.UserId)]
+				local character = player.Character
+				local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+				local atFountain = false
+				if mine and root and root:IsA("BasePart") then
+					local map = Workspace:FindFirstChild(Constants.MapFolderName)
+					local spawns = if map then map:FindFirstChild("Spawns") else nil
+					local spawnName = if mine.team == "Red" then "RedFountain" else "BlueFountain"
+					local spawn = if spawns then spawns:FindFirstChild(spawnName) else nil
+					if spawn and spawn:IsA("BasePart") then
+						atFountain = (root.Position - spawn.Position).Magnitude <= 32
+					end
+				end
+				hud.tips.tickContextual(atFountain, if mine then mine.gold else 0, hud.shop.root.Visible)
+			end
 			if armedSlot then
 				local ability = currentAbility(armedSlot)
 				local character = player.Character

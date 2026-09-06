@@ -26,7 +26,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, **?** / hold **H** help
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
 - Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
@@ -71,9 +71,9 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - **SFX** (top-right, under voice) — master volume and mute. Sounds are placeholders (`rbxasset://sounds/…`); swap ids in `src/client/Audio/SoundIds.luau`.
-- **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md).
+- **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm your cat and the three Red **(Bot)** cats have different silhouettes + nameplates → walk a gold-dotted lane (night-market lighting, camp pedestals in the jungle) and fight a bot + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
+- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release to fire → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -367,6 +367,7 @@ src/server/
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
+  Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
 src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
