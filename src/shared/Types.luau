@@ -267,11 +267,15 @@ export type Entitlement = {
 	claimError: string?,
 }
 
+export type PersistMode = "DataStore" | "Memory"
+
 export type MintStatus = {
 	wallet: string?,
 	productId: number,
 	productName: string,
 	studioMock: boolean,
+	persistMode: PersistMode,
+	persistNote: string,
 	entitlements: { Entitlement },
 	disclaimer: string,
 }

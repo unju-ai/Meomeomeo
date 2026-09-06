@@ -171,8 +171,9 @@ local Config = {
 		CheerBump = 0.08,
 	},
 
-	-- Meo404: Robux Developer Product → entitlement → hosted mint.
+	-- Meo404: Robux Developer Product → DataStore entitlement → hosted mint.
 	-- This is not a Robux-to-crypto swap. See README "Meo404 / Robux caveat".
+	-- ClaimApiSecret is a shared Bearer token, NEVER a chain private key.
 	Nft404 = {
 		ProductName = "Mint Meo 404",
 		-- Creator Dashboard → Monetization → Developer Products. 0 = unset.
