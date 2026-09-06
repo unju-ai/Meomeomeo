@@ -11,6 +11,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
+local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
@@ -129,23 +130,8 @@ local function makeBotModel(matchPlayer: Types.MatchPlayer): Model
 		model:SetAttribute(Constants.Attributes.ChampionId, matchPlayer.championId)
 	end
 
-	local bb = Instance.new("BillboardGui")
-	bb.Name = "BotName"
-	bb.Size = UDim2.fromOffset(160, 22)
-	bb.StudsOffset = Vector3.new(0, 3.2, 0)
-	bb.AlwaysOnTop = true
-	bb.Parent = root
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Enum.Font.FredokaOne
-	label.TextSize = 14
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.4
-	label.Text = matchPlayer.displayName
-	label.Parent = bb
-
 	model.Parent = botsFolder()
+	ChampionAppearance.applyMatchPlayer(model, matchPlayer)
 	return model
 end
 

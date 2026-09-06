@@ -11,6 +11,7 @@ local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
 local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
@@ -326,6 +327,14 @@ local function resetFor(userId: number, championId: string)
 	local model = modelOf(userId)
 	if model then
 		model:SetAttribute(Constants.Attributes.ChampionId, champ.id)
+		local snapshot = if matchApi then matchApi.getSnapshot() else nil
+		local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
+		ChampionAppearance.apply(model, {
+			championId = champ.id,
+			team = if matchPlayer then matchPlayer.team else "Blue",
+			displayName = if matchPlayer then matchPlayer.displayName else champ.name,
+			isBot = if matchPlayer then matchPlayer.isBot else userId < 0,
+		})
 	end
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)
@@ -442,7 +451,7 @@ function CombatService.init(api: MatchApi)
 	end)
 
 	local function hookCharacter(player: Player)
-		player.CharacterAdded:Connect(function()
+		player.CharacterAdded:Connect(function(character)
 			task.defer(function()
 				local snapshot = if matchApi then matchApi.getSnapshot() else nil
 				if not snapshot or snapshot.phase ~= "InProgress" then
@@ -450,6 +459,7 @@ function CombatService.init(api: MatchApi)
 				end
 				local matchPlayer = snapshot.players[tostring(player.UserId)]
 				if matchPlayer and matchPlayer.championId then
+					ChampionAppearance.applyMatchPlayer(character, matchPlayer)
 					local existing = combat[player.UserId]
 					if existing and not existing.alive then
 						applyHumanoid(player.UserId, existing)

@@ -17,7 +17,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Rojo-ready `src/` layout that syncs into Roblox Studio
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
-- Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs
+- Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain, **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
@@ -72,7 +72,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **SFX** (top-right, under voice) — master volume and mute. Sounds are placeholders (`rbxasset://sounds/…`); swap ids in `src/client/Audio/SoundIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → walk a lane and fight the Red **(Bot)** cat + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
+- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm your cat and the three Red **(Bot)** cats have different silhouettes + nameplates → walk a lane and fight a bot + wave → hold **Q** to see the line indicator, release to fire → press **4** to drop a trinket → **B** at fountain, buy **Whisker Lens**, press **5** if you spot an enemy ward → press **F** to test recall → Tab score (bots tagged) → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -84,7 +84,7 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
 - **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). **Easy** thinks slowly, retreats early (~42% HP), AAs anything, no lead/dodge/dive IQ, buys Longclaw + Yarnplate, 0.88× damage, and will not walk under enemy towers. **Normal** last-hits, leads line shots, sidesteps incoming line/ground casts, dives only with a crashing wave or a short low-HP chase, mid can take a nearby camp. **Hard** is faster, 1.22× damage, tighter CS, fuller build (incl. Whisker Lens), one early ward, dives to finish a kill, and uses lens when an enemy ward is revealed nearby. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on (uses the last practice difficulty). Practice is always **in-place** (never teleports).
 - **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
-- **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
+- **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls. Locked cats get a **readable silhouette** (see below).
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
 - **Combat:** `CombatService` applies heals, **direction dashes** (clamped to range), **line skillshots**, and ground AoE. `Shared.Targeting` picks the mode. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions/wards and respect nexus gating + vision.
@@ -311,6 +311,25 @@ Cues live in `src/client/Audio/SoundIds.luau`. Defaults are Roblox engine builti
 
 Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, `LEVEL n!` pop, `CameraFollow.shake` on tower/nexus.
 
+## Champion looks (placeholders)
+
+Each locked cat gets a **distinct silhouette** built from engine `Part`s — body tint, ears, tail, team collar, plus archetype flair (antenna / visor / hat / hood / cape / blades / aura). No mesh binaries in git.
+
+| File | Role |
+| --- | --- |
+| `src/shared/ChampionLooks.luau` | Colors, materials, flair flags per champion id |
+| `src/server/World/ChampionAppearance.luau` | Welds extras onto the character / bot dummy; nameplate; idle ear/tail twitch |
+
+Rules the builder keeps:
+
+- **`HumanoidRootPart` stays the primary combat box.** Bots keep the existing `2 × 2 × 1` root (it goes transparent; the torso/head/flair are visual only). Player avatars are not resized.
+- Extra parts are `Massless`, `CanCollide = false`, parented under a `MeoAppearance` folder.
+- Nameplates are a `BillboardGui`: champion name + role; bots keep `(Bot)`. Role text uses the team color.
+- Minimap pips stay **team colors** (local cream / Blue / Red). Champ body tints do not recode the map.
+- A light team wash (~18%) tints the body so sides stay readable while champs stay distinct.
+
+**Swap for real meshes later:** upload a cat mesh or accessories to the Creator Store, then replace the Part recipes inside `ChampionAppearance` (or hang `SpecialMesh` / `MeshPart` instances with `rbxassetid://` on the same welds). Keep `HumanoidRootPart` as `PrimaryPart` and do not grow it to match a fancy mesh — combat range, dash `PivotTo`, and recall all use that box. Nameplates can stay on the root. Draft card swatches read `ChampionLooks` and do not need the 3D mesh.
+
 ## Meme stocks (side system)
 
 `src/server/Economy/MemeStockService.luau` keeps server-authored champion tickers and a **yarn** wallet. Prices wander; kills bump the killer’s cat. The top HUD tape is cosmetic for now (`CheerTicker` remote exists for later shop/wager UI). Turn it off with `Config.Economy.Enabled = false`.
@@ -319,13 +338,13 @@ Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint hea
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, champion catalog, item catalog, progression, targeting
+src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
   Match/             Matchmaking, reserved-server teleport, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
-  World/             3-lane map + cat NPC placeholders
+  World/             3-lane map, cat NPC placeholders, champion appearance builder
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
@@ -344,7 +363,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
-7. Real cat meshes / animations.
+7. Swap placeholder Part silhouettes for uploaded cat meshes / animations (keep `HumanoidRootPart`).
 8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
 9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
 10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.

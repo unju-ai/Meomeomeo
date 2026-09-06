@@ -181,6 +181,7 @@ function Minimap.create(parent: Instance): MinimapApi
 				if not (ally or visiblePlayers[userId]) then
 					return
 				end
+				-- Team colors only — champ body tints stay off the map so sides stay readable.
 				local color = if userId == localUserId
 					then Theme.cream
 					elseif matchPlayer.team == "Blue" then Theme.blue
