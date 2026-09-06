@@ -16,6 +16,7 @@ local function ability(
 		heal: number,
 		shield: number?,
 		stunSeconds: number?,
+		targeting: Types.AbilityTargeting?,
 	}
 ): Types.AbilityDef
 	return {
@@ -31,6 +32,7 @@ local function ability(
 		heal = stats.heal,
 		shield = stats.shield or 0,
 		stunSeconds = stats.stunSeconds or 0,
+		targeting = stats.targeting,
 	}
 end
 
@@ -90,13 +92,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		maxHealth = 620,
 		maxMana = 340,
 		abilities = {
-			Q = ability("Q", "Rainbow Dash", "A sparkling poke along the rainbow.", "damage", {
+			Q = ability("Q", "Rainbow Dash", "A sparkling line skillshot along the rainbow.", "damage", {
 				cooldown = 4,
 				manaCost = 35,
 				range = 42,
 				radius = 8,
 				damage = 80,
 				heal = 0,
+				targeting = "line",
 			}),
 			W = ability("W", "Warp Trail", "Blink-dash through the beat.", "dash", {
 				cooldown = 9,
@@ -180,13 +183,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		maxHealth = 640,
 		maxMana = 420,
 		abilities = {
-			Q = ability("Q", "Lecture Laser", "A precise beam of unsolicited advice.", "damage", {
+			Q = ability("Q", "Lecture Laser", "A precise line skillshot of unsolicited advice.", "damage", {
 				cooldown = 4,
 				manaCost = 45,
 				range = 48,
 				radius = 7,
 				damage = 85,
 				heal = 0,
+				targeting = "line",
 			}),
 			W = ability("W", "Extra Credit", "Grade-curve heal for an ally or yourself.", "heal", {
 				cooldown = 9,
@@ -316,13 +320,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		maxHealth = 630,
 		maxMana = 400,
 		abilities = {
-			Q = ability("Q", "Laser Pointer Protocol", "A perfectly straight beam. The red dot is a warning.", "damage", {
+			Q = ability("Q", "Laser Pointer Protocol", "A perfectly straight line skillshot. The red dot is a warning.", "damage", {
 				cooldown = 4,
 				manaCost = 40,
 				range = 50,
 				radius = 6,
 				damage = 88,
 				heal = 0,
+				targeting = "line",
 			}),
 			W = ability("W", "Firmware Patch", "Hotfix the hull plating.", "heal", {
 				cooldown = 10,
@@ -605,13 +610,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 				damage = 100,
 				heal = 0,
 			}),
-			W = ability("W", "Smoke Dash", "A puff of alley fog and a new angle.", "dash", {
+			W = ability("W", "Smoke Dash", "Dash to cursor through alley fog.", "dash", {
 				cooldown = 9,
 				manaCost = 35,
 				range = 36,
 				radius = 6,
 				damage = 20,
 				heal = 0,
+				targeting = "dash",
 			}),
 			E = ability("E", "Kidney Bean", "Stun stub: a precise tap to the dignity.", "stun", {
 				cooldown = 10,

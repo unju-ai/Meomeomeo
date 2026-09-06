@@ -35,6 +35,10 @@ function ShopService.owned(userId: number): { string }
 	return table.clone(listOf(userId))
 end
 
+function ShopService.has(userId: number, itemId: string): boolean
+	return table.find(listOf(userId), itemId) ~= nil
+end
+
 function ShopService.bonuses(userId: number): Types.ItemBonuses
 	return ItemCatalog.bonuses(listOf(userId))
 end

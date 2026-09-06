@@ -7,6 +7,7 @@ local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChil
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -16,6 +17,7 @@ local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
 local TowerService = require(script.Parent.TowerService)
 local VisionService = require(script.Parent.VisionService)
+local WardService = require(script.Parent.WardService)
 
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
@@ -27,11 +29,12 @@ type MatchApi = {
 }
 
 type AttackLock = {
-	kind: "player" | "minion" | "objective" | "jungle",
+	kind: "player" | "minion" | "objective" | "jungle" | "ward",
 	userId: number?,
 	minionId: string?,
 	objectiveId: string?,
 	jungleId: string?,
+	wardId: string?,
 	moveTo: Vector3?,
 	windupEnds: number?,
 }
@@ -251,6 +254,8 @@ function CombatService.reset(player: Player, championId: string)
 		recalling = false,
 		recallEndsAt = nil,
 		recallStartedAt = nil,
+		trinketReadyAt = 0,
+		lensReadyAt = 0,
 	}
 	fillVitals(state, player, champ, level, true)
 	combat[player.UserId] = state
@@ -260,6 +265,8 @@ function CombatService.reset(player: Player, championId: string)
 	recallToken[player.UserId] = (recallToken[player.UserId] or 0) + 1
 	player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
 	player:SetAttribute(Constants.Attributes.Recalling, nil)
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
 	applyHumanoid(player, state)
 	ShopService.applyMovement(player)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
@@ -672,10 +679,14 @@ local function pushCombat(player: Player)
 			state.attackTarget = "camp"
 		elseif lock.kind == "objective" then
 			state.attackTarget = lock.objectiveId or "structure"
+		elseif lock.kind == "ward" then
+			state.attackTarget = "ward"
 		end
 	else
 		state.attackTarget = nil
 	end
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
 end
 
@@ -727,6 +738,12 @@ local function resolveTarget(lock: AttackLock): (Vector3?, string?)
 			return nil, "dead"
 		end
 		return part.Position, nil
+	elseif lock.kind == "ward" and lock.wardId then
+		local ward = WardService.get(lock.wardId)
+		if not ward or ward.health <= 0 or not ward.part.Parent then
+			return nil, "dead"
+		end
+		return ward.part.Position, nil
 	end
 	return nil, "gone"
 end
@@ -744,6 +761,9 @@ local function visibleTo(player: Player, lock: AttackLock): boolean
 	end
 	if lock.kind == "jungle" and lock.jungleId then
 		return VisionService.canSeeJungle(player, lock.jungleId)
+	end
+	if lock.kind == "ward" and lock.wardId then
+		return VisionService.canSeeWard(player, lock.wardId)
 	end
 	return false
 end
@@ -772,6 +792,8 @@ local function strike(player: Player, lock: AttackLock)
 			end
 			damageObjective(player, part, power)
 		end
+	elseif lock.kind == "ward" and lock.wardId then
+		WardService.applyDamage(player, lock.wardId, power)
 	end
 end
 
@@ -830,6 +852,15 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 			end
 		end
 	end
+	for _, ward in WardService.list() do
+		if ward.team ~= team then
+			local d = (ward.part.Position - origin).Magnitude
+			if d <= bestDist and VisionService.canSeeWard(player, ward.id) then
+				best = { kind = "ward", wardId = ward.id }
+				bestDist = d
+			end
+		end
+	end
 	return best
 end
 
@@ -846,7 +877,7 @@ tickAutoAttack = function(player: Player)
 	end
 
 	local lock = locks[player.UserId]
-	if lock and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId then
+	if lock and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId and not lock.wardId then
 		local acquired = acquireNear(player, matchPlayer.team, root.Position)
 		if acquired then
 			acquired.moveTo = lock.moveTo
@@ -858,7 +889,7 @@ tickAutoAttack = function(player: Player)
 		return
 	end
 
-	if lock.userId or lock.minionId or lock.objectiveId or lock.jungleId then
+	if lock.userId or lock.minionId or lock.objectiveId or lock.jungleId or lock.wardId then
 		if not visibleTo(player, lock) then
 			if lock.moveTo then
 				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
@@ -1003,6 +1034,22 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 			return { ok = false, error = "That's your tower." }
 		end
 		lock = { kind = "objective", objectiveId = objectiveId }
+	elseif kind == "ward" then
+		local wardId = (request :: any).wardId
+		if typeof(wardId) ~= "string" then
+			return { ok = false, error = "No ward targeted." }
+		end
+		local ward = WardService.get(wardId)
+		if not ward or ward.health <= 0 then
+			return { ok = false, error = "That ward is gone." }
+		end
+		if ward.team == matchPlayer.team then
+			return { ok = false, error = "That's your yarn eye." }
+		end
+		if not VisionService.canSeeWard(player, wardId) then
+			return { ok = false, error = "No vision on that ward." }
+		end
+		lock = { kind = "ward", wardId = wardId }
 	else
 		return { ok = false, error = "Unknown attack." }
 	end
@@ -1097,10 +1144,22 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		return { ok = false, error = "No character." }
 	end
 
-	local delta = aim - root.Position
-	local distance = delta.Magnitude
-	if distance > ability.range + 6 then
-		return { ok = false, error = "Out of range." }
+	local mode = Targeting.of(ability)
+	local origin = root.Position
+	local dest = aim
+	if mode == "instant" then
+		dest = origin
+	elseif mode == "line" or mode == "dash" then
+		dest = Targeting.clampAim(origin, aim, ability.range)
+	else
+		local distance = Targeting.flat(origin, aim).Magnitude
+		if distance > ability.range + 6 then
+			return { ok = false, error = "Out of range." }
+		end
+	end
+
+	local function hitsPoint(position: Vector3, extra: number): boolean
+		return Targeting.hits(mode, origin, dest, position, ability.radius + extra)
 	end
 
 	interruptRecall(player)
@@ -1115,10 +1174,11 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
 	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
 
-	if ability.kind == "dash" and distance > 1 then
-		local travel = math.min(distance, ability.range)
-		local goal = root.Position + delta.Unit * travel
-		root.CFrame = CFrame.new(goal.X, root.Position.Y, goal.Z)
+	if mode == "dash" then
+		local travel = Targeting.flat(origin, dest)
+		if travel.Magnitude > 1 then
+			root.CFrame = CFrame.new(dest.X, root.Position.Y, dest.Z)
+		end
 	end
 
 	if healAmount > 0 then
@@ -1126,7 +1186,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
-				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
+				if hitsPoint(otherRoot.Position, 0) or other == player then
 					healPlayer(other, healAmount)
 				end
 			end
@@ -1138,7 +1198,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
-				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
+				if hitsPoint(otherRoot.Position, 0) or other == player then
 					shieldPlayer(other, shieldAmount)
 				end
 			end
@@ -1150,7 +1210,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
-				if (otherRoot.Position - aim).Magnitude <= ability.radius then
+				if hitsPoint(otherRoot.Position, 0) then
 					stunPlayer(other, ability.stunSeconds or 0)
 				end
 			end
@@ -1162,7 +1222,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
-				if (otherRoot.Position - aim).Magnitude <= ability.radius then
+				if hitsPoint(otherRoot.Position, 0) then
 					damagePlayer(player, other, power)
 				end
 			end
@@ -1171,9 +1231,9 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		local minionHit = false
 		for _, minion in MinionService.list() do
 			if minion.team ~= matchPlayer.team then
-				if (minion.part.Position - aim).Magnitude <= ability.radius + Config.Minions.HitRadius then
+				if hitsPoint(minion.part.Position, Config.Minions.HitRadius) then
 					minionHit = true
-					break
+					MinionService.applyDamage(player, minion.id, power)
 				end
 			end
 		end
@@ -1181,8 +1241,14 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			local foeTeam: Types.TeamId = if matchPlayer.team == "Blue" then "Red" else "Blue"
 			TowerService.noteThreat(player, foeTeam)
 		end
-		MinionService.damageInRadius(player, matchPlayer.team, aim, ability.radius + Config.Minions.HitRadius, power)
-		JungleService.damageInRadius(player, aim, ability.radius + Config.Minions.HitRadius, power)
+		for _, monster in JungleService.list() do
+			if hitsPoint(monster.part.Position, Config.Minions.HitRadius) then
+				JungleService.applyDamage(player, monster.id, power)
+			end
+		end
+		WardService.damageWhere(player, matchPlayer.team, function(position: Vector3)
+			return hitsPoint(position, 2)
+		end, power)
 
 		local map = MapBuilder.get()
 		local objectives = map:FindFirstChild("Objectives")
@@ -1190,7 +1256,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			for _, child in objectives:GetChildren() do
 				if child:IsA("BasePart") then
 					local team = child:GetAttribute(Constants.Attributes.Team)
-					if team ~= matchPlayer.team and (child.Position - aim).Magnitude <= ability.radius + Config.Combat.StructureTouchRadius then
+					if team ~= matchPlayer.team and hitsPoint(child.Position, Config.Combat.StructureTouchRadius) then
 						damageObjective(player, child, power)
 						if team == "Blue" or team == "Red" then
 							TowerService.noteThreat(player, team)
@@ -1201,8 +1267,51 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		end
 	end
 
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
 	return { ok = true, combat = state }
+end
+
+function CombatService.placeWard(player: Player, position: unknown): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local state = combat[player.UserId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if typeof(position) ~= "Vector3" then
+		return { ok = false, error = "Need a ground point." }
+	end
+	interruptRecall(player)
+	local result = WardService.placeTrinket(player, matchPlayer.team, position :: Vector3)
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
+	result.combat = state
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+	return result
+end
+
+function CombatService.useLens(player: Player): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local state = combat[player.UserId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	interruptRecall(player)
+	local result = WardService.useLens(player, matchPlayer.team)
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
+	result.combat = state
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+	return result
 end
 
 return CombatService

@@ -92,6 +92,16 @@ local Config = {
 		ChampionRadius = 54,
 		TowerRadius = 46,
 		MinionRadius = 28,
+		WardRadius = 40,
+		WardPlaceRange = 28,
+		TrinketCooldown = 70,
+		TrinketDuration = 60,
+		WardHealth = 60,
+		ProximityReveal = 14,
+		LensCooldown = 75,
+		LensRadius = 32,
+		LensDamage = 80,
+		RevealSeconds = 5,
 	},
 
 	Shop = {

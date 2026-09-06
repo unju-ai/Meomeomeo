@@ -4,6 +4,7 @@ export type TeamId = "Blue" | "Red"
 export type MatchPhase = "Lobby" | "ChampionSelect" | "InProgress" | "Ended"
 export type AbilitySlot = "Q" | "W" | "E" | "R"
 export type AbilityKind = "damage" | "heal" | "buff" | "dash" | "shield" | "stun"
+export type AbilityTargeting = "instant" | "ground" | "line" | "dash"
 export type AbilityRanks = { Q: number, W: number, E: number, R: number }
 export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
@@ -22,6 +23,7 @@ export type AbilityDef = {
 	shield: number,
 	stunSeconds: number,
 	kind: AbilityKind,
+	targeting: AbilityTargeting?,
 }
 
 export type ChampionDef = {
@@ -89,6 +91,8 @@ export type CombatState = {
 	recalling: boolean,
 	recallEndsAt: number?,
 	recallStartedAt: number?,
+	trinketReadyAt: number,
+	lensReadyAt: number,
 }
 
 export type MatchSnapshot = {
@@ -118,7 +122,7 @@ export type AbilityRequest = {
 	targetUserId: number?,
 }
 
-export type AttackKind = "player" | "minion" | "objective" | "jungle" | "stop"
+export type AttackKind = "player" | "minion" | "objective" | "jungle" | "ward" | "stop"
 
 export type AttackRequest = {
 	kind: AttackKind,
@@ -126,6 +130,7 @@ export type AttackRequest = {
 	minionId: string?,
 	objectiveId: string?,
 	jungleId: string?,
+	wardId: string?,
 	position: Vector3?,
 }
 
@@ -199,6 +204,7 @@ export type VisionFrame = {
 	players: { number },
 	minions: { string },
 	jungle: { string },
+	wards: { string },
 }
 
 export type TickerState = {

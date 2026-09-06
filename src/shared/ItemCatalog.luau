@@ -47,9 +47,20 @@ local ITEMS: { [string]: Types.ItemDef } = {
 		maxMana = 0,
 		walkSpeed = 6,
 	},
+	WhiskerLens = {
+		id = "WhiskerLens",
+		name = "Whisker Lens",
+		blurb = "Press 5: reveal and scratch enemy wards in a short radius.",
+		cost = 180,
+		bonusDamage = 0,
+		armor = 0,
+		maxHealth = 0,
+		maxMana = 0,
+		walkSpeed = 0,
+	},
 }
 
-local ORDER = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots" }
+local ORDER = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots", "WhiskerLens" }
 
 local ItemCatalog = {}
 

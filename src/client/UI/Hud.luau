@@ -99,7 +99,7 @@ function Hud.create(): HudApi
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
-			banner.Text = if mine then `{mine.team} · Tab score · V camera · B shop · F recall` else "Spectating"
+			banner.Text = if mine then `{mine.team} · Tab · V cam · B shop · F recall · 4 ward · 5 lens` else "Spectating"
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
 		end

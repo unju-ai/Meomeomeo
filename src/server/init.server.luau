@@ -160,6 +160,14 @@ Remotes.function_("PlayAgain").OnServerInvoke = function(player: Player)
 	return MatchmakingService.playAgain(player)
 end
 
+Remotes.function_("PlaceWard").OnServerInvoke = function(player: Player, position: unknown)
+	return CombatService.placeWard(player, position)
+end
+
+Remotes.function_("UseLens").OnServerInvoke = function(player: Player)
+	return CombatService.useLens(player)
+end
+
 local function sendLobby(player: Player)
 	task.defer(function()
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot()))

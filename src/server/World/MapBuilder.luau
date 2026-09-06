@@ -156,6 +156,7 @@ function MapBuilder.build(): Folder
 	local spawns = folder(root, "Spawns")
 	folder(root, "Minions")
 	folder(root, "Jungle")
+	folder(root, "Wards")
 
 	-- Ground + river + jungle
 	part(terrain, "Ground", Vector3.new(420, 2, 280), CFrame.new(0, -1, 0), Color3.fromRGB(126, 168, 92))

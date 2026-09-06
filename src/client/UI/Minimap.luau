@@ -224,6 +224,22 @@ function Minimap.create(parent: Instance): MinimapApi
 				end
 			end
 
+			local visibleWards: { [string]: boolean } = {}
+			for _, id in (vision.wards or {}) do
+				visibleWards[id] = true
+			end
+			local wards = if map then map:FindFirstChild("Wards") else nil
+			if wards then
+				for _, child in wards:GetChildren() do
+					if child:IsA("BasePart") and visibleWards[child.Name] then
+						local team = child:GetAttribute(Constants.Attributes.Team)
+						local color = if team == "Blue" then Color3.fromRGB(140, 210, 255) else Color3.fromRGB(255, 150, 170)
+						place(`w-{child.Name}`, child.Position, 4, color, true)
+						seen[`w-{child.Name}`] = true
+					end
+				end
+			end
+
 			for _, child in dots:GetChildren() do
 				if child:IsA("Frame") and not seen[child.Name] then
 					child:Destroy()
