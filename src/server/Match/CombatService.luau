@@ -10,11 +10,14 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 
 local Config = require(script.Parent.Parent.Config)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
+local MinionService = require(script.Parent.MinionService)
+local ShopService = require(script.Parent.ShopService)
+local TowerService = require(script.Parent.TowerService)
 
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
 	onPlayerKilled: (killer: Player, victim: Player) -> (),
-	onObjectiveDestroyed: (attacker: Player, objective: Types.ObjectiveState) -> (),
+	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
 	addGold: (player: Player, amount: number) -> (),
 }
 
@@ -55,6 +58,10 @@ local function applyHumanoid(player: Player, state: Types.CombatState)
 	end
 end
 
+function CombatService.characterRoot(player: Player): BasePart?
+	return characterRoot(player)
+end
+
 function CombatService.get(userId: number): Types.CombatState?
 	return combat[userId]
 end
@@ -64,18 +71,46 @@ function CombatService.reset(player: Player, championId: string)
 	if not champ then
 		return
 	end
+	local bonuses = ShopService.bonuses(player.UserId)
 	local state: Types.CombatState = {
-		health = champ.maxHealth,
-		maxHealth = champ.maxHealth,
-		mana = champ.maxMana,
-		maxMana = champ.maxMana,
+		health = champ.maxHealth + bonuses.maxHealth,
+		maxHealth = champ.maxHealth + bonuses.maxHealth,
+		mana = champ.maxMana + bonuses.maxMana,
+		maxMana = champ.maxMana + bonuses.maxMana,
 		shield = 0,
+		bonusDamage = bonuses.bonusDamage,
+		armor = bonuses.armor,
 		cooldowns = emptyCooldowns(),
 		alive = true,
 	}
 	combat[player.UserId] = state
 	player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
 	applyHumanoid(player, state)
+	ShopService.applyMovement(player)
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
+function CombatService.reapplyItems(player: Player)
+	local state = combat[player.UserId]
+	local champId = player:GetAttribute(Constants.Attributes.ChampionId)
+	if not state or typeof(champId) ~= "string" then
+		return
+	end
+	local champ = ChampionCatalog.get(champId)
+	if not champ then
+		return
+	end
+	local bonuses = ShopService.bonuses(player.UserId)
+	local healthRatio = if state.maxHealth > 0 then state.health / state.maxHealth else 1
+	local manaRatio = if state.maxMana > 0 then state.mana / state.maxMana else 1
+	state.maxHealth = champ.maxHealth + bonuses.maxHealth
+	state.maxMana = champ.maxMana + bonuses.maxMana
+	state.health = math.clamp(state.maxHealth * healthRatio, 1, state.maxHealth)
+	state.mana = math.clamp(state.maxMana * manaRatio, 0, state.maxMana)
+	state.bonusDamage = bonuses.bonusDamage
+	state.armor = bonuses.armor
+	applyHumanoid(player, state)
+	ShopService.applyMovement(player)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
 end
 
@@ -150,15 +185,16 @@ local function killPlayer(victim: Player, killer: Player?)
 	end
 end
 
-local function damagePlayer(attacker: Player, target: Player, amount: number)
-	if attacker == target then
+local function damagePlayer(attacker: Player?, target: Player, amount: number)
+	if attacker and attacker == target then
 		return
 	end
 	local state = combat[target.UserId]
 	if not state or not state.alive then
 		return
 	end
-	local remaining = amount
+	local reduced = amount * (1 - (state.armor or 0))
+	local remaining = reduced
 	if (state.shield or 0) > 0 then
 		local absorbed = math.min(state.shield, remaining)
 		state.shield -= absorbed
@@ -169,8 +205,35 @@ local function damagePlayer(attacker: Player, target: Player, amount: number)
 	end
 	applyHumanoid(target, state)
 	Remotes.event("CombatUpdated"):FireClient(target, state)
+	if attacker and matchApi then
+		local snapshot = matchApi.getSnapshot()
+		local victim = if snapshot then snapshot.players[tostring(target.UserId)] else nil
+		if victim then
+			TowerService.noteThreat(attacker, victim.team)
+		end
+	end
 	if state.health <= 0 then
 		killPlayer(target, attacker)
+	end
+end
+
+function CombatService.applyDamageToPlayer(target: Player, amount: number)
+	damagePlayer(nil, target, amount)
+end
+
+function CombatService.damagePlayersNear(attackerTeam: Types.TeamId, position: Vector3, range: number, amount: number)
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot then
+		return
+	end
+	for _, other in Players:GetPlayers() do
+		local otherMatch = snapshot.players[tostring(other.UserId)]
+		local otherRoot = characterRoot(other)
+		if otherMatch and otherMatch.team ~= attackerTeam and otherRoot then
+			if (otherRoot.Position - position).Magnitude <= range then
+				damagePlayer(nil, other, amount)
+			end
+		end
 	end
 end
 
@@ -219,7 +282,7 @@ local function healPlayer(target: Player, amount: number)
 	Remotes.event("CombatUpdated"):FireClient(target, state)
 end
 
-local function damageObjective(attacker: Player, part: BasePart, amount: number)
+local function damageObjective(attacker: Player?, part: BasePart, amount: number)
 	local id = part:GetAttribute(Constants.Attributes.ObjectiveId)
 	if typeof(id) ~= "string" then
 		return
@@ -227,6 +290,11 @@ local function damageObjective(attacker: Player, part: BasePart, amount: number)
 	local healthAttr = part:GetAttribute("Health")
 	local health = if typeof(healthAttr) == "number" then healthAttr else 0
 	if health <= 0 then
+		return
+	end
+	local kind = part:GetAttribute("Kind")
+	local team = part:GetAttribute(Constants.Attributes.Team)
+	if kind == "Nexus" and (team == "Blue" or team == "Red") and not MapBuilder.isNexusVulnerable(team) then
 		return
 	end
 	health = math.max(0, health - amount)
@@ -241,8 +309,28 @@ local function damageObjective(attacker: Player, part: BasePart, amount: number)
 			if objective then
 				objective.alive = false
 				objective.health = 0
+				if attacker then
+					matchApi.addGold(attacker, Config.Match.TowerGold)
+				end
+				-- Minions can melt a tower/nexus; the match still has to resolve.
 				matchApi.onObjectiveDestroyed(attacker, objective)
-				matchApi.addGold(attacker, Config.Match.TowerGold)
+				MapBuilder.refreshNexusGate()
+			end
+		end
+	end
+end
+
+function CombatService.damageObjectiveNear(attackerTeam: Types.TeamId, position: Vector3, range: number, amount: number)
+	local map = MapBuilder.get()
+	local objectives = map:FindFirstChild("Objectives")
+	if not objectives then
+		return
+	end
+	for _, child in objectives:GetChildren() do
+		if child:IsA("BasePart") then
+			local team = child:GetAttribute(Constants.Attributes.Team)
+			if team ~= attackerTeam and (child.Position - position).Magnitude <= range then
+				damageObjective(nil, child, amount)
 			end
 		end
 	end
@@ -306,6 +394,10 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
+	local power = ability.damage
+	if ability.damage > 0 then
+		power += state.bonusDamage or 0
+	end
 
 	if ability.kind == "dash" and distance > 1 then
 		local travel = math.min(distance, ability.range)
@@ -349,16 +441,31 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		end
 	end
 
-	if ability.damage > 0 then
+	if power > 0 then
 		for _, other in Players:GetPlayers() do
 			local otherMatch = snapshot.players[tostring(other.UserId)]
 			local otherRoot = characterRoot(other)
 			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
 				if (otherRoot.Position - aim).Magnitude <= ability.radius then
-					damagePlayer(player, other, ability.damage)
+					damagePlayer(player, other, power)
 				end
 			end
 		end
+
+		local minionHit = false
+		for _, minion in MinionService.list() do
+			if minion.team ~= matchPlayer.team then
+				if (minion.part.Position - aim).Magnitude <= ability.radius + Config.Minions.HitRadius then
+					minionHit = true
+					break
+				end
+			end
+		end
+		if minionHit then
+			local foeTeam: Types.TeamId = if matchPlayer.team == "Blue" then "Red" else "Blue"
+			TowerService.noteThreat(player, foeTeam)
+		end
+		MinionService.damageInRadius(player, matchPlayer.team, aim, ability.radius + Config.Minions.HitRadius, power)
 
 		local map = MapBuilder.get()
 		local objectives = map:FindFirstChild("Objectives")
@@ -367,7 +474,10 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 				if child:IsA("BasePart") then
 					local team = child:GetAttribute(Constants.Attributes.Team)
 					if team ~= matchPlayer.team and (child.Position - aim).Magnitude <= ability.radius + Config.Combat.StructureTouchRadius then
-						damageObjective(player, child, ability.damage)
+						damageObjective(player, child, power)
+						if team == "Blue" or team == "Red" then
+							TowerService.noteThreat(player, team)
+						end
 					end
 				end
 			end

@@ -45,6 +45,7 @@ export type ObjectiveState = {
 	health: number,
 	maxHealth: number,
 	alive: boolean,
+	vulnerable: boolean,
 }
 
 export type MatchPlayer = {
@@ -58,6 +59,7 @@ export type MatchPlayer = {
 	assists: number,
 	gold: number,
 	connected: boolean,
+	items: { string },
 }
 
 export type CombatState = {
@@ -66,6 +68,8 @@ export type CombatState = {
 	mana: number,
 	maxMana: number,
 	shield: number,
+	bonusDamage: number,
+	armor: number,
 	cooldowns: { [AbilitySlot]: number },
 	alive: boolean,
 }
@@ -120,6 +124,38 @@ export type NpcDef = {
 	role: string,
 	personality: string,
 	team: TeamId?,
+}
+
+export type ItemDef = {
+	id: string,
+	name: string,
+	blurb: string,
+	cost: number,
+	bonusDamage: number,
+	armor: number,
+	maxHealth: number,
+	maxMana: number,
+	walkSpeed: number,
+}
+
+export type ShopStatus = {
+	gold: number,
+	atFountain: boolean,
+	owned: { string },
+	items: { ItemDef },
+}
+
+export type ItemBonuses = {
+	bonusDamage: number,
+	armor: number,
+	maxHealth: number,
+	maxMana: number,
+	walkSpeed: number,
+}
+
+export type VisionFrame = {
+	players: { number },
+	minions: { string },
 }
 
 export type TickerState = {

@@ -128,6 +128,19 @@ hud.select.onPick(function(championId: string)
 	end
 end)
 
+hud.shop.onBuy(function(itemId: string)
+	local result = Remotes.function_("BuyItem"):InvokeServer(itemId)
+	if result and result.ok == false then
+		toast(result.error or "Shop said no")
+	else
+		toast("Pawmart thanks you for your gold")
+	end
+	local status = Remotes.function_("GetShopStatus"):InvokeServer()
+	if typeof(status) == "table" then
+		hud.shop.update(status :: Types.ShopStatus)
+	end
+end)
+
 hud.chat.onSend(function(npcId: string, text: string)
 	local result = Remotes.function_("ChatWithNpc"):InvokeServer(npcId, text)
 	if result and result.ok and result.reply then
@@ -175,6 +188,63 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(function(_userId, _prod
 	end)
 end)
 
+Remotes.event("ShopUpdated").OnClientEvent:Connect(function(status)
+	if typeof(status) == "table" then
+		hud.shop.update(status :: Types.ShopStatus)
+	end
+end)
+
+local lastVision: Types.VisionFrame = { players = {}, minions = {} }
+
+local function applyVision()
+	if not latestMatch or latestMatch.phase ~= "InProgress" then
+		return
+	end
+	local mine = latestMatch.players[tostring(player.UserId)]
+	local visiblePlayers: { [number]: boolean } = { [player.UserId] = true }
+	for _, userId in lastVision.players do
+		visiblePlayers[userId] = true
+	end
+	for _, other in Players:GetPlayers() do
+		if other ~= player and other.Character then
+			local show = visiblePlayers[other.UserId] == true
+			for _, inst in other.Character:GetDescendants() do
+				if inst:IsA("BasePart") then
+					inst.LocalTransparencyModifier = if show then 0 else 1
+				end
+			end
+		end
+	end
+
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	local folder = if map then map:FindFirstChild("Minions") else nil
+	if folder then
+		local visibleMinions: { [string]: boolean } = {}
+		for _, id in lastVision.minions do
+			visibleMinions[id] = true
+		end
+		for _, child in folder:GetChildren() do
+			if child:IsA("BasePart") then
+				local team = child:GetAttribute(Constants.Attributes.Team)
+				local ally = mine ~= nil and team == mine.team
+				local show = ally or visibleMinions[child.Name] == true
+				child.LocalTransparencyModifier = if show then 0 else 1
+				local label = child:FindFirstChild("Label")
+				if label and label:IsA("BillboardGui") then
+					label.Enabled = show
+				end
+			end
+		end
+	end
+end
+
+Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
+	if typeof(frame) == "table" then
+		lastVision = frame :: Types.VisionFrame
+		applyVision()
+	end
+end)
+
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
 	if typeof(payload) ~= "table" then
 		return
@@ -202,6 +272,13 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 	end
 	local npcId = part:GetAttribute(Constants.Attributes.NpcId)
 	if typeof(npcId) == "string" then
+		if latestMatch and latestMatch.phase == "InProgress" and string.find(npcId, "Pawmart") then
+			local status = Remotes.function_("GetShopStatus"):InvokeServer()
+			if typeof(status) == "table" then
+				hud.shop.update(status :: Types.ShopStatus)
+			end
+			hud.shop.setVisible(true)
+		end
 		hud.chat.open(npcId, prompt.ObjectText)
 	end
 end)
@@ -227,6 +304,16 @@ end
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.B then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			local status = Remotes.function_("GetShopStatus"):InvokeServer()
+			if typeof(status) == "table" then
+				hud.shop.update(status :: Types.ShopStatus)
+			end
+			hud.shop.toggle()
+		end
 		return
 	end
 	local slot = SLOT_KEYS[input.KeyCode]
@@ -279,6 +366,7 @@ task.spawn(function()
 			hud.select.update(latestMatch, player.UserId)
 		elseif latestMatch and latestMatch.phase == "InProgress" then
 			refreshBars()
+			applyVision()
 		end
 	end
 end)
