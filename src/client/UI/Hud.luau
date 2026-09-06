@@ -14,6 +14,7 @@ local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
+local HelpPanel = require(script.Parent.HelpPanel)
 local SettingsPanel = require(script.Parent.SettingsPanel)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
@@ -34,6 +35,7 @@ export type HudApi = {
 	feed: KillFeed.FeedApi,
 	endScreen: EndScreen.EndApi,
 	settings: SettingsPanel.SettingsApi,
+	help: HelpPanel.HelpApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -84,6 +86,7 @@ function Hud.create(): HudApi
 		if typeof(startVolume) == "number" then startVolume :: number else 0.8,
 		startMuted == true
 	)
+	local help = HelpPanel.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -102,13 +105,15 @@ function Hud.create(): HudApi
 		end
 		if phase == "Lobby" then
 			lobby.update(snapshot)
-			banner.Text = ""
+			banner.Text = "Hold H or click ? for controls"
 		elseif phase == "ChampionSelect" then
 			select.update(snapshot, localUserId)
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
-			banner.Text = if mine then `{mine.team} · Tab · V cam · B shop · F recall · 4 ward · 5 lens` else "Spectating"
+			banner.Text = if mine
+				then `{mine.team} · H help · Tab · V cam · B shop · F recall · 4 ward · 5 lens`
+				else "Spectating"
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
 		end
@@ -128,6 +133,7 @@ function Hud.create(): HudApi
 		feed = feed,
 		endScreen = endScreen,
 		settings = settings,
+		help = help,
 		banner = function(text: string)
 			banner.Text = text
 		end,
