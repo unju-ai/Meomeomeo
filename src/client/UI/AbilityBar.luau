@@ -19,7 +19,7 @@ function AbilityBar.create(parent: Instance): BarApi
 	root.Name = "AbilityBar"
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.new(0.5, 0, 1, -16)
-	root.Size = UDim2.fromOffset(560, 136)
+	root.Size = UDim2.fromOffset(600, 168)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -92,6 +92,23 @@ function AbilityBar.create(parent: Instance): BarApi
 		label.TextWrapped = true
 		slots[slot] = label
 	end
+
+	local tools = Instance.new("Frame")
+	tools.BackgroundTransparency = 1
+	tools.Position = UDim2.fromOffset(0, 120)
+	tools.Size = UDim2.new(1, 0, 0, 28)
+	tools.Parent = root
+	Theme.list(tools, 8, Enum.FillDirection.Horizontal)
+	local trinket = Theme.text(tools, "T4", "4  Ward", 12, Theme.cream, Theme.fontTitle)
+	trinket.Size = UDim2.new(0.5, -4, 1, 0)
+	trinket.BackgroundColor3 = Theme.panelAlt
+	trinket.BackgroundTransparency = 0.15
+	Theme.corner(trinket, 8)
+	local lens = Theme.text(tools, "T5", "5  Lens", 12, Theme.cream, Theme.fontTitle)
+	lens.Size = UDim2.new(0.5, -4, 1, 0)
+	lens.BackgroundColor3 = Theme.panelAlt
+	lens.BackgroundTransparency = 0.15
+	Theme.corner(lens, 8)
 
 	local recallBar = Instance.new("Frame")
 	recallBar.Name = "Recall"
@@ -196,6 +213,23 @@ function AbilityBar.create(parent: Instance): BarApi
 					death.Visible = false
 					recallBar.Visible = false
 					recallLabel.Visible = false
+				end
+				local trinketCd = math.max(0, (combat.trinketReadyAt or 0) - t)
+				trinket.Text = if trinketCd > 0.15 then `4  Ward  {string.format("%.0f", trinketCd)}s` else "4  Ward  ready"
+				local hasLens = false
+				for _, id in matchPlayer.items do
+					if id == "WhiskerLens" then
+						hasLens = true
+						break
+					end
+				end
+				local lensCd = math.max(0, (combat.lensReadyAt or 0) - t)
+				if not hasLens then
+					lens.Text = "5  Lens  (buy)"
+				elseif lensCd > 0.15 then
+					lens.Text = `5  Lens  {string.format("%.0f", lensCd)}s`
+				else
+					lens.Text = "5  Lens  ready"
 				end
 			else
 				death.Visible = false

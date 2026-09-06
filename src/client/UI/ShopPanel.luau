@@ -19,7 +19,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	root.Name = "ShopPanel"
 	root.AnchorPoint = Vector2.new(0, 1)
 	root.Position = UDim2.new(0, 16, 1, -150)
-	root.Size = UDim2.fromOffset(320, 340)
+	root.Size = UDim2.fromOffset(320, 380)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -40,7 +40,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	gold.Position = UDim2.fromOffset(0, 28)
 	gold.Size = UDim2.new(1, 0, 0, 18)
 
-	local hint = Theme.text(root, "Hint", "Buy with match gold. B toggles. Fountain only.", 12, Theme.peach)
+	local hint = Theme.text(root, "Hint", "Buy with match gold. B toggles. Fountain only. Whisker Lens = key 5.", 12, Theme.peach)
 	hint.Position = UDim2.fromOffset(0, 48)
 	hint.Size = UDim2.new(1, 0, 0, 28)
 

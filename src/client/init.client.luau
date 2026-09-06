@@ -8,12 +8,15 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ChampionCatalog = require(Shared:WaitForChild("ChampionCatalog"))
 local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local CameraFollow = require(script.CameraFollow)
 local Hud = require(script.UI.Hud)
+local TargetingIndicator = require(script.TargetingIndicator)
 
 local player = Players.LocalPlayer
 local hud = Hud.create()
@@ -21,7 +24,8 @@ local hud = Hud.create()
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 
-local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {} }
+local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
+local armedSlot: Types.AbilitySlot? = nil
 local lastErrorAt = 0
 local cameraArmed = false
 
@@ -74,6 +78,8 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	else
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
+		armedSlot = nil
+		TargetingIndicator.hide()
 	end
 end
 
@@ -296,6 +302,26 @@ local function applyVision()
 			end
 		end
 	end
+
+	local wards = if map then map:FindFirstChild("Wards") else nil
+	if wards then
+		local visibleWards: { [string]: boolean } = {}
+		for _, id in (lastVision.wards or {}) do
+			visibleWards[id] = true
+		end
+		for _, child in wards:GetChildren() do
+			if child:IsA("BasePart") then
+				local team = child:GetAttribute(Constants.Attributes.Team)
+				local ally = mine ~= nil and team == mine.team
+				local show = ally or visibleWards[child.Name] == true
+				child.LocalTransparencyModifier = if show then 0 else 1
+				local label = child:FindFirstChild("Label")
+				if label and label:IsA("BillboardGui") then
+					label.Enabled = show
+				end
+			end
+		end
+	end
 end
 
 Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
@@ -303,6 +329,9 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 		local incoming = frame :: Types.VisionFrame
 		if incoming.jungle == nil then
 			incoming.jungle = {}
+		end
+		if incoming.wards == nil then
+			incoming.wards = {}
 		end
 		lastVision = incoming
 		applyVision()
@@ -435,6 +464,10 @@ local function pickAttack(): Types.AttackRequest?
 	if typeof(jungleId) == "string" then
 		return { kind = "jungle", jungleId = jungleId }
 	end
+	local wardId = inst:GetAttribute(Constants.Attributes.WardId)
+	if typeof(wardId) == "string" then
+		return { kind = "ward", wardId = wardId }
+	end
 	return nil
 end
 
@@ -452,9 +485,50 @@ end
 
 local attackMoveArmed = false
 
+local function currentAbility(slot: Types.AbilitySlot): Types.AbilityDef?
+	if not latestMatch then
+		return nil
+	end
+	local mine = latestMatch.players[tostring(player.UserId)]
+	if not mine or not mine.championId then
+		return nil
+	end
+	local champ = ChampionCatalog.get(mine.championId)
+	if not champ then
+		return nil
+	end
+	return champ.abilities[slot]
+end
+
+local function castAbility(slot: Types.AbilitySlot)
+	local result = Remotes.function_("UseAbility"):InvokeServer({
+		slot = slot,
+		aimPosition = aimPoint(),
+	})
+	if result and result.ok == false and result.error then
+		if os.clock() - lastErrorAt > 0.4 then
+			lastErrorAt = os.clock()
+			toast(result.error)
+		end
+	elseif result and result.combat then
+		latestCombat = result.combat
+		refreshBars()
+	end
+end
+
+local function hideAim()
+	armedSlot = nil
+	TargetingIndicator.hide()
+end
+
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Tab then
 		hud.scoreboard.setVisible(false)
+	end
+	local slot = SLOT_KEYS[input.KeyCode]
+	if slot and armedSlot == slot then
+		castAbility(slot)
+		hideAim()
 	end
 end)
 
@@ -502,6 +576,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.S then
 		if latestMatch and latestMatch.phase == "InProgress" then
 			attackMoveArmed = false
+			hideAim()
 			reportAttack(Remotes.function_("IssueAttack"):InvokeServer({ kind = "stop" }))
 		end
 		return
@@ -540,6 +615,18 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.Four then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			reportAttack(Remotes.function_("PlaceWard"):InvokeServer(aimPoint()))
+		end
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.Five then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			reportAttack(Remotes.function_("UseLens"):InvokeServer())
+		end
+		return
+	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if not slot then
 		return
@@ -547,19 +634,21 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if not latestMatch or latestMatch.phase ~= "InProgress" then
 		return
 	end
-	local result = Remotes.function_("UseAbility"):InvokeServer({
-		slot = slot,
-		aimPosition = aimPoint(),
-	})
-	if result and result.ok == false and result.error then
-		if os.clock() - lastErrorAt > 0.4 then
-			lastErrorAt = os.clock()
-			toast(result.error)
-		end
-	elseif result and result.combat then
-		latestCombat = result.combat
-		refreshBars()
+	local ability = currentAbility(slot)
+	if not ability then
+		return
 	end
+	local mode = Targeting.of(ability)
+	if mode == "line" or mode == "dash" then
+		armedSlot = slot
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			TargetingIndicator.show(ability, root.Position, aimPoint())
+		end
+		return
+	end
+	castAbility(slot)
 end)
 
 task.spawn(function()
@@ -592,10 +681,18 @@ task.spawn(function()
 			refreshBars()
 			applyVision()
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
+			if armedSlot then
+				local ability = currentAbility(armedSlot)
+				local character = player.Character
+				local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+				if ability and root and root:IsA("BasePart") then
+					TargetingIndicator.show(ability, root.Position, aimPoint())
+				end
+			end
 		elseif latestMatch and latestMatch.phase == "Ended" then
 			hud.endScreen.update(latestMatch, player.UserId)
 		end
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. Tab score, V camera, B shop, F recall, LMB attack, QWER to brawl.")
+print("[Meo Meo Meo] Client HUD ready. 4 ward, 5 lens, hold Q for skillshots, F recall, B shop.")

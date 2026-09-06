@@ -19,6 +19,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain, **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
+- Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), line skillshots / dash indicators, destroyable enemy wards
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
@@ -55,14 +56,16 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Practice match** — one player, Blue team, attack Red towers/nexus to end the game.
 - **Queue** — starts a real match when at least `Config.Match.MinPlayersToStart` (default 2) players are waiting.
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
-- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, and (if ungated) structures.
+- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire. Instant/self and ground AoEs still fire on press.
+- **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-only vision bubble. Placing another replaces yours.
+- **5** — Whisker Lens sweep (buy at Pawmart). Reveals and damages enemy wards in a short radius.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock a cat → stand in the Blue fountain (HP/mana race back) → press **F** once in river to test recall (watch the mint channel bar; walk or take a tick of damage to interrupt) → walk into the **NW jungle** (left of top lane) and last-hit a **Yarn Golem** or **Pigeon Pack** → hold **Tab** to see CS/gold → last-hit lane kittens → take 3 Red towers until the nexus billboard reads `(OPEN)` → smash it. **End screen:** Victory, team KDA, MVP stub (most kills, then champion damage, then gold). **Back to lobby** or **Practice again** — or wait ~45s for auto-return. River crabs sit on the river at mid. Camps respawn on a timer.
+- **Practice loop:** lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → hold **Q** in fountain to see the line indicator, release to fire → walk to river, press **4** to drop a trinket → walk away and confirm the ward still spots jungle/lane on the minimap → **B** at fountain, buy **Whisker Lens**, press **5** (pulse; in solo there are no enemy wards) → press **F** to test recall → NW jungle last-hit → Tab score → 3 Red towers until `(OPEN)` → smash nexus → end screen. Two-player: enemy wards are stealthed until a lens sweep or you walk within 14 studs; **LMB** to scratch them down.
 
 ## How the MOBA loop works
 
@@ -70,12 +73,12 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  End screen  →  Lobby
 ```
 
-- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
+- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
-- **Combat:** `CombatService` applies heals/dashes/AoE around the aim point. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions and respect nexus gating + vision.
+- **Combat:** `CombatService` applies heals, **direction dashes** (clamped to range), **line skillshots**, and ground AoE. `Shared.Targeting` picks the mode. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions/wards and respect nexus gating + vision.
 - **Assists:** if an ally damaged a champion within 8s of the kill, they get assist gold/XP (`AssistGold = 60`, kill bounty stays `180`). Minion last-hits stay last-hit only.
 - **Levels 1–18:** shared `Progression.luau`. XP to next level = `40 + (level-1)*28`. Last-hits (`18` XP), nearby minion deaths (`10` XP in 42 studs), kills (`80`), assists (`30`). On level-up: +72 HP, +28 mana, +3 AD, +4 AP. **Ranks auto-assign** (Q then W then E, max 5). **R unlocks at 6**, ranks again at 11 and 16. No + buttons.
 - **Death:** soft-death (character stays, combat drops). Respawn = `6 + (level-1)*0.55` seconds at your fountain with full HP/mana. HUD shows the timer. Kill/assist gold unchanged.
@@ -83,8 +86,10 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Minion waves:** every ~22s both teams spawn 3 kittens per lane. They walk toward the enemy nexus, fight, and grant last-hit gold.
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
-- **Vision:** stub fog — enemy champs/minions are hidden unless an ally champ, minion, or tower is in radius (`VisionUpdated`).
-- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F.**
+- **Vision:** stub fog — enemy champs/minions/jungle are hidden unless an ally champ, minion, tower, or **ward** is in radius (`VisionUpdated`).
+- **Trinket ward (4):** free. Server places a team-colored totem (`WardService`) that feeds `VisionService` for 60s. One per player; 70s cooldown. Not shop — **B stays Pawmart**.
+- **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (wards have 60 HP — one sweep or ~3 AAs). Enemy wards are stealthed unless revealed or you stand within 14 studs.
+- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots / **Whisker Lens**. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F, ward is 4.**
 - **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. Interrupted by champion/minion/tower/jungle damage, movement > 2.5 studs, AA, attack-move, abilities, **S**, or **F** again. Fountain regen still ticks while you channel.
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
@@ -223,17 +228,17 @@ Classic 404: **1 whole token (1e18) ↔ 1 NFT**. Transfers across that boundary 
 ## Project layout
 
 ```
-src/shared/          Types, remotes, constants, champion catalog, item catalog, progression
+src/shared/          Types, remotes, constants, champion catalog, item catalog, progression, targeting
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
-  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, shop
+  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, wards, shop
   Voice/             VoiceChatService wrapper
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, entitlements, claim API stub
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, camera, voice, NPC chat
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -242,17 +247,18 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
-2. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
-3. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
-4. Real cat meshes / animations.
-5. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-6. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
-7. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
-8. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
-9. DataStores for cosmetics funded by yarn / meme-stock wagers.
-10. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
-11. Compliance review before any live Developer Product that mentions 404 / NFTs.
+1. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
+2. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
+3. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
+4. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
+5. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
+6. Real cat meshes / animations.
+7. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
+8. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
+9. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
+10. DataStores for cosmetics funded by yarn / meme-stock wagers.
+11. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
+12. Compliance review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets
 

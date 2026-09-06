@@ -29,6 +29,8 @@ export type RemoteName =
 	| "StartRecall"
 	| "LeaveMatch"
 	| "PlayAgain"
+	| "PlaceWard"
+	| "UseLens"
 	| "MatchStateChanged"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -64,6 +66,8 @@ local FUNCTION_NAMES = {
 	"StartRecall",
 	"LeaveMatch",
 	"PlayAgain",
+	"PlaceWard",
+	"UseLens",
 }
 
 local EVENT_NAMES = {

@@ -21,6 +21,7 @@ local ShopService = require(script.Parent.ShopService)
 local TowerService = require(script.Parent.TowerService)
 local VisionService = require(script.Parent.VisionService)
 local VoiceService = require(script.Parent.Parent.Voice.VoiceService)
+local WardService = require(script.Parent.WardService)
 
 local MatchService = {}
 
@@ -123,6 +124,7 @@ function MatchService.returnToLobby(formQueue: boolean)
 	JungleService.stop()
 	TowerService.stop()
 	VisionService.stop()
+	WardService.stop()
 	CombatService.clearAll()
 	for _, player in Players:GetPlayers() do
 		assignRobloxTeam(player, nil)
@@ -190,6 +192,7 @@ local function beginFight()
 	JungleService.start()
 	TowerService.start()
 	VisionService.start()
+	WardService.start()
 	AiChatService.announce("Cats out of the bag — match is LIVE. Smash three towers, then the nexus. Meow.")
 	broadcast()
 end
@@ -206,6 +209,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	JungleService.stop()
 	TowerService.stop()
 	VisionService.stop()
+	WardService.stop()
 	current.mvpUserId = pickMvp()
 	CombatService.clearAll()
 	for _, player in Players:GetPlayers() do

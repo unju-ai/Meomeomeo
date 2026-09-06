@@ -9,6 +9,7 @@ local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
+local WardService = require(script.Parent.WardService)
 
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
@@ -20,7 +21,7 @@ local VisionService = {}
 local api: Api? = nil
 local running = false
 
-type VisionSource = { position: Vector3, kind: "unit" | "tower" }
+type VisionSource = { position: Vector3, kind: "unit" | "tower" | "ward" }
 
 local function sources(team: Types.TeamId): { VisionSource }
 	local points: { VisionSource } = {}
@@ -51,13 +52,19 @@ local function sources(team: Types.TeamId): { VisionSource }
 			end
 		end
 	end
+	for _, pos in WardService.sources(team) do
+		table.insert(points, { position = pos, kind = "ward" })
+	end
 	return points
 end
 
 local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "minion"): boolean
 	local unitRadius = if kind == "champion" then Config.Vision.ChampionRadius else Config.Vision.MinionRadius
 	for _, source in sources(team) do
-		local limit = if source.kind == "tower" then Config.Vision.TowerRadius else unitRadius
+		local limit = if source.kind == "tower"
+			then Config.Vision.TowerRadius
+			elseif source.kind == "ward" then Config.Vision.WardRadius
+			else unitRadius
 		if (source.position - position).Magnitude <= limit then
 			return true
 		end
@@ -66,7 +73,7 @@ local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "m
 end
 
 function VisionService.frameFor(player: Player): Types.VisionFrame
-	local empty: Types.VisionFrame = { players = {}, minions = {}, jungle = {} }
+	local empty: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
 	if not api then
 		return empty
 	end
@@ -104,7 +111,10 @@ function VisionService.frameFor(player: Player): Types.VisionFrame
 		end
 	end
 
-	return { players = visiblePlayers, minions = visibleMinions, jungle = visibleJungle }
+	local root = api.characterRoot(player)
+	local visibleWards = WardService.visibleToTeam(mine.team, if root then root.Position else nil)
+
+	return { players = visiblePlayers, minions = visibleMinions, jungle = visibleJungle, wards = visibleWards }
 end
 
 function VisionService.canSeePlayer(viewer: Player, target: Player): boolean
@@ -131,6 +141,15 @@ end
 function VisionService.canSeeJungle(viewer: Player, jungleId: string): boolean
 	for _, id in VisionService.frameFor(viewer).jungle do
 		if id == jungleId then
+			return true
+		end
+	end
+	return false
+end
+
+function VisionService.canSeeWard(viewer: Player, wardId: string): boolean
+	for _, id in VisionService.frameFor(viewer).wards do
+		if id == wardId then
 			return true
 		end
 	end
