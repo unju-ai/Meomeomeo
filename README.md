@@ -18,6 +18,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
+- **Recall (F)** to fountain, **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
@@ -57,17 +58,19 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, and (if ungated) structures.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
+- **B** — Pawmart (fountain only). **Not recall.**
+- **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock a cat → stand in the Blue fountain (HP/mana race back) → walk into the **NW jungle** (left of top lane) and last-hit a **Yarn Golem** or **Pigeon Pack** → hold **Tab** to see CS/gold → last-hit lane kittens → take 3 towers → smash the nexus. River crabs sit on the river at mid. Camps respawn on a timer.
+- **Practice loop:** lock a cat → stand in the Blue fountain (HP/mana race back) → press **F** once in river to test recall (watch the mint channel bar; walk or take a tick of damage to interrupt) → walk into the **NW jungle** (left of top lane) and last-hit a **Yarn Golem** or **Pigeon Pack** → hold **Tab** to see CS/gold → last-hit lane kittens → take 3 Red towers until the nexus billboard reads `(OPEN)` → smash it. **End screen:** Victory, team KDA, MVP stub (most kills, then champion damage, then gold). **Back to lobby** or **Practice again** — or wait ~45s for auto-return. River crabs sit on the river at mid. Camps respawn on a timer.
 
 ## How the MOBA loop works
 
 ```
-Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  Lobby
+Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  End screen  →  Lobby
 ```
 
-- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `SelectChampion`); they never set prices or wallets.
+- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
@@ -81,12 +84,14 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
 - **Vision:** stub fog — enemy champs/minions are hidden unless an ally champ, minion, or tower is in radius (`VisionUpdated`).
-- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots. Server checks gold and location. Longclaw raises AA damage.
+- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F.**
+- **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. Interrupted by champion/minion/tower/jungle damage, movement > 2.5 studs, AA, attack-move, abilities, **S**, or **F** again. Fountain regen still ticks while you channel.
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
 - **Scoreboard:** hold Tab. Client overlay on the match snapshot (includes `cs`).
+- **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP. **Ended counts as busy** so queue/practice cannot start underneath the screen. **Back to lobby** (`LeaveMatch`) or **Practice again** (`PlayAgain`) skip the 45s timer; the timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat).
 - **Minimap:** client reads match + vision frames; click-to-ping is team-only (`PingReceived`).
-- **Camera:** optional locked follow (`V`). Does not change WASD.
+- **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
 Tune timers and team size in `src/server/Config.luau`.
 
@@ -228,7 +233,7 @@ src/server/
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, entitlements, claim API stub
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, minimap, camera, voice, NPC chat
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, camera, voice, NPC chat
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -237,15 +242,17 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Real cat meshes / animations.
-2. Inner / inhibitor towers.
-3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-4. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
-5. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
-6. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
-7. DataStores for cosmetics funded by yarn / meme-stock wagers.
-8. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
-9. Compliance review before any live Developer Product that mentions 404 / NFTs.
+1. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move).
+2. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
+3. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
+4. Real cat meshes / animations.
+5. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
+6. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
+7. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
+8. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
+9. DataStores for cosmetics funded by yarn / meme-stock wagers.
+10. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
+11. Compliance review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets
 

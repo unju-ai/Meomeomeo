@@ -12,7 +12,7 @@ local Config = {
 		-- Real queue waits for this many players. Practice bypasses it.
 		MinPlayersToStart = 2,
 		ChampionSelectSeconds = 25,
-		PostMatchSeconds = 10,
+		PostMatchSeconds = 45,
 		PracticeEnabled = true,
 		StartingGold = 500,
 		KillGold = 180,
@@ -40,6 +40,9 @@ local Config = {
 		FountainHpRegen = 48,
 		FountainManaRegen = 56,
 		StructureTouchRadius = 18,
+		-- B is Pawmart. F channels home. Damage / combat orders cancel.
+		RecallSeconds = 7,
+		RecallMoveCancel = 2.5,
 	},
 
 	Jungle = {

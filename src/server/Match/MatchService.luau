@@ -87,7 +87,54 @@ function MatchService.snapshot(): Types.MatchSnapshot?
 end
 
 function MatchService.isBusy(): boolean
-	return current ~= nil and current.phase ~= "Ended"
+	return current ~= nil
+end
+
+function MatchService.isEnded(): boolean
+	return current ~= nil and current.phase == "Ended"
+end
+
+local function pickMvp(): number?
+	if not current then
+		return nil
+	end
+	local best: Types.MatchPlayer? = nil
+	for _, matchPlayer in current.players do
+		if not best then
+			best = matchPlayer
+		elseif matchPlayer.kills > best.kills then
+			best = matchPlayer
+		elseif matchPlayer.kills == best.kills then
+			local dmg = matchPlayer.damageDealt or 0
+			local bestDmg = best.damageDealt or 0
+			if dmg > bestDmg then
+				best = matchPlayer
+			elseif dmg == bestDmg and matchPlayer.gold > best.gold then
+				best = matchPlayer
+			end
+		end
+	end
+	return if best then best.userId else nil
+end
+
+function MatchService.returnToLobby(formQueue: boolean)
+	phaseToken += 1
+	MinionService.stop()
+	JungleService.stop()
+	TowerService.stop()
+	VisionService.stop()
+	CombatService.clearAll()
+	for _, player in Players:GetPlayers() do
+		assignRobloxTeam(player, nil)
+		ShopService.clear(player.UserId)
+		teleport(player, nil)
+	end
+	VoiceService.onTeamsChanged()
+	current = nil
+	if formQueue and onMatchCleared then
+		onMatchCleared()
+	end
+	Remotes.event("MatchStateChanged"):FireAllClients(nil)
 end
 
 local function autoAssignChampions()
@@ -159,7 +206,20 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	JungleService.stop()
 	TowerService.stop()
 	VisionService.stop()
-	AiChatService.announce(`{winner} Whiskers win! {reason}`)
+	current.mvpUserId = pickMvp()
+	CombatService.clearAll()
+	for _, player in Players:GetPlayers() do
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if matchPlayer then
+			if matchPlayer.team == winner then
+				AiChatService.announceTo(player, "Victory! Enemy nexus destroyed!")
+			else
+				AiChatService.announceTo(player, "Defeat! Your nexus has fallen!")
+			end
+		end
+	end
+	feed("announce", `{winner} destroyed the enemy nexus!`)
+	AiChatService.announce(`{winner} wins! {reason}`)
 	broadcast()
 
 	local token = phaseToken
@@ -167,18 +227,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 		if token ~= phaseToken then
 			return
 		end
-		current = nil
-		CombatService.clearAll()
-		for _, player in Players:GetPlayers() do
-			assignRobloxTeam(player, nil)
-			ShopService.clear(player.UserId)
-			teleport(player, nil)
-		end
-		VoiceService.onTeamsChanged()
-		if onMatchCleared then
-			onMatchCleared()
-		end
-		Remotes.event("MatchStateChanged"):FireAllClients(nil)
+		MatchService.returnToLobby(true)
 	end)
 end
 
@@ -217,6 +266,7 @@ function MatchService.start(participants: { Player }, practice: boolean)
 			cs = 0,
 			connected = true,
 			items = {},
+			damageDealt = 0,
 		}
 		assignRobloxTeam(player, team)
 		teleport(player, nil)
@@ -230,6 +280,7 @@ function MatchService.start(participants: { Player }, practice: boolean)
 		startedAt = nil,
 		endedAt = nil,
 		winner = nil,
+		mvpUserId = nil,
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
 		queueCount = 0,
@@ -305,6 +356,16 @@ function MatchService.init(cleared: () -> ())
 		end
 	end
 
+	local function addDamageDealt(player: Player, amount: number)
+		if not current or amount <= 0 then
+			return
+		end
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if matchPlayer then
+			matchPlayer.damageDealt = (matchPlayer.damageDealt or 0) + amount
+		end
+	end
+
 	local function grantXp(player: Player, amount: number)
 		if not current or amount <= 0 then
 			return
@@ -327,6 +388,7 @@ function MatchService.init(cleared: () -> ())
 	CombatService.init({
 		getSnapshot = MatchService.snapshot,
 		addGold = addGold,
+		addDamageDealt = addDamageDealt,
 		setRespawnAt = function(player: Player, at: number?)
 			if not current then
 				return

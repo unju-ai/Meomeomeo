@@ -102,6 +102,22 @@ hud.lobby.onPractice(function()
 	end
 end)
 
+hud.endScreen.onLobby(function()
+	local result = Remotes.function_("LeaveMatch"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not return to lobby")
+	end
+	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+end)
+
+hud.endScreen.onPractice(function()
+	local result = Remotes.function_("PlayAgain"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Practice failed")
+	end
+	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+end)
+
 hud.lobby.onMint(function()
 	hud.mint.toggle()
 end)
@@ -490,6 +506,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.F then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			reportAttack(Remotes.function_("StartRecall"):InvokeServer())
+		end
+		return
+	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		if not latestMatch or latestMatch.phase ~= "InProgress" then
 			return
@@ -570,8 +592,10 @@ task.spawn(function()
 			refreshBars()
 			applyVision()
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
+		elseif latestMatch and latestMatch.phase == "Ended" then
+			hud.endScreen.update(latestMatch, player.UserId)
 		end
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. Tab scoreboard, V camera, LMB attack, QWER to brawl.")
+print("[Meo Meo Meo] Client HUD ready. Tab score, V camera, B shop, F recall, LMB attack, QWER to brawl.")

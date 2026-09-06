@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 
 local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -74,7 +75,15 @@ function ShopService.applyMovement(player: Player)
 	if not humanoid then
 		return
 	end
+	if player:GetAttribute(Constants.Attributes.Recalling) == true then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		return
+	end
 	humanoid.WalkSpeed = 16 + ShopService.bonuses(player.UserId).walkSpeed
+	if humanoid.JumpPower <= 0 then
+		humanoid.JumpPower = 50
+	end
 end
 
 function ShopService.buy(player: Player, itemId: unknown): Types.TradeResult

@@ -5,7 +5,7 @@ export type MatchPhase = "Lobby" | "ChampionSelect" | "InProgress" | "Ended"
 export type AbilitySlot = "Q" | "W" | "E" | "R"
 export type AbilityKind = "damage" | "heal" | "buff" | "dash" | "shield" | "stun"
 export type AbilityRanks = { Q: number, W: number, E: number, R: number }
-export type FeedKind = "kill" | "tower" | "nexus" | "level"
+export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
 
@@ -67,6 +67,7 @@ export type MatchPlayer = {
 	cs: number,
 	connected: boolean,
 	items: { string },
+	damageDealt: number,
 }
 
 export type CombatState = {
@@ -85,6 +86,9 @@ export type CombatState = {
 	level: number,
 	ranks: AbilityRanks,
 	respawnAt: number?,
+	recalling: boolean,
+	recallEndsAt: number?,
+	recallStartedAt: number?,
 }
 
 export type MatchSnapshot = {
@@ -95,6 +99,7 @@ export type MatchSnapshot = {
 	startedAt: number?,
 	endedAt: number?,
 	winner: TeamId?,
+	mvpUserId: number?,
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
 	queueCount: number,

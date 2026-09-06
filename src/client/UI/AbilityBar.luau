@@ -93,6 +93,28 @@ function AbilityBar.create(parent: Instance): BarApi
 		slots[slot] = label
 	end
 
+	local recallBar = Instance.new("Frame")
+	recallBar.Name = "Recall"
+	recallBar.BackgroundColor3 = Theme.panelAlt
+	recallBar.Position = UDim2.fromOffset(0, -22)
+	recallBar.Size = UDim2.new(1, 0, 0, 10)
+	recallBar.Visible = false
+	recallBar.ZIndex = 4
+	recallBar.Parent = root
+	Theme.corner(recallBar, 6)
+	local recallFill = Instance.new("Frame")
+	recallFill.BackgroundColor3 = Theme.mint
+	recallFill.Size = UDim2.fromScale(0, 1)
+	recallFill.ZIndex = 5
+	recallFill.Parent = recallBar
+	Theme.corner(recallFill, 6)
+	local recallLabel = Theme.text(root, "RecallLabel", "", 12, Theme.mint, Theme.fontTitle)
+	recallLabel.Position = UDim2.fromOffset(0, -40)
+	recallLabel.Size = UDim2.new(1, 0, 0, 16)
+	recallLabel.TextXAlignment = Enum.TextXAlignment.Center
+	recallLabel.Visible = false
+	recallLabel.ZIndex = 5
+
 	local death = Theme.text(root, "Death", "", 16, Theme.coral, Theme.fontTitle)
 	death.AnchorPoint = Vector2.new(0.5, 0.5)
 	death.Position = UDim2.fromScale(0.5, 0.5)
@@ -110,6 +132,8 @@ function AbilityBar.create(parent: Instance): BarApi
 			root.Visible = visible
 			if not visible then
 				death.Visible = false
+				recallBar.Visible = false
+				recallLabel.Visible = false
 			end
 		end,
 		update = function(matchPlayer: Types.MatchPlayer, combat: Types.CombatState?)
@@ -155,11 +179,28 @@ function AbilityBar.create(parent: Instance): BarApi
 					local left = math.max(0, (combat.respawnAt or matchPlayer.respawnAt or t) - t)
 					death.Visible = true
 					death.Text = `Respawn at fountain · {string.format("%.1f", left)}s`
+					recallBar.Visible = false
+					recallLabel.Visible = false
+				elseif combat.recalling then
+					death.Visible = false
+					local ends = combat.recallEndsAt or t
+					local started = combat.recallStartedAt or (ends - 7)
+					local total = math.max(0.1, ends - started)
+					local left = math.max(0, ends - t)
+					local elapsed = math.clamp(t - started, 0, total)
+					recallBar.Visible = true
+					recallLabel.Visible = true
+					recallFill.Size = UDim2.fromScale(elapsed / total, 1)
+					recallLabel.Text = `Recalling · {string.format("%.1f", left)}s  (F or S to cancel)`
 				else
 					death.Visible = false
+					recallBar.Visible = false
+					recallLabel.Visible = false
 				end
 			else
 				death.Visible = false
+				recallBar.Visible = false
+				recallLabel.Visible = false
 			end
 		end,
 	}

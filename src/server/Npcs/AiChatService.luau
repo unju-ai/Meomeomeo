@@ -98,6 +98,13 @@ function AiChatService.announce(text: string)
 	})
 end
 
+function AiChatService.announceTo(player: Player, text: string)
+	Remotes.event("AnnouncerMessage"):FireClient(player, {
+		speaker = "Kitty Caster",
+		text = text,
+	})
+end
+
 function AiChatService.list(): { Types.NpcDef }
 	return NpcCatalog.all()
 end
