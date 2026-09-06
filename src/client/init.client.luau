@@ -96,9 +96,26 @@ hud.lobby.onQueue(function()
 end)
 
 hud.lobby.onLeave(function()
-	Remotes.function_("LeaveQueue"):InvokeServer()
-	hud.lobby.setQueued(false)
+	local result = Remotes.function_("LeaveQueue"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not leave queue")
+	else
+		hud.lobby.setQueued(false)
+	end
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+end)
+
+hud.lobby.onInvite(function()
+	local result = Remotes.function_("InviteParty"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Invite failed")
+	else
+		toast("Friend added to your party")
+	end
+	local queue = Remotes.function_("GetQueueStatus"):InvokeServer()
+	if typeof(queue) == "table" then
+		hud.lobby.updateQueue(queue :: Types.QueueStatus)
+	end
 end)
 
 hud.lobby.onPractice(function(difficulty)
@@ -196,6 +213,19 @@ end)
 
 Remotes.event("MatchStateChanged").OnClientEvent:Connect(function(snapshot)
 	applySnapshot(snapshot)
+end)
+
+Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
+	if typeof(status) ~= "table" then
+		return
+	end
+	local queue = status :: Types.QueueStatus
+	hud.lobby.updateQueue(queue)
+	if queue.phase == "Found" then
+		toast("Match found!")
+	elseif queue.phase == "Teleporting" then
+		toast("Teleporting to the rift…")
+	end
 end)
 
 Remotes.event("CombatUpdated").OnClientEvent:Connect(function(state)

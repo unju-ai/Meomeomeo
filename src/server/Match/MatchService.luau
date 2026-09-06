@@ -13,6 +13,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local AiChatService = require(script.Parent.Parent.Npcs.AiChatService)
 local BotService = require(script.Parent.BotService)
 local CombatService = require(script.Parent.CombatService)
+local MatchTeleport = require(script.Parent.MatchTeleport)
 local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
@@ -101,7 +102,7 @@ local function countTeam(players: { [string]: Types.MatchPlayer }, team: Types.T
 	return n
 end
 
-local function fillBots(players: { [string]: Types.MatchPlayer }, practice: boolean)
+local function fillBots(players: { [string]: Types.MatchPlayer }, practice: boolean, padQueue: boolean?)
 	if practice then
 		for _ = 1, Config.Bots.PracticeEnemies do
 			addBot(players, "Red")
@@ -109,6 +110,9 @@ local function fillBots(players: { [string]: Types.MatchPlayer }, practice: bool
 		for _ = 1, Config.Bots.PracticeAllies do
 			addBot(players, "Blue")
 		end
+		return
+	end
+	if padQueue == false or (padQueue == nil and not Config.Match.PadQueueWithBots) then
 		return
 	end
 	local fillTo = Config.Bots.QueueFillTo
@@ -186,6 +190,20 @@ function MatchService.isEnded(): boolean
 	return current ~= nil and current.phase == "Ended"
 end
 
+function MatchService.lobbyPlaceId(): number
+	if current and current.lobbyPlaceId and current.lobbyPlaceId > 0 then
+		return current.lobbyPlaceId
+	end
+	if Config.Match.LobbyPlaceId > 0 then
+		return Config.Match.LobbyPlaceId
+	end
+	return game.PlaceId
+end
+
+function MatchService.isReserved(): boolean
+	return current ~= nil and current.reserved == true
+end
+
 local function pickMvp(): number?
 	if not current then
 		return nil
@@ -210,6 +228,9 @@ local function pickMvp(): number?
 end
 
 function MatchService.returnToLobby(formQueue: boolean)
+	local reserved = current ~= nil and current.reserved == true
+	local lobbyId = MatchService.lobbyPlaceId()
+	local humans = Players:GetPlayers()
 	phaseToken += 1
 	MinionService.stop()
 	JungleService.stop()
@@ -226,6 +247,11 @@ function MatchService.returnToLobby(formQueue: boolean)
 	end
 	VoiceService.onTeamsChanged()
 	current = nil
+	if reserved then
+		MatchTeleport.returnToLobby(humans, lobbyId)
+		Remotes.event("MatchStateChanged"):FireAllClients(nil)
+		return
+	end
 	if formQueue and onMatchCleared then
 		onMatchCleared()
 	end
@@ -330,11 +356,17 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	end)
 end
 
-function MatchService.start(participants: { Player }, practice: boolean, difficulty: Types.BotDifficulty?)
+function MatchService.start(
+	participants: { Player },
+	practice: boolean,
+	difficulty: Types.BotDifficulty?,
+	seats: { Types.MatchTeleportSeat }?,
+	options: { lobbyPlaceId: number?, reserved: boolean?, padWithBots: boolean?, matchId: string? }?
+)
 	if MatchService.isBusy() then
 		return false, "A match is already running."
 	end
-	if #participants == 0 then
+	if #participants == 0 and not (seats and #seats > 0) then
 		return false, "Need at least one cat."
 	end
 
@@ -343,7 +375,28 @@ function MatchService.start(participants: { Player }, practice: boolean, difficu
 	MapBuilder.build()
 
 	local players: { [string]: Types.MatchPlayer } = {}
+	if seats then
+		for _, seat in seats do
+			local present = Players:GetPlayerByUserId(seat.userId)
+			players[tostring(seat.userId)] = blankPlayer(
+				seat.userId,
+				seat.displayName,
+				seat.team,
+				false,
+				seat.championId
+			)
+			players[tostring(seat.userId)].connected = present ~= nil
+			players[tostring(seat.userId)].ready = seat.championId ~= nil
+			if present then
+				assignRobloxTeam(present, seat.team)
+				teleport(present, nil)
+			end
+		end
+	end
 	for index, player in participants do
+		if players[tostring(player.UserId)] then
+			continue
+		end
 		local team: Types.TeamId = if index % 2 == 1 then "Blue" else "Red"
 		if practice then
 			team = "Blue"
@@ -352,10 +405,11 @@ function MatchService.start(participants: { Player }, practice: boolean, difficu
 		assignRobloxTeam(player, team)
 		teleport(player, nil)
 	end
-	fillBots(players, practice)
+	local pad = if options and options.padWithBots ~= nil then options.padWithBots else nil
+	fillBots(players, practice, pad)
 
 	current = {
-		id = `meo-{token}`,
+		id = (options and options.matchId) or `meo-{token}`,
 		phase = "ChampionSelect",
 		practice = practice,
 		phaseEndsAt = Workspace:GetServerTimeNow() + Config.Match.ChampionSelectSeconds,
@@ -367,6 +421,8 @@ function MatchService.start(participants: { Player }, practice: boolean, difficu
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
 		queueCount = 0,
+		lobbyPlaceId = if options then options.lobbyPlaceId else nil,
+		reserved = if options then options.reserved else false,
 	}
 
 	VoiceService.onTeamsChanged()

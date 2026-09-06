@@ -31,7 +31,10 @@ export type RemoteName =
 	| "PlayAgain"
 	| "PlaceWard"
 	| "UseLens"
+	| "InviteParty"
+	| "GetQueueStatus"
 	| "MatchStateChanged"
+	| "QueueUpdated"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
 	| "VoiceStatusChanged"
@@ -68,6 +71,8 @@ local FUNCTION_NAMES = {
 	"PlayAgain",
 	"PlaceWard",
 	"UseLens",
+	"InviteParty",
+	"GetQueueStatus",
 }
 
 local EVENT_NAMES = {
@@ -81,6 +86,7 @@ local EVENT_NAMES = {
 	"VisionUpdated",
 	"PingReceived",
 	"KillFeed",
+	"QueueUpdated",
 }
 
 local function getFolder(): Folder

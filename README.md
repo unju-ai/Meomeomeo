@@ -54,7 +54,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 ### Playtest tips
 
 - **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal**. Attack bots, towers, then the nexus.
-- **Queue** — starts a real match when at least `Config.Match.MinPlayersToStart` (default 2) players are waiting.
+- **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire. Instant/self and ground AoEs still fire on press.
 - **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-only vision bubble. Placing another replaces yours.
@@ -75,7 +75,8 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
-- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). A small FSM lanes with the wave, auto-attacks the nearest valid target, casts a ready ability when an enemy is in range, retreats to fountain on low HP, and buys Longclaw / Yarnplate after visiting lane. Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). Easy bots think slower, retreat earlier, and cast less. Queue matches fill each side to 3 if underfilled. See `Config.Bots`.
+- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). A small FSM lanes with the wave, auto-attacks the nearest valid target, casts a ready ability when an enemy is in range, retreats to fountain on low HP, and buys Longclaw / Yarnplate after visiting lane. Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). Easy bots think slower, retreat earlier, and cast less. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on. Practice is always **in-place** (never teleports).
+- **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls.
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a readable 3-lane placeholder (not final art). Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
@@ -100,6 +101,37 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
 Tune timers and team size in `src/server/Config.luau`.
+
+## Reserved-server matchmaking
+
+Queue is reserved-server-ready. **Practice never teleports.**
+
+| Config (`Match`) | Default | Meaning |
+|---|---|---|
+| `MinPlayersToStart` | `2` | Humans needed to form. Use `6` (3v3) or `10` (5v5) live. |
+| `MatchPlaceId` | `0` | `0` = start the match **in this server**. Set a published PlaceId to reserve a private instance (same place or a dedicated match place). |
+| `LobbyPlaceId` | `0` | Where reserved-server “Back to lobby” sends people. `0` = remember the PlaceId they queued from. |
+| `MaxWaitSeconds` | `90` | If `PadQueueWithBots`, form with whoever is waiting after this. |
+| `PadQueueWithBots` | `true` | Fill empty roster slots (`Config.Bots.QueueFillTo`). |
+| `ArrivalTimeoutSeconds` | `20` | Reserved instance starts draft when seats arrive, or this timeout. |
+
+**Wire `MatchPlaceId`**
+
+1. Publish the experience (reserved servers do **not** work in unpublished Studio).
+2. Creator Dashboard → the lobby place and/or a dedicated match place. Copy the numeric PlaceId.
+3. Set `Config.Match.MatchPlaceId` to that id (can be this lobby’s PlaceId for a same-place reserved instance, or a second place that also has this Rojo tree).
+4. Optional: set `LobbyPlaceId` to the public lobby place so post-match teleport is explicit.
+5. Publish again. Queue with 2+ clients; you should see **MATCH FOUND** then a teleport.
+
+**Studio limits**
+
+- `ReserveServer` / `TeleportAsync` to reserved instances require a **published** experience and live clients.
+- In Studio (or if reserve/teleport throws), the server logs a warning and **starts the match in-place** — same draft/fight/bots/end screen as before.
+- Two Studio players can still test queue UX (count, ETA, cancel, party invite, match-found) and the in-place fallback.
+
+**Match place bootstrap**
+
+Teleport payload (`MeoMatch`) carries `matchId`, `lobbyPlaceId`, teams, optional pre-locks, and `padWithBots`. A reserved server (`PrivateServerId` set, `PrivateServerOwnerId == 0`) waits for those userIds, then `MatchService.start(..., seats, { reserved = true })`. Draft still happens in the match instance unless seats already have `championId`.
 
 ## Voice chat
 
@@ -233,7 +265,7 @@ src/shared/          Types, remotes, constants, champion catalog, item catalog, 
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
-  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
+  Match/             Matchmaking, reserved-server teleport, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
@@ -255,8 +287,8 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Real cat meshes / animations.
-8. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
-9. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
+8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
+9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
 10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
 11. DataStores for cosmetics funded by yarn / meme-stock wagers.
 12. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.

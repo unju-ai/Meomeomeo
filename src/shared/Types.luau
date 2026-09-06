@@ -10,6 +10,8 @@ export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
 export type BotDifficulty = "Easy" | "Normal"
+export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
+export type QueueMode = "InPlace" | "Reserved"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -97,6 +99,20 @@ export type CombatState = {
 	lensReadyAt: number,
 }
 
+export type QueueStatus = {
+	phase: QueuePhase,
+	mode: QueueMode,
+	count: number,
+	needed: number,
+	estimatedSeconds: number,
+	waitedSeconds: number,
+	maxWaitSeconds: number,
+	inQueue: boolean,
+	detail: string,
+	party: { string },
+	canCancel: boolean,
+}
+
 export type MatchSnapshot = {
 	id: string,
 	phase: MatchPhase,
@@ -110,6 +126,26 @@ export type MatchSnapshot = {
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
 	queueCount: number,
+	queue: QueueStatus?,
+	lobbyPlaceId: number?,
+	reserved: boolean?,
+}
+
+export type MatchTeleportSeat = {
+	userId: number,
+	displayName: string,
+	team: TeamId,
+	championId: string?,
+}
+
+export type MatchTeleportData = {
+	kind: string,
+	matchId: string,
+	lobbyPlaceId: number,
+	practice: boolean,
+	padWithBots: boolean,
+	botDifficulty: BotDifficulty?,
+	seats: { MatchTeleportSeat },
 }
 
 export type VoiceStatus = {

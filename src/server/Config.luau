@@ -9,8 +9,24 @@ export type VoiceMode = "Team" | "Proximity"
 local Config = {
 	Match = {
 		TeamSize = 5,
-		-- Real queue waits for this many players. Practice bypasses it.
+		-- Real queue waits for this many humans. Practice bypasses it.
+		-- Testing default is 2. Set 6 for 3v3 or 10 for a full 5v5.
 		MinPlayersToStart = 2,
+		-- Dedicated match place. 0 = never teleport; start the match in this
+		-- server (Studio-safe). Set to a published PlaceId to ReserveServer.
+		-- Can be this lobby's PlaceId (same-place reserved instance) or a
+		-- separate match place. Reserved servers need a published experience.
+		MatchPlaceId = 0,
+		-- Where "Back to lobby" sends reserved-server players. 0 = remember
+		-- the PlaceId they queued from (written into teleport data).
+		LobbyPlaceId = 0,
+		-- Form a match after this many seconds if PadQueueWithBots is on.
+		MaxWaitSeconds = 90,
+		-- Fill empty roster slots with BotService cats (see Config.Bots.QueueFillTo).
+		PadQueueWithBots = true,
+		-- How long a reserved match instance waits for teleported cats.
+		ArrivalTimeoutSeconds = 20,
+		EstimatedSecondsPerMissing = 14,
 		ChampionSelectSeconds = 25,
 		PostMatchSeconds = 45,
 		PracticeEnabled = true,
