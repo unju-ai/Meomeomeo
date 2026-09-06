@@ -9,11 +9,13 @@ export type LobbyApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
 	update: (snapshot: Types.MatchSnapshot) -> (),
+	updateQueue: (status: Types.QueueStatus) -> (),
 	setQueued: (queued: boolean) -> (),
 	onQueue: (() -> ()) -> (),
 	onLeave: (() -> ()) -> (),
 	onPractice: ((difficulty: Types.BotDifficulty) -> ()) -> (),
 	onMint: (() -> ()) -> (),
+	onInvite: (() -> ()) -> (),
 	difficulty: () -> Types.BotDifficulty,
 }
 
@@ -22,7 +24,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	root.Name = "Lobby"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.48)
-	root.Size = UDim2.fromOffset(460, 458)
+	root.Size = UDim2.fromOffset(480, 520)
 	root.BackgroundColor3 = Theme.panel
 	root.Parent = parent
 	Theme.corner(root, 22)
@@ -35,28 +37,46 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 
 	local subtitle = Theme.text(root, "Sub", "A cat MOBA. Lanes, nexuses, voice, chaos.", 16, Theme.cream, Theme.fontBody)
 	subtitle.Position = UDim2.fromOffset(0, 44)
-	subtitle.Size = UDim2.new(1, 0, 0, 24)
+	subtitle.Size = UDim2.new(1, 0, 0, 22)
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
 
-	local status = Theme.text(root, "Status", "Lobby · 0 in queue", 15, Theme.peach, Theme.fontBody)
-	status.Position = UDim2.fromOffset(0, 78)
-	status.Size = UDim2.new(1, 0, 0, 22)
-	status.TextXAlignment = Enum.TextXAlignment.Center
+	local statusLabel = Theme.text(root, "Status", "Lobby · 0 in queue", 15, Theme.peach, Theme.fontBody)
+	statusLabel.Position = UDim2.fromOffset(0, 70)
+	statusLabel.Size = UDim2.new(1, 0, 0, 20)
+	statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	local eta = Theme.text(root, "Eta", "Not queued", 13, Theme.muted, Theme.fontMono)
+	eta.Position = UDim2.fromOffset(0, 90)
+	eta.Size = UDim2.new(1, 0, 0, 18)
+	eta.TextXAlignment = Enum.TextXAlignment.Center
 
 	local blurb = Theme.text(
 		root,
 		"Blurb",
-		"Queue for a 5v5, or Practice solo against 3 AI cats on Red. Pick a champion, smash the nexus, yell on team voice.",
-		14,
+		"Queue for a real match (in-place until MatchPlaceId is set). Practice stays solo vs 3 AI cats.",
+		13,
 		Theme.cream,
 		Theme.fontBody
 	)
-	blurb.Position = UDim2.fromOffset(0, 108)
-	blurb.Size = UDim2.new(1, 0, 0, 72)
+	blurb.Position = UDim2.fromOffset(0, 112)
+	blurb.Size = UDim2.new(1, 0, 0, 56)
+
+	local party = Theme.text(root, "Party", "Party · just you", 13, Theme.peach, Theme.fontBody)
+	party.Position = UDim2.fromOffset(0, 168)
+	party.Size = UDim2.new(1, 0, 0, 18)
 
 	local queueBtn = Theme.button(root, "Queue", "Queue 🐾", Theme.amber)
-	queueBtn.Position = UDim2.new(0, 0, 1, -192)
+	queueBtn.Position = UDim2.new(0, 0, 1, -236)
 	queueBtn.Size = UDim2.new(1, 0, 0, 40)
+
+	local leaveBtn = Theme.button(root, "Leave", "Cancel queue", Theme.coral)
+	leaveBtn.Position = UDim2.new(0, 0, 1, -236)
+	leaveBtn.Size = UDim2.new(1, 0, 0, 40)
+	leaveBtn.Visible = false
+
+	local inviteBtn = Theme.button(root, "Invite", "Invite friend in this server", Theme.peach)
+	inviteBtn.Position = UDim2.new(0, 0, 1, -188)
+	inviteBtn.Size = UDim2.new(1, 0, 0, 36)
 
 	local easyBtn = Theme.button(root, "Easy", "Easy bots", Theme.panelAlt)
 	easyBtn.Position = UDim2.new(0, 0, 1, -144)
@@ -74,17 +94,14 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	mintBtn.Position = UDim2.new(0, 0, 1, -48)
 	mintBtn.Size = UDim2.new(1, 0, 0, 40)
 
-	local leaveBtn = Theme.button(root, "Leave", "Leave queue", Theme.coral)
-	leaveBtn.Position = UDim2.new(0, 0, 1, -192)
-	leaveBtn.Size = UDim2.new(1, 0, 0, 40)
-	leaveBtn.Visible = false
-
 	local inQueue = false
 	local difficulty: Types.BotDifficulty = "Normal"
+	local lastQueue: Types.QueueStatus? = nil
 	local queueHandler: (() -> ())? = nil
 	local leaveHandler: (() -> ())? = nil
 	local practiceHandler: ((Types.BotDifficulty) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
+	local inviteHandler: (() -> ())? = nil
 
 	local function paintDifficulty()
 		easyBtn.BackgroundColor3 = if difficulty == "Easy" then Theme.mint else Theme.peach
@@ -94,8 +111,44 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	paintDifficulty()
 
 	local function refreshButtons()
-		queueBtn.Visible = not inQueue
-		leaveBtn.Visible = inQueue
+		local phase = if lastQueue then lastQueue.phase else "Idle"
+		local found = phase == "Found" or phase == "Teleporting"
+		queueBtn.Visible = not inQueue and not found
+		leaveBtn.Visible = inQueue and not found
+		if found then
+			leaveBtn.Visible = false
+			queueBtn.Visible = false
+		end
+	end
+
+	local function applyQueue(queueStatus: Types.QueueStatus)
+		lastQueue = queueStatus
+		inQueue = queueStatus.inQueue or queueStatus.phase == "Found" or queueStatus.phase == "Teleporting"
+		local mode = if queueStatus.mode == "Reserved" then "reserved server" else "this server"
+		statusLabel.Text = `Lobby · {queueStatus.count} in queue`
+		if queueStatus.phase == "Found" then
+			eta.TextColor3 = Theme.amber
+			eta.Text = `MATCH FOUND  ·  {mode}`
+			blurb.Text = queueStatus.detail
+		elseif queueStatus.phase == "Teleporting" then
+			eta.TextColor3 = Theme.amber
+			eta.Text = "Teleporting to reserved match…"
+			blurb.Text = queueStatus.detail
+		elseif queueStatus.inQueue then
+			eta.TextColor3 = Theme.peach
+			eta.Text = `In queue  {queueStatus.count}/{queueStatus.needed}  ·  ~{queueStatus.estimatedSeconds}s  ·  {mode}`
+			blurb.Text = queueStatus.detail
+		else
+			eta.TextColor3 = Theme.muted
+			eta.Text = `Queue idle  {queueStatus.count}/{queueStatus.needed}  ·  {mode}`
+			blurb.Text = queueStatus.detail
+		end
+		if #queueStatus.party > 0 then
+			party.Text = `Party · {table.concat(queueStatus.party, ", ")}`
+		else
+			party.Text = "Party · just you  (invite a friend in this server)"
+		end
+		refreshButtons()
 	end
 
 	queueBtn.MouseButton1Click:Connect(function()
@@ -110,6 +163,11 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		refreshButtons()
 		if leaveHandler then
 			leaveHandler()
+		end
+	end)
+	inviteBtn.MouseButton1Click:Connect(function()
+		if inviteHandler then
+			inviteHandler()
 		end
 	end)
 	easyBtn.MouseButton1Click:Connect(function()
@@ -137,11 +195,17 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 			root.Visible = visible
 		end,
 		update = function(snapshot: Types.MatchSnapshot)
-			status.Text = `Lobby · {snapshot.queueCount} in queue`
+			statusLabel.Text = `Lobby · {snapshot.queueCount} in queue`
+			if snapshot.queue then
+				applyQueue(snapshot.queue)
+			end
 			if snapshot.phase ~= "Lobby" then
 				inQueue = false
 			end
 			refreshButtons()
+		end,
+		updateQueue = function(queueStatus: Types.QueueStatus)
+			applyQueue(queueStatus)
 		end,
 		setQueued = function(queued: boolean)
 			inQueue = queued
@@ -158,6 +222,9 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onMint = function(fn)
 			mintHandler = fn
+		end,
+		onInvite = function(fn)
+			inviteHandler = fn
 		end,
 		difficulty = function()
 			return difficulty

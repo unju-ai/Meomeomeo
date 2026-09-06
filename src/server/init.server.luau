@@ -46,9 +46,11 @@ MatchmakingService.init()
 AiChatService.init(MatchService.snapshot)
 VoiceService.init()
 
-local function withQueue(snapshot: Types.MatchSnapshot?): Types.MatchSnapshot?
+local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
+	local queue = MatchmakingService.statusFor(player)
 	if snapshot then
-		snapshot.queueCount = MatchmakingService.queueCount()
+		snapshot.queueCount = queue.count
+		snapshot.queue = queue
 		return snapshot
 	end
 	return {
@@ -63,18 +65,27 @@ local function withQueue(snapshot: Types.MatchSnapshot?): Types.MatchSnapshot?
 		botDifficulty = nil,
 		players = {},
 		objectives = MapBuilder.objectiveStates(),
-		queueCount = MatchmakingService.queueCount(),
+		queueCount = queue.count,
+		queue = queue,
 	}
 end
 
 Remotes.function_("QueueMatch").OnServerInvoke = function(player: Player)
 	local result = MatchmakingService.queue(player)
-	Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot()))
+	Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 	return result
 end
 
 Remotes.function_("LeaveQueue").OnServerInvoke = function(player: Player)
 	return MatchmakingService.leave(player)
+end
+
+Remotes.function_("GetQueueStatus").OnServerInvoke = function(player: Player)
+	return MatchmakingService.statusFor(player)
+end
+
+Remotes.function_("InviteParty").OnServerInvoke = function(player: Player, targetUserId: unknown)
+	return MatchmakingService.invite(player, targetUserId)
 end
 
 Remotes.function_("StartPractice").OnServerInvoke = function(player: Player, difficulty: unknown)
@@ -85,8 +96,8 @@ Remotes.function_("SelectChampion").OnServerInvoke = function(player: Player, ch
 	return MatchService.selectChampion(player, championId)
 end
 
-Remotes.function_("GetMatchSnapshot").OnServerInvoke = function(_player: Player)
-	return withQueue(MatchService.snapshot())
+Remotes.function_("GetMatchSnapshot").OnServerInvoke = function(player: Player)
+	return withQueue(MatchService.snapshot(), player)
 end
 
 Remotes.function_("UseAbility").OnServerInvoke = function(player: Player, request: unknown)
@@ -171,7 +182,7 @@ end
 
 local function sendLobby(player: Player)
 	task.defer(function()
-		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot()))
+		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 		Remotes.event("VoiceStatusChanged"):FireClient(player, VoiceService.getStatus(player))
 		Remotes.event("MintStatusChanged"):FireClient(player, MintService.getStatus(player))
 	end)
@@ -182,4 +193,6 @@ for _, player in Players:GetPlayers() do
 	sendLobby(player)
 end
 
-print("[Meo Meo Meo] Cat MOBA scaffold online. Voice + match + Pawmart NPCs ready.")
+print(
+	`[Meo Meo Meo] Cat MOBA scaffold online. Queue mode={if Config.Match.MatchPlaceId > 0 then "reserved" else "in-place"} min={Config.Match.MinPlayersToStart}.`
+)
