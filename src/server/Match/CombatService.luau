@@ -10,6 +10,7 @@ local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
@@ -25,10 +26,11 @@ type MatchApi = {
 }
 
 type AttackLock = {
-	kind: "player" | "minion" | "objective",
+	kind: "player" | "minion" | "objective" | "jungle",
 	userId: number?,
 	minionId: string?,
 	objectiveId: string?,
+	jungleId: string?,
 	moveTo: Vector3?,
 	windupEnds: number?,
 }
@@ -243,8 +245,11 @@ function CombatService.init(api: MatchApi)
 			for _, player in Players:GetPlayers() do
 				local state = combat[player.UserId]
 				if state and state.alive then
-					state.health = math.min(state.maxHealth, state.health + Config.Combat.RegenPerSecond)
-					state.mana = math.min(state.maxMana, state.mana + Config.Combat.ManaRegenPerSecond)
+					local atFountain = ShopService.atFountain(player)
+					local hpRegen = if atFountain then Config.Combat.FountainHpRegen else Config.Combat.RegenPerSecond
+					local mpRegen = if atFountain then Config.Combat.FountainManaRegen else Config.Combat.ManaRegenPerSecond
+					state.health = math.min(state.maxHealth, state.health + hpRegen)
+					state.mana = math.min(state.maxMana, state.mana + mpRegen)
 					applyHumanoid(player, state)
 				end
 			end
@@ -527,6 +532,8 @@ local function pushCombat(player: Player)
 			state.attackTarget = if other then other.DisplayName else "champion"
 		elseif lock.kind == "minion" then
 			state.attackTarget = "kitten"
+		elseif lock.kind == "jungle" then
+			state.attackTarget = "camp"
 		elseif lock.kind == "objective" then
 			state.attackTarget = lock.objectiveId or "structure"
 		end
@@ -568,6 +575,12 @@ local function resolveTarget(lock: AttackLock): (Vector3?, string?)
 			return nil, "dead"
 		end
 		return minion.part.Position, nil
+	elseif lock.kind == "jungle" and lock.jungleId then
+		local monster = JungleService.get(lock.jungleId)
+		if not monster or monster.health <= 0 or not monster.part.Parent then
+			return nil, "dead"
+		end
+		return monster.part.Position, nil
 	elseif lock.kind == "objective" and lock.objectiveId then
 		local part = MapBuilder.getObjectivePart(lock.objectiveId)
 		if not part then
@@ -593,6 +606,9 @@ local function visibleTo(player: Player, lock: AttackLock): boolean
 	if lock.kind == "minion" and lock.minionId then
 		return VisionService.canSeeMinion(player, lock.minionId)
 	end
+	if lock.kind == "jungle" and lock.jungleId then
+		return VisionService.canSeeJungle(player, lock.jungleId)
+	end
 	return false
 end
 
@@ -609,6 +625,8 @@ local function strike(player: Player, lock: AttackLock)
 			TowerService.noteThreat(player, minion.team)
 			MinionService.applyDamage(player, minion.id, power)
 		end
+	elseif lock.kind == "jungle" and lock.jungleId then
+		JungleService.applyDamage(player, lock.jungleId, power)
 	elseif lock.kind == "objective" and lock.objectiveId then
 		local part = MapBuilder.getObjectivePart(lock.objectiveId)
 		if part then
@@ -649,6 +667,13 @@ local function acquireNear(player: Player, team: Types.TeamId, origin: Vector3):
 			end
 		end
 	end
+	for _, monster in JungleService.list() do
+		local d = (monster.part.Position - origin).Magnitude
+		if d <= bestDist and VisionService.canSeeJungle(player, monster.id) then
+			best = { kind = "jungle", jungleId = monster.id }
+			bestDist = d
+		end
+	end
 	local map = MapBuilder.get()
 	local objectives = map:FindFirstChild("Objectives")
 	if objectives then
@@ -685,7 +710,7 @@ tickAutoAttack = function(player: Player)
 	end
 
 	local lock = locks[player.UserId]
-	if lock and not lock.userId and not lock.minionId and not lock.objectiveId then
+	if lock and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId then
 		local acquired = acquireNear(player, matchPlayer.team, root.Position)
 		if acquired then
 			acquired.moveTo = lock.moveTo
@@ -697,7 +722,7 @@ tickAutoAttack = function(player: Player)
 		return
 	end
 
-	if lock.userId or lock.minionId or lock.objectiveId then
+	if lock.userId or lock.minionId or lock.objectiveId or lock.jungleId then
 		if not visibleTo(player, lock) then
 			if lock.moveTo then
 				locks[player.UserId] = { kind = "player", moveTo = lock.moveTo }
@@ -814,6 +839,19 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 			return { ok = false, error = "No vision." }
 		end
 		lock = { kind = "minion", minionId = minionId }
+	elseif kind == "jungle" then
+		local jungleId = (request :: any).jungleId
+		if typeof(jungleId) ~= "string" then
+			return { ok = false, error = "No camp targeted." }
+		end
+		local monster = JungleService.get(jungleId)
+		if not monster or monster.health <= 0 then
+			return { ok = false, error = "That camp is gone." }
+		end
+		if not VisionService.canSeeJungle(player, jungleId) then
+			return { ok = false, error = "No vision." }
+		end
+		lock = { kind = "jungle", jungleId = jungleId }
 	elseif kind == "objective" then
 		local objectiveId = (request :: any).objectiveId
 		if typeof(objectiveId) ~= "string" then
@@ -1004,6 +1042,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			TowerService.noteThreat(player, foeTeam)
 		end
 		MinionService.damageInRadius(player, matchPlayer.team, aim, ability.radius + Config.Minions.HitRadius, power)
+		JungleService.damageInRadius(player, aim, ability.radius + Config.Minions.HitRadius, power)
 
 		local map = MapBuilder.get()
 		local objectives = map:FindFirstChild("Objectives")

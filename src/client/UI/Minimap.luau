@@ -210,6 +210,20 @@ function Minimap.create(parent: Instance): MinimapApi
 				end
 			end
 
+			local visibleJungle: { [string]: boolean } = {}
+			for _, id in (vision.jungle or {}) do
+				visibleJungle[id] = true
+			end
+			local jungle = if map then map:FindFirstChild("Jungle") else nil
+			if jungle then
+				for _, child in jungle:GetChildren() do
+					if child:IsA("BasePart") and visibleJungle[child.Name] then
+						place(`j-{child.Name}`, child.Position, 5, Theme.amber)
+						seen[`j-{child.Name}`] = true
+					end
+				end
+			end
+
 			for _, child in dots:GetChildren() do
 				if child:IsA("Frame") and not seen[child.Name] then
 					child:Destroy()

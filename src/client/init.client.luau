@@ -12,6 +12,7 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 
+local CameraFollow = require(script.CameraFollow)
 local Hud = require(script.UI.Hud)
 
 local player = Players.LocalPlayer
@@ -19,8 +20,10 @@ local hud = Hud.create()
 
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
-local lastVision: Types.VisionFrame = { players = {}, minions = {} }
+
+local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {} }
 local lastErrorAt = 0
+local cameraArmed = false
 
 local SLOT_KEYS: { [Enum.KeyCode]: Types.AbilitySlot } = {
 	[Enum.KeyCode.Q] = "Q",
@@ -42,6 +45,9 @@ local function refreshBars()
 		return
 	end
 	hud.abilities.update(mine, latestCombat)
+	if hud.scoreboard.root.Visible then
+		hud.scoreboard.update(latestMatch, player.UserId)
+	end
 end
 
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
@@ -56,6 +62,18 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	refreshBars()
 	if latestMatch.phase == "InProgress" then
 		hud.minimap.update(latestMatch, lastVision, player.UserId)
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			CameraFollow.setSubject(root)
+		end
+		if not cameraArmed then
+			CameraFollow.setEnabled(true)
+			cameraArmed = true
+		end
+	else
+		CameraFollow.setEnabled(false)
+		cameraArmed = false
 	end
 end
 
@@ -244,11 +262,33 @@ local function applyVision()
 			end
 		end
 	end
+
+	local jungle = if map then map:FindFirstChild("Jungle") else nil
+	if jungle then
+		local visibleJungle: { [string]: boolean } = {}
+		for _, id in (lastVision.jungle or {}) do
+			visibleJungle[id] = true
+		end
+		for _, child in jungle:GetChildren() do
+			if child:IsA("BasePart") then
+				local show = visibleJungle[child.Name] == true
+				child.LocalTransparencyModifier = if show then 0 else 1
+				local label = child:FindFirstChild("Label")
+				if label and label:IsA("BillboardGui") then
+					label.Enabled = show
+				end
+			end
+		end
+	end
 end
 
 Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 	if typeof(frame) == "table" then
-		lastVision = frame :: Types.VisionFrame
+		local incoming = frame :: Types.VisionFrame
+		if incoming.jungle == nil then
+			incoming.jungle = {}
+		end
+		lastVision = incoming
 		applyVision()
 		if latestMatch and latestMatch.phase == "InProgress" then
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
@@ -375,6 +415,10 @@ local function pickAttack(): Types.AttackRequest?
 	if typeof(objectiveId) == "string" then
 		return { kind = "objective", objectiveId = objectiveId }
 	end
+	local jungleId = inst:GetAttribute(Constants.Attributes.JungleId)
+	if typeof(jungleId) == "string" then
+		return { kind = "jungle", jungleId = jungleId }
+	end
 	return nil
 end
 
@@ -392,8 +436,44 @@ end
 
 local attackMoveArmed = false
 
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.Tab then
+		hud.scoreboard.setVisible(false)
+	end
+end)
+
+player.CharacterAdded:Connect(function(character)
+	task.defer(function()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") then
+			CameraFollow.setSubject(root)
+		end
+	end)
+end)
+if player.Character then
+	local root = player.Character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		CameraFollow.setSubject(root)
+	end
+end
+
 UserInputService.InputBegan:Connect(function(input, processed)
+	if input.KeyCode == Enum.KeyCode.Tab then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			hud.scoreboard.update(latestMatch, player.UserId)
+			hud.scoreboard.setVisible(true)
+		end
+		return
+	end
 	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.V then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			local on = not CameraFollow.isEnabled()
+			CameraFollow.setEnabled(on)
+			toast(if on then "Follow camera on" else "Free camera")
+		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.X then
@@ -494,4 +574,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. LMB to auto-attack, X-click to attack-move, QWER to brawl.")
+print("[Meo Meo Meo] Client HUD ready. Tab scoreboard, V camera, LMB attack, QWER to brawl.")

@@ -12,6 +12,7 @@ local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
+local Scoreboard = require(script.Parent.Scoreboard)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 
@@ -27,6 +28,7 @@ export type HudApi = {
 	chat: NpcChatPanel.ChatApi,
 	shop: ShopPanel.ShopApi,
 	minimap: Minimap.MinimapApi,
+	scoreboard: Scoreboard.BoardApi,
 	feed: KillFeed.FeedApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
@@ -69,6 +71,7 @@ function Hud.create(): HudApi
 	local shop = ShopPanel.create(gui)
 	local minimap = Minimap.create(gui)
 	local feed = KillFeed.create(gui)
+	local scoreboard = Scoreboard.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -82,6 +85,7 @@ function Hud.create(): HudApi
 		feed.setVisible(phase == "InProgress")
 		if phase ~= "InProgress" then
 			shop.setVisible(false)
+			scoreboard.setVisible(false)
 		end
 		if phase == "Lobby" then
 			lobby.update(snapshot)
@@ -91,7 +95,7 @@ function Hud.create(): HudApi
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
-			banner.Text = if mine then `{mine.team} · LMB attack · X-click move · B shop` else "Spectating"
+			banner.Text = if mine then `{mine.team} · Tab score · V camera · B shop` else "Spectating"
 		elseif phase == "Ended" then
 			abilities.setVisible(false)
 			lobby.setVisible(true)
@@ -109,6 +113,7 @@ function Hud.create(): HudApi
 		chat = chat,
 		shop = shop,
 		minimap = minimap,
+		scoreboard = scoreboard,
 		feed = feed,
 		banner = function(text: string)
 			banner.Text = text

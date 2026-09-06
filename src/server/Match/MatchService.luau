@@ -13,6 +13,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local AiChatService = require(script.Parent.Parent.Npcs.AiChatService)
 local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
+local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MemeStockService = require(script.Parent.Parent.Economy.MemeStockService)
 local MinionService = require(script.Parent.MinionService)
@@ -139,6 +140,7 @@ local function beginFight()
 	VoiceService.onTeamsChanged()
 	MapBuilder.refreshNexusGate()
 	MinionService.start()
+	JungleService.start()
 	TowerService.start()
 	VisionService.start()
 	AiChatService.announce("Cats out of the bag — match is LIVE. Smash three towers, then the nexus. Meow.")
@@ -154,6 +156,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	current.endedAt = Workspace:GetServerTimeNow()
 	current.phaseEndsAt = Workspace:GetServerTimeNow() + Config.Match.PostMatchSeconds
 	MinionService.stop()
+	JungleService.stop()
 	TowerService.stop()
 	VisionService.stop()
 	AiChatService.announce(`{winner} Whiskers win! {reason}`)
@@ -211,6 +214,7 @@ function MatchService.start(participants: { Player }, practice: boolean)
 			level = 1,
 			ranks = Progression.autoRanks(1),
 			respawnAt = nil,
+			cs = 0,
 			connected = true,
 			items = {},
 		}
@@ -400,6 +404,12 @@ function MatchService.init(cleared: () -> ())
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
 		onLastHit = function(player: Player, gold: number)
+			if current then
+				local matchPlayer = current.players[tostring(player.UserId)]
+				if matchPlayer then
+					matchPlayer.cs += 1
+				end
+			end
 			grantXp(player, Config.Match.MinionXp)
 			addGold(player, gold)
 		end,
@@ -427,6 +437,42 @@ function MatchService.init(cleared: () -> ())
 			end
 			if leveled then
 				broadcast()
+			end
+		end,
+	})
+
+	JungleService.init({
+		getPhase = function()
+			return if current then current.phase else nil
+		end,
+		damagePlayer = CombatService.applyDamageToPlayer,
+		characterRoot = CombatService.characterRoot,
+		onClear = function(player: Player, gold: number, xp: number)
+			if current then
+				local matchPlayer = current.players[tostring(player.UserId)]
+				if matchPlayer then
+					matchPlayer.cs += 1
+				end
+			end
+			grantXp(player, xp)
+			addGold(player, gold)
+		end,
+		onDied = function(position: Vector3, lastHitter: Player?)
+			if not current then
+				return
+			end
+			for _, player in Players:GetPlayers() do
+				if lastHitter and player == lastHitter then
+					continue
+				end
+				local matchPlayer = current.players[tostring(player.UserId)]
+				local root = CombatService.characterRoot(player)
+				local combat = CombatService.get(player.UserId)
+				if matchPlayer and root and combat and combat.alive then
+					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
+						grantXp(player, Config.Jungle.NearbyXp)
+					end
+				end
 			end
 		end,
 	})

@@ -126,7 +126,7 @@ function AbilityBar.create(parent: Instance): BarApi
 					aaBit = ` · AA {combat.attackTarget}`
 				end
 			end
-			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.gold}g`
+			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. aaBit
 			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)

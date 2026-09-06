@@ -17,12 +17,12 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
-- Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, and a client minimap
+- Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar (level / XP / ranks / respawn), kill feed, minimap, voice pill, NPC chat, **Mint Meo 404** panel
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -55,9 +55,11 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Queue** — starts a real match when at least `Config.Match.MinPlayersToStart` (default 2) players are waiting.
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, and (if ungated) structures.
-- **Minimap** (bottom-right) — lanes, towers, nexuses, allies, and visible enemies/minions. Click it to ping teammates.
+- **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
+- **V** — toggle a simple locked follow camera (north-up, overhead).
+- **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** lock a cat → last-hit Red kittens (gold + **XP bar**) → hit **level 6** to unlock R → dive a Red tower (it will kill you) → watch the **respawn timer**, then pop at the Blue fountain full HP/mana → take 3 towers → smash the `(OPEN)` nexus. Kill feed (top) calls out towers and level-ups. Assist gold still needs a teammate.
+- **Practice loop:** lock a cat → stand in the Blue fountain (HP/mana race back) → walk into the **NW jungle** (left of top lane) and last-hit a **Yarn Golem** or **Pigeon Pack** → hold **Tab** to see CS/gold → last-hit lane kittens → take 3 towers → smash the nexus. River crabs sit on the river at mid. Camps respawn on a timer.
 
 ## How the MOBA loop works
 
@@ -80,7 +82,11 @@ Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down 
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
 - **Vision:** stub fog — enemy champs/minions are hidden unless an ally champ, minion, or tower is in radius (`VisionUpdated`).
 - **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots. Server checks gold and location. Longclaw raises AA damage.
+- **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
+- **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
+- **Scoreboard:** hold Tab. Client overlay on the match snapshot (includes `cs`).
 - **Minimap:** client reads match + vision frames; click-to-ping is team-only (`PingReceived`).
+- **Camera:** optional locked follow (`V`). Does not change WASD.
 
 Tune timers and team size in `src/server/Config.luau`.
 
@@ -216,13 +222,13 @@ src/shared/          Types, remotes, constants, champion catalog, item catalog, 
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
-  Match/             Matchmaking, match lifecycle, combat, minions, towers, vision, shop
+  Match/             Matchmaking, match lifecycle, combat, minions, jungle, towers, vision, shop
   Voice/             VoiceChatService wrapper
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, entitlements, claim API stub
-src/client/          HUD, lobby, mint panel, draft, abilities, kill feed, minimap, voice, NPC chat
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, minimap, camera, voice, NPC chat
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -231,8 +237,8 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Real cat meshes / animations and a follow camera.
-2. Inner / inhibitor towers and a follow camera.
+1. Real cat meshes / animations.
+2. Inner / inhibitor towers.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Reserved-server matchmaking + teleport; optional `GetChatGroupsAsync` so voice-compatible players land together.
 5. Custom voice: push-to-talk, party chat in lobby, per-player mute UI.
