@@ -243,19 +243,15 @@ function WardService.placeTrinket(player: Player, team: Types.TeamId, position: 
 	return WardService.placeTrinketFor(player.UserId, team, position, root)
 end
 
-function WardService.useLens(player: Player, team: Types.TeamId): Types.AbilityResult
-	if not ShopService.has(player.UserId, "WhiskerLens") then
+function WardService.useLensFor(userId: number, team: Types.TeamId, root: BasePart): Types.AbilityResult
+	if not ShopService.has(userId, "WhiskerLens") then
 		return { ok = false, error = "Buy Whisker Lens at Pawmart (B)." }
 	end
 	local t = now()
-	if (lensReady[player.UserId] or 0) > t then
+	if (lensReady[userId] or 0) > t then
 		return { ok = false, error = "Lens on cooldown." }
 	end
-	local root = characterRoot(player)
-	if not root then
-		return { ok = false, error = "No character." }
-	end
-	lensReady[player.UserId] = t + Config.Vision.LensCooldown
+	lensReady[userId] = t + Config.Vision.LensCooldown
 	local radius = Config.Vision.LensRadius
 	local hit: { string } = {}
 	for id, ward in wards do
@@ -265,9 +261,17 @@ function WardService.useLens(player: Player, team: Types.TeamId): Types.AbilityR
 		end
 	end
 	for _, id in hit do
-		WardService.applyDamage(player, id, Config.Vision.LensDamage)
+		WardService.applyDamage(nil, id, Config.Vision.LensDamage)
 	end
 	return { ok = true }
+end
+
+function WardService.useLens(player: Player, team: Types.TeamId): Types.AbilityResult
+	local root = characterRoot(player)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	return WardService.useLensFor(player.UserId, team, root)
 end
 
 function WardService.clearAll()

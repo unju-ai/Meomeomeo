@@ -28,6 +28,14 @@ function TowerService.noteThreat(attackerUserId: number, victimTeam: Types.TeamI
 	}
 end
 
+function TowerService.aggroUserId(defenderTeam: Types.TeamId): number?
+	local aggro = threat[defenderTeam]
+	if aggro and aggro.untilTime > Workspace:GetServerTimeNow() then
+		return aggro.userId
+	end
+	return nil
+end
+
 local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (number?, string?)
 	if not api or not objective.alive then
 		return nil, nil

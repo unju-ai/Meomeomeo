@@ -30,7 +30,7 @@ local LINES: { { string } } = {
 	{ "H / ?", "This help (hold H or click ?)" },
 	{ "Minimap", "Click to ping teammates" },
 	{ "Talk", "Fountain / jungle cats" },
-	{ "Practice", "Easy / Normal / Hard bots in lobby" },
+	{ "Practice", "Easy / Normal / Hard (Hard dodges + lens)" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi

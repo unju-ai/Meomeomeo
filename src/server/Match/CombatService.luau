@@ -53,6 +53,22 @@ local boundModels: { [number]: Model } = {}
 local tickAutoAttack: (userId: number) -> ()
 local interruptRecall: (player: Player) -> ()
 
+export type AbilityCast = {
+	userId: number,
+	team: Types.TeamId,
+	mode: Types.AbilityTargeting,
+	kind: Types.AbilityKind,
+	origin: Vector3,
+	dest: Vector3,
+	radius: number,
+}
+
+local abilityCastListener: ((AbilityCast) -> ())? = nil
+
+function CombatService.onAbilityCast(fn: (AbilityCast) -> ())
+	abilityCastListener = fn
+end
+
 local function playerOf(userId: number): Player?
 	return Players:GetPlayerByUserId(userId)
 end
@@ -1275,6 +1291,18 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	end
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
+	-- Notify before hits resolve so bots can sidestep this cast.
+	if abilityCastListener and (mode == "line" or mode == "ground") then
+		abilityCastListener({
+			userId = userId,
+			team = matchPlayer.team,
+			mode = mode,
+			kind = ability.kind,
+			origin = origin,
+			dest = dest,
+			radius = ability.radius,
+		})
+	end
 	local scale = Progression.rankScale(rank)
 	local ap = state.abilityPower or 0
 	local power = 0
@@ -1405,23 +1433,36 @@ function CombatService.placeWard(player: Player, position: unknown): Types.Abili
 	return result
 end
 
-function CombatService.useLens(player: Player): Types.AbilityResult
+function CombatService.useLensFor(userId: number): Types.AbilityResult
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return { ok = false, error = "Match is not in progress." }
 	end
-	local matchPlayer = snapshot.players[tostring(player.UserId)]
-	local state = combat[player.UserId]
+	local matchPlayer = snapshot.players[tostring(userId)]
+	local state = combat[userId]
 	if not matchPlayer or not state or not state.alive then
 		return { ok = false, error = "You are down. Wait for respawn." }
 	end
-	interruptRecall(player)
-	local result = WardService.useLens(player, matchPlayer.team)
-	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
-	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
+	local root = rootOf(userId)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	local player = playerOf(userId)
+	if player then
+		interruptRecall(player)
+	end
+	local result = WardService.useLensFor(userId, matchPlayer.team, root)
+	state.trinketReadyAt = WardService.trinketReadyAt(userId)
+	state.lensReadyAt = WardService.lensReadyAt(userId)
 	result.combat = state
-	Remotes.event("CombatUpdated"):FireClient(player, state)
+	if player then
+		Remotes.event("CombatUpdated"):FireClient(player, state)
+	end
 	return result
+end
+
+function CombatService.useLens(player: Player): Types.AbilityResult
+	return CombatService.useLensFor(player.UserId)
 end
 
 return CombatService
