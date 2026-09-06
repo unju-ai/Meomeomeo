@@ -20,7 +20,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
-- **Recall (F)** to fountain, **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
+- **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), line skillshots / dash indicators, destroyable enemy wards
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
@@ -28,6 +28,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Optional yarn / meme-stock ticker on champions
 - Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, **?** / hold **H** help
 - Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
+- Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -60,8 +61,8 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 - **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
-- **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
-- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire. Instant/self and ground AoEs still fire on press.
+- **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). Confirmed swings show a claw flash + debounced hit spark. **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
+- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire (beam / ring / streak on confirm). Instant/self and ground AoEs still fire on press.
 - **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-only vision bubble. Placing another replaces yours.
 - **5** — Whisker Lens sweep (buy at Pawmart). Reveals and damages enemy wards in a short radius.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
@@ -330,6 +331,24 @@ Rules the builder keeps:
 
 **Swap for real meshes later:** upload a cat mesh or accessories to the Creator Store, then replace the Part recipes inside `ChampionAppearance` (or hang `SpecialMesh` / `MeshPart` instances with `rbxassetid://` on the same welds). Keep `HumanoidRootPart` as `PrimaryPart` and do not grow it to match a fancy mesh — combat range, dash `PivotTo`, and recall all use that box. Nameplates can stay on the root. Draft card swatches read `ChampionLooks` and do not need the 3D mesh.
 
+## Combat VFX (placeholders)
+
+Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/FxRelay.luau`). The client pools short-lived Parts / Beams / one-shot `ParticleEmitter`s in `src/client/Juice/CombatFx.luau` — no mesh binaries.
+
+| Cue | What you see |
+| --- | --- |
+| Line skillshot | Brief neon beam + impact burst |
+| Ground / instant AoE | Expanding ring |
+| Dash | Streak along the path |
+| Heal / shield | Soft burst; shield also gets a ForceField bubble (~1.1s) |
+| Auto-attack | Claw flash + hit spark (spark debounced ~140ms) |
+| Tower / nexus shot | Team-colored bolt |
+| Structure death | Puff of neon balls |
+| Stun | Three stars orbit the head for the stun duration |
+| Recall | Mint cylinder under feet for the 7s channel |
+
+Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E/R. World FX spawn only after the server confirms the cast or hit. Combat numbers are unchanged.
+
 ## Meme stocks (side system)
 
 `src/server/Economy/MemeStockService.luau` keeps server-authored champion tickers and a **yarn** wallet. Prices wander; kills bump the killer’s cat. The top HUD tape is cosmetic for now (`CheerTicker` remote exists for later shop/wager UI). Turn it off with `Config.Economy.Enabled = false`.
@@ -344,11 +363,11 @@ src/server/
   Config.luau        Tunables + AI / Meo404 product placeholders
   Match/             Matchmaking, reserved-server teleport, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
-  World/             3-lane map, cat NPC placeholders, champion appearance builder
+  World/             3-lane map, cat NPC placeholders, champion appearance builder, FX relay
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
 ```
@@ -358,9 +377,9 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 ## Next suggested steps
 
 1. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
-2. Control / pink wards, traveling skillshot projectiles, click-to-confirm ground targeting.
+2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-4. Recall VFX / channel circle; cancel-on-order only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
+4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes for uploaded cat meshes / animations (keep `HumanoidRootPart`).

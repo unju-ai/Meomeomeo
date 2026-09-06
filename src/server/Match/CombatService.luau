@@ -12,6 +12,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 
 local Config = require(script.Parent.Parent.Config)
 local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
+local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
@@ -183,6 +184,12 @@ interruptRecall = function(player: Player)
 		ShopService.applyMovement(player)
 	end
 	Remotes.event("CombatUpdated"):FireClient(player, state)
+	FxRelay.emit({
+		kind = "recall",
+		origin = Vector3.zero,
+		userId = player.UserId,
+		duration = 0,
+	})
 end
 
 local function completeRecall(player: Player)
@@ -214,6 +221,12 @@ local function completeRecall(player: Player)
 	applyHumanoid(player.UserId, state)
 	ShopService.applyMovement(player)
 	fireCombat(player.UserId)
+	FxRelay.emit({
+		kind = "recall",
+		origin = spawn.Position,
+		userId = player.UserId,
+		duration = 0,
+	})
 end
 
 function CombatService.startRecall(player: Player): Types.AbilityResult
@@ -251,6 +264,13 @@ function CombatService.startRecall(player: Player): Types.AbilityResult
 	state.nextAutoAttack = nextAA[player.UserId] or 0
 	state.attackTarget = nil
 	Remotes.event("CombatUpdated"):FireClient(player, state)
+	FxRelay.emit({
+		kind = "recall",
+		origin = root.Position,
+		userId = player.UserId,
+		team = matchPlayer.team,
+		duration = Config.Combat.RecallSeconds,
+	})
 	task.delay(Config.Combat.RecallSeconds, function()
 		if recallToken[player.UserId] ~= token then
 			return
@@ -696,6 +716,15 @@ local function shieldUser(targetUserId: number, amount: number)
 	end
 	state.shield = math.min(state.maxHealth, state.shield + amount)
 	fireCombat(targetUserId)
+	local root = rootOf(targetUserId)
+	if root then
+		FxRelay.emit({
+			kind = "shield",
+			origin = root.Position,
+			userId = targetUserId,
+			duration = 1.15,
+		})
+	end
 end
 
 local function stunUser(targetUserId: number, seconds: number)
@@ -716,6 +745,13 @@ local function stunUser(targetUserId: number, seconds: number)
 	local jump = humanoid.JumpPower
 	humanoid.WalkSpeed = 0
 	humanoid.JumpPower = 0
+	local root = character:FindFirstChild("HumanoidRootPart")
+	FxRelay.emit({
+		kind = "stun",
+		origin = if root and root:IsA("BasePart") then root.Position else character:GetPivot().Position,
+		userId = targetUserId,
+		duration = seconds,
+	})
 	task.delay(seconds, function()
 		if humanoid.Parent and humanoid:GetAttribute("MeoStunToken") == token then
 			humanoid.WalkSpeed = walk
@@ -732,6 +768,14 @@ local function healUser(targetUserId: number, amount: number)
 	state.health = math.min(state.maxHealth, state.health + amount)
 	applyHumanoid(targetUserId, state)
 	fireCombat(targetUserId)
+	local root = rootOf(targetUserId)
+	if root then
+		FxRelay.emit({
+			kind = "heal",
+			origin = root.Position,
+			userId = targetUserId,
+		})
+	end
 end
 
 local function damageObjective(attackerUserId: number?, part: BasePart, amount: number)
@@ -767,6 +811,13 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 				-- Minions can melt a tower/nexus; the match still has to resolve.
 				matchApi.onObjectiveDestroyed(attackerUserId, objective)
 				MapBuilder.refreshNexusGate()
+				local structureKind: "Tower" | "Nexus" = if objective.kind == "Nexus" then "Nexus" else "Tower"
+				FxRelay.emit({
+					kind = "structureDeath",
+					origin = part.Position,
+					team = if team == "Blue" or team == "Red" then team else nil,
+					structureKind = structureKind,
+				})
 			end
 		end
 	end
@@ -1069,6 +1120,13 @@ tickAutoAttack = function(userId: number)
 		lock.windupEnds = nil
 		nextAA[userId] = t + Config.AutoAttack.Interval
 		pushCombat(userId)
+		FxRelay.emit({
+			kind = "aa",
+			origin = root.Position,
+			dest = pos,
+			userId = userId,
+			team = matchPlayer.team,
+		})
 		return
 	end
 
@@ -1414,6 +1472,16 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)
 	fireCombat(userId)
+	FxRelay.emit({
+		kind = "ability",
+		origin = origin,
+		dest = dest,
+		userId = userId,
+		team = matchPlayer.team,
+		mode = mode,
+		abilityKind = ability.kind,
+		radius = ability.radius,
+	})
 	return { ok = true, combat = state }
 end
 

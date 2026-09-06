@@ -186,6 +186,21 @@ export type FeedEvent = {
 	at: number,
 }
 
+export type CombatFxKind = "ability" | "aa" | "towerShot" | "structureDeath" | "shield" | "stun" | "heal" | "recall"
+
+export type CombatFxEvent = {
+	kind: CombatFxKind,
+	origin: Vector3,
+	dest: Vector3?,
+	userId: number?,
+	team: TeamId?,
+	mode: AbilityTargeting?,
+	abilityKind: AbilityKind?,
+	radius: number?,
+	duration: number?,
+	structureKind: "Tower" | "Nexus"?,
+}
+
 export type AbilityResult = {
 	ok: boolean,
 	error: string?,

@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 
@@ -122,9 +123,29 @@ function TowerService.start()
 				local dmg = if state.kind == "Nexus" then Config.Towers.NexusDamage else Config.Towers.Damage
 				if userTarget then
 					nextShot[state.id] = now + Config.Towers.Interval
+					local destRoot = api.rootOf(userTarget)
+					if destRoot then
+						FxRelay.emit({
+							kind = "towerShot",
+							origin = part.Position,
+							dest = destRoot.Position,
+							team = state.team,
+							structureKind = if state.kind == "Nexus" then "Nexus" else "Tower",
+						})
+					end
 					api.damageUser(userTarget, dmg)
 				elseif minionId then
 					nextShot[state.id] = now + Config.Towers.Interval
+					local minion = MinionService.get(minionId)
+					if minion then
+						FxRelay.emit({
+							kind = "towerShot",
+							origin = part.Position,
+							dest = minion.part.Position,
+							team = state.team,
+							structureKind = if state.kind == "Nexus" then "Nexus" else "Tower",
+						})
+					end
 					MinionService.applyDamage(nil, minionId, dmg)
 				end
 			end

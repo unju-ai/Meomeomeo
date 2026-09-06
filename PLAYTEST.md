@@ -1,14 +1,14 @@
 # Playtest Meo Meo Meo
 
-Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–16). In Play, press **?** or hold **H** for the same keybinds.
+Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–17). In Play, press **?** or hold **H** for the same keybinds.
 
 Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
-## 0. What you have after PRs 1–16
+## 0. What you have after PRs 1–17
 
 Playable scaffold: lobby → practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → lobby.
 
-Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, **distinct champion silhouettes** (primitive Parts, no mesh binaries).
+Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, **combat VFX stubs** (beams / rings / AA sparks / tower bolts / recall circle).
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
@@ -63,10 +63,10 @@ rojo serve
    - **Normal** — last-hits, leads and sidesteps skillshots, dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early ward, kill-dives, uses Whisker Lens on revealed enemy wards.
 2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`).
-3. Walk a lane. **LMB** a bot or minion. Hold **Q** if the kit is a line skillshot, release to fire.
+3. Walk a lane. **LMB** a bot or minion — claw flash + hit spark. Hold **Q** if the kit is a line skillshot (aim indicator), release to fire (beam/ring on confirm). Heal/shield cats show a soft burst; dashes leave a streak.
 4. **4** drop a trinket. **B** at fountain → buy **Whisker Lens** → **5** if you see an enemy ward.
-5. **F** recall (7s). **Tab** scoreboard (bots tagged).
-6. Kill all **3 Red towers** until the nexus billboard says `(OPEN)`, then scratch the nexus.
+5. **F** recall (7s) — mint circle under your feet. **Tab** scoreboard (bots tagged).
+6. Kill all **3 Red towers** until the nexus billboard says `(OPEN)` (tower bolts + death puff), then scratch the nexus.
 7. End screen → **Back to lobby** or **Practice again**.
 
 Practice **never** teleports. `MatchPlaceId` can stay `0`.
@@ -152,6 +152,10 @@ Also for a live place:
 
 `ChampionLooks` + `ChampionAppearance` dress locked cats from engine `Part`s (ears, tail, team collar, archetype flair). No `rbxm` / mesh binaries. `HumanoidRootPart` stays the combat box. To swap real meshes later, replace the `MeoAppearance` folder recipes and keep the same root — see README.
 
+## 8c. Combat VFX (placeholders)
+
+Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Parts (plus one-shot particles). Aim indicators while holding a skill are still local. AA sparks are debounced so wave last-hits do not melt the frame.
+
 ## 9. If something is quiet / missing
 
 - No SFX: click **SFX**, unmute, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
@@ -160,6 +164,7 @@ Also for a live place:
 - Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.
 - Bots idle: you are still in **Champion select** — lock a cat and wait for the timer.
 - Bots look like the same box: Rojo-sync `Shared.ChampionLooks` + `Server.World.ChampionAppearance`, then start a new Practice.
+- No cast/hit VFX: Rojo-sync so `MeoRemotes.CombatFx` exists, then start a new Practice (FX are server-confirmed, not the hold-to-aim indicator).
 
 ## 10. Still stubbed (do not expect)
 
