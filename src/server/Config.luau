@@ -37,7 +37,18 @@ local Config = {
 		RespawnSeconds = 7,
 		RegenPerSecond = 4,
 		ManaRegenPerSecond = 6,
+		FountainHpRegen = 48,
+		FountainManaRegen = 56,
 		StructureTouchRadius = 18,
+	},
+
+	Jungle = {
+		FirstSpawnDelay = 8,
+		Leash = 38,
+		AttackRange = 14,
+		AttackInterval = 1.2,
+		Speed = 15,
+		NearbyXp = 12,
 	},
 
 	AutoAttack = {

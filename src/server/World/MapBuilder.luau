@@ -155,6 +155,7 @@ function MapBuilder.build(): Folder
 	local npcs = folder(root, "Npcs")
 	local spawns = folder(root, "Spawns")
 	folder(root, "Minions")
+	folder(root, "Jungle")
 
 	-- Ground + river + jungle
 	part(terrain, "Ground", Vector3.new(420, 2, 280), CFrame.new(0, -1, 0), Color3.fromRGB(126, 168, 92))
@@ -370,6 +371,18 @@ function MapBuilder.minionFolder(): Folder
 	end
 	local folderInstance = Instance.new("Folder")
 	folderInstance.Name = "Minions"
+	folderInstance.Parent = map
+	return folderInstance
+end
+
+function MapBuilder.jungleFolder(): Folder
+	local map = MapBuilder.get()
+	local existing = map:FindFirstChild("Jungle")
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+	local folderInstance = Instance.new("Folder")
+	folderInstance.Name = "Jungle"
 	folderInstance.Parent = map
 	return folderInstance
 end

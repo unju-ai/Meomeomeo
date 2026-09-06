@@ -6,6 +6,7 @@ local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 
@@ -65,7 +66,7 @@ local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "m
 end
 
 function VisionService.frameFor(player: Player): Types.VisionFrame
-	local empty: Types.VisionFrame = { players = {}, minions = {} }
+	local empty: Types.VisionFrame = { players = {}, minions = {}, jungle = {} }
 	if not api then
 		return empty
 	end
@@ -96,7 +97,14 @@ function VisionService.frameFor(player: Player): Types.VisionFrame
 		end
 	end
 
-	return { players = visiblePlayers, minions = visibleMinions }
+	local visibleJungle = {}
+	for _, monster in JungleService.list() do
+		if seen(monster.part.Position, mine.team, "minion") then
+			table.insert(visibleJungle, monster.id)
+		end
+	end
+
+	return { players = visiblePlayers, minions = visibleMinions, jungle = visibleJungle }
 end
 
 function VisionService.canSeePlayer(viewer: Player, target: Player): boolean
@@ -114,6 +122,15 @@ end
 function VisionService.canSeeMinion(viewer: Player, minionId: string): boolean
 	for _, id in VisionService.frameFor(viewer).minions do
 		if id == minionId then
+			return true
+		end
+	end
+	return false
+end
+
+function VisionService.canSeeJungle(viewer: Player, jungleId: string): boolean
+	for _, id in VisionService.frameFor(viewer).jungle do
+		if id == jungleId then
 			return true
 		end
 	end

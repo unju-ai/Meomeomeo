@@ -64,6 +64,7 @@ export type MatchPlayer = {
 	level: number,
 	ranks: AbilityRanks,
 	respawnAt: number?,
+	cs: number,
 	connected: boolean,
 	items: { string },
 }
@@ -112,13 +113,14 @@ export type AbilityRequest = {
 	targetUserId: number?,
 }
 
-export type AttackKind = "player" | "minion" | "objective" | "stop"
+export type AttackKind = "player" | "minion" | "objective" | "jungle" | "stop"
 
 export type AttackRequest = {
 	kind: AttackKind,
 	userId: number?,
 	minionId: string?,
 	objectiveId: string?,
+	jungleId: string?,
 	position: Vector3?,
 }
 
@@ -191,6 +193,7 @@ export type ItemBonuses = {
 export type VisionFrame = {
 	players: { number },
 	minions: { string },
+	jungle: { string },
 }
 
 export type TickerState = {
