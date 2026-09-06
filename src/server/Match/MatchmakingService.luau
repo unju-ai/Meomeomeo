@@ -90,6 +90,27 @@ function MatchmakingService.practice(player: Player): Types.TradeResult
 	return { ok = true }
 end
 
+function MatchmakingService.leaveMatch(_player: Player): Types.TradeResult
+	if not MatchService.snapshot() then
+		return { ok = true }
+	end
+	if not MatchService.isEnded() then
+		return { ok = false, error = "Wait for the match to end." }
+	end
+	MatchService.returnToLobby(true)
+	return { ok = true }
+end
+
+function MatchmakingService.playAgain(player: Player): Types.TradeResult
+	if MatchService.snapshot() and not MatchService.isEnded() then
+		return { ok = false, error = "The match is still on." }
+	end
+	if MatchService.isEnded() then
+		MatchService.returnToLobby(false)
+	end
+	return MatchmakingService.practice(player)
+end
+
 function MatchmakingService.init()
 	Players.PlayerRemoving:Connect(remove)
 	MatchService.init(function()

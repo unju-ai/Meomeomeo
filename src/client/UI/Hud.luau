@@ -10,6 +10,7 @@ local ChampionSelect = require(script.Parent.ChampionSelect)
 local LobbyPanel = require(script.Parent.LobbyPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
+local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
@@ -30,6 +31,7 @@ export type HudApi = {
 	minimap: Minimap.MinimapApi,
 	scoreboard: Scoreboard.BoardApi,
 	feed: KillFeed.FeedApi,
+	endScreen: EndScreen.EndApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -72,6 +74,7 @@ function Hud.create(): HudApi
 	local minimap = Minimap.create(gui)
 	local feed = KillFeed.create(gui)
 	local scoreboard = Scoreboard.create(gui)
+	local endScreen = EndScreen.create(gui)
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
@@ -82,7 +85,8 @@ function Hud.create(): HudApi
 		select.setVisible(phase == "ChampionSelect")
 		abilities.setVisible(phase == "InProgress")
 		minimap.setVisible(phase == "InProgress")
-		feed.setVisible(phase == "InProgress")
+		feed.setVisible(phase == "InProgress" or phase == "Ended")
+		endScreen.setVisible(phase == "Ended")
 		if phase ~= "InProgress" then
 			shop.setVisible(false)
 			scoreboard.setVisible(false)
@@ -95,11 +99,9 @@ function Hud.create(): HudApi
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
-			banner.Text = if mine then `{mine.team} · Tab score · V camera · B shop` else "Spectating"
+			banner.Text = if mine then `{mine.team} · Tab score · V camera · B shop · F recall` else "Spectating"
 		elseif phase == "Ended" then
-			abilities.setVisible(false)
-			lobby.setVisible(true)
-			banner.Text = `{snapshot.winner or "??"} wins — returning to lobby`
+			endScreen.update(snapshot, localUserId)
 		end
 	end
 
@@ -115,6 +117,7 @@ function Hud.create(): HudApi
 		minimap = minimap,
 		scoreboard = scoreboard,
 		feed = feed,
+		endScreen = endScreen,
 		banner = function(text: string)
 			banner.Text = text
 		end,

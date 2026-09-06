@@ -59,6 +59,7 @@ local function withQueue(snapshot: Types.MatchSnapshot?): Types.MatchSnapshot?
 		startedAt = nil,
 		endedAt = nil,
 		winner = nil,
+		mvpUserId = nil,
 		players = {},
 		objectives = MapBuilder.objectiveStates(),
 		queueCount = MatchmakingService.queueCount(),
@@ -145,6 +146,18 @@ end
 
 Remotes.function_("MinimapPing").OnServerInvoke = function(player: Player, position: unknown)
 	return MatchService.ping(player, position)
+end
+
+Remotes.function_("StartRecall").OnServerInvoke = function(player: Player)
+	return CombatService.startRecall(player)
+end
+
+Remotes.function_("LeaveMatch").OnServerInvoke = function(player: Player)
+	return MatchmakingService.leaveMatch(player)
+end
+
+Remotes.function_("PlayAgain").OnServerInvoke = function(player: Player)
+	return MatchmakingService.playAgain(player)
 end
 
 local function sendLobby(player: Player)

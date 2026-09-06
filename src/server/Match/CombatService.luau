@@ -22,6 +22,7 @@ type MatchApi = {
 	onPlayerKilled: (killer: Player?, victim: Player, assists: { Player }) -> (),
 	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
 	addGold: (player: Player, amount: number) -> (),
+	addDamageDealt: (player: Player, amount: number) -> (),
 	setRespawnAt: (player: Player, at: number?) -> (),
 }
 
@@ -42,8 +43,11 @@ local locks: { [number]: AttackLock } = {}
 local nextAA: { [number]: number } = {}
 local recentHits: { [number]: { [number]: number } } = {}
 local deathToken: { [number]: number } = {}
+local recallToken: { [number]: number } = {}
+local recallOrigin: { [number]: Vector3 } = {}
 local matchApi: MatchApi? = nil
 local tickAutoAttack: (player: Player) -> ()
+local interruptRecall: (player: Player) -> ()
 
 local function currentLevel(player: Player): number
 	if matchApi then
@@ -114,6 +118,106 @@ local function applyHumanoid(player: Player, state: Types.CombatState)
 	end
 end
 
+local function setRecallingFlag(player: Player, on: boolean)
+	if on then
+		player:SetAttribute(Constants.Attributes.Recalling, true)
+	else
+		player:SetAttribute(Constants.Attributes.Recalling, nil)
+	end
+end
+
+interruptRecall = function(player: Player)
+	local state = combat[player.UserId]
+	if not state or not state.recalling then
+		return
+	end
+	state.recalling = false
+	state.recallEndsAt = nil
+	state.recallStartedAt = nil
+	recallOrigin[player.UserId] = nil
+	recallToken[player.UserId] = (recallToken[player.UserId] or 0) + 1
+	setRecallingFlag(player, false)
+	if state.alive then
+		ShopService.applyMovement(player)
+	end
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
+local function completeRecall(player: Player)
+	local state = combat[player.UserId]
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not state or not state.recalling or not snapshot or snapshot.phase ~= "InProgress" then
+		return
+	end
+	if not state.alive then
+		return
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	if not matchPlayer then
+		return
+	end
+	state.recalling = false
+	state.recallEndsAt = nil
+	state.recallStartedAt = nil
+	recallOrigin[player.UserId] = nil
+	setRecallingFlag(player, false)
+	local spawn = MapBuilder.getSpawn(matchPlayer.team)
+	player.RespawnLocation = spawn
+	local character = player.Character
+	if character then
+		pcall(function()
+			character:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
+		end)
+	end
+	applyHumanoid(player, state)
+	ShopService.applyMovement(player)
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+end
+
+function CombatService.startRecall(player: Player): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local state = combat[player.UserId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if state.recalling then
+		interruptRecall(player)
+		return { ok = true, combat = state }
+	end
+	local root = characterRoot(player)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	locks[player.UserId] = nil
+	state.recalling = true
+	state.recallStartedAt = now()
+	state.recallEndsAt = state.recallStartedAt + Config.Combat.RecallSeconds
+	recallOrigin[player.UserId] = root.Position
+	setRecallingFlag(player, true)
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+	end
+	local token = (recallToken[player.UserId] or 0) + 1
+	recallToken[player.UserId] = token
+	state.nextAutoAttack = nextAA[player.UserId] or 0
+	state.attackTarget = nil
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+	task.delay(Config.Combat.RecallSeconds, function()
+		if recallToken[player.UserId] ~= token then
+			return
+		end
+		completeRecall(player)
+	end)
+	return { ok = true, combat = state }
+end
+
 function CombatService.characterRoot(player: Player): BasePart?
 	return characterRoot(player)
 end
@@ -144,12 +248,18 @@ function CombatService.reset(player: Player, championId: string)
 		level = level,
 		ranks = Progression.autoRanks(level),
 		respawnAt = nil,
+		recalling = false,
+		recallEndsAt = nil,
+		recallStartedAt = nil,
 	}
 	fillVitals(state, player, champ, level, true)
 	combat[player.UserId] = state
 	locks[player.UserId] = nil
 	nextAA[player.UserId] = 0
+	recallOrigin[player.UserId] = nil
+	recallToken[player.UserId] = (recallToken[player.UserId] or 0) + 1
 	player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
+	player:SetAttribute(Constants.Attributes.Recalling, nil)
 	applyHumanoid(player, state)
 	ShopService.applyMovement(player)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
@@ -193,15 +303,26 @@ function CombatService.clear(userId: number)
 	locks[userId] = nil
 	nextAA[userId] = nil
 	recentHits[userId] = nil
+	recallOrigin[userId] = nil
 	deathToken[userId] = (deathToken[userId] or 0) + 1
+	recallToken[userId] = (recallToken[userId] or 0) + 1
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		player:SetAttribute(Constants.Attributes.Recalling, nil)
+	end
 end
 
 function CombatService.clearAll()
+	for _, player in Players:GetPlayers() do
+		player:SetAttribute(Constants.Attributes.Recalling, nil)
+	end
 	table.clear(combat)
 	table.clear(locks)
 	table.clear(nextAA)
 	table.clear(recentHits)
 	table.clear(deathToken)
+	table.clear(recallToken)
+	table.clear(recallOrigin)
 end
 
 function CombatService.init(api: MatchApi)
@@ -264,6 +385,14 @@ function CombatService.init(api: MatchApi)
 				continue
 			end
 			for _, player in Players:GetPlayers() do
+				local state = combat[player.UserId]
+				if state and state.recalling and state.alive then
+					local root = characterRoot(player)
+					local origin = recallOrigin[player.UserId]
+					if root and origin and (root.Position - origin).Magnitude > Config.Combat.RecallMoveCancel then
+						interruptRecall(player)
+					end
+				end
 				if locks[player.UserId] then
 					tickAutoAttack(player)
 				end
@@ -314,6 +443,7 @@ local function killPlayer(victim: Player, killer: Player?)
 	state.alive = false
 	state.health = 0
 	locks[victim.UserId] = nil
+	interruptRecall(victim)
 	local wait = Progression.respawnSeconds(state.level)
 	state.respawnAt = now() + wait
 	applyHumanoid(victim, state)
@@ -371,6 +501,9 @@ local function damagePlayer(attacker: Player?, target: Player, amount: number)
 		return
 	end
 	local reduced = amount * (1 - (state.armor or 0))
+	if reduced > 0 then
+		interruptRecall(target)
+	end
 	local remaining = reduced
 	if (state.shield or 0) > 0 then
 		local absorbed = math.min(state.shield, remaining)
@@ -383,6 +516,9 @@ local function damagePlayer(attacker: Player?, target: Player, amount: number)
 	applyHumanoid(target, state)
 	Remotes.event("CombatUpdated"):FireClient(target, state)
 	if attacker and matchApi then
+		if reduced > 0 then
+			matchApi.addDamageDealt(attacker, reduced)
+		end
 		noteAssist(attacker, target)
 		local snapshot = matchApi.getSnapshot()
 		local victim = if snapshot then snapshot.players[tostring(target.UserId)] else nil
@@ -806,6 +942,7 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 	end
 	local kind = (request :: any).kind
 	if kind == "stop" then
+		interruptRecall(player)
 		locks[player.UserId] = nil
 		pushCombat(player)
 		return { ok = true, combat = state }
@@ -870,6 +1007,7 @@ function CombatService.issueAttack(player: Player, request: unknown): Types.Abil
 		return { ok = false, error = "Unknown attack." }
 	end
 
+	interruptRecall(player)
 	locks[player.UserId] = lock
 	pushCombat(player)
 	tickAutoAttack(player)
@@ -895,6 +1033,7 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 		2,
 		math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
 	)
+	interruptRecall(player)
 	locks[player.UserId] = { kind = "player", moveTo = dest }
 	pushCombat(player)
 	tickAutoAttack(player)
@@ -964,6 +1103,7 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 		return { ok = false, error = "Out of range." }
 	end
 
+	interruptRecall(player)
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
 	local scale = Progression.rankScale(rank)

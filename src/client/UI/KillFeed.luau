@@ -47,6 +47,8 @@ function KillFeed.create(parent: Instance): FeedApi
 					row.TextColor3 = Theme.amber
 				elseif event.kind == "nexus" then
 					row.TextColor3 = Theme.coral
+				elseif event.kind == "announce" then
+					row.TextColor3 = Theme.amber
 				else
 					row.TextColor3 = Theme.mint
 				end
