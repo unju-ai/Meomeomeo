@@ -14,15 +14,25 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 
+local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
+local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
 
 local player = Players.LocalPlayer
 local hud = Hud.create()
+ScreenJuice.init(hud.gui)
+hud.settings.onChange(function(volume: number, muted: boolean)
+	Sfx.setVolume(volume)
+	Sfx.setMuted(muted)
+	player:SetAttribute("MeoSfxVolume", volume)
+	player:SetAttribute("MeoSfxMuted", muted)
+end)
 
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
+local juiceCombat: Types.CombatState? = nil
 
 local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
 local armedSlot: Types.AbilitySlot? = nil
@@ -80,6 +90,35 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		cameraArmed = false
 		armedSlot = nil
 		TargetingIndicator.hide()
+		Sfx.stopLoop("RecallLoop")
+	end
+end
+
+local function applyCombatJuice(state: Types.CombatState)
+	local prev = juiceCombat
+	juiceCombat = state
+	if not prev then
+		if state.recalling then
+			Sfx.startLoop("RecallLoop")
+		end
+		return
+	end
+	if state.health + 0.5 < prev.health then
+		ScreenJuice.damageFlash()
+	elseif state.health > prev.health + 4 then
+		ScreenJuice.healFlash()
+		Sfx.play("Heal")
+	elseif state.attackTarget and state.nextAutoAttack > prev.nextAutoAttack + 0.05 then
+		Sfx.play("AutoHit")
+	end
+	if state.level > prev.level then
+		ScreenJuice.levelUp(state.level)
+		Sfx.play("LevelUp")
+	end
+	if state.recalling and not prev.recalling then
+		Sfx.startLoop("RecallLoop")
+	elseif not state.recalling and prev.recalling then
+		Sfx.stopLoop("RecallLoop")
 	end
 end
 
@@ -210,6 +249,7 @@ hud.shop.onBuy(function(itemId: string)
 	if result and result.ok == false then
 		toast(result.error or "Shop said no")
 	else
+		Sfx.play("ShopBuy")
 		toast("Pawmart thanks you for your gold")
 	end
 	local status = Remotes.function_("GetShopStatus"):InvokeServer()
@@ -238,6 +278,7 @@ Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
 	local queue = status :: Types.QueueStatus
 	hud.lobby.updateQueue(queue)
 	if queue.phase == "Found" then
+		Sfx.play("MatchFound")
 		toast("Match found!")
 	elseif queue.phase == "Teleporting" then
 		toast("Teleporting to the rift…")
@@ -247,6 +288,7 @@ end)
 Remotes.event("CombatUpdated").OnClientEvent:Connect(function(state)
 	if typeof(state) == "table" then
 		latestCombat = state :: Types.CombatState
+		applyCombatJuice(latestCombat)
 		refreshBars()
 	end
 end)
@@ -259,13 +301,28 @@ end)
 
 Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 	if typeof(payload) == "table" and typeof((payload :: any).text) == "string" then
-		toast(`{(payload :: any).speaker or "Kitty Caster"}: {(payload :: any).text}`)
+		local text = (payload :: any).text :: string
+		toast(`{(payload :: any).speaker or "Kitty Caster"}: {text}`)
+		local cue = Sfx.cueForAnnouncer(text)
+		if cue then
+			Sfx.play(cue)
+		end
 	end
 end)
 
 Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
 	if typeof(event) == "table" and typeof((event :: any).text) == "string" then
-		hud.feed.push(event :: Types.FeedEvent)
+		local feed = event :: Types.FeedEvent
+		hud.feed.push(feed)
+		local cue = Sfx.cueForFeed(feed.kind)
+		if cue then
+			Sfx.play(cue)
+		end
+		if feed.kind == "tower" then
+			ScreenJuice.shakeTower()
+		elseif feed.kind == "nexus" then
+			ScreenJuice.shakeNexus()
+		end
 	end
 end)
 
@@ -544,15 +601,25 @@ local function pickAttack(): Types.AttackRequest?
 	return nil
 end
 
-local function reportAttack(result: any)
+local function reportAttack(result: any, cue: string?)
 	if result and result.ok == false and result.error then
 		if os.clock() - lastErrorAt > 0.4 then
 			lastErrorAt = os.clock()
 			toast(result.error)
 		end
-	elseif result and result.combat then
-		latestCombat = result.combat
-		refreshBars()
+	elseif result and result.ok ~= false then
+		if cue == "AutoHit" then
+			Sfx.play("AutoHit")
+		elseif cue == "WardPlace" then
+			Sfx.play("WardPlace")
+		elseif cue == "AbilityCast" then
+			Sfx.play("AbilityCast")
+		end
+		if result.combat then
+			latestCombat = result.combat
+			applyCombatJuice(latestCombat)
+			refreshBars()
+		end
 	end
 end
 
@@ -583,9 +650,13 @@ local function castAbility(slot: Types.AbilitySlot)
 			lastErrorAt = os.clock()
 			toast(result.error)
 		end
-	elseif result and result.combat then
-		latestCombat = result.combat
-		refreshBars()
+	elseif result and result.ok ~= false then
+		Sfx.play("AbilityCast")
+		if result.combat then
+			latestCombat = result.combat
+			applyCombatJuice(latestCombat)
+			refreshBars()
+		end
 	end
 end
 
@@ -690,13 +761,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	if input.KeyCode == Enum.KeyCode.Four then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("PlaceWard"):InvokeServer(aimPoint()))
+			reportAttack(Remotes.function_("PlaceWard"):InvokeServer(aimPoint()), "WardPlace")
 		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.Five then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("UseLens"):InvokeServer())
+			reportAttack(Remotes.function_("UseLens"):InvokeServer(), "AbilityCast")
 		end
 		return
 	end
