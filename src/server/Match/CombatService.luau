@@ -17,7 +17,7 @@ local TowerService = require(script.Parent.TowerService)
 type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
 	onPlayerKilled: (killer: Player, victim: Player) -> (),
-	onObjectiveDestroyed: (attacker: Player, objective: Types.ObjectiveState) -> (),
+	onObjectiveDestroyed: (attacker: Player?, objective: Types.ObjectiveState) -> (),
 	addGold: (player: Player, amount: number) -> (),
 }
 
@@ -310,9 +310,10 @@ local function damageObjective(attacker: Player?, part: BasePart, amount: number
 				objective.alive = false
 				objective.health = 0
 				if attacker then
-					matchApi.onObjectiveDestroyed(attacker, objective)
 					matchApi.addGold(attacker, Config.Match.TowerGold)
 				end
+				-- Minions can melt a tower/nexus; the match still has to resolve.
+				matchApi.onObjectiveDestroyed(attacker, objective)
 				MapBuilder.refreshNexusGate()
 			end
 		end
@@ -451,6 +452,19 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			end
 		end
 
+		local minionHit = false
+		for _, minion in MinionService.list() do
+			if minion.team ~= matchPlayer.team then
+				if (minion.part.Position - aim).Magnitude <= ability.radius + Config.Minions.HitRadius then
+					minionHit = true
+					break
+				end
+			end
+		end
+		if minionHit then
+			local foeTeam: Types.TeamId = if matchPlayer.team == "Blue" then "Red" else "Blue"
+			TowerService.noteThreat(player, foeTeam)
+		end
 		MinionService.damageInRadius(player, matchPlayer.team, aim, ability.radius + Config.Minions.HitRadius, power)
 
 		local map = MapBuilder.get()

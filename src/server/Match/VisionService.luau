@@ -19,8 +19,10 @@ local VisionService = {}
 local api: Api? = nil
 local running = false
 
-local function sources(team: Types.TeamId): { Vector3 }
-	local points = {}
+type VisionSource = { position: Vector3, kind: "unit" | "tower" }
+
+local function sources(team: Types.TeamId): { VisionSource }
+	local points: { VisionSource } = {}
 	if not api then
 		return points
 	end
@@ -32,19 +34,19 @@ local function sources(team: Types.TeamId): { Vector3 }
 		local matchPlayer = snapshot.players[tostring(player.UserId)]
 		local root = api.characterRoot(player)
 		if matchPlayer and matchPlayer.team == team and root then
-			table.insert(points, root.Position)
+			table.insert(points, { position = root.Position, kind = "unit" })
 		end
 	end
 	for _, minion in MinionService.list() do
 		if minion.team == team then
-			table.insert(points, minion.part.Position)
+			table.insert(points, { position = minion.part.Position, kind = "unit" })
 		end
 	end
 	for _, objective in MapBuilder.objectiveStates() do
 		if objective.team == team and objective.alive and objective.kind == "Tower" then
 			local part = MapBuilder.getObjectivePart(objective.id)
 			if part then
-				table.insert(points, part.Position)
+				table.insert(points, { position = part.Position, kind = "tower" })
 			end
 		end
 	end
@@ -52,18 +54,10 @@ local function sources(team: Types.TeamId): { Vector3 }
 end
 
 local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "minion"): boolean
-	local radius = if kind == "champion" then Config.Vision.ChampionRadius else Config.Vision.MinionRadius
-	-- Ally towers use tower radius when the source is a tower-sized gap;
-	-- we just take the max of nearby source types by checking all sources
-	-- with champion radius for players/towers and minion radius for minions.
-	-- Simpler: any ally source within the unit's reveal radius.
-	for _, point in sources(team) do
-		local limit = radius
-		if (point - position).Magnitude <= limit then
-			return true
-		end
-		if (point - position).Magnitude <= Config.Vision.TowerRadius then
-			-- still allow tower-sized reveal on minions/champs near towers
+	local unitRadius = if kind == "champion" then Config.Vision.ChampionRadius else Config.Vision.MinionRadius
+	for _, source in sources(team) do
+		local limit = if source.kind == "tower" then Config.Vision.TowerRadius else unitRadius
+		if (source.position - position).Magnitude <= limit then
 			return true
 		end
 	end

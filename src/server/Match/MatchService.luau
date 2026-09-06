@@ -117,6 +117,7 @@ local function beginFight()
 	MapBuilder.build()
 	current.objectives = MapBuilder.objectiveStates()
 
+	ShopService.clearAll()
 	for _, player in Players:GetPlayers() do
 		local matchPlayer = current.players[tostring(player.UserId)]
 		if matchPlayer and matchPlayer.championId then
@@ -127,7 +128,6 @@ local function beginFight()
 	end
 
 	VoiceService.onTeamsChanged()
-	ShopService.clearAll()
 	MapBuilder.refreshNexusGate()
 	MinionService.start()
 	TowerService.start()
@@ -310,11 +310,12 @@ function MatchService.init(cleared: () -> ())
 			AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}. Brutal.`)
 			broadcast()
 		end,
-		onObjectiveDestroyed = function(attacker: Player, objective: Types.ObjectiveState)
+		onObjectiveDestroyed = function(attacker: Player?, objective: Types.ObjectiveState)
 			if not current then
 				return
 			end
-			AiChatService.announce(`{attacker.DisplayName} melted the {objective.team} {objective.kind}!`)
+			local who = if attacker then attacker.DisplayName else "Lane kittens"
+			AiChatService.announce(`{who} melted the {objective.team} {objective.kind}!`)
 			if objective.kind == "Nexus" then
 				local winner: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
 				MatchService.endMatch(winner, `{objective.team} nexus is a scratch post.`)
