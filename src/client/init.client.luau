@@ -16,6 +16,7 @@ local Types = require(Shared:WaitForChild("Types"))
 
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
+local CombatFx = require(script.Juice.CombatFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
@@ -100,6 +101,8 @@ local function applyCombatJuice(state: Types.CombatState)
 	if not prev then
 		if state.recalling then
 			Sfx.startLoop("RecallLoop")
+			local remain = if state.recallEndsAt then state.recallEndsAt - Workspace:GetServerTimeNow() else 7
+			CombatFx.localRecall(player.UserId, true, remain)
 		end
 		return
 	end
@@ -117,8 +120,11 @@ local function applyCombatJuice(state: Types.CombatState)
 	end
 	if state.recalling and not prev.recalling then
 		Sfx.startLoop("RecallLoop")
+		local remain = if state.recallEndsAt then state.recallEndsAt - Workspace:GetServerTimeNow() else 7
+		CombatFx.localRecall(player.UserId, true, remain)
 	elseif not state.recalling and prev.recalling then
 		Sfx.stopLoop("RecallLoop")
+		CombatFx.localRecall(player.UserId, false, 0)
 	end
 end
 
@@ -308,6 +314,10 @@ Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 			Sfx.play(cue)
 		end
 	end
+end)
+
+Remotes.event("CombatFx").OnClientEvent:Connect(function(payload)
+	CombatFx.playUnknown(payload)
 end)
 
 Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
