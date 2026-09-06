@@ -4,7 +4,7 @@
 -- Roblox must NEVER hold MEO404_MINTER_PRIVATE_KEY.
 --
 -- Mock mode records a fake tx hash so Studio playtests work.
--- Http mode POSTs { userId, purchaseId, nonce, wallet } to Config.Nft404.ClaimApiUrl.
+-- Http mode POSTs { robloxUserId, purchaseId, productId, nonce, wallet } to Config.Nft404.ClaimApiUrl.
 
 local HttpService = game:GetService("HttpService")
 
@@ -18,6 +18,14 @@ export type ClaimResponse = {
 }
 
 local ClaimApi = {}
+
+local function snippet(body: string): string
+	local trimmed = string.gsub(body, "%s+", " ")
+	if #trimmed > 120 then
+		return string.sub(trimmed, 1, 117) .. "..."
+	end
+	return trimmed
+end
 
 function ClaimApi.submit(entitlement: Types.Entitlement, wallet: string): ClaimResponse
 	if Config.Nft404.Provider == "http" then
@@ -43,10 +51,16 @@ end
 
 function ClaimApi._http(entitlement: Types.Entitlement, wallet: string): ClaimResponse
 	if Config.Nft404.ClaimApiUrl == "" then
-		return { ok = false, error = "Claim API URL is empty; staying on mock would hide misconfig." }
+		return {
+			ok = false,
+			error = "Claim API URL is empty. Set Nft404.ClaimApiUrl or keep Provider=mock. Do not put a chain key in the place.",
+		}
 	end
 	if Config.Nft404.ClaimApiSecret == "" then
-		return { ok = false, error = "Claim API secret missing. Do not embed a chain key here." }
+		return {
+			ok = false,
+			error = "Claim API secret missing. Use a shared Bearer secret — never a minter private key.",
+		}
 	end
 
 	local body = HttpService:JSONEncode({
@@ -69,17 +83,34 @@ function ClaimApi._http(entitlement: Types.Entitlement, wallet: string): ClaimRe
 		})
 	end)
 
-	if not ok or typeof(response) ~= "table" or (response :: any).Success ~= true then
-		return { ok = false, error = "Claim API request failed. Entitlement stays Granted for retry." }
+	if not ok then
+		return {
+			ok = false,
+			error = `Claim API request error: {snippet(tostring(response))}. Entitlement stays retryable.`,
+		}
+	end
+	if typeof(response) ~= "table" then
+		return { ok = false, error = "Claim API returned a non-table response. Entitlement stays retryable." }
+	end
+
+	local http = response :: any
+	if http.Success ~= true then
+		local status = if typeof(http.StatusCode) == "number" then tostring(http.StatusCode) else "?"
+		local detail = if typeof(http.Body) == "string" and http.Body ~= "" then snippet(http.Body) else (http.StatusMessage or "no body")
+		return {
+			ok = false,
+			error = `Claim API HTTP {status}: {detail}. Entitlement stays retryable.`,
+		}
 	end
 
 	local decodedOk, decoded = pcall(function()
-		return HttpService:JSONDecode((response :: any).Body)
+		return HttpService:JSONDecode(http.Body)
 	end)
 	if decodedOk and typeof(decoded) == "table" and typeof((decoded :: any).txHash) == "string" then
 		return { ok = true, txHash = (decoded :: any).txHash }
 	end
-	return { ok = false, error = "Claim API returned no txHash." }
+	local preview = if typeof(http.Body) == "string" then snippet(http.Body) else "unreadable body"
+	return { ok = false, error = `Claim API returned no txHash ({preview}). Entitlement stays retryable.` }
 end
 
 return ClaimApi

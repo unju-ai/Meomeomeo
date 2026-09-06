@@ -1,7 +1,7 @@
 --!strict
 
 -- Roblox half of the Meo404 bridge.
--- ProcessReceipt grants an entitlement. A hosted service mints on-chain later.
+-- ProcessReceipt grants a persistent entitlement. A hosted service mints on-chain later.
 -- This is NOT a Robux → crypto swap. See README.
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -17,10 +17,8 @@ local EntitlementStore = require(script.Parent.EntitlementStore)
 
 local MintService = {}
 
-local wallets: { [number]: string } = {}
-
 local DISCLAIMER =
-	"Robux buys a Roblox Developer Product. That creates a claim entitlement — not a crypto transfer. A separate hosted service mints Meo404 after you link a wallet. Legal review required before production."
+	"Robux buys a Roblox Developer Product. That creates a claim entitlement — not a crypto transfer. A separate hosted service mints Meo404 after you link a wallet. No private keys in this place. Legal review required before a live Robux product."
 
 local function isHexAddress(value: string): boolean
 	if #value ~= 42 then
@@ -39,10 +37,12 @@ end
 
 local function snapshot(player: Player): Types.MintStatus
 	return {
-		wallet = wallets[player.UserId],
+		wallet = EntitlementStore.getLinkedWallet(player.UserId),
 		productId = Config.Nft404.DeveloperProductId,
 		productName = Config.Nft404.ProductName,
 		studioMock = RunService:IsStudio() and Config.Nft404.AllowStudioMockPurchase,
+		persistMode = EntitlementStore.getPersistMode(),
+		persistNote = EntitlementStore.getPersistNote(),
 		entitlements = EntitlementStore.listForUser(player.UserId),
 		disclaimer = DISCLAIMER,
 	}
@@ -62,13 +62,13 @@ function MintService.linkWallet(player: Player, address: unknown): Types.TradeRe
 	end
 	local trimmed = string.gsub(address, "%s+", "")
 	if not isHexAddress(trimmed) then
-		return { ok = false, error = "Need a 42-character 0x wallet (not the zero address)." }
+		return { ok = false, error = "Need a 42-character 0x hex wallet (not the zero address)." }
 	end
 	-- TODO: verify ownership with a hosted SIWE (or similar) challenge.
 	-- Roblox cannot prove chain signatures safely on its own.
-	wallets[player.UserId] = trimmed
+	EntitlementStore.setLinkedWallet(player.UserId, trimmed)
 	for _, row in EntitlementStore.listForUser(player.UserId) do
-		if row.status == "Granted" then
+		if row.status ~= "Claimed" then
 			EntitlementStore.setWallet(row.purchaseId, trimmed)
 		end
 	end
@@ -80,7 +80,7 @@ function MintService.grantFromReceipt(userId: number, productId: number, purchas
 	if productId ~= Config.Nft404.DeveloperProductId and not (Config.Nft404.AllowStudioMockPurchase and productId == -1) then
 		return false
 	end
-	EntitlementStore.grant({
+	local ent = EntitlementStore.grant({
 		purchaseId = purchaseId,
 		userId = userId,
 		productId = productId,
@@ -88,8 +88,8 @@ function MintService.grantFromReceipt(userId: number, productId: number, purchas
 	})
 	local player = Players:GetPlayerByUserId(userId)
 	if player then
-		local wallet = wallets[userId]
-		if wallet then
+		local wallet = EntitlementStore.getLinkedWallet(userId)
+		if wallet and ent.status ~= "Claimed" then
 			EntitlementStore.setWallet(purchaseId, wallet)
 		end
 		push(player)
@@ -97,13 +97,46 @@ function MintService.grantFromReceipt(userId: number, productId: number, purchas
 	return true
 end
 
-function MintService.simulateStudioPurchase(player: Player): Types.TradeResult
+-- Studio / QA: grant without Robux. Reusing purchaseId is idempotent.
+function MintService.grantProduct(player: Player, purchaseId: unknown): Types.TradeResult
 	if not RunService:IsStudio() or not Config.Nft404.AllowStudioMockPurchase then
-		return { ok = false, error = "Studio mock purchase is disabled. Use a real Developer Product." }
+		return { ok = false, error = "GrantProduct is Studio-only. Use a real Developer Product on a published place." }
 	end
-	local purchaseId = `studio-{player.UserId}-{os.time()}-{#EntitlementStore.listForUser(player.UserId) + 1}`
+	local id: string
+	if typeof(purchaseId) == "string" and purchaseId ~= "" then
+		if not string.match(purchaseId, "^[%w%-%._]+$") then
+			return { ok = false, error = "PurchaseId has invalid characters." }
+		end
+		id = purchaseId
+	else
+		local n = #EntitlementStore.listForUser(player.UserId) + 1
+		id = `studio-{player.UserId}-{os.time()}-{n}`
+	end
+	MintService.grantFromReceipt(player.UserId, Config.Nft404.DeveloperProductId, id)
+	return { ok = true }
+end
+
+-- Re-run grant for an existing or synthetic PurchaseId (ProcessReceipt retry / Studio QA).
+function MintService.replayReceipt(player: Player, purchaseId: unknown): Types.TradeResult
+	if not RunService:IsStudio() or not Config.Nft404.AllowStudioMockPurchase then
+		return { ok = false, error = "ReplayReceipt is Studio-only." }
+	end
+	if typeof(purchaseId) ~= "string" or purchaseId == "" then
+		return { ok = false, error = "PurchaseId required to replay a receipt." }
+	end
+	if not string.match(purchaseId, "^[%w%-%._]+$") then
+		return { ok = false, error = "PurchaseId has invalid characters." }
+	end
+	local existing = EntitlementStore.get(purchaseId)
+	if existing and existing.userId ~= player.UserId then
+		return { ok = false, error = "That PurchaseId belongs to another user." }
+	end
 	MintService.grantFromReceipt(player.UserId, Config.Nft404.DeveloperProductId, purchaseId)
 	return { ok = true }
+end
+
+function MintService.simulateStudioPurchase(player: Player): Types.TradeResult
+	return MintService.grantProduct(player, nil)
 end
 
 function MintService.claim(player: Player, purchaseId: unknown): Types.TradeResult
@@ -115,11 +148,12 @@ function MintService.claim(player: Player, purchaseId: unknown): Types.TradeResu
 		return { ok = false, error = "No entitlement for that purchase." }
 	end
 	if row.status == "Claimed" then
-		return { ok = false, error = "Already claimed. One purchase → one mint." }
+		-- Idempotent: already minted. Client treats ok as success.
+		return { ok = true }
 	end
-	local wallet = wallets[player.UserId]
+	local wallet = EntitlementStore.getLinkedWallet(player.UserId)
 	if not wallet then
-		return { ok = false, error = "Link a wallet first." }
+		return { ok = false, error = "Link a 0x wallet first (saved per Roblox user)." }
 	end
 
 	EntitlementStore.setWallet(purchaseId, wallet)
@@ -129,9 +163,10 @@ function MintService.claim(player: Player, purchaseId: unknown): Types.TradeResu
 		push(player)
 		return { ok = true }
 	end
-	EntitlementStore.markFailed(purchaseId, result.error or "Claim failed")
+	-- Stay retryable: Failed is visible in the panel, Claim still works next click.
+	EntitlementStore.markFailed(purchaseId, result.error or "Claim API / mock failed")
 	push(player)
-	return { ok = false, error = result.error or "Claim failed" }
+	return { ok = false, error = result.error or "Claim API / mock failed" }
 end
 
 function MintService.init()
@@ -156,9 +191,7 @@ function MintService.init()
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
-	Players.PlayerRemoving:Connect(function(player)
-		wallets[player.UserId] = nil
-	end)
+	-- Wallets and entitlements stay in DataStore / cache for the next session.
 end
 
 return MintService

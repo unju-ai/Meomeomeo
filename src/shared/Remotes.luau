@@ -20,6 +20,8 @@ export type RemoteName =
 	| "GetMintStatus"
 	| "LinkWallet"
 	| "SimulateStudioPurchase"
+	| "GrantProduct"
+	| "ReplayReceipt"
 	| "ClaimMeo404"
 	| "BuyItem"
 	| "GetShopStatus"
@@ -60,6 +62,8 @@ local FUNCTION_NAMES = {
 	"GetMintStatus",
 	"LinkWallet",
 	"SimulateStudioPurchase",
+	"GrantProduct",
+	"ReplayReceipt",
 	"ClaimMeo404",
 	"BuyItem",
 	"GetShopStatus",

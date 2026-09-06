@@ -197,11 +197,11 @@ Roblox Terms restrict exchanging Robux for real-world crypto or cash-like value.
 What it *does* model:
 
 1. Player buys a **Roblox Developer Product** (Robux). Roblox owns that purchase.
-2. `MarketplaceService.ProcessReceipt` on the **Roblox server** marks the receipt fulfilled and writes a **claim entitlement** (`userId` + `productId` + `PurchaseId` nonce) into `EntitlementStore` (in-memory stub; TODO DataStore or external API).
-3. The player **links a wallet** (format check only; SIWE is a later hosted step).
-4. A **separate claim service** (not Roblox) verifies the entitlement and calls `Meo404.mintFromEntitlement`. One purchase → one mint (idempotent on `PurchaseId` / `bytes32` entitlement id).
+2. `MarketplaceService.ProcessReceipt` on the **Roblox server** marks the receipt fulfilled and writes a **claim entitlement** (`userId` + `productId` + `PurchaseId` nonce) into `EntitlementStore`. Writes go to DataStore `Meo404_v1` when API Services are on; Studio without access falls back to an in-memory cache. Grant is **idempotent by `PurchaseId`**.
+3. The player **links a wallet** (`0x` + 40 hex, not the zero address). The address is saved per Roblox `userId` in the same DataStore. SIWE ownership proof is a later hosted step.
+4. A **separate claim service** (not Roblox) verifies the entitlement and calls `Meo404.mintFromEntitlement`. One purchase → one mint (idempotent on `PurchaseId` / `bytes32` entitlement id). Failed claims stay retryable; already-claimed returns success.
 
-**Legal / compliance review is required before production.** Never put a chain private key in the Roblox place, Rojo tree, or `Config.luau`. Signing and minting belong on a hosted backend.
+**Legal / compliance review is required before a live Robux product.** Never put a chain private key in the Roblox place, Rojo tree, or `Config.luau`. Signing and minting belong on a hosted backend. See `bridge/README.md` for DataStore keys and the claim HTTP contract.
 
 ### Architecture
 
@@ -234,9 +234,18 @@ Robux receipt  →  game server signs tx  →  native/token value lands in playe
 
 1. Creator Dashboard → Monetization → **Developer Products** → create “Mint Meo 404”.
 2. Put the numeric id in `src/server/Config.luau` → `Nft404.DeveloperProductId`.
-3. Publish. `ProcessReceipt` only runs on a live/published purchase path; Studio uses the mock grant when `AllowStudioMockPurchase` is true and the id is still `0`.
-4. Play → lobby → **Mint Meo 404** → (Studio) grant entitlement → link a dummy `0x` address → **Claim 404**. Mock mode writes a fake `0xMOCK…` tx hash.
+3. Publish. `ProcessReceipt` only runs on a live/published purchase path; Studio uses `GrantProduct` / `SimulateStudioPurchase` when `AllowStudioMockPurchase` is true (product id may still be `0`). `ReplayReceipt` re-runs grant for the same `PurchaseId` without extra Robux.
+4. Play → lobby → **Mint Meo 404**. The panel shows **Save: DataStore | Memory**, linked-wallet status, and each slip as **Pending claim** / **Failed — retry** / **Claimed**. Link a dummy `0x` address → **Claim 404**. Mock mode writes a fake `0xMOCK…` tx hash.
 5. For a real prompt, set a non-zero product id; the client calls `MarketplaceService:PromptProductPurchase`.
+6. Enable **Game Settings → Security → Enable Studio Access to API Services** if you want entitlements and wallets to survive a Studio stop. Without it, the store stays in memory for that session.
+
+### DataStore keys (`Meo404_v1`)
+
+| Key | Value |
+| --- | --- |
+| `ent:{purchaseId}` | Entitlement row (status, nonce, wallet, txHash, claimError) |
+| `user:{userId}:ents` | `{ ids = { purchaseId, ... } }` |
+| `user:{userId}:wallet` | Linked `0x` address |
 
 **Chain (Foundry)**
 
@@ -270,7 +279,7 @@ src/server/
   World/             3-lane map + cat NPC placeholders
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
-  Mint/              ProcessReceipt, entitlements, claim API stub
+  Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
 src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler stub
@@ -291,8 +300,8 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
 10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
 11. DataStores for cosmetics funded by yarn / meme-stock wagers.
-12. Persist Meo404 entitlements (DataStore or Open Cloud); SIWE wallet proof on the claim API.
-13. Compliance review before any live Developer Product that mentions 404 / NFTs.
+12. SIWE (or similar) wallet-ownership proof on the hosted claim API; Open Cloud re-verify of DataStore entitlements from the bridge.
+13. Compliance / legal review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets
 

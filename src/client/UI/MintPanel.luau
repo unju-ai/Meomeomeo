@@ -13,14 +13,29 @@ export type MintApi = {
 	onBuy: (() -> ()) -> (),
 	onLink: ((address: string) -> ()) -> (),
 	onClaim: ((purchaseId: string) -> ()) -> (),
+	onReplay: ((purchaseId: string) -> ()) -> (),
 }
+
+local function shortHash(value: string): string
+	if #value <= 18 then
+		return value
+	end
+	return `{string.sub(value, 1, 10)}…{string.sub(value, -6)}`
+end
+
+local function shortId(value: string): string
+	if #value <= 22 then
+		return value
+	end
+	return string.sub(value, 1, 22) .. "…"
+end
 
 function MintPanel.create(parent: Instance): MintApi
 	local root = Instance.new("Frame")
 	root.Name = "MintPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0.5, 250, 0.48, 0)
-	root.Size = UDim2.fromOffset(340, 430)
+	root.Size = UDim2.fromOffset(360, 500)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -46,19 +61,25 @@ function MintPanel.create(parent: Instance): MintApi
 		Theme.fontBody
 	)
 	disclaimer.Position = UDim2.fromOffset(0, 32)
-	disclaimer.Size = UDim2.new(1, 0, 0, 52)
+	disclaimer.Size = UDim2.new(1, 0, 0, 48)
 
-	local walletLabel = Theme.text(root, "WalletLbl", "Linked wallet: none", 12, Theme.cream)
-	walletLabel.Position = UDim2.fromOffset(0, 88)
+	local persistLabel = Theme.text(root, "Persist", "Save: memory", 11, Theme.muted)
+	persistLabel.Position = UDim2.fromOffset(0, 80)
+	persistLabel.Size = UDim2.new(1, 0, 0, 16)
+	persistLabel.TextWrapped = false
+	persistLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local walletLabel = Theme.text(root, "WalletLbl", "Wallet: not linked", 12, Theme.warn)
+	walletLabel.Position = UDim2.fromOffset(0, 98)
 	walletLabel.Size = UDim2.new(1, 0, 0, 18)
 
 	local walletBox = Instance.new("TextBox")
 	walletBox.Name = "Wallet"
-	walletBox.Position = UDim2.fromOffset(0, 108)
+	walletBox.Position = UDim2.fromOffset(0, 118)
 	walletBox.Size = UDim2.new(1, -88, 0, 32)
 	walletBox.BackgroundColor3 = Theme.foam
 	walletBox.TextColor3 = Theme.ink
-	walletBox.PlaceholderText = "0x…"
+	walletBox.PlaceholderText = "0x + 40 hex chars"
 	walletBox.Text = ""
 	walletBox.TextSize = 13
 	walletBox.Font = Theme.fontMono
@@ -67,24 +88,30 @@ function MintPanel.create(parent: Instance): MintApi
 	Theme.corner(walletBox, 10)
 
 	local linkBtn = Theme.button(root, "Link", "Link", Theme.mint)
-	linkBtn.Position = UDim2.new(1, -80, 0, 108)
+	linkBtn.Position = UDim2.new(1, -80, 0, 118)
 	linkBtn.Size = UDim2.fromOffset(80, 32)
 	linkBtn.TextSize = 14
 
 	local buyBtn = Theme.button(root, "Buy", "Buy with Robux", Theme.amber)
-	buyBtn.Position = UDim2.fromOffset(0, 148)
+	buyBtn.Position = UDim2.fromOffset(0, 158)
 	buyBtn.Size = UDim2.new(1, 0, 0, 36)
 	buyBtn.TextSize = 16
 
-	local hint = Theme.text(root, "Hint", "Entitlements (one purchase → one mint)", 12, Theme.peach)
-	hint.Position = UDim2.fromOffset(0, 190)
+	local replayBtn = Theme.button(root, "Replay", "Studio: replay last receipt", Theme.blue)
+	replayBtn.Position = UDim2.fromOffset(0, 200)
+	replayBtn.Size = UDim2.new(1, 0, 0, 28)
+	replayBtn.TextSize = 13
+	replayBtn.Visible = false
+
+	local hint = Theme.text(root, "Hint", "Entitlements — pending vs claimed (retry-safe)", 12, Theme.peach)
+	hint.Position = UDim2.fromOffset(0, 234)
 	hint.Size = UDim2.new(1, 0, 0, 16)
 
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Claims"
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 210)
-	list.Size = UDim2.new(1, 0, 1, -210)
+	list.Position = UDim2.fromOffset(0, 254)
+	list.Size = UDim2.new(1, 0, 1, -254)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
@@ -96,6 +123,8 @@ function MintPanel.create(parent: Instance): MintApi
 	local buyHandler: (() -> ())? = nil
 	local linkHandler: ((string) -> ())? = nil
 	local claimHandler: ((string) -> ())? = nil
+	local replayHandler: ((string) -> ())? = nil
+	local lastPurchaseId: string? = nil
 
 	close.MouseButton1Click:Connect(function()
 		root.Visible = false
@@ -110,6 +139,11 @@ function MintPanel.create(parent: Instance): MintApi
 			linkHandler(walletBox.Text)
 		end
 	end)
+	replayBtn.MouseButton1Click:Connect(function()
+		if replayHandler and lastPurchaseId then
+			replayHandler(lastPurchaseId)
+		end
+	end)
 
 	local function clearList()
 		for _, child in list:GetChildren() do
@@ -122,26 +156,36 @@ function MintPanel.create(parent: Instance): MintApi
 	local function rowFor(ent: Types.Entitlement)
 		local row = Instance.new("Frame")
 		row.BackgroundColor3 = Theme.ink
-		row.Size = UDim2.new(1, -4, 0, 72)
+		row.Size = UDim2.new(1, -4, 0, 86)
 		row.Parent = list
 		Theme.corner(row, 10)
 		Theme.pad(row, 8)
 
+		local label = if ent.status == "Claimed"
+			then "Claimed"
+			elseif ent.status == "Failed" then "Failed — retry"
+			else "Pending claim"
 		local statusColor = if ent.status == "Claimed"
 			then Theme.good
 			elseif ent.status == "Failed" then Theme.bad
-			else Theme.amber
-		local line = Theme.text(row, "S", `{ent.status} · {string.sub(ent.purchaseId, 1, 18)}`, 12, statusColor, Theme.fontMono)
+			else Theme.warn
+		local line = Theme.text(row, "S", `{label} · {shortId(ent.purchaseId)}`, 12, statusColor, Theme.fontMono)
 		line.Size = UDim2.new(1, 0, 0, 16)
 
-		local extra = Theme.text(row, "X", ent.txHash or ent.claimError or "Ready to claim", 11, Theme.cream)
-		extra.Position = UDim2.fromOffset(0, 16)
-		extra.Size = UDim2.new(1, 0, 0, 16)
+		local extraText = if ent.status == "Claimed" and ent.txHash
+			then `tx {shortHash(ent.txHash)}`
+			elseif ent.claimError then ent.claimError
+			else "Ready to claim — one purchase → one mint"
+		local extra = Theme.text(row, "X", extraText, 11, Theme.cream)
+		extra.Position = UDim2.fromOffset(0, 18)
+		extra.Size = UDim2.new(1, -4, 0, 28)
+		extra.TextWrapped = true
+		extra.TextYAlignment = Enum.TextYAlignment.Top
 
 		if ent.status ~= "Claimed" then
-			local claim = Theme.button(row, "Claim", "Claim 404", Theme.coral)
-			claim.Position = UDim2.new(1, -96, 1, -28)
-			claim.Size = UDim2.fromOffset(96, 26)
+			local claim = Theme.button(row, "Claim", if ent.status == "Failed" then "Retry claim" else "Claim 404", Theme.coral)
+			claim.Position = UDim2.new(1, -104, 1, -28)
+			claim.Size = UDim2.fromOffset(104, 26)
 			claim.TextSize = 13
 			claim.MouseButton1Click:Connect(function()
 				if claimHandler then
@@ -161,16 +205,26 @@ function MintPanel.create(parent: Instance): MintApi
 		end,
 		update = function(status: Types.MintStatus)
 			disclaimer.Text = status.disclaimer
-			walletLabel.Text = if status.wallet then `Linked wallet: {status.wallet}` else "Linked wallet: none"
+			persistLabel.Text = `Save: {status.persistMode} — {status.persistNote}`
 			if status.wallet then
+				walletLabel.Text = `Wallet linked ✓ {shortHash(status.wallet)}`
+				walletLabel.TextColor3 = Theme.good
 				walletBox.Text = status.wallet
+				linkBtn.Text = "Update"
+			else
+				walletLabel.Text = "Wallet: not linked — paste a 0x address"
+				walletLabel.TextColor3 = Theme.warn
+				linkBtn.Text = "Link"
 			end
 			buyBtn.Text = if status.studioMock and status.productId == 0
 				then "Studio: grant mock entitlement"
 				else `Buy {status.productName}`
+			lastPurchaseId = if #status.entitlements > 0 then status.entitlements[1].purchaseId else nil
+			replayBtn.Visible = status.studioMock == true
+			replayBtn.Text = if lastPurchaseId then "Studio: replay last receipt" else "Studio: replay (grant first)"
 			clearList()
 			if #status.entitlements == 0 then
-				local empty = Theme.text(list, "Empty", "No purchases yet.", 12, Theme.muted)
+				local empty = Theme.text(list, "Empty", "No purchases yet. Grant or buy, then claim.", 12, Theme.muted)
 				empty.Size = UDim2.new(1, 0, 0, 20)
 			else
 				for _, ent in status.entitlements do
@@ -186,6 +240,9 @@ function MintPanel.create(parent: Instance): MintApi
 		end,
 		onClaim = function(fn)
 			claimHandler = fn
+		end,
+		onReplay = function(fn)
+			replayHandler = fn
 		end,
 	}
 end

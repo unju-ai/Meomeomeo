@@ -136,6 +136,14 @@ Remotes.function_("SimulateStudioPurchase").OnServerInvoke = function(player: Pl
 	return MintService.simulateStudioPurchase(player)
 end
 
+Remotes.function_("GrantProduct").OnServerInvoke = function(player: Player, purchaseId: unknown)
+	return MintService.grantProduct(player, purchaseId)
+end
+
+Remotes.function_("ReplayReceipt").OnServerInvoke = function(player: Player, purchaseId: unknown)
+	return MintService.replayReceipt(player, purchaseId)
+end
+
 Remotes.function_("ClaimMeo404").OnServerInvoke = function(player: Player, purchaseId: unknown)
 	return MintService.claim(player, purchaseId)
 end

@@ -145,6 +145,13 @@ hud.lobby.onMint(function()
 	hud.mint.toggle()
 end)
 
+local function refreshMint()
+	local nextStatus = Remotes.function_("GetMintStatus"):InvokeServer()
+	if typeof(nextStatus) == "table" then
+		hud.mint.update(nextStatus :: Types.MintStatus)
+	end
+end
+
 hud.mint.onBuy(function()
 	local status = Remotes.function_("GetMintStatus"):InvokeServer()
 	if typeof(status) == "table" and typeof((status :: any).productId) == "number" and (status :: any).productId > 0 then
@@ -158,28 +165,37 @@ hud.mint.onBuy(function()
 	else
 		toast("Studio entitlement granted. Link a wallet, then Claim 404.")
 	end
-	local nextStatus = Remotes.function_("GetMintStatus"):InvokeServer()
-	if typeof(nextStatus) == "table" then
-		hud.mint.update(nextStatus :: Types.MintStatus)
-	end
+	refreshMint()
 end)
 
 hud.mint.onLink(function(address: string)
 	local result = Remotes.function_("LinkWallet"):InvokeServer(address)
 	if result and result.ok == false then
-		toast(result.error or "Wallet link failed")
+		toast(result.error or "Wallet link failed — need 0x + 40 hex chars")
 	else
-		toast("Wallet saved on the game server (ownership proof is a later TODO)")
+		toast("Wallet saved for this Roblox user (SIWE proof is a later hosted step)")
 	end
+	refreshMint()
 end)
 
 hud.mint.onClaim(function(purchaseId: string)
 	local result = Remotes.function_("ClaimMeo404"):InvokeServer(purchaseId)
 	if result and result.ok == false then
-		toast(result.error or "Claim failed")
+		toast(result.error or "Claim failed — tap Retry claim")
 	else
-		toast("Claim submitted. Mock tx in Studio; live mint is hosted.")
+		toast("Claim ok. Already-claimed is retry-safe. Live mint is hosted.")
 	end
+	refreshMint()
+end)
+
+hud.mint.onReplay(function(purchaseId: string)
+	local result = Remotes.function_("ReplayReceipt"):InvokeServer(purchaseId)
+	if result and result.ok == false then
+		toast(result.error or "Receipt replay failed")
+	else
+		toast("Receipt replayed (idempotent GrantProduct). No extra Robux.")
+	end
+	refreshMint()
 end)
 
 hud.select.onPick(function(championId: string)
