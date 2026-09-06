@@ -8,6 +8,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local AbilityBar = require(script.Parent.AbilityBar)
 local ChampionSelect = require(script.Parent.ChampionSelect)
 local LobbyPanel = require(script.Parent.LobbyPanel)
+local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 
@@ -16,6 +17,7 @@ local Hud = {}
 export type HudApi = {
 	gui: ScreenGui,
 	lobby: LobbyPanel.LobbyApi,
+	mint: MintPanel.MintApi,
 	select: ChampionSelect.SelectApi,
 	abilities: AbilityBar.BarApi,
 	voice: VoiceHud.VoiceHudApi,
@@ -52,6 +54,7 @@ function Hud.create(): HudApi
 	banner.TextStrokeTransparency = 0.4
 
 	local lobby = LobbyPanel.create(gui)
+	local mint = MintPanel.create(gui)
 	local select = ChampionSelect.create(gui)
 	local abilities = AbilityBar.create(gui)
 	local voice = VoiceHud.create(gui)
@@ -60,6 +63,9 @@ function Hud.create(): HudApi
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
 		lobby.setVisible(phase == "Lobby")
+		if phase ~= "Lobby" then
+			mint.setVisible(false)
+		end
 		select.setVisible(phase == "ChampionSelect")
 		abilities.setVisible(phase == "InProgress")
 		if phase == "Lobby" then
@@ -81,6 +87,7 @@ function Hud.create(): HudApi
 	return {
 		gui = gui,
 		lobby = lobby,
+		mint = mint,
 		select = select,
 		abilities = abilities,
 		voice = voice,

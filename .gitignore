@@ -31,3 +31,12 @@ DevPackages/
 
 # Logs
 *.log
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# Node (claim-service later)
+node_modules/

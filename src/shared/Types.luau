@@ -125,4 +125,27 @@ export type TickerState = {
 	change: number,
 }
 
+export type EntitlementStatus = "Granted" | "Claimed" | "Failed"
+
+export type Entitlement = {
+	purchaseId: string,
+	userId: number,
+	productId: number,
+	nonce: string,
+	createdAt: number,
+	status: EntitlementStatus,
+	wallet: string?,
+	txHash: string?,
+	claimError: string?,
+}
+
+export type MintStatus = {
+	wallet: string?,
+	productId: number,
+	productName: string,
+	studioMock: boolean,
+	entitlements: { Entitlement },
+	disclaimer: string,
+}
+
 return {}

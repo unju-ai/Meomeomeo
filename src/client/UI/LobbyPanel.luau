@@ -13,6 +13,7 @@ export type LobbyApi = {
 	onQueue: (() -> ()) -> (),
 	onLeave: (() -> ()) -> (),
 	onPractice: (() -> ()) -> (),
+	onMint: (() -> ()) -> (),
 }
 
 function LobbyPanel.create(parent: Instance): LobbyApi
@@ -20,7 +21,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	root.Name = "Lobby"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.48)
-	root.Size = UDim2.fromOffset(460, 360)
+	root.Size = UDim2.fromOffset(460, 410)
 	root.BackgroundColor3 = Theme.panel
 	root.Parent = parent
 	Theme.corner(root, 22)
@@ -53,15 +54,19 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	blurb.Size = UDim2.new(1, 0, 0, 72)
 
 	local queueBtn = Theme.button(root, "Queue", "Queue 🐾", Theme.amber)
-	queueBtn.Position = UDim2.new(0, 0, 1, -96)
+	queueBtn.Position = UDim2.new(0, 0, 1, -144)
 	queueBtn.Size = UDim2.new(1, 0, 0, 40)
 
 	local practiceBtn = Theme.button(root, "Practice", "Practice match (solo)", Theme.mint)
-	practiceBtn.Position = UDim2.new(0, 0, 1, -48)
+	practiceBtn.Position = UDim2.new(0, 0, 1, -96)
 	practiceBtn.Size = UDim2.new(1, 0, 0, 40)
 
+	local mintBtn = Theme.button(root, "Mint", "Mint Meo 404", Theme.coral)
+	mintBtn.Position = UDim2.new(0, 0, 1, -48)
+	mintBtn.Size = UDim2.new(1, 0, 0, 40)
+
 	local leaveBtn = Theme.button(root, "Leave", "Leave queue", Theme.coral)
-	leaveBtn.Position = UDim2.new(0, 0, 1, -96)
+	leaveBtn.Position = UDim2.new(0, 0, 1, -144)
 	leaveBtn.Size = UDim2.new(1, 0, 0, 40)
 	leaveBtn.Visible = false
 
@@ -69,6 +74,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local queueHandler: (() -> ())? = nil
 	local leaveHandler: (() -> ())? = nil
 	local practiceHandler: (() -> ())? = nil
+	local mintHandler: (() -> ())? = nil
 
 	local function refreshButtons()
 		queueBtn.Visible = not inQueue
@@ -92,6 +98,11 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	practiceBtn.MouseButton1Click:Connect(function()
 		if practiceHandler then
 			practiceHandler()
+		end
+	end)
+	mintBtn.MouseButton1Click:Connect(function()
+		if mintHandler then
+			mintHandler()
 		end
 	end)
 
@@ -119,6 +130,9 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onPractice = function(fn)
 			practiceHandler = fn
+		end,
+		onMint = function(fn)
+			mintHandler = fn
 		end,
 	}
 end

@@ -16,6 +16,7 @@ local MapBuilder = require(script.World.MapBuilder)
 local MatchService = require(script.Match.MatchService)
 local MatchmakingService = require(script.Match.MatchmakingService)
 local MemeStockService = require(script.Economy.MemeStockService)
+local MintService = require(script.Mint.MintService)
 local VoiceService = require(script.Voice.VoiceService)
 
 local function ensureTeam(name: string, color: BrickColor)
@@ -39,6 +40,7 @@ Players.RespawnTime = Config.Combat.RespawnSeconds
 Remotes.initServer()
 MapBuilder.build()
 MemeStockService.init()
+MintService.init()
 MatchmakingService.init()
 AiChatService.init(MatchService.snapshot)
 VoiceService.init()
@@ -108,10 +110,27 @@ Remotes.function_("CheerTicker").OnServerInvoke = function(player: Player, champ
 	return MemeStockService.cheer(player, championId)
 end
 
+Remotes.function_("GetMintStatus").OnServerInvoke = function(player: Player)
+	return MintService.getStatus(player)
+end
+
+Remotes.function_("LinkWallet").OnServerInvoke = function(player: Player, address: unknown)
+	return MintService.linkWallet(player, address)
+end
+
+Remotes.function_("SimulateStudioPurchase").OnServerInvoke = function(player: Player)
+	return MintService.simulateStudioPurchase(player)
+end
+
+Remotes.function_("ClaimMeo404").OnServerInvoke = function(player: Player, purchaseId: unknown)
+	return MintService.claim(player, purchaseId)
+end
+
 local function sendLobby(player: Player)
 	task.defer(function()
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot()))
 		Remotes.event("VoiceStatusChanged"):FireClient(player, VoiceService.getStatus(player))
+		Remotes.event("MintStatusChanged"):FireClient(player, MintService.getStatus(player))
 	end)
 end
 

@@ -1,5 +1,6 @@
 --!strict
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -79,6 +80,47 @@ hud.lobby.onPractice(function()
 	end
 end)
 
+hud.lobby.onMint(function()
+	hud.mint.toggle()
+end)
+
+hud.mint.onBuy(function()
+	local status = Remotes.function_("GetMintStatus"):InvokeServer()
+	if typeof(status) == "table" and typeof((status :: any).productId) == "number" and (status :: any).productId > 0 then
+		MarketplaceService:PromptProductPurchase(player, (status :: any).productId)
+		toast("Roblox purchase prompt — this is a Developer Product, not a chain swap")
+		return
+	end
+	local result = Remotes.function_("SimulateStudioPurchase"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Mock entitlement failed")
+	else
+		toast("Studio entitlement granted. Link a wallet, then Claim 404.")
+	end
+	local nextStatus = Remotes.function_("GetMintStatus"):InvokeServer()
+	if typeof(nextStatus) == "table" then
+		hud.mint.update(nextStatus :: Types.MintStatus)
+	end
+end)
+
+hud.mint.onLink(function(address: string)
+	local result = Remotes.function_("LinkWallet"):InvokeServer(address)
+	if result and result.ok == false then
+		toast(result.error or "Wallet link failed")
+	else
+		toast("Wallet saved on the game server (ownership proof is a later TODO)")
+	end
+end)
+
+hud.mint.onClaim(function(purchaseId: string)
+	local result = Remotes.function_("ClaimMeo404"):InvokeServer(purchaseId)
+	if result and result.ok == false then
+		toast(result.error or "Claim failed")
+	else
+		toast("Claim submitted. Mock tx in Studio; live mint is hosted.")
+	end
+end)
+
 hud.select.onPick(function(championId: string)
 	local result = Remotes.function_("SelectChampion"):InvokeServer(championId)
 	if result and result.ok == false then
@@ -116,6 +158,21 @@ Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 	if typeof(payload) == "table" and typeof((payload :: any).text) == "string" then
 		toast(`{(payload :: any).speaker or "Kitty Caster"}: {(payload :: any).text}`)
 	end
+end)
+
+Remotes.event("MintStatusChanged").OnClientEvent:Connect(function(status)
+	if typeof(status) == "table" then
+		hud.mint.update(status :: Types.MintStatus)
+	end
+end)
+
+MarketplaceService.PromptProductPurchaseFinished:Connect(function(_userId, _productId, _isPurchased)
+	task.defer(function()
+		local status = Remotes.function_("GetMintStatus"):InvokeServer()
+		if typeof(status) == "table" then
+			hud.mint.update(status :: Types.MintStatus)
+		end
+	end)
 end)
 
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
@@ -199,6 +256,10 @@ task.spawn(function()
 	local voice = Remotes.function_("GetVoiceStatus"):InvokeServer()
 	if typeof(voice) == "table" then
 		hud.voice.update(voice :: Types.VoiceStatus)
+	end
+	local mint = Remotes.function_("GetMintStatus"):InvokeServer()
+	if typeof(mint) == "table" then
+		hud.mint.update(mint :: Types.MintStatus)
 	end
 	local market = Remotes.function_("GetMemeMarket"):InvokeServer()
 	if typeof(market) == "table" and typeof((market :: any).tickers) == "table" then

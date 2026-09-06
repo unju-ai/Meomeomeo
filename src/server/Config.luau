@@ -1,8 +1,8 @@
 --!strict
 
--- Server-only tunables. Do not put live API keys here.
--- For a future HTTP AI provider: paste a key locally (never commit) and
--- flip Ai.Provider to "http" after enabling Studio HTTP requests.
+-- Server-only tunables. Do not put live API keys or chain private keys here.
+-- AI / claim HTTP secrets may be pasted locally for experiments — never commit.
+-- The Meo404 minter key belongs on a hosted backend, not in this ModuleScript.
 
 export type VoiceMode = "Team" | "Proximity"
 
@@ -49,6 +49,19 @@ local Config = {
 		StartingYarn = 100,
 		CheerCost = 10,
 		CheerBump = 0.08,
+	},
+
+	-- Meo404: Robux Developer Product → entitlement → hosted mint.
+	-- This is not a Robux-to-crypto swap. See README "Meo404 / Robux caveat".
+	Nft404 = {
+		ProductName = "Mint Meo 404",
+		-- Creator Dashboard → Monetization → Developer Products. 0 = unset.
+		DeveloperProductId = 0,
+		-- "mock" never talks to chain. "http" POSTs to ClaimApiUrl.
+		Provider = "mock",
+		ClaimApiUrl = "", -- hosted backend, e.g. https://claims.example.com/v1/meo404
+		ClaimApiSecret = "", -- shared secret with the backend; NEVER a chain private key
+		AllowStudioMockPurchase = true,
 	},
 }
 

@@ -17,11 +17,16 @@ export type RemoteName =
 	| "GetNpcs"
 	| "GetMemeMarket"
 	| "CheerTicker"
+	| "GetMintStatus"
+	| "LinkWallet"
+	| "SimulateStudioPurchase"
+	| "ClaimMeo404"
 	| "MatchStateChanged"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
 	| "VoiceStatusChanged"
 	| "MarketUpdated"
+	| "MintStatusChanged"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -35,6 +40,10 @@ local FUNCTION_NAMES = {
 	"GetNpcs",
 	"GetMemeMarket",
 	"CheerTicker",
+	"GetMintStatus",
+	"LinkWallet",
+	"SimulateStudioPurchase",
+	"ClaimMeo404",
 }
 
 local EVENT_NAMES = {
@@ -43,6 +52,7 @@ local EVENT_NAMES = {
 	"AnnouncerMessage",
 	"VoiceStatusChanged",
 	"MarketUpdated",
+	"MintStatusChanged",
 }
 
 local function getFolder(): Folder
