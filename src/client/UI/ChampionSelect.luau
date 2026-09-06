@@ -18,7 +18,7 @@ function ChampionSelect.create(parent: Instance): SelectApi
 	root.Name = "ChampionSelect"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.5)
-	root.Size = UDim2.fromOffset(720, 460)
+	root.Size = UDim2.fromOffset(860, 540)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -29,20 +29,24 @@ function ChampionSelect.create(parent: Instance): SelectApi
 	local title = Theme.text(root, "Title", "Pick your cat", 28, Theme.amber, Theme.fontTitle)
 	title.Size = UDim2.new(1, 0, 0, 32)
 
-	local hint = Theme.text(root, "Hint", "Lock in before the timer. Same-team dupes are blocked.", 14, Theme.cream)
+	local hint = Theme.text(root, "Hint", "Lock in before the timer. Same-team dupes are blocked. Scroll for more cats.", 14, Theme.cream)
 	hint.Position = UDim2.fromOffset(0, 34)
 	hint.Size = UDim2.new(1, 0, 0, 20)
 
-	local grid = Instance.new("Frame")
+	local grid = Instance.new("ScrollingFrame")
 	grid.Name = "Grid"
 	grid.BackgroundTransparency = 1
 	grid.Position = UDim2.fromOffset(0, 64)
 	grid.Size = UDim2.new(1, 0, 1, -74)
+	grid.ScrollBarThickness = 6
+	grid.ScrollingDirection = Enum.ScrollingDirection.Y
+	grid.CanvasSize = UDim2.fromOffset(0, 0)
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	grid.Parent = root
 
 	local layout = Instance.new("UIGridLayout")
-	layout.CellPadding = UDim2.fromOffset(10, 10)
-	layout.CellSize = UDim2.new(0.5, -8, 0, 110)
+	layout.CellPadding = UDim2.fromOffset(8, 8)
+	layout.CellSize = UDim2.new(0.333, -8, 0, 118)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
 
@@ -64,7 +68,7 @@ function ChampionSelect.create(parent: Instance): SelectApi
 		local name = Theme.text(card, "Name", champ.name, 18, Theme.cream, Theme.fontTitle)
 		name.Size = UDim2.new(1, 0, 0, 22)
 
-		local role = Theme.text(card, "Role", `{champ.role} · {champ.title}`, 12, champ.color)
+		local role = Theme.text(card, "Role", `{champ.role} · {champ.title}`, 11, champ.color)
 		role.Position = UDim2.fromOffset(0, 22)
 		role.Size = UDim2.new(1, 0, 0, 16)
 

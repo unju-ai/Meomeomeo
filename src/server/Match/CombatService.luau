@@ -69,6 +69,7 @@ function CombatService.reset(player: Player, championId: string)
 		maxHealth = champ.maxHealth,
 		mana = champ.maxMana,
 		maxMana = champ.maxMana,
+		shield = 0,
 		cooldowns = emptyCooldowns(),
 		alive = true,
 	}
@@ -157,12 +158,55 @@ local function damagePlayer(attacker: Player, target: Player, amount: number)
 	if not state or not state.alive then
 		return
 	end
-	state.health = math.max(0, state.health - amount)
+	local remaining = amount
+	if (state.shield or 0) > 0 then
+		local absorbed = math.min(state.shield, remaining)
+		state.shield -= absorbed
+		remaining -= absorbed
+	end
+	if remaining > 0 then
+		state.health = math.max(0, state.health - remaining)
+	end
 	applyHumanoid(target, state)
 	Remotes.event("CombatUpdated"):FireClient(target, state)
 	if state.health <= 0 then
 		killPlayer(target, attacker)
 	end
+end
+
+local function shieldPlayer(target: Player, amount: number)
+	local state = combat[target.UserId]
+	if not state or not state.alive or amount <= 0 then
+		return
+	end
+	state.shield = math.min(state.maxHealth, state.shield + amount)
+	Remotes.event("CombatUpdated"):FireClient(target, state)
+end
+
+local function stunPlayer(target: Player, seconds: number)
+	if seconds <= 0 then
+		return
+	end
+	local character = target.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local token = (humanoid:GetAttribute("MeoStunToken") :: number? or 0) + 1
+	humanoid:SetAttribute("MeoStunToken", token)
+	local walk = humanoid.WalkSpeed
+	local jump = humanoid.JumpPower
+	humanoid.WalkSpeed = 0
+	humanoid.JumpPower = 0
+	task.delay(seconds, function()
+		if humanoid.Parent and humanoid:GetAttribute("MeoStunToken") == token then
+			humanoid.WalkSpeed = walk
+			humanoid.JumpPower = jump
+		end
+	end)
 end
 
 local function healPlayer(target: Player, amount: number)
@@ -276,6 +320,30 @@ function CombatService.useAbility(player: Player, request: unknown): Types.Abili
 			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
 				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
 					healPlayer(other, ability.heal)
+				end
+			end
+		end
+	end
+
+	if (ability.shield or 0) > 0 then
+		for _, other in Players:GetPlayers() do
+			local otherMatch = snapshot.players[tostring(other.UserId)]
+			local otherRoot = characterRoot(other)
+			if otherMatch and otherMatch.team == matchPlayer.team and otherRoot then
+				if (otherRoot.Position - aim).Magnitude <= ability.radius or other == player then
+					shieldPlayer(other, ability.shield or 0)
+				end
+			end
+		end
+	end
+
+	if (ability.stunSeconds or 0) > 0 then
+		for _, other in Players:GetPlayers() do
+			local otherMatch = snapshot.players[tostring(other.UserId)]
+			local otherRoot = characterRoot(other)
+			if otherMatch and otherMatch.team ~= matchPlayer.team and otherRoot then
+				if (otherRoot.Position - aim).Magnitude <= ability.radius then
+					stunPlayer(other, ability.stunSeconds or 0)
 				end
 			end
 		end

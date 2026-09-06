@@ -86,7 +86,9 @@ function AbilityBar.create(parent: Instance): BarApi
 		end,
 		update = function(championId: string?, combat: Types.CombatState?, gold: number, kda: string)
 			local champ = if championId then ChampionCatalog.get(championId) else nil
+			local shield = if combat then (combat.shield or 0) else 0
 			meta.Text = `{(if champ then champ.name else "Cat")} · {kda} · {gold}g`
+				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 			if combat then
 				hpFill.Size = UDim2.fromScale(if combat.maxHealth > 0 then combat.health / combat.maxHealth else 0, 1)
 				mpFill.Size = UDim2.fromScale(if combat.maxMana > 0 then combat.mana / combat.maxMana else 0, 1)
