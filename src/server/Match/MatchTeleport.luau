@@ -71,7 +71,10 @@ function MatchTeleport.read(player: Player): Types.MatchTeleportData?
 		lobbyPlaceId = if typeof(data.lobbyPlaceId) == "number" then data.lobbyPlaceId else 0,
 		practice = data.practice == true,
 		padWithBots = data.padWithBots ~= false,
-		botDifficulty = if data.botDifficulty == "Easy" then "Easy" else "Normal",
+		botDifficulty = if data.botDifficulty == "Easy"
+			then "Easy"
+			elseif data.botDifficulty == "Hard" then "Hard"
+			else "Normal",
 		seats = seats,
 	}
 end

@@ -53,7 +53,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local blurb = Theme.text(
 		root,
 		"Blurb",
-		"Queue for a real match (in-place until MatchPlaceId is set). Practice stays solo vs 3 AI cats.",
+		"Queue for a real match (in-place until MatchPlaceId is set). Practice: Easy / Normal / Hard bots.",
 		13,
 		Theme.cream,
 		Theme.fontBody
@@ -78,13 +78,17 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	inviteBtn.Position = UDim2.new(0, 0, 1, -188)
 	inviteBtn.Size = UDim2.new(1, 0, 0, 36)
 
-	local easyBtn = Theme.button(root, "Easy", "Easy bots", Theme.panelAlt)
+	local easyBtn = Theme.button(root, "Easy", "Easy", Theme.panelAlt)
 	easyBtn.Position = UDim2.new(0, 0, 1, -144)
-	easyBtn.Size = UDim2.new(0.48, 0, 0, 36)
+	easyBtn.Size = UDim2.new(0.32, 0, 0, 36)
 
-	local normalBtn = Theme.button(root, "Normal", "Normal bots", Theme.mint)
-	normalBtn.Position = UDim2.new(0.52, 0, 1, -144)
-	normalBtn.Size = UDim2.new(0.48, 0, 0, 36)
+	local normalBtn = Theme.button(root, "Normal", "Normal", Theme.mint)
+	normalBtn.Position = UDim2.new(0.34, 0, 1, -144)
+	normalBtn.Size = UDim2.new(0.32, 0, 0, 36)
+
+	local hardBtn = Theme.button(root, "Hard", "Hard", Theme.coral)
+	hardBtn.Position = UDim2.new(0.68, 0, 1, -144)
+	hardBtn.Size = UDim2.new(0.32, 0, 0, 36)
 
 	local practiceBtn = Theme.button(root, "Practice", "Practice vs 3 bots (Normal)", Theme.mint)
 	practiceBtn.Position = UDim2.new(0, 0, 1, -96)
@@ -106,6 +110,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local function paintDifficulty()
 		easyBtn.BackgroundColor3 = if difficulty == "Easy" then Theme.mint else Theme.peach
 		normalBtn.BackgroundColor3 = if difficulty == "Normal" then Theme.mint else Theme.peach
+		hardBtn.BackgroundColor3 = if difficulty == "Hard" then Theme.mint else Theme.peach
 		practiceBtn.Text = `Practice vs 3 bots ({difficulty})`
 	end
 	paintDifficulty()
@@ -176,6 +181,10 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	end)
 	normalBtn.MouseButton1Click:Connect(function()
 		difficulty = "Normal"
+		paintDifficulty()
+	end)
+	hardBtn.MouseButton1Click:Connect(function()
+		difficulty = "Hard"
 		paintDifficulty()
 	end)
 	practiceBtn.MouseButton1Click:Connect(function()

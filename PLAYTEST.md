@@ -58,7 +58,10 @@ rojo serve
 
 ## 3. First session — Practice (solo)
 
-1. Lobby → bot difficulty **Easy** or **Normal** → **Practice match**.
+1. Lobby → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**.
+   - **Easy** — slow, panicky, sloppy CS, two items, 0.88× damage.
+   - **Normal** — last-hits, leads skillshots, mid may clear a nearby camp, four items.
+   - **Hard** — faster, fights longer, tighter CS, 1.22× damage, full build, one early ward.
 2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read).
 3. Walk a lane. **LMB** a bot or minion. Hold **Q** if the kit is a line skillshot, release to fire.
 4. **4** drop a trinket. **B** at fountain → buy **Whisker Lens** → **5** if you see an enemy ward.

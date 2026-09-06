@@ -9,7 +9,7 @@ export type AbilityRanks = { Q: number, W: number, E: number, R: number }
 export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
-export type BotDifficulty = "Easy" | "Normal"
+export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
 export type QueueMode = "InPlace" | "Reserved"
 

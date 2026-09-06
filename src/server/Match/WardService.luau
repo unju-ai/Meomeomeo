@@ -176,14 +176,10 @@ local function popOwnerTrinket(userId: number)
 	end
 end
 
-function WardService.placeTrinket(player: Player, team: Types.TeamId, position: Vector3): Types.AbilityResult
+function WardService.placeTrinketFor(userId: number, team: Types.TeamId, position: Vector3, root: BasePart): Types.AbilityResult
 	local t = now()
-	if (trinketReady[player.UserId] or 0) > t then
+	if (trinketReady[userId] or 0) > t then
 		return { ok = false, error = "Trinket on cooldown." }
-	end
-	local root = characterRoot(player)
-	if not root then
-		return { ok = false, error = "No character." }
 	end
 	local dest = Vector3.new(
 		math.clamp(position.X, Constants.MapBounds.MinX, Constants.MapBounds.MaxX),
@@ -194,7 +190,7 @@ function WardService.placeTrinket(player: Player, team: Types.TeamId, position: 
 		return { ok = false, error = "Ward out of range." }
 	end
 
-	popOwnerTrinket(player.UserId)
+	popOwnerTrinket(userId)
 	nextId += 1
 	local id = `ward-{nextId}`
 	local part = Instance.new("Part")
@@ -227,7 +223,7 @@ function WardService.placeTrinket(player: Player, team: Types.TeamId, position: 
 	wards[id] = {
 		id = id,
 		team = team,
-		ownerUserId = player.UserId,
+		ownerUserId = userId,
 		kind = "trinket",
 		health = Config.Vision.WardHealth,
 		maxHealth = Config.Vision.WardHealth,
@@ -235,8 +231,16 @@ function WardService.placeTrinket(player: Player, team: Types.TeamId, position: 
 		revealedUntil = 0,
 		part = part,
 	}
-	trinketReady[player.UserId] = t + Config.Vision.TrinketCooldown
+	trinketReady[userId] = t + Config.Vision.TrinketCooldown
 	return { ok = true }
+end
+
+function WardService.placeTrinket(player: Player, team: Types.TeamId, position: Vector3): Types.AbilityResult
+	local root = characterRoot(player)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	return WardService.placeTrinketFor(player.UserId, team, position, root)
 end
 
 function WardService.useLens(player: Player, team: Types.TeamId): Types.AbilityResult

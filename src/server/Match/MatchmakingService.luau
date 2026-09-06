@@ -22,6 +22,8 @@ local arrivalDeadline = 0
 local function parseDifficulty(value: unknown): Types.BotDifficulty
 	if value == "Easy" then
 		return "Easy"
+	elseif value == "Hard" then
+		return "Hard"
 	end
 	return "Normal"
 end
