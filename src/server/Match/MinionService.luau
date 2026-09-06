@@ -22,8 +22,8 @@ type Api = {
 	getPhase: () -> string?,
 	damagePlayerNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
 	damageObjectiveNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
-	onLastHit: (player: Player, gold: number) -> (),
-	onMinionDied: (position: Vector3, minionTeam: Types.TeamId, lastHitter: Player?) -> (),
+	onLastHit: (userId: number, gold: number) -> (),
+	onMinionDied: (position: Vector3, minionTeam: Types.TeamId, lastHitterUserId: number?) -> (),
 }
 
 local MinionService = {}
@@ -165,7 +165,7 @@ function MinionService.get(id: string): Minion?
 	return minions[id]
 end
 
-function MinionService.applyDamage(attacker: Player?, minionId: string, amount: number): boolean
+function MinionService.applyDamage(attackerUserId: number?, minionId: string, amount: number): boolean
 	local minion = minions[minionId]
 	if not minion or minion.health <= 0 then
 		return false
@@ -178,21 +178,21 @@ function MinionService.applyDamage(attacker: Player?, minionId: string, amount: 
 		minion.part:Destroy()
 		minions[minionId] = nil
 		if api then
-			if attacker then
-				api.onLastHit(attacker, Config.Match.MinionGold)
+			if attackerUserId then
+				api.onLastHit(attackerUserId, Config.Match.MinionGold)
 			end
-			api.onMinionDied(pos, team, attacker)
+			api.onMinionDied(pos, team, attackerUserId)
 		end
 		return true
 	end
 	return false
 end
 
-function MinionService.damageInRadius(attacker: Player, team: Types.TeamId, position: Vector3, radius: number, amount: number)
+function MinionService.damageInRadius(attackerUserId: number, team: Types.TeamId, position: Vector3, radius: number, amount: number)
 	for _, minion in minions do
 		if minion.team ~= team and minion.health > 0 then
 			if (minion.part.Position - position).Magnitude <= radius then
-				MinionService.applyDamage(attacker, minion.id, amount)
+				MinionService.applyDamage(attackerUserId, minion.id, amount)
 			end
 		end
 	end

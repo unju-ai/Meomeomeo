@@ -9,6 +9,7 @@ export type AbilityRanks = { Q: number, W: number, E: number, R: number }
 export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
+export type BotDifficulty = "Easy" | "Normal"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -70,6 +71,7 @@ export type MatchPlayer = {
 	connected: boolean,
 	items: { string },
 	damageDealt: number,
+	isBot: boolean,
 }
 
 export type CombatState = {
@@ -104,6 +106,7 @@ export type MatchSnapshot = {
 	endedAt: number?,
 	winner: TeamId?,
 	mvpUserId: number?,
+	botDifficulty: BotDifficulty?,
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
 	queueCount: number,

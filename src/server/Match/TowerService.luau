@@ -1,6 +1,5 @@
 --!strict
 
-local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -11,8 +10,8 @@ local MinionService = require(script.Parent.MinionService)
 
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	damagePlayer: (target: Player, amount: number) -> (),
-	characterRoot: (player: Player) -> BasePart?,
+	damageUser: (userId: number, amount: number) -> (),
+	rootOf: (userId: number) -> BasePart?,
 }
 
 local TowerService = {}
@@ -22,14 +21,14 @@ local running = false
 local threat: { [string]: { userId: number, untilTime: number } } = {}
 local nextShot: { [string]: number } = {}
 
-function TowerService.noteThreat(attacker: Player, victimTeam: Types.TeamId)
+function TowerService.noteThreat(attackerUserId: number, victimTeam: Types.TeamId)
 	threat[victimTeam] = {
-		userId = attacker.UserId,
+		userId = attackerUserId,
 		untilTime = Workspace:GetServerTimeNow() + Config.Towers.AggroSeconds,
 	}
 end
 
-local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (Player?, string?)
+local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (number?, string?)
 	if not api or not objective.alive then
 		return nil, nil
 	end
@@ -42,27 +41,24 @@ local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (Pla
 	local now = Workspace:GetServerTimeNow()
 	local aggro = threat[objective.team]
 	if aggro and aggro.untilTime > now then
-		for _, player in Players:GetPlayers() do
-			local matchPlayer = snapshot.players[tostring(player.UserId)]
-			local root = api.characterRoot(player)
-			if matchPlayer and matchPlayer.team ~= objective.team and player.UserId == aggro.userId and root then
-				if (root.Position - part.Position).Magnitude <= range then
-					return player, nil
-				end
+		local matchPlayer = snapshot.players[tostring(aggro.userId)]
+		local root = api.rootOf(aggro.userId)
+		if matchPlayer and matchPlayer.team ~= objective.team and root then
+			if (root.Position - part.Position).Magnitude <= range then
+				return aggro.userId, nil
 			end
 		end
 	end
 
-	local bestPlayer: Player? = nil
+	local bestUserId: number? = nil
 	local bestMinion: string? = nil
 	local bestDist = range
-	for _, player in Players:GetPlayers() do
-		local matchPlayer = snapshot.players[tostring(player.UserId)]
-		local root = api.characterRoot(player)
-		if matchPlayer and matchPlayer.team ~= objective.team and root then
+	for _, matchPlayer in snapshot.players do
+		local root = api.rootOf(matchPlayer.userId)
+		if matchPlayer.team ~= objective.team and root then
 			local d = (root.Position - part.Position).Magnitude
 			if d <= bestDist then
-				bestPlayer = player
+				bestUserId = matchPlayer.userId
 				bestMinion = nil
 				bestDist = d
 			end
@@ -72,13 +68,13 @@ local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (Pla
 		if minion.team ~= objective.team then
 			local d = (minion.part.Position - part.Position).Magnitude
 			if d <= bestDist then
-				bestPlayer = nil
+				bestUserId = nil
 				bestMinion = minion.id
 				bestDist = d
 			end
 		end
 	end
-	return bestPlayer, bestMinion
+	return bestUserId, bestMinion
 end
 
 function TowerService.stop()
@@ -114,11 +110,11 @@ function TowerService.start()
 				if now < readyAt then
 					continue
 				end
-				local playerTarget, minionId = pickTarget(state, part)
+				local userTarget, minionId = pickTarget(state, part)
 				local dmg = if state.kind == "Nexus" then Config.Towers.NexusDamage else Config.Towers.Damage
-				if playerTarget then
+				if userTarget then
 					nextShot[state.id] = now + Config.Towers.Interval
-					api.damagePlayer(playerTarget, dmg)
+					api.damageUser(userTarget, dmg)
 				elseif minionId then
 					nextShot[state.id] = now + Config.Towers.Interval
 					MinionService.applyDamage(nil, minionId, dmg)

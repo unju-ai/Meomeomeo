@@ -160,7 +160,7 @@ function WardService.applyDamage(attacker: Player?, wardId: string, amount: numb
 	return false
 end
 
-function WardService.damageWhere(attacker: Player, attackerTeam: Types.TeamId, hits: (Vector3) -> boolean, amount: number)
+function WardService.damageWhere(attacker: Player?, attackerTeam: Types.TeamId, hits: (Vector3) -> boolean, amount: number)
 	for id, ward in wards do
 		if ward.team ~= attackerTeam and hits(ward.part.Position) then
 			WardService.applyDamage(attacker, id, amount)

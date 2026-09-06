@@ -1,6 +1,5 @@
 --!strict
 
-local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
@@ -27,10 +26,10 @@ export type Monster = {
 
 type Api = {
 	getPhase: () -> string?,
-	damagePlayer: (target: Player, amount: number) -> (),
-	characterRoot: (player: Player) -> BasePart?,
-	onClear: (player: Player, gold: number, xp: number) -> (),
-	onDied: (position: Vector3, lastHitter: Player?) -> (),
+	damageUser: (userId: number, amount: number) -> (),
+	rootOf: (userId: number) -> BasePart?,
+	onClear: (userId: number, gold: number, xp: number) -> (),
+	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
 }
 
 type CampDef = {
@@ -234,9 +233,8 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 	end
 
 	if monster.aggroUserId then
-		local target = Players:GetPlayerByUserId(monster.aggroUserId)
-		local root = if target then api.characterRoot(target) else nil
-		if not target or not root then
+		local root = api.rootOf(monster.aggroUserId)
+		if not root then
 			resetCamp(monster)
 			return
 		end
@@ -253,7 +251,7 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 			monster.part.CFrame = CFrame.new(monster.part.Position + delta.Unit * step)
 		elseif now >= monster.nextAttack then
 			monster.nextAttack = now + Config.Jungle.AttackInterval
-			api.damagePlayer(target, monster.damage)
+			api.damageUser(monster.aggroUserId, monster.damage)
 		end
 		return
 	end
@@ -279,13 +277,13 @@ function JungleService.get(id: string): Monster?
 	return monsters[id]
 end
 
-function JungleService.applyDamage(attacker: Player?, jungleId: string, amount: number): boolean
+function JungleService.applyDamage(attackerUserId: number?, jungleId: string, amount: number): boolean
 	local monster = monsters[jungleId]
 	if not monster or monster.health <= 0 then
 		return false
 	end
-	if attacker then
-		monster.aggroUserId = attacker.UserId
+	if attackerUserId then
+		monster.aggroUserId = attackerUserId
 	end
 	monster.health = math.max(0, monster.health - amount)
 	stamp(monster)
@@ -298,20 +296,20 @@ function JungleService.applyDamage(attacker: Player?, jungleId: string, amount: 
 			scheduleRespawn(def)
 		end
 		if api then
-			if attacker then
-				api.onClear(attacker, monster.gold, monster.xp)
+			if attackerUserId then
+				api.onClear(attackerUserId, monster.gold, monster.xp)
 			end
-			api.onDied(pos, attacker)
+			api.onDied(pos, attackerUserId)
 		end
 		return true
 	end
 	return false
 end
 
-function JungleService.damageInRadius(attacker: Player, position: Vector3, radius: number, amount: number)
+function JungleService.damageInRadius(attackerUserId: number, position: Vector3, radius: number, amount: number)
 	for _, monster in monsters do
 		if monster.health > 0 and (monster.part.Position - position).Magnitude <= radius then
-			JungleService.applyDamage(attacker, monster.id, amount)
+			JungleService.applyDamage(attackerUserId, monster.id, amount)
 		end
 	end
 end

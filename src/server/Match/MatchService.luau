@@ -11,6 +11,7 @@ local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local AiChatService = require(script.Parent.Parent.Npcs.AiChatService)
+local BotService = require(script.Parent.BotService)
 local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
@@ -28,6 +29,96 @@ local MatchService = {}
 local current: Types.MatchSnapshot? = nil
 local phaseToken = 0
 local onMatchCleared: (() -> ())? = nil
+local nextBotId = -1001
+
+local function blankPlayer(userId: number, displayName: string, team: Types.TeamId, isBot: boolean, championId: string?): Types.MatchPlayer
+	return {
+		userId = userId,
+		displayName = displayName,
+		team = team,
+		championId = championId,
+		ready = isBot,
+		kills = 0,
+		deaths = 0,
+		assists = 0,
+		gold = Config.Match.StartingGold,
+		xp = 0,
+		level = 1,
+		ranks = Progression.autoRanks(1),
+		respawnAt = nil,
+		cs = 0,
+		connected = true,
+		items = {},
+		damageDealt = 0,
+		isBot = isBot,
+	}
+end
+
+local function championTaken(players: { [string]: Types.MatchPlayer }, team: Types.TeamId, championId: string): boolean
+	for _, matchPlayer in players do
+		if matchPlayer.team == team and matchPlayer.championId == championId then
+			return true
+		end
+	end
+	return false
+end
+
+local function pickBotChampion(players: { [string]: Types.MatchPlayer }, team: Types.TeamId): string
+	for _, id in Config.Bots.Pool do
+		if ChampionCatalog.get(id) and not championTaken(players, team, id) then
+			return id
+		end
+	end
+	for _, id in ChampionCatalog.ids() do
+		if not championTaken(players, team, id) then
+			return id
+		end
+	end
+	return ChampionCatalog.defaultId()
+end
+
+local function addBot(players: { [string]: Types.MatchPlayer }, team: Types.TeamId)
+	local championId = pickBotChampion(players, team)
+	local champ = ChampionCatalog.get(championId)
+	local userId = nextBotId
+	nextBotId -= 1
+	players[tostring(userId)] = blankPlayer(userId, `{(if champ then champ.name else championId)} (Bot)`, team, true, championId)
+end
+
+local function countTeam(players: { [string]: Types.MatchPlayer }, team: Types.TeamId, botsOnly: boolean?): number
+	local n = 0
+	for _, matchPlayer in players do
+		if matchPlayer.team == team then
+			if botsOnly then
+				if matchPlayer.isBot then
+					n += 1
+				end
+			else
+				n += 1
+			end
+		end
+	end
+	return n
+end
+
+local function fillBots(players: { [string]: Types.MatchPlayer }, practice: boolean)
+	if practice then
+		for _ = 1, Config.Bots.PracticeEnemies do
+			addBot(players, "Red")
+		end
+		for _ = 1, Config.Bots.PracticeAllies do
+			addBot(players, "Blue")
+		end
+		return
+	end
+	local fillTo = Config.Bots.QueueFillTo
+	for _, team in { "Blue" :: Types.TeamId, "Red" :: Types.TeamId } do
+		local have = countTeam(players, team)
+		for _ = have + 1, fillTo do
+			addBot(players, team)
+		end
+	end
+end
 
 local function teamInstance(teamId: Types.TeamId): Team?
 	local name = if teamId == "Blue" then Constants.Teams.BlueInstance else Constants.Teams.RedInstance
@@ -125,10 +216,12 @@ function MatchService.returnToLobby(formQueue: boolean)
 	TowerService.stop()
 	VisionService.stop()
 	WardService.stop()
+	BotService.stop()
 	CombatService.clearAll()
+	ShopService.clearAll()
+	nextBotId = -1001
 	for _, player in Players:GetPlayers() do
 		assignRobloxTeam(player, nil)
-		ShopService.clear(player.UserId)
 		teleport(player, nil)
 	end
 	VoiceService.onTeamsChanged()
@@ -193,6 +286,7 @@ local function beginFight()
 	TowerService.start()
 	VisionService.start()
 	WardService.start()
+	BotService.start()
 	AiChatService.announce("Cats out of the bag — match is LIVE. Smash three towers, then the nexus. Meow.")
 	broadcast()
 end
@@ -210,6 +304,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	TowerService.stop()
 	VisionService.stop()
 	WardService.stop()
+	BotService.stop()
 	current.mvpUserId = pickMvp()
 	CombatService.clearAll()
 	for _, player in Players:GetPlayers() do
@@ -235,7 +330,7 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	end)
 end
 
-function MatchService.start(participants: { Player }, practice: boolean)
+function MatchService.start(participants: { Player }, practice: boolean, difficulty: Types.BotDifficulty?)
 	if MatchService.isBusy() then
 		return false, "A match is already running."
 	end
@@ -253,28 +348,11 @@ function MatchService.start(participants: { Player }, practice: boolean)
 		if practice then
 			team = "Blue"
 		end
-		players[tostring(player.UserId)] = {
-			userId = player.UserId,
-			displayName = player.DisplayName,
-			team = team,
-			championId = nil,
-			ready = false,
-			kills = 0,
-			deaths = 0,
-			assists = 0,
-			gold = Config.Match.StartingGold,
-			xp = 0,
-			level = 1,
-			ranks = Progression.autoRanks(1),
-			respawnAt = nil,
-			cs = 0,
-			connected = true,
-			items = {},
-			damageDealt = 0,
-		}
+		players[tostring(player.UserId)] = blankPlayer(player.UserId, player.DisplayName, team, false, nil)
 		assignRobloxTeam(player, team)
 		teleport(player, nil)
 	end
+	fillBots(players, practice)
 
 	current = {
 		id = `meo-{token}`,
@@ -285,13 +363,18 @@ function MatchService.start(participants: { Player }, practice: boolean)
 		endedAt = nil,
 		winner = nil,
 		mvpUserId = nil,
+		botDifficulty = difficulty or Config.Bots.DefaultDifficulty,
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
 		queueCount = 0,
 	}
 
 	VoiceService.onTeamsChanged()
-	AiChatService.announce(if practice then "Practice draft is open. Pick your cat." else "Champion select — lock a cat.")
+	AiChatService.announce(
+		if practice
+			then `Practice draft is open. Red is 3 bots ({current.botDifficulty or "Normal"}). Pick your cat.`
+			else "Champion select — lock a cat."
+	)
 	broadcast()
 
 	task.delay(Config.Match.ChampionSelectSeconds, function()
@@ -349,32 +432,32 @@ end
 function MatchService.init(cleared: () -> ())
 	onMatchCleared = cleared
 
-	local function addGold(player: Player, amount: number)
+	local function addGold(userId: number, amount: number)
 		if not current then
 			return
 		end
-		local matchPlayer = current.players[tostring(player.UserId)]
+		local matchPlayer = current.players[tostring(userId)]
 		if matchPlayer then
 			matchPlayer.gold += amount
 			broadcast()
 		end
 	end
 
-	local function addDamageDealt(player: Player, amount: number)
+	local function addDamageDealt(userId: number, amount: number)
 		if not current or amount <= 0 then
 			return
 		end
-		local matchPlayer = current.players[tostring(player.UserId)]
+		local matchPlayer = current.players[tostring(userId)]
 		if matchPlayer then
 			matchPlayer.damageDealt = (matchPlayer.damageDealt or 0) + amount
 		end
 	end
 
-	local function grantXp(player: Player, amount: number)
+	local function grantXp(userId: number, amount: number)
 		if not current or amount <= 0 then
 			return
 		end
-		local matchPlayer = current.players[tostring(player.UserId)]
+		local matchPlayer = current.players[tostring(userId)]
 		if not matchPlayer then
 			return
 		end
@@ -383,9 +466,9 @@ function MatchService.init(cleared: () -> ())
 		if after > matchPlayer.level then
 			matchPlayer.level = after
 			matchPlayer.ranks = Progression.autoRanks(after)
-			CombatService.applyLevel(player, after)
-			feed("level", `{player.DisplayName} grew another life — level {after}`)
-			AiChatService.announce(`{player.DisplayName} hit level {after}. Sharper claws.`)
+			CombatService.applyLevelFor(userId, after)
+			feed("level", `{matchPlayer.displayName} grew another life — level {after}`)
+			AiChatService.announce(`{matchPlayer.displayName} hit level {after}. Sharper claws.`)
 		end
 	end
 
@@ -393,58 +476,62 @@ function MatchService.init(cleared: () -> ())
 		getSnapshot = MatchService.snapshot,
 		addGold = addGold,
 		addDamageDealt = addDamageDealt,
-		setRespawnAt = function(player: Player, at: number?)
+		setRespawnAt = function(userId: number, at: number?)
 			if not current then
 				return
 			end
-			local matchPlayer = current.players[tostring(player.UserId)]
+			local matchPlayer = current.players[tostring(userId)]
 			if matchPlayer then
 				matchPlayer.respawnAt = at
 				broadcast()
 			end
 		end,
-		onPlayerKilled = function(killer: Player?, victim: Player, assists: { Player })
+		onPlayerKilled = function(killerUserId: number?, victimUserId: number, assists: { number })
 			if not current then
 				return
 			end
-			local v = current.players[tostring(victim.UserId)]
+			local v = current.players[tostring(victimUserId)]
 			if v then
 				v.deaths += 1
 			end
-			if killer then
-				local k = current.players[tostring(killer.UserId)]
+			if killerUserId then
+				local k = current.players[tostring(killerUserId)]
 				if k then
 					k.kills += 1
 					k.gold += Config.Match.KillGold
-					grantXp(killer, Config.Match.KillXp)
+					grantXp(killerUserId, Config.Match.KillXp)
 					if k.championId then
 						MemeStockService.bumpChampion(k.championId, 0.12)
 					end
 				end
 				local assistNames = {}
-				for _, helper in assists do
-					local helperMatch = current.players[tostring(helper.UserId)]
+				for _, helperId in assists do
+					local helperMatch = current.players[tostring(helperId)]
 					if helperMatch then
 						helperMatch.assists += 1
 						helperMatch.gold += Config.Match.AssistGold
-						grantXp(helper, Config.Match.AssistXp)
-						table.insert(assistNames, helper.DisplayName)
+						grantXp(helperId, Config.Match.AssistXp)
+						table.insert(assistNames, helperMatch.displayName)
 					end
 				end
 				local extra = if #assistNames > 0 then ` · {table.concat(assistNames, ", ")} lent a paw` else ""
-				feed("kill", `{killer.DisplayName} scratched {victim.DisplayName} into next week{extra}`)
-				AiChatService.announce(`{killer.DisplayName} deleted {victim.DisplayName}.{extra}. Brutal.`)
+				local killerName = if k then k.displayName else "Someone"
+				local victimName = if v then v.displayName else "a cat"
+				feed("kill", `{killerName} scratched {victimName} into next week{extra}`)
+				AiChatService.announce(`{killerName} deleted {victimName}.{extra}. Brutal.`)
 			else
-				feed("kill", `{victim.DisplayName} got batted by a tower (or a kitten)`)
-				AiChatService.announce(`{victim.DisplayName} face-planted. Fountain time.`)
+				local victimName = if v then v.displayName else "A cat"
+				feed("kill", `{victimName} got batted by a tower (or a kitten)`)
+				AiChatService.announce(`{victimName} face-planted. Fountain time.`)
 			end
 			broadcast()
 		end,
-		onObjectiveDestroyed = function(attacker: Player?, objective: Types.ObjectiveState)
+		onObjectiveDestroyed = function(attackerUserId: number?, objective: Types.ObjectiveState)
 			if not current then
 				return
 			end
-			local who = if attacker then attacker.DisplayName else "Lane kittens"
+			local attacker = if attackerUserId then current.players[tostring(attackerUserId)] else nil
+			local who = if attacker then attacker.displayName else "Lane kittens"
 			if objective.kind == "Nexus" then
 				feed("nexus", `{who} unplugged the {objective.team} yarn core`)
 			else
@@ -469,32 +556,31 @@ function MatchService.init(cleared: () -> ())
 		end,
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
-		onLastHit = function(player: Player, gold: number)
+		onLastHit = function(userId: number, gold: number)
 			if current then
-				local matchPlayer = current.players[tostring(player.UserId)]
+				local matchPlayer = current.players[tostring(userId)]
 				if matchPlayer then
 					matchPlayer.cs += 1
 				end
 			end
-			grantXp(player, Config.Match.MinionXp)
-			addGold(player, gold)
+			grantXp(userId, Config.Match.MinionXp)
+			addGold(userId, gold)
 		end,
-		onMinionDied = function(position: Vector3, minionTeam: Types.TeamId, lastHitter: Player?)
+		onMinionDied = function(position: Vector3, minionTeam: Types.TeamId, lastHitterUserId: number?)
 			if not current then
 				return
 			end
 			local leveled = false
-			for _, player in Players:GetPlayers() do
-				if lastHitter and player == lastHitter then
+			for _, matchPlayer in current.players do
+				if lastHitterUserId and matchPlayer.userId == lastHitterUserId then
 					continue
 				end
-				local matchPlayer = current.players[tostring(player.UserId)]
-				local root = CombatService.characterRoot(player)
-				local combat = CombatService.get(player.UserId)
-				if matchPlayer and root and combat and combat.alive and matchPlayer.team ~= minionTeam then
+				local root = CombatService.rootOf(matchPlayer.userId)
+				local combat = CombatService.get(matchPlayer.userId)
+				if root and combat and combat.alive and matchPlayer.team ~= minionTeam then
 					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
 						local before = matchPlayer.level
-						grantXp(player, Config.Match.NearbyMinionXp)
+						grantXp(matchPlayer.userId, Config.Match.NearbyMinionXp)
 						if matchPlayer.level > before then
 							leveled = true
 						end
@@ -511,32 +597,31 @@ function MatchService.init(cleared: () -> ())
 		getPhase = function()
 			return if current then current.phase else nil
 		end,
-		damagePlayer = CombatService.applyDamageToPlayer,
-		characterRoot = CombatService.characterRoot,
-		onClear = function(player: Player, gold: number, xp: number)
+		damageUser = CombatService.applyDamageToUser,
+		rootOf = CombatService.rootOf,
+		onClear = function(userId: number, gold: number, xp: number)
 			if current then
-				local matchPlayer = current.players[tostring(player.UserId)]
+				local matchPlayer = current.players[tostring(userId)]
 				if matchPlayer then
 					matchPlayer.cs += 1
 				end
 			end
-			grantXp(player, xp)
-			addGold(player, gold)
+			grantXp(userId, xp)
+			addGold(userId, gold)
 		end,
-		onDied = function(position: Vector3, lastHitter: Player?)
+		onDied = function(position: Vector3, lastHitterUserId: number?)
 			if not current then
 				return
 			end
-			for _, player in Players:GetPlayers() do
-				if lastHitter and player == lastHitter then
+			for _, matchPlayer in current.players do
+				if lastHitterUserId and matchPlayer.userId == lastHitterUserId then
 					continue
 				end
-				local matchPlayer = current.players[tostring(player.UserId)]
-				local root = CombatService.characterRoot(player)
-				local combat = CombatService.get(player.UserId)
-				if matchPlayer and root and combat and combat.alive then
+				local root = CombatService.rootOf(matchPlayer.userId)
+				local combat = CombatService.get(matchPlayer.userId)
+				if root and combat and combat.alive then
 					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
-						grantXp(player, Config.Jungle.NearbyXp)
+						grantXp(matchPlayer.userId, Config.Jungle.NearbyXp)
 					end
 				end
 			end
@@ -545,26 +630,26 @@ function MatchService.init(cleared: () -> ())
 
 	TowerService.init({
 		getSnapshot = MatchService.snapshot,
-		damagePlayer = CombatService.applyDamageToPlayer,
-		characterRoot = CombatService.characterRoot,
+		damageUser = CombatService.applyDamageToUser,
+		rootOf = CombatService.rootOf,
 	})
 
 	VisionService.init({
 		getSnapshot = MatchService.snapshot,
-		characterRoot = CombatService.characterRoot,
+		rootOf = CombatService.rootOf,
 	})
 
 	ShopService.init({
 		getSnapshot = MatchService.snapshot,
-		goldOf = function(player: Player)
-			local matchPlayer = if current then current.players[tostring(player.UserId)] else nil
+		goldOf = function(userId: number)
+			local matchPlayer = if current then current.players[tostring(userId)] else nil
 			return if matchPlayer then matchPlayer.gold else 0
 		end,
-		spendGold = function(player: Player, amount: number)
+		spendGold = function(userId: number, amount: number)
 			if not current then
 				return false
 			end
-			local matchPlayer = current.players[tostring(player.UserId)]
+			local matchPlayer = current.players[tostring(userId)]
 			if not matchPlayer or matchPlayer.gold < amount then
 				return false
 			end
@@ -572,14 +657,14 @@ function MatchService.init(cleared: () -> ())
 			broadcast()
 			return true
 		end,
-		onLoadoutChanged = function(player: Player)
+		onLoadoutChanged = function(userId: number)
 			if current then
-				local matchPlayer = current.players[tostring(player.UserId)]
+				local matchPlayer = current.players[tostring(userId)]
 				if matchPlayer then
-					matchPlayer.items = ShopService.owned(player.UserId)
+					matchPlayer.items = ShopService.owned(userId)
 				end
 			end
-			CombatService.reapplyItems(player)
+			CombatService.reapplyItemsFor(userId)
 			broadcast()
 		end,
 	})

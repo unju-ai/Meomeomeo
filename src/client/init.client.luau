@@ -101,8 +101,8 @@ hud.lobby.onLeave(function()
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 end)
 
-hud.lobby.onPractice(function()
-	local result = Remotes.function_("StartPractice"):InvokeServer()
+hud.lobby.onPractice(function(difficulty)
+	local result = Remotes.function_("StartPractice"):InvokeServer(difficulty)
 	if result and result.ok == false then
 		toast(result.error or "Practice failed")
 	end
@@ -265,6 +265,26 @@ local function applyVision()
 	end
 
 	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+
+	local botsFolder = if map then map:FindFirstChild("Bots") else nil
+	if botsFolder then
+		for _, child in botsFolder:GetChildren() do
+			if child:IsA("Model") then
+				local userId = child:GetAttribute(Constants.Attributes.UserId)
+				local otherMatch = if typeof(userId) == "number" then latestMatch.players[tostring(userId)] else nil
+				local ally = mine ~= nil and otherMatch ~= nil and otherMatch.team == mine.team
+				local show = ally or (typeof(userId) == "number" and visiblePlayers[userId] == true)
+				for _, inst in child:GetDescendants() do
+					if inst:IsA("BasePart") then
+						inst.LocalTransparencyModifier = if show then 0 else 1
+					elseif inst:IsA("BillboardGui") then
+						inst.Enabled = show
+					end
+				end
+			end
+		end
+	end
+
 	local folder = if map then map:FindFirstChild("Minions") else nil
 	if folder then
 		local visibleMinions: { [string]: boolean } = {}
@@ -449,6 +469,13 @@ local function pickAttack(): Types.AttackRequest?
 			local other = Players:GetPlayerFromCharacter(model)
 			if other and other ~= player then
 				return { kind = "player", userId = other.UserId }
+			end
+			local botId = model:GetAttribute(Constants.Attributes.UserId)
+			if typeof(botId) ~= "number" then
+				botId = inst:GetAttribute(Constants.Attributes.UserId)
+			end
+			if typeof(botId) == "number" and botId ~= player.UserId then
+				return { kind = "player", userId = botId }
 			end
 		end
 	end

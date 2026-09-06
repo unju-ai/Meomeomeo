@@ -116,7 +116,10 @@ function Scoreboard.create(parent: Instance): BoardApi
 				local row = rowAt(i)
 				row.Visible = true
 				local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
-				local name = champ and champ.name or "—"
+				local name = champ and champ.name or matchPlayer.displayName
+				if matchPlayer.isBot and not string.find(name, "%(Bot%)") then
+					name = `{name} (Bot)`
+				end
 				local you = if matchPlayer.userId == localUserId then " *" else ""
 				row.TextColor3 = if matchPlayer.team == "Blue" then Theme.blue else Theme.red
 				row.Text = string.format(
