@@ -314,6 +314,16 @@ export type TutorialStatus = {
 	persistMode: PersistMode,
 }
 
+export type PlayerPrefs = {
+	sfxVolume: number,
+	sfxMuted: boolean,
+	musicVolume: number,
+	musicMuted: boolean,
+	muteOthersEmotes: boolean,
+	practiceDifficulty: BotDifficulty,
+	persistMode: PersistMode,
+}
+
 export type MintStatus = {
 	wallet: string?,
 	walletVerified: boolean,

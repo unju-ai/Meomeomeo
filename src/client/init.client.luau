@@ -27,21 +27,159 @@ local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
 
 local player = Players.LocalPlayer
+
+local function writePrefAttrs(
+	sfxVolume: number,
+	sfxMuted: boolean,
+	musicVolume: number,
+	musicMuted: boolean,
+	muteOthers: boolean,
+	difficulty: Types.BotDifficulty?
+)
+	player:SetAttribute(Constants.Attributes.SfxVolume, sfxVolume)
+	player:SetAttribute(Constants.Attributes.SfxMuted, sfxMuted)
+	player:SetAttribute(Constants.Attributes.MusicVolume, musicVolume)
+	player:SetAttribute(Constants.Attributes.MusicMuted, musicMuted)
+	player:SetAttribute(Constants.Attributes.MuteOthersEmotes, muteOthers)
+	if difficulty == "Easy" or difficulty == "Normal" or difficulty == "Hard" then
+		player:SetAttribute(Constants.Attributes.PracticeDifficulty, difficulty)
+	end
+end
+
+local function prefsFromRemote(value: any): Types.PlayerPrefs?
+	if typeof(value) ~= "table" then
+		return nil
+	end
+	local row = value :: any
+	if typeof(row.sfxVolume) ~= "number" or typeof(row.musicVolume) ~= "number" then
+		return nil
+	end
+	local difficulty: Types.BotDifficulty = "Normal"
+	if row.practiceDifficulty == "Easy" or row.practiceDifficulty == "Hard" then
+		difficulty = row.practiceDifficulty
+	elseif row.practiceDifficulty == "Normal" then
+		difficulty = "Normal"
+	end
+	return {
+		sfxVolume = math.clamp(row.sfxVolume, 0, 1),
+		sfxMuted = row.sfxMuted == true,
+		musicVolume = math.clamp(row.musicVolume, 0, 1),
+		musicMuted = row.musicMuted == true,
+		muteOthersEmotes = row.muteOthersEmotes == true,
+		practiceDifficulty = difficulty,
+		persistMode = if row.persistMode == "DataStore" then "DataStore" else "Memory",
+	}
+end
+
+-- Load before Hud + Music.setPhase so sliders and beds start on the saved mix.
+local loadedPrefs: Types.PlayerPrefs? = nil
+do
+	local ok, result = pcall(function()
+		return Remotes.function_("GetSettings"):InvokeServer()
+	end)
+	if ok then
+		loadedPrefs = prefsFromRemote(result)
+		if loadedPrefs then
+			writePrefAttrs(
+				loadedPrefs.sfxVolume,
+				loadedPrefs.sfxMuted,
+				loadedPrefs.musicVolume,
+				loadedPrefs.musicMuted,
+				loadedPrefs.muteOthersEmotes,
+				loadedPrefs.practiceDifficulty
+			)
+		end
+	end
+end
+
 local hud = Hud.create()
 ScreenJuice.init(hud.gui)
 local muteOthersEmotes = false
-hud.settings.onChange(function(state)
+local persistReady = false
+local saveGen = 0
+
+local function applyAudio(state: {
+	sfxVolume: number,
+	sfxMuted: boolean,
+	musicVolume: number,
+	musicMuted: boolean,
+	muteOthersEmotes: boolean,
+})
 	Sfx.setVolume(state.sfxVolume)
 	Sfx.setMuted(state.sfxMuted)
 	Music.setVolume(state.musicVolume)
 	Music.setMuted(state.musicMuted)
 	muteOthersEmotes = state.muteOthersEmotes
-	player:SetAttribute("MeoSfxVolume", state.sfxVolume)
-	player:SetAttribute("MeoSfxMuted", state.sfxMuted)
-	player:SetAttribute("MeoMuteOthersEmotes", state.muteOthersEmotes)
-	player:SetAttribute("MeoMusicVolume", state.musicVolume)
-	player:SetAttribute("MeoMusicMuted", state.musicMuted)
+	writePrefAttrs(
+		state.sfxVolume,
+		state.sfxMuted,
+		state.musicVolume,
+		state.musicMuted,
+		state.muteOthersEmotes,
+		hud.lobby.difficulty()
+	)
+end
+
+local function queueSavePrefs()
+	if not persistReady then
+		return
+	end
+	saveGen += 1
+	local gen = saveGen
+	task.delay(0.45, function()
+		if gen ~= saveGen then
+			return
+		end
+		local state = hud.settings.getState()
+		pcall(function()
+			Remotes.function_("SaveSettings"):InvokeServer({
+				sfxVolume = state.sfxVolume,
+				sfxMuted = state.sfxMuted,
+				musicVolume = state.musicVolume,
+				musicMuted = state.musicMuted,
+				muteOthersEmotes = state.muteOthersEmotes,
+				practiceDifficulty = hud.lobby.difficulty(),
+			})
+		end)
+	end)
+end
+
+local function saveDifficulty(difficulty: Types.BotDifficulty)
+	pcall(function()
+		Remotes.function_("SaveSettings"):InvokeServer({
+			practiceDifficulty = difficulty,
+		})
+	end)
+end
+
+hud.settings.onChange(function(state)
+	applyAudio(state)
+	queueSavePrefs()
 end)
+
+local function applyLoadedPrefs(prefs: Types.PlayerPrefs)
+	writePrefAttrs(
+		prefs.sfxVolume,
+		prefs.sfxMuted,
+		prefs.musicVolume,
+		prefs.musicMuted,
+		prefs.muteOthersEmotes,
+		prefs.practiceDifficulty
+	)
+	hud.settings.apply({
+		sfxVolume = prefs.sfxVolume,
+		sfxMuted = prefs.sfxMuted,
+		musicVolume = prefs.musicVolume,
+		musicMuted = prefs.musicMuted,
+		muteOthersEmotes = prefs.muteOthersEmotes,
+	})
+	hud.lobby.setDifficulty(prefs.practiceDifficulty)
+end
+
+if loadedPrefs then
+	applyLoadedPrefs(loadedPrefs)
+end
+persistReady = true
 
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
@@ -182,7 +320,16 @@ hud.lobby.onInvite(function()
 	end
 end)
 
+hud.lobby.onDifficulty(function(difficulty)
+	player:SetAttribute(Constants.Attributes.PracticeDifficulty, difficulty)
+	saveDifficulty(difficulty)
+end)
+
 hud.lobby.onPractice(function(difficulty)
+	player:SetAttribute(Constants.Attributes.PracticeDifficulty, difficulty)
+	task.spawn(function()
+		saveDifficulty(difficulty)
+	end)
 	local result = Remotes.function_("StartPractice"):InvokeServer(difficulty)
 	if result and result.ok == false then
 		toast(result.error or "Practice failed")
@@ -1002,6 +1149,17 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 task.spawn(function()
+	if not loadedPrefs then
+		local ok, result = pcall(function()
+			return Remotes.function_("GetSettings"):InvokeServer()
+		end)
+		if ok then
+			loadedPrefs = prefsFromRemote(result)
+			if loadedPrefs then
+				applyLoadedPrefs(loadedPrefs)
+			end
+		end
+	end
 	local tutorial = Remotes.function_("GetTutorialStatus"):InvokeServer()
 	if typeof(tutorial) == "table" and (tutorial :: any).done == true then
 		tutorialDone = true

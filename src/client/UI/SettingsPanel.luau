@@ -18,6 +18,7 @@ export type SettingsApi = {
 	toggle: () -> (),
 	setVisible: (visible: boolean) -> (),
 	getState: () -> SettingsState,
+	apply: (next: SettingsState) -> (),
 	onChange: ((state: SettingsState) -> ()) -> (),
 }
 
@@ -202,6 +203,15 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 
 	paint()
 
+	local function apply(next: SettingsState)
+		sfxVolume = clamp01(next.sfxVolume)
+		sfxMuted = next.sfxMuted == true
+		muteOthers = next.muteOthersEmotes == true
+		musicVolume = clamp01(next.musicVolume)
+		musicMuted = next.musicMuted == true
+		paint()
+	end
+
 	return {
 		root = root,
 		gear = gear,
@@ -214,6 +224,7 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 		getState = function()
 			return snapshot()
 		end,
+		apply = apply,
 		onChange = function(fn)
 			changeHandler = fn
 			fn(snapshot())

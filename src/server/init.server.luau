@@ -20,6 +20,7 @@ local MemeStockService = require(script.Economy.MemeStockService)
 local MintService = require(script.Mint.MintService)
 local EmoteService = require(script.Social.EmoteService)
 local ShopService = require(script.Match.ShopService)
+local SettingsStore = require(script.Settings.SettingsStore)
 local TutorialStore = require(script.Tutorial.TutorialStore)
 local VoiceService = require(script.Voice.VoiceService)
 
@@ -222,8 +223,25 @@ Remotes.function_("SetTutorialDone").OnServerInvoke = function(player: Player)
 	}
 end
 
+Remotes.function_("GetSettings").OnServerInvoke = function(player: Player)
+	local prefs = SettingsStore.get(player.UserId)
+	SettingsStore.applyAttributes(player, prefs)
+	return prefs
+end
+
+Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)
+	if typeof(patch) ~= "table" then
+		return SettingsStore.get(player.UserId)
+	end
+	local prefs = SettingsStore.set(player.UserId, patch)
+	SettingsStore.applyAttributes(player, prefs)
+	return prefs
+end
+
 local function sendLobby(player: Player)
 	task.defer(function()
+		local prefs = SettingsStore.get(player.UserId)
+		SettingsStore.applyAttributes(player, prefs)
 		local done = TutorialStore.isDone(player.UserId)
 		player:SetAttribute(Constants.Attributes.TutorialDone, done)
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
@@ -233,6 +251,9 @@ local function sendLobby(player: Player)
 end
 
 Players.PlayerAdded:Connect(sendLobby)
+Players.PlayerRemoving:Connect(function(player)
+	SettingsStore.clear(player.UserId)
+end)
 for _, player in Players:GetPlayers() do
 	sendLobby(player)
 end

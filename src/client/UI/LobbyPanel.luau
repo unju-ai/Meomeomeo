@@ -17,6 +17,8 @@ export type LobbyApi = {
 	onMint: (() -> ()) -> (),
 	onInvite: (() -> ()) -> (),
 	onShowTips: (() -> ()) -> (),
+	onDifficulty: ((difficulty: Types.BotDifficulty) -> ()) -> (),
+	setDifficulty: (difficulty: Types.BotDifficulty) -> (),
 	difficulty: () -> Types.BotDifficulty,
 }
 
@@ -114,6 +116,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local mintHandler: (() -> ())? = nil
 	local inviteHandler: (() -> ())? = nil
 	local tipsHandler: (() -> ())? = nil
+	local difficultyHandler: ((Types.BotDifficulty) -> ())? = nil
 
 	local function paintDifficulty()
 		easyBtn.BackgroundColor3 = if difficulty == "Easy" then Theme.mint else Theme.peach
@@ -183,17 +186,22 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 			inviteHandler()
 		end
 	end)
-	easyBtn.MouseButton1Click:Connect(function()
-		difficulty = "Easy"
+	local function chooseDifficulty(nextDifficulty: Types.BotDifficulty)
+		difficulty = nextDifficulty
 		paintDifficulty()
+		if difficultyHandler then
+			difficultyHandler(difficulty)
+		end
+	end
+
+	easyBtn.MouseButton1Click:Connect(function()
+		chooseDifficulty("Easy")
 	end)
 	normalBtn.MouseButton1Click:Connect(function()
-		difficulty = "Normal"
-		paintDifficulty()
+		chooseDifficulty("Normal")
 	end)
 	hardBtn.MouseButton1Click:Connect(function()
-		difficulty = "Hard"
-		paintDifficulty()
+		chooseDifficulty("Hard")
 	end)
 	practiceBtn.MouseButton1Click:Connect(function()
 		if practiceHandler then
@@ -250,6 +258,16 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onShowTips = function(fn)
 			tipsHandler = fn
+		end,
+		onDifficulty = function(fn)
+			difficultyHandler = fn
+		end,
+		setDifficulty = function(nextDifficulty: Types.BotDifficulty)
+			if nextDifficulty ~= "Easy" and nextDifficulty ~= "Normal" and nextDifficulty ~= "Hard" then
+				return
+			end
+			difficulty = nextDifficulty
+			paintDifficulty()
 		end,
 		difficulty = function()
 			return difficulty

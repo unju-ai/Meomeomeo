@@ -39,6 +39,8 @@ export type RemoteName =
 	| "GetQueueStatus"
 	| "GetTutorialStatus"
 	| "SetTutorialDone"
+	| "GetSettings"
+	| "SaveSettings"
 	| "PlayEmote"
 	| "MatchStateChanged"
 	| "QueueUpdated"
@@ -88,6 +90,8 @@ local FUNCTION_NAMES = {
 	"GetQueueStatus",
 	"GetTutorialStatus",
 	"SetTutorialDone",
+	"GetSettings",
+	"SaveSettings",
 	"PlayEmote",
 }
 

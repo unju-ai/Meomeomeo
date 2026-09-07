@@ -100,7 +100,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only; cooldown. Aim at a tower/nexus/visible champ to name them |
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
-| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes |
+| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes. Mix + last Practice difficulty persist (`MeoSettings_v1`) |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
@@ -156,6 +156,8 @@ Also for a live place:
 `src/client/Audio/SoundIds.luau` (SFX) and `src/client/Audio/MusicIds.luau` (phase beds) use engine `rbxasset://sounds/…` so git stays binary-free. Swap any `id` to `rbxassetid://YOUR_ID` after a Creator Store upload.
 
 **SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
+
+Audio sliders / mutes, mute-others-emotes, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
 
 The current beds reuse `action_get_up.mp3` at different speeds — placeholders only. See README "Audio & juice".
 
