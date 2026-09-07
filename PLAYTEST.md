@@ -114,9 +114,13 @@ This is a **Developer Product → entitlement → hosted mint** stub, not a Robu
 2. Leave `Nft404.DeveloperProductId = 0` and `AllowStudioMockPurchase = true`.
 3. Play → lobby → **Mint Meo 404**.
 4. **Studio: grant mock entitlement** (or **Studio: replay last receipt**).
-5. Paste a dummy `0x` + 40 hex (not the zero address) → **Link**. Panel should show **Wallet linked**.
-6. **Claim 404**. Mock provider writes `0xMOCK…`. Failed claims stay **Retry claim**.
-7. Stop / Play again with API Services on: slip + wallet should return.
+5. Paste a dummy `0x` + 40 hex (not the zero address) → **Link**. Panel shows **Linked (unverified)**.
+6. **Mock bypass (default):** leave `AllowSiweMockBypass = true`. **Claim 404** works without a signature. Mock provider writes `0xMOCK…`. Failed claims stay **Retry claim**.
+7. **Mock verify path:** **Challenge** → copy the SIWE message (optional) → paste `studio-bypass` (or a 132-char `0x` stub) → **Verify SIWE**. Panel should show **Wallet verified**. Nonces expire in 10 minutes and are one-time.
+8. **Real verify:** host `bridge/claim-service` on HTTPS, set `SIWE_DOMAIN` / `SIWE_URI`, `Provider = "http"`, `AllowSiweMockBypass = false`. Sign the challenge in an external wallet and paste the signature. The place never holds a private key.
+9. Stop / Play again with API Services on: slip + wallet record should return. A pre-SIWE bare `0x` string loads as unverified.
+
+Turn **`AllowSiweMockBypass` off** before any live Robux product. Legal review before a live product.
 
 Live product later: create “Mint Meo 404” under Monetization → Developer Products, put the numeric id in `Nft404.DeveloperProductId`, publish, then the client uses `PromptProductPurchase`. `ClaimApiUrl` + `Provider = "http"` only when a hosted handler exists. **Never** put `MEO404_MINTER_PRIVATE_KEY` in the place.
 
@@ -134,6 +138,7 @@ Fill these in `src/server/Config.luau` **locally** (do not commit secrets). `0` 
 | `Nft404.DeveloperProductId` | `0` | Creator Dashboard Developer Product id. `0` = Studio mock grant only. |
 | `Nft404.ClaimApiUrl` | `""` | Hosted `POST /v1/meo404`. Leave empty and keep `Provider = "mock"` until the bridge is live. |
 | `Nft404.ClaimApiSecret` | `""` | Shared Bearer secret with the bridge. **Not** a chain key. Never commit. |
+| `Nft404.AllowSiweMockBypass` | `true` | Studio: claim without ECDSA. Set `false` before live Robux. |
 | `Ai.Endpoint` / `Ai.ApiKey` | `""` | Only if `Ai.Provider = "http"`. Never commit a real key. |
 
 Also for a live place:
@@ -164,6 +169,7 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 - No SFX: click **SFX**, unmute, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
 - Mint says Memory: enable Studio API Services.
+- Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
 - Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.
 - Bots idle: you are still in **Champion select** — lock a cat and wait for the timer.
@@ -174,4 +180,4 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 ## 10. Still stubbed (do not expect)
 
-SIWE wallet proof, live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX/music, compliance-cleared Robux 404 product.
+Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX/music, compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.

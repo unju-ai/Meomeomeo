@@ -239,7 +239,27 @@ hud.mint.onLink(function(address: string)
 	if result and result.ok == false then
 		toast(result.error or "Wallet link failed — need 0x + 40 hex chars")
 	else
-		toast("Wallet saved for this Roblox user (SIWE proof is a later hosted step)")
+		toast("Address saved unverified. Request a SIWE challenge next.")
+	end
+	refreshMint()
+end)
+
+hud.mint.onChallenge(function()
+	local result = Remotes.function_("RequestSiweChallenge"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "SIWE challenge failed")
+	else
+		toast("Sign the message in an external wallet — or paste studio-bypass in Studio")
+	end
+	refreshMint()
+end)
+
+hud.mint.onVerify(function(signature: string)
+	local result = Remotes.function_("VerifySiwe"):InvokeServer(signature)
+	if result and result.ok == false then
+		toast(result.error or "SIWE verify failed")
+	else
+		toast("Wallet SIWE-verified. Server stored the recovered address only.")
 	end
 	refreshMint()
 end)

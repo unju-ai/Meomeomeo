@@ -6,7 +6,7 @@
 -- Store name: Meo404_v1
 --   ent:{purchaseId}           → Types.Entitlement
 --   user:{userId}:ents         → { ids: { purchaseId, ... } }
---   user:{userId}:wallet       → "0x…"
+--   user:{userId}:wallet       → { address, verified, verifiedAt? } (legacy string = unverified)
 --
 -- Grant is idempotent by PurchaseId (ProcessReceipt retries / receipt replay).
 
@@ -38,10 +38,16 @@ do
 	end
 end
 
+export type WalletRecord = {
+	address: string,
+	verified: boolean,
+	verifiedAt: number?,
+}
+
 type Cache = {
 	byPurchaseId: { [string]: Types.Entitlement },
 	byUserId: { [number]: { string } },
-	wallets: { [number]: string },
+	wallets: { [number]: WalletRecord },
 	userIndexLoaded: { [number]: boolean },
 	walletLoaded: { [number]: boolean },
 }
@@ -65,6 +71,21 @@ local function cloneEnt(ent: Types.Entitlement): Types.Entitlement
 		wallet = ent.wallet,
 		txHash = ent.txHash,
 		claimError = ent.claimError,
+	}
+end
+
+local function hydrateWallet(value: any): WalletRecord?
+	if typeof(value) == "string" and value ~= "" then
+		-- Pre-SIWE rows were a bare 0x string.
+		return { address = value, verified = false, verifiedAt = nil }
+	end
+	if typeof(value) ~= "table" or typeof(value.address) ~= "string" or value.address == "" then
+		return nil
+	end
+	return {
+		address = value.address,
+		verified = value.verified == true,
+		verifiedAt = if typeof(value.verifiedAt) == "number" then value.verifiedAt else nil,
 	}
 end
 
@@ -130,6 +151,14 @@ local function rememberUser(userId: number, purchaseId: string)
 	end
 end
 
+local function persistWallet(userId: number, record: WalletRecord)
+	dsSet("user:" .. tostring(userId) .. ":wallet", {
+		address = record.address,
+		verified = record.verified,
+		verifiedAt = record.verifiedAt,
+	})
+end
+
 local function persistEnt(ent: Types.Entitlement)
 	dsSet("ent:" .. ent.purchaseId, cloneEnt(ent))
 end
@@ -147,23 +176,61 @@ function EntitlementStore.getPersistNote(): string
 	return persistNote
 end
 
-function EntitlementStore.getLinkedWallet(userId: number): string?
+function EntitlementStore.getWalletRecord(userId: number): WalletRecord?
 	if cache.walletLoaded[userId] then
 		return cache.wallets[userId]
 	end
 	local value, reached = dsGet("user:" .. tostring(userId) .. ":wallet")
 	cache.walletLoaded[userId] = true
-	if reached and typeof(value) == "string" and value ~= "" then
-		cache.wallets[userId] = value
-		return value
+	if reached then
+		local record = hydrateWallet(value)
+		if record then
+			cache.wallets[userId] = record
+			return record
+		end
 	end
 	return cache.wallets[userId]
 end
 
+function EntitlementStore.getLinkedWallet(userId: number): string?
+	local record = EntitlementStore.getWalletRecord(userId)
+	if record then
+		return record.address
+	end
+	return nil
+end
+
+function EntitlementStore.isWalletVerified(userId: number): boolean
+	local record = EntitlementStore.getWalletRecord(userId)
+	return record ~= nil and record.verified == true
+end
+
+-- Paste/link stores an unverified address. A different address clears SIWE.
 function EntitlementStore.setLinkedWallet(userId: number, address: string)
-	cache.wallets[userId] = address
+	local existing = EntitlementStore.getWalletRecord(userId)
+	if existing and string.lower(existing.address) == string.lower(address) and existing.verified then
+		return
+	end
+	local record: WalletRecord = {
+		address = address,
+		verified = false,
+		verifiedAt = nil,
+	}
+	cache.wallets[userId] = record
 	cache.walletLoaded[userId] = true
-	dsSet("user:" .. tostring(userId) .. ":wallet", address)
+	persistWallet(userId, record)
+end
+
+-- Recovered address from SIWE verify — this is the only verified write.
+function EntitlementStore.setVerifiedWallet(userId: number, address: string)
+	local record: WalletRecord = {
+		address = address,
+		verified = true,
+		verifiedAt = os.time(),
+	}
+	cache.wallets[userId] = record
+	cache.walletLoaded[userId] = true
+	persistWallet(userId, record)
 end
 
 function EntitlementStore.get(purchaseId: string): Types.Entitlement?

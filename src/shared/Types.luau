@@ -291,6 +291,10 @@ export type TutorialStatus = {
 
 export type MintStatus = {
 	wallet: string?,
+	walletVerified: boolean,
+	siweBypass: boolean,
+	siweMessage: string?,
+	siweExpiresAt: number?,
 	productId: number,
 	productName: string,
 	studioMock: boolean,

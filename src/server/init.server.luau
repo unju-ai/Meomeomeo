@@ -134,6 +134,14 @@ Remotes.function_("LinkWallet").OnServerInvoke = function(player: Player, addres
 	return MintService.linkWallet(player, address)
 end
 
+Remotes.function_("RequestSiweChallenge").OnServerInvoke = function(player: Player)
+	return MintService.requestSiweChallenge(player)
+end
+
+Remotes.function_("VerifySiwe").OnServerInvoke = function(player: Player, signature: unknown)
+	return MintService.verifySiwe(player, signature)
+end
+
 Remotes.function_("SimulateStudioPurchase").OnServerInvoke = function(player: Player)
 	return MintService.simulateStudioPurchase(player)
 end

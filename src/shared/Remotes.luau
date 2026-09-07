@@ -19,6 +19,8 @@ export type RemoteName =
 	| "CheerTicker"
 	| "GetMintStatus"
 	| "LinkWallet"
+	| "RequestSiweChallenge"
+	| "VerifySiwe"
 	| "SimulateStudioPurchase"
 	| "GrantProduct"
 	| "ReplayReceipt"
@@ -64,6 +66,8 @@ local FUNCTION_NAMES = {
 	"CheerTicker",
 	"GetMintStatus",
 	"LinkWallet",
+	"RequestSiweChallenge",
+	"VerifySiwe",
 	"SimulateStudioPurchase",
 	"GrantProduct",
 	"ReplayReceipt",

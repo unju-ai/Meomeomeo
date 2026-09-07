@@ -12,6 +12,8 @@ export type MintApi = {
 	update: (status: Types.MintStatus) -> (),
 	onBuy: (() -> ()) -> (),
 	onLink: ((address: string) -> ()) -> (),
+	onChallenge: (() -> ()) -> (),
+	onVerify: ((signature: string) -> ()) -> (),
 	onClaim: ((purchaseId: string) -> ()) -> (),
 	onReplay: ((purchaseId: string) -> ()) -> (),
 }
@@ -35,7 +37,7 @@ function MintPanel.create(parent: Instance): MintApi
 	root.Name = "MintPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0.5, 250, 0.48, 0)
-	root.Size = UDim2.fromOffset(360, 500)
+	root.Size = UDim2.fromOffset(380, 620)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -55,28 +57,28 @@ function MintPanel.create(parent: Instance): MintApi
 	local disclaimer = Theme.text(
 		root,
 		"Disclaimer",
-		"Robux buys a Roblox product and a claim slip — not on-chain value. A hosted minter delivers the ERC-404 later.",
+		"Robux buys a Roblox product and a claim slip — not on-chain value. SIWE-verify a wallet; a hosted minter delivers the ERC-404 later.",
 		12,
 		Theme.peach,
 		Theme.fontBody
 	)
 	disclaimer.Position = UDim2.fromOffset(0, 32)
-	disclaimer.Size = UDim2.new(1, 0, 0, 48)
+	disclaimer.Size = UDim2.new(1, 0, 0, 40)
 
 	local persistLabel = Theme.text(root, "Persist", "Save: memory", 11, Theme.muted)
-	persistLabel.Position = UDim2.fromOffset(0, 80)
+	persistLabel.Position = UDim2.fromOffset(0, 72)
 	persistLabel.Size = UDim2.new(1, 0, 0, 16)
 	persistLabel.TextWrapped = false
 	persistLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local walletLabel = Theme.text(root, "WalletLbl", "Wallet: not linked", 12, Theme.warn)
-	walletLabel.Position = UDim2.fromOffset(0, 98)
+	walletLabel.Position = UDim2.fromOffset(0, 88)
 	walletLabel.Size = UDim2.new(1, 0, 0, 18)
 
 	local walletBox = Instance.new("TextBox")
 	walletBox.Name = "Wallet"
-	walletBox.Position = UDim2.fromOffset(0, 118)
-	walletBox.Size = UDim2.new(1, -88, 0, 32)
+	walletBox.Position = UDim2.fromOffset(0, 108)
+	walletBox.Size = UDim2.new(1, -88, 0, 30)
 	walletBox.BackgroundColor3 = Theme.foam
 	walletBox.TextColor3 = Theme.ink
 	walletBox.PlaceholderText = "0x + 40 hex chars"
@@ -88,30 +90,73 @@ function MintPanel.create(parent: Instance): MintApi
 	Theme.corner(walletBox, 10)
 
 	local linkBtn = Theme.button(root, "Link", "Link", Theme.mint)
-	linkBtn.Position = UDim2.new(1, -80, 0, 118)
-	linkBtn.Size = UDim2.fromOffset(80, 32)
+	linkBtn.Position = UDim2.new(1, -80, 0, 108)
+	linkBtn.Size = UDim2.fromOffset(80, 30)
 	linkBtn.TextSize = 14
 
+	local challengeBtn = Theme.button(root, "Challenge", "Challenge", Theme.blue)
+	challengeBtn.Position = UDim2.fromOffset(0, 142)
+	challengeBtn.Size = UDim2.new(0.5, -4, 0, 28)
+	challengeBtn.TextSize = 13
+
+	local verifyBtn = Theme.button(root, "Verify", "Verify SIWE", Theme.coral)
+	verifyBtn.Position = UDim2.new(0.5, 4, 0, 142)
+	verifyBtn.Size = UDim2.new(0.5, -4, 0, 28)
+	verifyBtn.TextSize = 13
+
+	local messageBox = Instance.new("TextBox")
+	messageBox.Name = "SiweMessage"
+	messageBox.Position = UDim2.fromOffset(0, 174)
+	messageBox.Size = UDim2.new(1, 0, 0, 64)
+	messageBox.BackgroundColor3 = Theme.foam
+	messageBox.TextColor3 = Theme.ink
+	messageBox.PlaceholderText = "SIWE message — copy to an external wallet"
+	messageBox.Text = ""
+	messageBox.TextSize = 10
+	messageBox.Font = Theme.fontMono
+	messageBox.TextWrapped = true
+	messageBox.TextXAlignment = Enum.TextXAlignment.Left
+	messageBox.TextYAlignment = Enum.TextYAlignment.Top
+	messageBox.ClearTextOnFocus = false
+	messageBox.MultiLine = true
+	messageBox.Parent = root
+	Theme.corner(messageBox, 8)
+	Theme.pad(messageBox, 6)
+
+	local sigBox = Instance.new("TextBox")
+	sigBox.Name = "SiweSignature"
+	sigBox.Position = UDim2.fromOffset(0, 242)
+	sigBox.Size = UDim2.new(1, 0, 0, 28)
+	sigBox.BackgroundColor3 = Theme.foam
+	sigBox.TextColor3 = Theme.ink
+	sigBox.PlaceholderText = "0x signature, or studio-bypass"
+	sigBox.Text = ""
+	sigBox.TextSize = 12
+	sigBox.Font = Theme.fontMono
+	sigBox.ClearTextOnFocus = false
+	sigBox.Parent = root
+	Theme.corner(sigBox, 10)
+
 	local buyBtn = Theme.button(root, "Buy", "Buy with Robux", Theme.amber)
-	buyBtn.Position = UDim2.fromOffset(0, 158)
-	buyBtn.Size = UDim2.new(1, 0, 0, 36)
+	buyBtn.Position = UDim2.fromOffset(0, 276)
+	buyBtn.Size = UDim2.new(1, 0, 0, 34)
 	buyBtn.TextSize = 16
 
 	local replayBtn = Theme.button(root, "Replay", "Studio: replay last receipt", Theme.blue)
-	replayBtn.Position = UDim2.fromOffset(0, 200)
-	replayBtn.Size = UDim2.new(1, 0, 0, 28)
+	replayBtn.Position = UDim2.fromOffset(0, 314)
+	replayBtn.Size = UDim2.new(1, 0, 0, 26)
 	replayBtn.TextSize = 13
 	replayBtn.Visible = false
 
 	local hint = Theme.text(root, "Hint", "Entitlements — pending vs claimed (retry-safe)", 12, Theme.peach)
-	hint.Position = UDim2.fromOffset(0, 234)
+	hint.Position = UDim2.fromOffset(0, 344)
 	hint.Size = UDim2.new(1, 0, 0, 16)
 
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Claims"
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 254)
-	list.Size = UDim2.new(1, 0, 1, -254)
+	list.Position = UDim2.fromOffset(0, 362)
+	list.Size = UDim2.new(1, 0, 1, -362)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
@@ -122,6 +167,8 @@ function MintPanel.create(parent: Instance): MintApi
 
 	local buyHandler: (() -> ())? = nil
 	local linkHandler: ((string) -> ())? = nil
+	local challengeHandler: (() -> ())? = nil
+	local verifyHandler: ((string) -> ())? = nil
 	local claimHandler: ((string) -> ())? = nil
 	local replayHandler: ((string) -> ())? = nil
 	local lastPurchaseId: string? = nil
@@ -137,6 +184,16 @@ function MintPanel.create(parent: Instance): MintApi
 	linkBtn.MouseButton1Click:Connect(function()
 		if linkHandler then
 			linkHandler(walletBox.Text)
+		end
+	end)
+	challengeBtn.MouseButton1Click:Connect(function()
+		if challengeHandler then
+			challengeHandler()
+		end
+	end)
+	verifyBtn.MouseButton1Click:Connect(function()
+		if verifyHandler then
+			verifyHandler(sigBox.Text)
 		end
 	end)
 	replayBtn.MouseButton1Click:Connect(function()
@@ -205,16 +262,28 @@ function MintPanel.create(parent: Instance): MintApi
 		end,
 		update = function(status: Types.MintStatus)
 			disclaimer.Text = status.disclaimer
-			persistLabel.Text = `Save: {status.persistMode} — {status.persistNote}`
-			if status.wallet then
-				walletLabel.Text = `Wallet linked ✓ {shortHash(status.wallet)}`
+			local persist = `Save: {status.persistMode} — {status.persistNote}`
+			if status.siweBypass then
+				persist = persist .. " · SIWE mock bypass ON"
+			end
+			persistLabel.Text = persist
+			if status.walletVerified and status.wallet then
+				walletLabel.Text = `Wallet verified ✓ {shortHash(status.wallet)}`
 				walletLabel.TextColor3 = Theme.good
+				walletBox.Text = status.wallet
+				linkBtn.Text = "Update"
+			elseif status.wallet then
+				walletLabel.Text = `Linked (unverified) {shortHash(status.wallet)} — Challenge + Verify`
+				walletLabel.TextColor3 = Theme.warn
 				walletBox.Text = status.wallet
 				linkBtn.Text = "Update"
 			else
 				walletLabel.Text = "Wallet: not linked — paste a 0x address"
 				walletLabel.TextColor3 = Theme.warn
 				linkBtn.Text = "Link"
+			end
+			if status.siweMessage then
+				messageBox.Text = status.siweMessage
 			end
 			buyBtn.Text = if status.studioMock and status.productId == 0
 				then "Studio: grant mock entitlement"
@@ -237,6 +306,12 @@ function MintPanel.create(parent: Instance): MintApi
 		end,
 		onLink = function(fn)
 			linkHandler = fn
+		end,
+		onChallenge = function(fn)
+			challengeHandler = fn
+		end,
+		onVerify = function(fn)
+			verifyHandler = fn
 		end,
 		onClaim = function(fn)
 			claimHandler = fn

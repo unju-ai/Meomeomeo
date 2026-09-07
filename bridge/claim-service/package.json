@@ -1,0 +1,12 @@
+{
+  "name": "meo404-claim-service",
+  "private": true,
+  "type": "module",
+  "description": "Hosted Meo404 SIWE + claim stub. Never put MEO404_MINTER_PRIVATE_KEY in Roblox.",
+  "scripts": {
+    "check:siwe": "npx --yes tsx siwe.check.mts"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}
