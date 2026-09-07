@@ -24,6 +24,7 @@ local LINES: { { string } } = {
 	{ "5", "Whisker Lens (buy at Pawmart first)" },
 	{ "B", "Pawmart at fountain — not recall" },
 	{ "F", "Recall 7s to fountain (damage cancels)" },
+	{ "T", "Hold emote wheel · release or click" },
 	{ "Tab", "Hold scoreboard" },
 	{ "V", "Toggle follow camera" },
 	{ "SFX", "Volume / mute (top-right)" },
@@ -49,7 +50,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 	root.Name = "HelpPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0, 16, 0.48, 0)
-	root.Size = UDim2.fromOffset(320, 466)
+	root.Size = UDim2.fromOffset(320, 488)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 28

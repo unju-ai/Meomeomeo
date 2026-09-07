@@ -26,7 +26,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, **?** / hold **H** help, first-Practice **tip cards**
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
 - Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
@@ -359,7 +359,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting
+src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting, emote catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -370,7 +370,8 @@ src/server/
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, SIWE challenge/verify, claim API stub, Studio GrantProduct/ReplayReceipt
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx)
+  Social/            Emote cooldown + nearby replicate
+src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
@@ -382,7 +383,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 1. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds with original meows / hits; optional music beds.
+4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues with original meows; optional music beds. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`).

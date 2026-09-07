@@ -17,6 +17,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
 local CombatFx = require(script.Juice.CombatFx)
+local EmoteFx = require(script.Juice.EmoteFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
@@ -24,11 +25,14 @@ local TargetingIndicator = require(script.TargetingIndicator)
 local player = Players.LocalPlayer
 local hud = Hud.create()
 ScreenJuice.init(hud.gui)
-hud.settings.onChange(function(volume: number, muted: boolean)
+local muteOthersEmotes = false
+hud.settings.onChange(function(volume: number, muted: boolean, muteOthers: boolean)
 	Sfx.setVolume(volume)
 	Sfx.setMuted(muted)
+	muteOthersEmotes = muteOthers
 	player:SetAttribute("MeoSfxVolume", volume)
 	player:SetAttribute("MeoSfxMuted", muted)
+	player:SetAttribute("MeoMuteOthersEmotes", muteOthers)
 end)
 
 local latestMatch: Types.MatchSnapshot? = nil
@@ -337,7 +341,22 @@ Remotes.event("CombatUpdated").OnClientEvent:Connect(function(state)
 		latestCombat = state :: Types.CombatState
 		applyCombatJuice(latestCombat)
 		refreshBars()
+		if latestCombat.alive == false then
+			hud.emotes.close()
+		end
 	end
+end)
+
+Remotes.event("EmotePlayed").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local event = payload :: Types.EmoteEvent
+	if typeof(event.userId) ~= "number" or typeof(event.emoteId) ~= "string" then
+		return
+	end
+	local muteSfx = muteOthersEmotes and event.userId ~= player.UserId
+	EmoteFx.play(event, { muteSfx = muteSfx })
 end)
 
 Remotes.event("VoiceStatusChanged").OnClientEvent:Connect(function(status)
@@ -719,12 +738,50 @@ local function hideAim()
 	TargetingIndicator.hide()
 end
 
+local emoteHeld = false
+local emoteConsumed = false
+local lastEmoteSend = 0
+
+local function canEmoteNow(): boolean
+	if latestMatch and latestMatch.phase == "InProgress" and latestCombat and latestCombat.alive == false then
+		return false
+	end
+	return true
+end
+
+local function requestEmote(emoteId: string)
+	if os.clock() - lastEmoteSend < 0.2 then
+		return
+	end
+	lastEmoteSend = os.clock()
+	local result = Remotes.function_("PlayEmote"):InvokeServer(emoteId)
+	if result and result.ok == false then
+		toast(result.error or "Emote failed")
+	end
+	hud.emotes.close()
+end
+
+hud.emotes.onPick(function(emoteId: string)
+	emoteConsumed = true
+	requestEmote(emoteId)
+end)
+
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Tab then
 		hud.scoreboard.setVisible(false)
 	end
 	if input.KeyCode == Enum.KeyCode.H then
 		hud.help.setHeld(false)
+	end
+	if input.KeyCode == Enum.KeyCode.T then
+		if emoteHeld and not emoteConsumed then
+			local picked = hud.emotes.selected()
+			if picked then
+				requestEmote(picked)
+			end
+		end
+		emoteHeld = false
+		hud.emotes.close()
 	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if slot and armedSlot == slot then
@@ -763,6 +820,16 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.T then
+		if not canEmoteNow() then
+			toast("Can't emote while down")
+			return
+		end
+		emoteHeld = true
+		emoteConsumed = false
+		hud.emotes.open()
+		return
+	end
 	if input.KeyCode == Enum.KeyCode.V then
 		if latestMatch and latestMatch.phase == "InProgress" then
 			local on = not CameraFollow.isEnabled()
@@ -793,6 +860,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if hud.emotes.isOpen() then
+			return
+		end
 		if not latestMatch or latestMatch.phase ~= "InProgress" then
 			return
 		end

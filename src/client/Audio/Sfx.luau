@@ -16,6 +16,14 @@ local DEBOUNCE: { [string]: number } = {
 	Heal = 0.7,
 	LevelUp = 0.8,
 	Kill = 0.12,
+	EmoteMeow = 0.2,
+	EmoteHiss = 0.2,
+	EmotePurr = 0.2,
+	EmoteFlex = 0.2,
+	EmoteDance = 0.2,
+	EmoteLaugh = 0.2,
+	EmoteCry = 0.2,
+	EmoteGG = 0.2,
 }
 
 local group: SoundGroup

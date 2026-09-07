@@ -39,6 +39,7 @@ export type RemoteName =
 	| "GetQueueStatus"
 	| "GetTutorialStatus"
 	| "SetTutorialDone"
+	| "PlayEmote"
 	| "MatchStateChanged"
 	| "QueueUpdated"
 	| "CombatUpdated"
@@ -51,6 +52,7 @@ export type RemoteName =
 	| "PingReceived"
 	| "KillFeed"
 	| "CombatFx"
+	| "EmotePlayed"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -86,6 +88,7 @@ local FUNCTION_NAMES = {
 	"GetQueueStatus",
 	"GetTutorialStatus",
 	"SetTutorialDone",
+	"PlayEmote",
 }
 
 local EVENT_NAMES = {
@@ -101,6 +104,7 @@ local EVENT_NAMES = {
 	"KillFeed",
 	"QueueUpdated",
 	"CombatFx",
+	"EmotePlayed",
 }
 
 local function getFolder(): Folder

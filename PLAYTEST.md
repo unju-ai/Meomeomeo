@@ -96,15 +96,16 @@ Same list as the in-game **?** / hold **H** panel.
 | **5** | Whisker Lens (buy at Pawmart first) |
 | **B** | Pawmart — **fountain only**. Not recall |
 | **F** | Recall 7s → fountain. Damage, move, AA, abilities, **S**, or **F** again cancel |
+| **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
-| **SFX** (top-right) | Master volume + mute |
+| **SFX** (top-right) | Master volume + mute + mute others' emotes |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Team ping |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
 | **A** | Engine strafe — not rebound |
 
-Lobby only: **Queue**, **Leave queue**, **Practice**, **Invite**, **Mint Meo 404**.
+Lobby only: **Queue**, **Leave queue**, **Practice**, **Invite**, **Mint Meo 404**. Hold **T** for emotes in lobby too.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -165,6 +166,10 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 `MapBuilder` dresses the same 420×280 bounds (lane Z −80 / 0 / 80). Extra Parts are `CanCollide = false` and `CanQuery = false` so bots, tower ranges, and click-AA stay the same. Lighting is a cozy night-market (`Atmosphere` + mild bloom), not a rave.
 
+## 8e. Cat emotes
+
+Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex / Dance / Laugh / Cry / GG). Release or click a slice. Nearby clients see a billboard + Part bob and hear a Sound-kit cue. Server cooldown (~2.6s); no emote while down. **SFX → Mute others' emotes** skips their cues (billboard still shows). No animation binaries.
+
 ## 9. If something is quiet / missing
 
 - No SFX: click **SFX**, unmute, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
@@ -177,6 +182,7 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 - No cast/hit VFX: Rojo-sync so `MeoRemotes.CombatFx` exists, then start a new Practice (FX are server-confirmed, not the hold-to-aim indicator).
 - Map still looks like a green slab: Rojo-sync `Server.World.MapBuilder` and replay Practice (lighting is applied on `MapBuilder.build`).
 - No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
+- No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
 
 ## 10. Still stubbed (do not expect)
 

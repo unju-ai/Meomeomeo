@@ -60,6 +60,14 @@ local Config = {
 		RUnlockLevel = 6,
 	},
 
+	Emotes = {
+		CooldownSeconds = 2.6,
+		BroadcastRadius = 96,
+		BillboardSeconds = 2.4,
+		-- Hold T. G is unused if a later bind steals T.
+		HoldKey = "T",
+	},
+
 	Combat = {
 		RespawnSeconds = 7,
 		RegenPerSecond = 4,

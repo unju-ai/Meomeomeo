@@ -18,6 +18,7 @@ local MatchService = require(script.Match.MatchService)
 local MatchmakingService = require(script.Match.MatchmakingService)
 local MemeStockService = require(script.Economy.MemeStockService)
 local MintService = require(script.Mint.MintService)
+local EmoteService = require(script.Social.EmoteService)
 local ShopService = require(script.Match.ShopService)
 local TutorialStore = require(script.Tutorial.TutorialStore)
 local VoiceService = require(script.Voice.VoiceService)
@@ -47,6 +48,7 @@ MintService.init()
 MatchmakingService.init()
 AiChatService.init(MatchService.snapshot)
 VoiceService.init()
+EmoteService.init()
 
 local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
 	local queue = MatchmakingService.statusFor(player)
@@ -205,6 +207,10 @@ Remotes.function_("GetTutorialStatus").OnServerInvoke = function(player: Player)
 		done = done,
 		persistMode = TutorialStore.persistMode(),
 	}
+end
+
+Remotes.function_("PlayEmote").OnServerInvoke = function(player: Player, emoteId: unknown)
+	return EmoteService.play(player, emoteId)
 end
 
 Remotes.function_("SetTutorialDone").OnServerInvoke = function(player: Player)
