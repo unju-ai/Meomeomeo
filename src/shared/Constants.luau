@@ -31,6 +31,12 @@ local Constants = {
 		Recalling = "MeoRecalling",
 		UserId = "MeoUserId",
 		TutorialDone = "MeoTutorialDone",
+		SfxVolume = "MeoSfxVolume",
+		SfxMuted = "MeoSfxMuted",
+		MusicVolume = "MeoMusicVolume",
+		MusicMuted = "MeoMusicMuted",
+		MuteOthersEmotes = "MeoMuteOthersEmotes",
+		PracticeDifficulty = "MeoPracticeDifficulty",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },

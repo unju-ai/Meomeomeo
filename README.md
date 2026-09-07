@@ -71,7 +71,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
-- **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
+- **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. Mix + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
 - **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release to fire → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
@@ -311,11 +311,11 @@ Cues live in `src/client/Audio/SoundIds.luau`. Defaults are Roblox engine builti
 | `Announcer` | Kitty Caster lines that are not already a feed cue | `rbxasset://sounds/electronicpingshort.wav` |
 | `Heal` | Local HP jump on `CombatUpdated` | `rbxasset://sounds/electronicpingshort.wav` |
 
-**Swap for real assets:** upload to Creator Store → copy the numeric id → set `id = "rbxassetid://YOUR_ID"` on that cue. Tweak `volume` / `playbackSpeed` in the same table. Mute and master volume go through `SoundService.MeoSfx` (`SoundGroup`). Session slider values sit on the local player as `MeoSfxVolume` / `MeoSfxMuted`.
+**Swap for real assets:** upload to Creator Store → copy the numeric id → set `id = "rbxassetid://YOUR_ID"` on that cue. Tweak `volume` / `playbackSpeed` in the same table. Mute and master volume go through `SoundService.MeoSfx` (`SoundGroup`). Slider + mute values (and last Practice difficulty) persist in DataStore `MeoSettings_v1` (Studio memory fallback) and sit on the player as `MeoSfxVolume` / `MeoSfxMuted` / `MeoMusicVolume` / `MeoMusicMuted` / `MeoMuteOthersEmotes` / `MeoPracticeDifficulty`.
 
 ### Music beds
 
-`src/client/Audio/Music.luau` loops a quiet bed per match phase and **crossfades ~1s** (no hard cuts). Default Music master is **0.35** (SFX is 0.8). Group: `SoundService.MeoMusic`. Slider: `MeoMusicVolume` / `MeoMusicMuted`.
+`src/client/Audio/Music.luau` loops a quiet bed per match phase and **crossfades ~1s** (no hard cuts). Default Music master is **0.35** (SFX is 0.8). Group: `SoundService.MeoMusic`. Slider: `MeoMusicVolume` / `MeoMusicMuted` (loaded via `GetSettings` before the first `Music.setPhase` when remotes are ready).
 
 | Bed | Phase | Placeholder | Mood knob |
 | --- | --- | --- | --- |
@@ -386,6 +386,7 @@ src/server/
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, SIWE challenge/verify, claim API stub, Studio GrantProduct/ReplayReceipt
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
+  Settings/          Audio + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
   Social/            Emote cooldown + nearby replicate
 src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
 contracts/           Meo404.sol + Foundry tests

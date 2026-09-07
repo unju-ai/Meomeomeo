@@ -3,7 +3,9 @@
 local Players = game:GetService("Players")
 
 local Theme = require(script.Parent.Parent.Theme)
-local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Constants = require(Shared:WaitForChild("Constants"))
+local Types = require(Shared:WaitForChild("Types"))
 
 local AbilityBar = require(script.Parent.AbilityBar)
 local ChampionSelect = require(script.Parent.ChampionSelect)
@@ -85,11 +87,11 @@ function Hud.create(): HudApi
 	local feed = KillFeed.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local endScreen = EndScreen.create(gui)
-	local startVolume = player:GetAttribute("MeoSfxVolume")
-	local startMuted = player:GetAttribute("MeoSfxMuted")
-	local startMuteOthers = player:GetAttribute("MeoMuteOthersEmotes")
-	local startMusic = player:GetAttribute("MeoMusicVolume")
-	local startMusicMuted = player:GetAttribute("MeoMusicMuted")
+	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
+	local startMuted = player:GetAttribute(Constants.Attributes.SfxMuted)
+	local startMuteOthers = player:GetAttribute(Constants.Attributes.MuteOthersEmotes)
+	local startMusic = player:GetAttribute(Constants.Attributes.MusicVolume)
+	local startMusicMuted = player:GetAttribute(Constants.Attributes.MusicMuted)
 	local settings = SettingsPanel.create(gui, {
 		sfxVolume = if typeof(startVolume) == "number" then startVolume :: number else 0.8,
 		sfxMuted = startMuted == true,
