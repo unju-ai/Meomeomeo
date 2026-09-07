@@ -17,6 +17,14 @@ export type Cue =
 	| "MatchFound"
 	| "Announcer"
 	| "Heal"
+	| "EmoteMeow"
+	| "EmoteHiss"
+	| "EmotePurr"
+	| "EmoteFlex"
+	| "EmoteDance"
+	| "EmoteLaugh"
+	| "EmoteCry"
+	| "EmoteGG"
 
 export type CueDef = {
 	id: string,
@@ -86,6 +94,46 @@ local SoundIds: { [Cue]: CueDef } = {
 		id = "rbxasset://sounds/electronicpingshort.wav",
 		volume = 0.22,
 		playbackSpeed = 1.55,
+	},
+	EmoteMeow = {
+		id = "rbxasset://sounds/button.wav",
+		volume = 0.36,
+		playbackSpeed = 1.35,
+	},
+	EmoteHiss = {
+		id = "rbxasset://sounds/swoosh.wav",
+		volume = 0.34,
+		playbackSpeed = 0.82,
+	},
+	EmotePurr = {
+		id = "rbxasset://sounds/action_get_up.mp3",
+		volume = 0.22,
+		playbackSpeed = 1.15,
+	},
+	EmoteFlex = {
+		id = "rbxasset://sounds/snap.wav",
+		volume = 0.36,
+		playbackSpeed = 1.05,
+	},
+	EmoteDance = {
+		id = "rbxasset://sounds/switch.wav",
+		volume = 0.34,
+		playbackSpeed = 1.22,
+	},
+	EmoteLaugh = {
+		id = "rbxasset://sounds/electronicpingshort.wav",
+		volume = 0.3,
+		playbackSpeed = 1.65,
+	},
+	EmoteCry = {
+		id = "rbxasset://sounds/hit.wav",
+		volume = 0.26,
+		playbackSpeed = 0.72,
+	},
+	EmoteGG = {
+		id = "rbxasset://sounds/electronicpingshort.wav",
+		volume = 0.38,
+		playbackSpeed = 1.08,
 	},
 }
 

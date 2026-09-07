@@ -11,17 +11,19 @@ export type SettingsApi = {
 	setVisible: (visible: boolean) -> (),
 	getVolume: () -> number,
 	isMuted: () -> boolean,
-	onChange: ((volume: number, muted: boolean) -> ()) -> (),
+	isOthersEmotesMuted: () -> boolean,
+	onChange: ((volume: number, muted: boolean, muteOthersEmotes: boolean) -> ()) -> (),
 }
 
 local function clamp01(value: number): number
 	return math.clamp(value, 0, 1)
 end
 
-function SettingsPanel.create(parent: Instance, startVolume: number, startMuted: boolean): SettingsApi
+function SettingsPanel.create(parent: Instance, startVolume: number, startMuted: boolean, startMuteOthers: boolean?): SettingsApi
 	local volume = clamp01(startVolume)
 	local muted = startMuted
-	local changeHandler: ((number, boolean) -> ())? = nil
+	local muteOthers = startMuteOthers == true
+	local changeHandler: ((number, boolean, boolean) -> ())? = nil
 
 	local gear = Theme.button(parent, "SettingsGear", "SFX", Theme.amber)
 	gear.AnchorPoint = Vector2.new(1, 0)
@@ -34,7 +36,7 @@ function SettingsPanel.create(parent: Instance, startVolume: number, startMuted:
 	root.Name = "SettingsPanel"
 	root.AnchorPoint = Vector2.new(1, 0)
 	root.Position = UDim2.new(1, -16, 0, 144)
-	root.Size = UDim2.fromOffset(240, 148)
+	root.Size = UDim2.fromOffset(240, 186)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 30
@@ -46,18 +48,23 @@ function SettingsPanel.create(parent: Instance, startVolume: number, startMuted:
 	local title = Theme.text(root, "Title", "SFX", 18, Theme.amber, Theme.fontTitle)
 	title.Size = UDim2.new(1, 0, 0, 22)
 
-	local hint = Theme.text(root, "Hint", "Master volume · mute combat juice", 11, Theme.peach)
+	local hint = Theme.text(root, "Hint", "Master volume · mute juice / others' emotes", 11, Theme.peach)
 	hint.Position = UDim2.fromOffset(0, 24)
 	hint.Size = UDim2.new(1, 0, 0, 16)
 
 	local muteBtn = Theme.button(root, "Mute", "Mute", Theme.coral)
 	muteBtn.Position = UDim2.fromOffset(0, 46)
-	muteBtn.Size = UDim2.new(1, 0, 0, 30)
-	muteBtn.TextSize = 15
+	muteBtn.Size = UDim2.new(1, 0, 0, 26)
+	muteBtn.TextSize = 14
+
+	local othersBtn = Theme.button(root, "MuteOthers", "Mute others' emotes", Theme.peach)
+	othersBtn.Position = UDim2.fromOffset(0, 76)
+	othersBtn.Size = UDim2.new(1, 0, 0, 26)
+	othersBtn.TextSize = 13
 
 	local track = Instance.new("TextButton")
 	track.Name = "VolumeTrack"
-	track.Position = UDim2.fromOffset(0, 86)
+	track.Position = UDim2.fromOffset(0, 108)
 	track.Size = UDim2.new(1, 0, 0, 16)
 	track.BackgroundColor3 = Theme.panelAlt
 	track.Text = ""
@@ -73,16 +80,18 @@ function SettingsPanel.create(parent: Instance, startVolume: number, startMuted:
 	Theme.corner(fill, 8)
 
 	local valueLbl = Theme.text(root, "Value", "", 12, Theme.cream)
-	valueLbl.Position = UDim2.fromOffset(0, 108)
+	valueLbl.Position = UDim2.fromOffset(0, 128)
 	valueLbl.Size = UDim2.new(1, 0, 0, 20)
 
 	local function paint()
 		fill.Size = UDim2.new(if muted then 0 else volume, 0, 1, 0)
 		muteBtn.Text = if muted then "Unmute SFX" else "Mute SFX"
 		muteBtn.BackgroundColor3 = if muted then Theme.muted else Theme.coral
+		othersBtn.Text = if muteOthers then "Hearing others' emotes" else "Mute others' emotes"
+		othersBtn.BackgroundColor3 = if muteOthers then Theme.muted else Theme.peach
 		valueLbl.Text = if muted then "Muted" else `Volume {math.floor(volume * 100 + 0.5)}%`
 		if changeHandler then
-			changeHandler(volume, muted)
+			changeHandler(volume, muted, muteOthers)
 		end
 	end
 
@@ -101,6 +110,10 @@ function SettingsPanel.create(parent: Instance, startVolume: number, startMuted:
 
 	muteBtn.MouseButton1Click:Connect(function()
 		muted = not muted
+		paint()
+	end)
+	othersBtn.MouseButton1Click:Connect(function()
+		muteOthers = not muteOthers
 		paint()
 	end)
 
@@ -143,9 +156,12 @@ function SettingsPanel.create(parent: Instance, startVolume: number, startMuted:
 		isMuted = function()
 			return muted
 		end,
+		isOthersEmotesMuted = function()
+			return muteOthers
+		end,
 		onChange = function(fn)
 			changeHandler = fn
-			fn(volume, muted)
+			fn(volume, muted, muteOthers)
 		end,
 	}
 end

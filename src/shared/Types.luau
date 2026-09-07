@@ -212,6 +212,12 @@ export type TradeResult = {
 	error: string?,
 }
 
+export type EmoteEvent = {
+	userId: number,
+	emoteId: string,
+	at: number,
+}
+
 export type ChatResult = {
 	ok: boolean,
 	error: string?,

@@ -19,6 +19,7 @@ local TutorialTips = require(script.Parent.TutorialTips)
 local SettingsPanel = require(script.Parent.SettingsPanel)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
+local EmoteWheel = require(script.Parent.EmoteWheel)
 
 local Hud = {}
 
@@ -38,6 +39,7 @@ export type HudApi = {
 	settings: SettingsPanel.SettingsApi,
 	help: HelpPanel.HelpApi,
 	tips: TutorialTips.TipsApi,
+	emotes: EmoteWheel.WheelApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -83,11 +85,14 @@ function Hud.create(): HudApi
 	local endScreen = EndScreen.create(gui)
 	local startVolume = player:GetAttribute("MeoSfxVolume")
 	local startMuted = player:GetAttribute("MeoSfxMuted")
+	local startMuteOthers = player:GetAttribute("MeoMuteOthersEmotes")
 	local settings = SettingsPanel.create(
 		gui,
 		if typeof(startVolume) == "number" then startVolume :: number else 0.8,
-		startMuted == true
+		startMuted == true,
+		startMuteOthers == true
 	)
+	local emotes = EmoteWheel.create(gui)
 	local help = HelpPanel.create(gui)
 	local tips = TutorialTips.create(gui)
 
@@ -115,7 +120,7 @@ function Hud.create(): HudApi
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
 			banner.Text = if mine
-				then `{mine.team} · H help · Tab · V cam · B shop · F recall · 4 ward · 5 lens`
+				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · 4 ward · 5 lens`
 				else "Spectating"
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
@@ -138,6 +143,7 @@ function Hud.create(): HudApi
 		settings = settings,
 		help = help,
 		tips = tips,
+		emotes = emotes,
 		banner = function(text: string)
 			banner.Text = text
 		end,
