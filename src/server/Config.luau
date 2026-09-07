@@ -12,6 +12,7 @@
 --   Nft404.DeveloperProductId     Creator Dashboard Developer Product (0 = Studio mock grant)
 --   Nft404.ClaimApiUrl            hosted POST /v1/meo404 ("" + Provider=mock until the bridge is live)
 --   Nft404.ClaimApiSecret         Bearer shared secret — NEVER a chain key; never commit
+--   Nft404.AllowSiweMockBypass    true in Studio; false before any live Robux claim
 --   Ai.Endpoint / Ai.ApiKey       only if Ai.Provider = "http"; never commit a real key
 
 export type VoiceMode = "Team" | "Proximity"
@@ -236,6 +237,13 @@ local Config = {
 		ClaimApiUrl = "", -- hosted backend, e.g. https://claims.example.com/v1/meo404
 		ClaimApiSecret = "", -- shared secret with the backend; NEVER a chain private key
 		AllowStudioMockPurchase = true,
+		-- Studio / mock: claim + verify can skip ECDSA recover. Turn OFF before live Robux.
+		AllowSiweMockBypass = true,
+		-- Shown in the SIWE message. Production must bind these to the real HTTPS host.
+		SiweDomain = "meo404.local",
+		SiweUri = "https://meo404.local/siwe",
+		SiweChainId = 1,
+		SiweNonceTtlSec = 600,
 	},
 }
 

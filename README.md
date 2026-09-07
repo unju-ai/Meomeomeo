@@ -222,8 +222,8 @@ What it *does* model:
 
 1. Player buys a **Roblox Developer Product** (Robux). Roblox owns that purchase.
 2. `MarketplaceService.ProcessReceipt` on the **Roblox server** marks the receipt fulfilled and writes a **claim entitlement** (`userId` + `productId` + `PurchaseId` nonce) into `EntitlementStore`. Writes go to DataStore `Meo404_v1` when API Services are on; Studio without access falls back to an in-memory cache. Grant is **idempotent by `PurchaseId`**.
-3. The player **links a wallet** (`0x` + 40 hex, not the zero address). The address is saved per Roblox `userId` in the same DataStore. SIWE ownership proof is a later hosted step.
-4. A **separate claim service** (not Roblox) verifies the entitlement and calls `Meo404.mintFromEntitlement`. One purchase → one mint (idempotent on `PurchaseId` / `bytes32` entitlement id). Failed claims stay retryable; already-claimed returns success.
+3. The player **links a wallet** (`0x` + 40 hex, not the zero address). Paste alone is **unverified**. They request a SIWE challenge, sign in an external wallet (or `studio-bypass` in Studio), and the server stores the **recovered** address as verified.
+4. A **separate claim service** (not Roblox) rejects unverified wallets (unless a Studio mock-bypass flag), re-checks the entitlement, and calls `Meo404.mintFromEntitlement`. One purchase → one mint (idempotent on `PurchaseId` / `bytes32` entitlement id). Failed claims stay retryable; already-claimed returns success.
 
 **Legal / compliance review is required before a live Robux product.** Never put a chain private key in the Roblox place, Rojo tree, or `Config.luau`. Signing and minting belong on a hosted backend. See `bridge/README.md` for DataStore keys and the claim HTTP contract.
 
@@ -238,8 +238,10 @@ Player                 Roblox game server              Hosted claim API         
   |                            | ProcessReceipt               |                       |
   |                            | grant entitlement            |                       |
   |                            | (PurchaseId + nonce)         |                       |
-  |  Link 0x wallet (stub)     |                              |                       |
+  |  Link 0x (unverified)      |                              |                       |
   |--------------------------->|                              |                       |
+  |  SIWE challenge / verify   | POST /v1/siwe/*              | recover signer        |
+  |--------------------------->|----------------------------->|                       |
   |  Claim                     | POST /v1/meo404              |                       |
   |--------------------------->|----------------------------->| mintFromEntitlement   |
   |                            |                              |---------------------->|
@@ -259,7 +261,7 @@ Robux receipt  →  game server signs tx  →  native/token value lands in playe
 1. Creator Dashboard → Monetization → **Developer Products** → create “Mint Meo 404”.
 2. Put the numeric id in `src/server/Config.luau` → `Nft404.DeveloperProductId`.
 3. Publish. `ProcessReceipt` only runs on a live/published purchase path; Studio uses `GrantProduct` / `SimulateStudioPurchase` when `AllowStudioMockPurchase` is true (product id may still be `0`). `ReplayReceipt` re-runs grant for the same `PurchaseId` without extra Robux.
-4. Play → lobby → **Mint Meo 404**. The panel shows **Save: DataStore | Memory**, linked-wallet status, and each slip as **Pending claim** / **Failed — retry** / **Claimed**. Link a dummy `0x` address → **Claim 404**. Mock mode writes a fake `0xMOCK…` tx hash.
+4. Play → lobby → **Mint Meo 404**. The panel shows **Save: DataStore | Memory**, linked vs **SIWE-verified** wallet, and each slip as **Pending claim** / **Failed — retry** / **Claimed**. Link a dummy `0x` → **Challenge** → sign externally or paste `studio-bypass` → **Verify SIWE**. With `AllowSiweMockBypass` (Studio default) **Claim 404** still works without verify. Mock mode writes a fake `0xMOCK…` tx hash. Set `AllowSiweMockBypass = false` before live Robux.
 5. For a real prompt, set a non-zero product id; the client calls `MarketplaceService:PromptProductPurchase`.
 6. Enable **Game Settings → Security → Enable Studio Access to API Services** if you want entitlements and wallets to survive a Studio stop. Without it, the store stays in memory for that session.
 
@@ -269,7 +271,7 @@ Robux receipt  →  game server signs tx  →  native/token value lands in playe
 | --- | --- |
 | `ent:{purchaseId}` | Entitlement row (status, nonce, wallet, txHash, claimError) |
 | `user:{userId}:ents` | `{ ids = { purchaseId, ... } }` |
-| `user:{userId}:wallet` | Linked `0x` address |
+| `user:{userId}:wallet` | `{ address, verified, verifiedAt? }` (legacy string = unverified) |
 
 **Chain (Foundry)**
 
@@ -366,11 +368,11 @@ src/server/
   World/             3-lane map (art pass + lighting), cat NPC placeholders, champion appearance builder, FX relay
   Npcs/              Catalog, mock/http AI, chat service
   Economy/           Optional meme stocks
-  Mint/              ProcessReceipt, DataStore entitlements, wallet link, claim API stub, Studio GrantProduct/ReplayReceipt
+  Mint/              ProcessReceipt, DataStore entitlements, SIWE challenge/verify, claim API stub, Studio GrantProduct/ReplayReceipt
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
 src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx)
 contracts/           Meo404.sol + Foundry tests
-bridge/              Hosted claim-handler stub
+bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
 
 Authority rule: money, prices, damage, match state, and purchase entitlements live on the server. Chain keys never do.
@@ -388,7 +390,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
 10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
 11. DataStores for cosmetics funded by yarn / meme-stock wagers.
-12. SIWE (or similar) wallet-ownership proof on the hosted claim API; Open Cloud re-verify of DataStore entitlements from the bridge.
+12. Open Cloud re-verify of DataStore entitlements from the bridge; persist SIWE nonces / verified wallets beyond one process.
 13. Compliance / legal review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets

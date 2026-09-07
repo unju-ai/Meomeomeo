@@ -8,12 +8,14 @@
  * Flow:
  *   1. Authenticate the request (shared secret from Roblox Config.Nft404.ClaimApiSecret).
  *   2. Re-verify the entitlement (DataStore / your DB / Open Cloud). Do not trust the body alone.
- *   3. Check wallet format and (ideally) that the player proved ownership (SIWE).
+ *   3. Reject wallets that are not SIWE-verified (unless SIWE_ALLOW_UNVERIFIED=1 for Studio).
  *   4. Call Meo404.mintFromEntitlement(wallet, keccak256(purchaseId)) — idempotent on-chain.
  *   5. Return { txHash }. One purchaseId → one mint.
  *
  * This is NOT "take Robux and send ETH/tokens to the wallet".
  */
+
+import { isVerified } from "./siwe.js";
 
 export type ClaimRequest = {
   robloxUserId: number;
@@ -34,6 +36,8 @@ export type ClaimContext = {
   alreadyMinted: (purchaseId: string) => Promise<boolean>;
   mint: (wallet: `0x${string}`, entitlementId: `0x${string}`) => Promise<string>;
   keccak256: (value: string) => `0x${string}`;
+  walletVerified?: (wallet: string) => boolean | Promise<boolean>;
+  allowUnverified?: boolean;
 };
 
 function isWallet(value: string): value is `0x${string}` {
@@ -50,6 +54,14 @@ export async function handleClaim(
   if (!isWallet(body.wallet)) {
     throw new Error("invalid wallet");
   }
+  const allowUnverified =
+    ctx.allowUnverified === true || process.env.SIWE_ALLOW_UNVERIFIED === "1";
+  const verified = ctx.walletVerified
+    ? await ctx.walletVerified(body.wallet)
+    : isVerified(body.wallet);
+  if (!verified && !allowUnverified) {
+    throw new Error("wallet not SIWE-verified");
+  }
   if (!(await ctx.entitlementExists(body.purchaseId, body.robloxUserId))) {
     throw new Error("entitlement not found");
   }
@@ -63,7 +75,15 @@ export async function handleClaim(
 }
 
 // Example HTTP wiring (not started by this repo):
+// app.post("/v1/siwe/challenge", (req, res) => res.json(issueChallenge(req.body)));
+// app.post("/v1/siwe/verify", async (req, res) => res.json(await verifySiwe(req.body)));
 // app.post("/v1/meo404", async (req, res) => {
-//   const result = await handleClaim(req.body, { ... });
+//   const result = await handleClaim(req.body, {
+//     expectedSecret: process.env.CLAIM_API_SECRET!,
+//     authorizationHeader: req.headers.authorization,
+//     walletVerified: (wallet) => isVerified(wallet),
+//     allowUnverified: process.env.SIWE_ALLOW_UNVERIFIED === "1",
+//     entitlementExists, alreadyMinted, mint, keccak256,
+//   });
 //   res.json(result);
 // });
