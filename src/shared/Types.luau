@@ -173,11 +173,30 @@ export type AttackRequest = {
 	position: Vector3?,
 }
 
+export type PingKind =
+	"Attention"
+	| "Caution"
+	| "OnMyWay"
+	| "Assist"
+	| "EnemyMissing"
+	| "AllClear"
+	| "AttackHere"
+
 export type PingPayload = {
 	userId: number,
 	team: TeamId,
+	kind: PingKind,
 	position: Vector3,
 	at: number,
+	text: string,
+	targetName: string?,
+}
+
+export type PingRequest = {
+	kind: string?,
+	position: Vector3?,
+	objectiveId: string?,
+	targetUserId: number?,
 }
 
 export type FeedEvent = {

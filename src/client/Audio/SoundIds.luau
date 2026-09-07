@@ -25,6 +25,8 @@ export type Cue =
 	| "EmoteLaugh"
 	| "EmoteCry"
 	| "EmoteGG"
+	| "PingSoft"
+	| "PingWarn"
 
 export type CueDef = {
 	id: string,
@@ -134,6 +136,16 @@ local SoundIds: { [Cue]: CueDef } = {
 		id = "rbxasset://sounds/electronicpingshort.wav",
 		volume = 0.38,
 		playbackSpeed = 1.08,
+	},
+	PingSoft = {
+		id = "rbxasset://sounds/electronicpingshort.wav",
+		volume = 0.32,
+		playbackSpeed = 1.28,
+	},
+	PingWarn = {
+		id = "rbxasset://sounds/snap.wav",
+		volume = 0.3,
+		playbackSpeed = 1.15,
 	},
 }
 

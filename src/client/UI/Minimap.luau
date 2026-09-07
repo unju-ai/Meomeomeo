@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -104,7 +105,7 @@ function Minimap.create(parent: Instance): MinimapApi
 		Theme.corner(patch, 6)
 	end
 
-	local title = Theme.text(root, "Title", "Rift  ·  click to ping", 11, Theme.cream, Theme.fontMono)
+	local title = Theme.text(root, "Title", "Rift  ·  click Attention · G wheel", 11, Theme.cream, Theme.fontMono)
 	title.Position = UDim2.fromOffset(8, 4)
 	title.Size = UDim2.new(1, -16, 0, 14)
 	title.ZIndex = 4
@@ -115,7 +116,11 @@ function Minimap.create(parent: Instance): MinimapApi
 
 	local pingDot = mark(root, "Ping", 14, Theme.amber)
 	pingDot.Visible = false
-	pingDot.ZIndex = 5
+	pingDot.ZIndex = 6
+
+	local history = Instance.new("Folder")
+	history.Name = "PingHistory"
+	history.Parent = root
 
 	local pingHandler: ((Vector3) -> ())? = nil
 
@@ -287,9 +292,34 @@ function Minimap.create(parent: Instance): MinimapApi
 			end
 		end,
 		showPing = function(payload: Types.PingPayload)
+			local def = PingCatalog.get(payload.kind)
+			local color = if def then def.color else Theme.amber
 			local sx, sy = worldToScale(payload.position)
+			pingDot.BackgroundColor3 = color
 			pingDot.Position = UDim2.fromScale(sx, sy)
 			pingDot.Visible = true
+			pingDot.Size = UDim2.fromOffset(16, 16)
+			task.delay(0.12, function()
+				if pingDot.Parent then
+					pingDot.Size = UDim2.fromOffset(14, 14)
+				end
+			end)
+
+			local kids = history:GetChildren()
+			while #kids >= 4 do
+				kids[1]:Destroy()
+				kids = history:GetChildren()
+			end
+			local ghost = mark(history, `H{os.clock()}`, 9, color)
+			ghost.Position = UDim2.fromScale(sx, sy)
+			ghost.BackgroundTransparency = 0.2
+			ghost.ZIndex = 5
+			task.delay(4.5, function()
+				if ghost.Parent then
+					ghost:Destroy()
+				end
+			end)
+
 			task.delay(2.4, function()
 				if pingDot.Parent then
 					pingDot.Visible = false

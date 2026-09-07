@@ -60,6 +60,12 @@ local Config = {
 		RUnlockLevel = 6,
 	},
 
+	Pings = {
+		CooldownSeconds = 1.25,
+		MarkerSeconds = 2.6,
+		HistorySeconds = 4.5,
+	},
+
 	Emotes = {
 		CooldownSeconds = 2.6,
 		BroadcastRadius = 96,

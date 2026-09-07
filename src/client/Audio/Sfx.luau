@@ -24,6 +24,8 @@ local DEBOUNCE: { [string]: number } = {
 	EmoteLaugh = 0.2,
 	EmoteCry = 0.2,
 	EmoteGG = 0.2,
+	PingSoft = 0.18,
+	PingWarn = 0.18,
 }
 
 local group: SoundGroup

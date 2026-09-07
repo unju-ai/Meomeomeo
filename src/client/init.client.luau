@@ -13,12 +13,15 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
+local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
+local SoundIds = require(script.Audio.SoundIds)
 
 local Music = require(script.Audio.Music)
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
 local CombatFx = require(script.Juice.CombatFx)
 local EmoteFx = require(script.Juice.EmoteFx)
+local PingFx = require(script.Juice.PingFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
@@ -547,8 +550,33 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 	end
 end)
 
+local lastPingSend = 0
+
+local function sendPing(kind: string, position: Vector3, target: Types.AttackRequest?)
+	if os.clock() - lastPingSend < 0.25 then
+		return
+	end
+	lastPingSend = os.clock()
+	local body: Types.PingRequest = {
+		kind = kind,
+		position = position,
+	}
+	if target then
+		if target.kind == "objective" and typeof(target.objectiveId) == "string" then
+			body.objectiveId = target.objectiveId
+		elseif target.kind == "player" and typeof(target.userId) == "number" then
+			body.targetUserId = target.userId
+		end
+	end
+	local result = Remotes.function_("MinimapPing"):InvokeServer(body)
+	if result and result.ok == false then
+		toast(result.error or "Ping failed")
+	end
+	hud.pings.close()
+end
+
 hud.minimap.onPing(function(position: Vector3)
-	Remotes.function_("MinimapPing"):InvokeServer(position)
+	sendPing("Attention", position, nil)
 end)
 
 Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
@@ -556,22 +584,16 @@ Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
 		return
 	end
 	local ping = payload :: Types.PingPayload
+	if typeof(ping.position) ~= "Vector3" then
+		return
+	end
 	hud.minimap.showPing(ping)
-	toast(`Ping · {if ping.userId == player.UserId then "you" else "ally"}`)
-	local marker = Instance.new("Part")
-	marker.Name = "MeoPing"
-	marker.Anchored = true
-	marker.CanCollide = false
-	marker.Material = Enum.Material.Neon
-	marker.Color = Color3.fromRGB(255, 196, 74)
-	marker.Size = Vector3.new(5, 0.5, 5)
-	marker.CFrame = CFrame.new(ping.position)
-	marker.Parent = Workspace
-	task.delay(2.4, function()
-		if marker.Parent then
-			marker:Destroy()
-		end
-	end)
+	PingFx.play(ping)
+	local def = PingCatalog.get(ping.kind)
+	if def then
+		Sfx.play(def.cue :: SoundIds.Cue)
+	end
+	toast(if typeof(ping.text) == "string" and ping.text ~= "" then ping.text else "Ping")
 end)
 
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
@@ -776,6 +798,20 @@ hud.emotes.onPick(function(emoteId: string)
 	requestEmote(emoteId)
 end)
 
+local pingHeld = false
+local pingConsumed = false
+local pendingPingPos = Vector3.zero
+local pendingPingTarget: Types.AttackRequest? = nil
+
+local function requestPing(kind: string)
+	sendPing(kind, pendingPingPos, pendingPingTarget)
+end
+
+hud.pings.onPick(function(kind: string)
+	pingConsumed = true
+	requestPing(kind)
+end)
+
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Tab then
 		hud.scoreboard.setVisible(false)
@@ -792,6 +828,16 @@ UserInputService.InputEnded:Connect(function(input)
 		end
 		emoteHeld = false
 		hud.emotes.close()
+	end
+	if input.KeyCode == Enum.KeyCode.G then
+		if pingHeld and not pingConsumed then
+			local picked = hud.pings.selected()
+			if picked then
+				requestPing(picked)
+			end
+		end
+		pingHeld = false
+		hud.pings.close()
 	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if slot and armedSlot == slot then
@@ -831,6 +877,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.T then
+		if hud.pings.isOpen() then
+			hud.pings.close()
+			pingHeld = false
+		end
 		if not canEmoteNow() then
 			toast("Can't emote while down")
 			return
@@ -838,6 +888,21 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		emoteHeld = true
 		emoteConsumed = false
 		hud.emotes.open()
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.G then
+		if hud.emotes.isOpen() then
+			return
+		end
+		if not latestMatch or latestMatch.phase ~= "InProgress" then
+			toast("Ping during a match")
+			return
+		end
+		pingHeld = true
+		pingConsumed = false
+		pendingPingPos = aimPoint()
+		pendingPingTarget = pickAttack()
+		hud.pings.open()
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.V then
@@ -870,7 +935,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		if hud.emotes.isOpen() then
+		if hud.emotes.isOpen() or hud.pings.isOpen() then
 			return
 		end
 		if not latestMatch or latestMatch.phase ~= "InProgress" then

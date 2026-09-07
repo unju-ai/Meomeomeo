@@ -20,6 +20,7 @@ local SettingsPanel = require(script.Parent.SettingsPanel)
 local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 local EmoteWheel = require(script.Parent.EmoteWheel)
+local PingWheel = require(script.Parent.PingWheel)
 
 local Hud = {}
 
@@ -40,6 +41,7 @@ export type HudApi = {
 	help: HelpPanel.HelpApi,
 	tips: TutorialTips.TipsApi,
 	emotes: EmoteWheel.WheelApi,
+	pings: PingWheel.WheelApi,
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -96,6 +98,7 @@ function Hud.create(): HudApi
 		musicMuted = startMusicMuted == true,
 	})
 	local emotes = EmoteWheel.create(gui)
+	local pings = PingWheel.create(gui)
 	local help = HelpPanel.create(gui)
 	local tips = TutorialTips.create(gui)
 
@@ -123,7 +126,7 @@ function Hud.create(): HudApi
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
 			banner.Text = if mine
-				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · 4 ward · 5 lens`
+				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens`
 				else "Spectating"
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
@@ -147,6 +150,7 @@ function Hud.create(): HudApi
 		help = help,
 		tips = tips,
 		emotes = emotes,
+		pings = pings,
 		banner = function(text: string)
 			banner.Text = text
 		end,
