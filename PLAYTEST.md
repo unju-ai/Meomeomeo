@@ -97,11 +97,12 @@ Same list as the in-game **?** / hold **H** panel.
 | **B** | Pawmart — **fountain only**. Not recall |
 | **F** | Recall 7s → fountain. Damage, move, AA, abilities, **S**, or **F** again cancel |
 | **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
+| **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only; cooldown. Aim at a tower/nexus/visible champ to name them |
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
 | **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes |
 | **?** or hold **H** | This help overlay |
-| Minimap click | Team ping |
+| Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
 | **A** | Engine strafe — not rebound |
 
@@ -174,6 +175,10 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex / Dance / Laugh / Cry / GG). Release or click a slice. Nearby clients see a billboard + Part bob and hear a Sound-kit cue. Server cooldown (~2.6s); no emote while down. **SFX → Mute others' emotes** skips their cues (billboard still shows). No animation binaries.
 
+## 8f. Smart pings
+
+Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap click stays generic **Attention**. Markers + a short line go to **teammates only** (fog: unseen enemy champs are not named). Server cooldown ~1.25s. Minimap keeps a short history flash of recent pings.
+
 ## 9. If something is quiet / missing
 
 - No SFX: click **Audio**, unmute SFX, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
@@ -188,6 +193,7 @@ Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex
 - Map still looks like a green slab: Rojo-sync `Server.World.MapBuilder` and replay Practice (lighting is applied on `MapBuilder.build`).
 - No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
 - No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
+- No ping wheel: Rojo-sync `PingCatalog` + `MinimapPing`. Hold **G** in Practice (not lobby). Minimap click still Attention.
 
 ## 10. Still stubbed (do not expect)
 

@@ -5,6 +5,7 @@ local Teams = game:GetService("Teams")
 local Workspace = game:GetService("Workspace")
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
+local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -28,6 +29,7 @@ local WardService = require(script.Parent.WardService)
 local MatchService = {}
 
 local current: Types.MatchSnapshot? = nil
+local lastPingAt: { [number]: number } = {}
 local phaseToken = 0
 local onMatchCleared: (() -> ())? = nil
 local nextBotId = -1001
@@ -725,7 +727,7 @@ function MatchService.init(cleared: () -> ())
 		end,
 	})
 
-	function MatchService.ping(player: Player, position: unknown): Types.TradeResult
+	function MatchService.ping(player: Player, request: unknown): Types.TradeResult
 		if not current or current.phase ~= "InProgress" then
 			return { ok = false, error = "Ping during a match." }
 		end
@@ -733,21 +735,92 @@ function MatchService.init(cleared: () -> ())
 		if not matchPlayer then
 			return { ok = false, error = "You are not in this match." }
 		end
-		if typeof(position) ~= "Vector3" then
+
+		local now = os.clock()
+		local previous = lastPingAt[player.UserId]
+		local cooldown = Config.Pings.CooldownSeconds
+		if previous and now - previous < cooldown then
+			return { ok = false, error = "Ping cooling down." }
+		end
+
+		local kind = "Attention"
+		local dest: Vector3? = nil
+		local objectiveId: string? = nil
+		local targetUserId: number? = nil
+		if typeof(request) == "Vector3" then
+			dest = request :: Vector3
+		elseif typeof(request) == "table" then
+			local body = request :: any
+			if PingCatalog.get(body.kind) then
+				kind = body.kind
+			end
+			if typeof(body.position) == "Vector3" then
+				dest = body.position
+			end
+			if typeof(body.objectiveId) == "string" then
+				objectiveId = body.objectiveId
+			end
+			if typeof(body.targetUserId) == "number" then
+				targetUserId = body.targetUserId
+			end
+		else
 			return { ok = false, error = "Need a map point." }
 		end
-		local dest = position :: Vector3
+
+		local targetName: string? = nil
+		if objectiveId then
+			local objective = current.objectives[objectiveId]
+			if objective then
+				targetName = `{objective.team} {objective.lane} {objective.kind}`
+				local part = MapBuilder.getObjectivePart(objectiveId)
+				if part then
+					dest = part.Position
+				end
+			end
+		end
+		if targetUserId then
+			if VisionService.canSeeChampion(player.UserId, targetUserId) then
+				local other = current.players[tostring(targetUserId)]
+				if other then
+					local champ = if other.championId then ChampionCatalog.get(other.championId) else nil
+					targetName = if champ then champ.name else other.displayName
+					local root = CombatService.rootOf(targetUserId)
+					if root then
+						dest = root.Position
+					end
+				end
+			else
+				-- Fog: do not name or snap to an unseen champ.
+				targetUserId = nil
+			end
+		end
+
+		if typeof(dest) ~= "Vector3" then
+			return { ok = false, error = "Need a map point." }
+		end
 		local bounds = Constants.MapBounds
-		dest = Vector3.new(
-			math.clamp(dest.X, bounds.MinX, bounds.MaxX),
+		local point = dest :: Vector3
+		point = Vector3.new(
+			math.clamp(point.X, bounds.MinX, bounds.MaxX),
 			4,
-			math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
+			math.clamp(point.Z, bounds.MinZ, bounds.MaxZ)
 		)
+
+		local def = PingCatalog.get(kind)
+		local line = if def then def.line else "Attention"
+		local text = if targetName
+			then `{matchPlayer.displayName}: {line} · {targetName}`
+			else `{matchPlayer.displayName}: {line}`
+
+		lastPingAt[player.UserId] = now
 		local payload: Types.PingPayload = {
 			userId = player.UserId,
 			team = matchPlayer.team,
-			position = dest,
+			kind = (if def then def.id else "Attention") :: Types.PingKind,
+			position = point,
 			at = Workspace:GetServerTimeNow(),
+			text = text,
+			targetName = targetName,
 		}
 		for _, other in Players:GetPlayers() do
 			local otherMatch = current.players[tostring(other.UserId)]
@@ -759,6 +832,7 @@ function MatchService.init(cleared: () -> ())
 	end
 
 	Players.PlayerRemoving:Connect(function(player)
+		lastPingAt[player.UserId] = nil
 		if not current then
 			return
 		end

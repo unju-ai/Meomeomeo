@@ -25,11 +25,12 @@ local LINES: { { string } } = {
 	{ "B", "Pawmart at fountain — not recall" },
 	{ "F", "Recall 7s to fountain (damage cancels)" },
 	{ "T", "Hold emote wheel · release or click" },
+	{ "G", "Hold ping wheel · minimap click = Attention" },
 	{ "Tab", "Hold scoreboard" },
 	{ "V", "Toggle follow camera" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
-	{ "Minimap", "Click to ping teammates" },
+	{ "Minimap", "Click Attention ping (team-only)" },
 	{ "Talk", "Fountain / jungle cats" },
 	{ "Practice", "Easy / Normal / Hard (Hard dodges + lens)" },
 	{ "Tips", "First Practice cards · replay from lobby" },
@@ -50,7 +51,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 	root.Name = "HelpPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0, 16, 0.48, 0)
-	root.Size = UDim2.fromOffset(320, 488)
+	root.Size = UDim2.fromOffset(320, 510)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 28

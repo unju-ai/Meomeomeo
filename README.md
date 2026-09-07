@@ -22,6 +22,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), line skillshots / dash indicators, destroyable enemy wards
+- Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
@@ -374,7 +375,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting, emote catalog
+src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting, emote catalog, ping catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -399,7 +400,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
-5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
+5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`).
 8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
