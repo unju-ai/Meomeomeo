@@ -400,7 +400,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
-5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
+5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`).
 8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
