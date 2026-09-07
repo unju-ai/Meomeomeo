@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 
+local Music = require(script.Audio.Music)
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
 local CombatFx = require(script.Juice.CombatFx)
@@ -26,13 +27,17 @@ local player = Players.LocalPlayer
 local hud = Hud.create()
 ScreenJuice.init(hud.gui)
 local muteOthersEmotes = false
-hud.settings.onChange(function(volume: number, muted: boolean, muteOthers: boolean)
-	Sfx.setVolume(volume)
-	Sfx.setMuted(muted)
-	muteOthersEmotes = muteOthers
-	player:SetAttribute("MeoSfxVolume", volume)
-	player:SetAttribute("MeoSfxMuted", muted)
-	player:SetAttribute("MeoMuteOthersEmotes", muteOthers)
+hud.settings.onChange(function(state)
+	Sfx.setVolume(state.sfxVolume)
+	Sfx.setMuted(state.sfxMuted)
+	Music.setVolume(state.musicVolume)
+	Music.setMuted(state.musicMuted)
+	muteOthersEmotes = state.muteOthersEmotes
+	player:SetAttribute("MeoSfxVolume", state.sfxVolume)
+	player:SetAttribute("MeoSfxMuted", state.sfxMuted)
+	player:SetAttribute("MeoMuteOthersEmotes", state.muteOthersEmotes)
+	player:SetAttribute("MeoMusicVolume", state.musicVolume)
+	player:SetAttribute("MeoMusicMuted", state.musicMuted)
 end)
 
 local latestMatch: Types.MatchSnapshot? = nil
@@ -83,6 +88,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
 	hud.applyPhase(latestMatch, player.UserId)
+	Music.setPhase(latestMatch.phase)
 	hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
 	refreshBars()
 	if latestMatch.phase == "InProgress" then
@@ -330,6 +336,7 @@ Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
 	hud.lobby.updateQueue(queue)
 	if queue.phase == "Found" then
 		Sfx.play("MatchFound")
+		Music.duck(1.8)
 		toast("Match found!")
 	elseif queue.phase == "Teleporting" then
 		toast("Teleporting to the rift…")
@@ -387,6 +394,9 @@ Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
 		local cue = Sfx.cueForFeed(feed.kind)
 		if cue then
 			Sfx.play(cue)
+		end
+		if feed.kind == "nexus" then
+			Music.duck(2.2)
 		end
 		if feed.kind == "tower" then
 			ScreenJuice.shakeTower()

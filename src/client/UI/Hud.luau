@@ -86,12 +86,15 @@ function Hud.create(): HudApi
 	local startVolume = player:GetAttribute("MeoSfxVolume")
 	local startMuted = player:GetAttribute("MeoSfxMuted")
 	local startMuteOthers = player:GetAttribute("MeoMuteOthersEmotes")
-	local settings = SettingsPanel.create(
-		gui,
-		if typeof(startVolume) == "number" then startVolume :: number else 0.8,
-		startMuted == true,
-		startMuteOthers == true
-	)
+	local startMusic = player:GetAttribute("MeoMusicVolume")
+	local startMusicMuted = player:GetAttribute("MeoMusicMuted")
+	local settings = SettingsPanel.create(gui, {
+		sfxVolume = if typeof(startVolume) == "number" then startVolume :: number else 0.8,
+		sfxMuted = startMuted == true,
+		muteOthersEmotes = startMuteOthers == true,
+		musicVolume = if typeof(startMusic) == "number" then startMusic :: number else 0.35,
+		musicMuted = startMusicMuted == true,
+	})
 	local emotes = EmoteWheel.create(gui)
 	local help = HelpPanel.create(gui)
 	local tips = TutorialTips.create(gui)

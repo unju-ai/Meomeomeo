@@ -27,7 +27,7 @@ local LINES: { { string } } = {
 	{ "T", "Hold emote wheel · release or click" },
 	{ "Tab", "Hold scoreboard" },
 	{ "V", "Toggle follow camera" },
-	{ "SFX", "Volume / mute (top-right)" },
+	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
 	{ "Minimap", "Click to ping teammates" },
 	{ "Talk", "Fountain / jungle cats" },
@@ -41,7 +41,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 
 	local button = Theme.button(parent, "HelpButton", "?", Theme.mint)
 	button.AnchorPoint = Vector2.new(1, 0)
-	button.Position = UDim2.new(1, -76, 0, 96)
+	button.Position = UDim2.new(1, -80, 0, 96)
 	button.Size = UDim2.fromOffset(40, 40)
 	button.TextSize = 20
 	button.ZIndex = 30
