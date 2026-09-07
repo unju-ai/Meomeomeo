@@ -26,8 +26,8 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **SFX** slider, hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
-- Lightweight client SFX + screen juice (hit flash, level-up pop, tower/nexus shake)
+- Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music) sliders, hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
+- Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
 - Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
@@ -70,7 +70,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
-- **SFX** (top-right, under voice) — master volume and mute. Sounds are placeholders (`rbxasset://sounds/…`); swap ids in `src/client/Audio/SoundIds.luau`.
+- **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
 - **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release to fire → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
@@ -312,6 +312,21 @@ Cues live in `src/client/Audio/SoundIds.luau`. Defaults are Roblox engine builti
 
 **Swap for real assets:** upload to Creator Store → copy the numeric id → set `id = "rbxassetid://YOUR_ID"` on that cue. Tweak `volume` / `playbackSpeed` in the same table. Mute and master volume go through `SoundService.MeoSfx` (`SoundGroup`). Session slider values sit on the local player as `MeoSfxVolume` / `MeoSfxMuted`.
 
+### Music beds
+
+`src/client/Audio/Music.luau` loops a quiet bed per match phase and **crossfades ~1s** (no hard cuts). Default Music master is **0.35** (SFX is 0.8). Group: `SoundService.MeoMusic`. Slider: `MeoMusicVolume` / `MeoMusicMuted`.
+
+| Bed | Phase | Placeholder | Mood knob |
+| --- | --- | --- | --- |
+| `Lobby` | Lobby | `rbxasset://sounds/action_get_up.mp3` @ 0.52 | Cozy / slow |
+| `ChampionSelect` | Champion select | same file @ 0.82 | Anticipation |
+| `InProgress` | Match | same file @ 1.08 | Low underscore |
+| `Ended` | End screen | same file @ 0.40 | Wind-down |
+
+Those four `id`s are **placeholders** (one engine loop, four speeds). Replace each `MusicIds` row with a real looped `rbxassetid://…` and keep `volume` low so SFX / emotes stay on top. MatchFound and nexus kill-feed stingers **duck** the bed briefly (`Music.duck`).
+
+Emote SFX still use `MeoSfx` — music mute does not silence them.
+
 Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, `LEVEL n!` pop, `CameraFollow.shake` on tower/nexus.
 
 ## Champion looks (placeholders)
@@ -383,7 +398,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 1. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues with original meows; optional music beds. Uploaded emote poses instead of Part bob.
+4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`).

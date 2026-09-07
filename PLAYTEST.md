@@ -99,7 +99,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
-| **SFX** (top-right) | Master volume + mute + mute others' emotes |
+| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Team ping |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
@@ -152,7 +152,11 @@ Also for a live place:
 
 ## 8. Audio placeholders
 
-`src/client/Audio/SoundIds.luau` uses engine `rbxasset://sounds/…` so git stays binary-free. Swap any cue to `rbxassetid://YOUR_ID` after a Creator Store upload. Mute from the **SFX** panel.
+`src/client/Audio/SoundIds.luau` (SFX) and `src/client/Audio/MusicIds.luau` (phase beds) use engine `rbxasset://sounds/…` so git stays binary-free. Swap any `id` to `rbxassetid://YOUR_ID` after a Creator Store upload.
+
+**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
+
+The current beds reuse `action_get_up.mp3` at different speeds — placeholders only. See README "Audio & juice".
 
 ## 8b. Champion looks (placeholders)
 
@@ -172,7 +176,8 @@ Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex
 
 ## 9. If something is quiet / missing
 
-- No SFX: click **SFX**, unmute, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
+- No SFX: click **Audio**, unmute SFX, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
+- No music: **Audio → unmute Music**, slider > 0. Placeholder bed is a quiet loop of `action_get_up.mp3`; swap `MusicIds` for a real loop. Phase change should crossfade, not cut.
 - Mint says Memory: enable Studio API Services.
 - Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
@@ -186,4 +191,4 @@ Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex
 
 ## 10. Still stubbed (do not expect)
 
-Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX/music, compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.
+Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.
