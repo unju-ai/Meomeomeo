@@ -336,7 +336,11 @@ local function makeHost(parent: Instance, host: BrandCatalog.HostDef, position: 
 
 	-- Placeholder art-toy silhouette. Non-colliding so the lobby cast cannot block a lane.
 	local function detail(name: string, size: Vector3, offset: Vector3, color: Color3): Part
-		return part(model, name, size, CFrame.new(position + offset), color, { CanCollide = false })
+		return part(model, name, size, CFrame.new(position + offset), color, {
+			CanCollide = false,
+			CanTouch = false,
+			CanQuery = false,
+		})
 	end
 	local body = detail("Body", Vector3.new(3.4, 4.2, 2.8), Vector3.new(0, 2.1, 0), host.color)
 	body.Shape = Enum.PartType.Ball

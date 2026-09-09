@@ -1,6 +1,6 @@
 # One Meo Meo Meo universe
 
-Integrated 6 September 2026 against `main` at `25ea699ceae491f5bad72d2c1c60b897c3e2cfe3`.
+Integrated 9 September 2026 against `main` at `49bf1ae2858a4f9bf102dd8bdd833a3aaa628d3c` (through PR #24). Reconciles the subsequent map-art, champion-look, matchmaking, tutorial, audio, emote, ping, persistence and SIWE work.
 
 The Roblox MOBA is the playable world. The talking-cat channel follows its inhabitants. The proposed Robinhood Chain asset shares that identity. This supersedes the earlier assumption that we were starting with only a comedy channel and choosing a game later.
 
@@ -17,6 +17,8 @@ The Roblox MOBA is the playable world. The talking-cat channel follows its inhab
 - Pawmart clerks, Old Tom and Kitty Caster, with authored mock replies and an optional HTTP provider.
 - Voice integration with fallbacks; it does not supply NPC spoken audio by itself.
 - Simulated champion tickers and yarn, independent of blockchain prices.
+- Night-market map art, data-driven champion silhouettes, Hard bots, reserved-server-ready queues, first-Practice tips, T emotes, G smart pings, phase music and persisted settings.
+- DataStore-backed entitlements and wallet records with memory fallback; SIWE challenge/verify code and a claim verification gate. Hosted verification remains a prototype with process-local nonce state.
 - Custom hybrid Meo404 Solidity code and a stub claim bridge. Neither is evidence of a live chain deployment, liquid market, equity entitlement or Roblox approval.
 
 ## The trio belongs beside the champions
@@ -39,7 +41,7 @@ Keep each speaker recognizable by sentence rhythm. MEO makes a concrete claim. M
 
 The approved reference uses matte sculptural surfaces, restrained palettes, wide-set eyes, tiny mouths and a cobalt square on the hosts' foreheads. The generated character sheet is a model reference, not a mesh, rig or texture atlas. The runtime hosts are simple geometric stand-ins.
 
-Use this art language for lobby scenes, portraits, channel close-ups and collectible illustrations. During combat, prioritize team colors, role silhouettes, facing direction and ability telegraphs. The forehead square identifies the trio; do not put the same bright square on every champion and erase distinctions.
+Use this art language for lobby scenes, portraits, channel close-ups and collectible illustrations. The game's existing night-market setting supplies the environment: warm lanterns, blue river, gold lane detail and team-colored fountains. Use restrained daylight/ivory for editorial portraits and warm night-market lighting for game-world stories; material and expressions connect the two. During combat, prioritize team colors, role silhouettes, facing direction and ability telegraphs. The forehead square identifies the trio; do not put the same bright square on every champion and erase distinctions.
 
 Preserve the existing roster's identities:
 
@@ -60,7 +62,7 @@ Preserve the existing roster's identities:
 | Shadowpounce | Low narrow silhouette and a strong pounce direction |
 | Mindwhisker | Suspended small objects suggesting telekinesis |
 
-These are art briefs, not new abilities or balance changes. Current champion colors and Q/W/E/R data remain the gameplay authority.
+These are polish briefs, not replacement silhouettes or new abilities. `ChampionLooks.luau` and `ChampionAppearance.luau` are the existing appearance authority: retain Chairman's collar/bowtie, Nyan's rocket/rainbow tail, Chonk's armor/visor, Professor's glasses/mortarboard, Scammy's shades/fedora, Grandma's glasses/shawl/bun, and the eight archetypes' existing flair. Any proposed new prop must fit those recipes rather than silently replace them. `ChampionCatalog.luau` remains the ability/balance authority.
 
 Palette for marketing and portraits: ivory `#F3EFE5`, charcoal `#252725`, orange `#E88845`, celadon `#B7C9BB`, salmon `#D9A69B`, cobalt `#3154D5`. Keep the current HUD's Blue/Red team semantics. Do not recolor combat UI merely to match an editorial board.
 
@@ -81,6 +83,18 @@ Production rule: 12–20 seconds is a starting hypothesis, not a platform requir
 
 ## Collectible direction
 
+### Existing systems to reuse
+
+| Existing hook | Creative use | Boundary |
+|---|---|---|
+| `EmoteCatalog` + T wheel | Capture Meow, Hiss, Purr, Flex, Dance, Laugh, Cry and GG as reaction clips | Retain emote IDs, cooldowns and current motion/audio cues |
+| `PingCatalog` + G wheel | “MEO's thoughts are not automatically broadcast” becomes a team-communication joke | Keep pings useful, readable and team-only |
+| `MusicIds` + SFX settings | Place the original meo vocal motif in a future lobby/draft bed; stage approved asset IDs there | Respect existing Music/SFX sliders; do not autoplay the animatic voice track in combat |
+| First-Practice tips | Let ME's channel jokes reinforce the actual controls | Reuse the existing tip system instead of creating a second tutorial |
+| `ChampionLooks` | Derive portraits and cameo art from the exact current fur/flair recipes | No cosmetic override of team cues or collision geometry |
+
+These hooks are production guidance. This branch implements the shared host catalog, lobby copy, NPC entries and host models, not replacement sound assets or a new emote system.
+
 Study 24 portraits: three hosts × eight emotional states. Publish neither supply nor rarity percentages until the final selection is settled. Tie artwork to recognizable episode moments, then expand toward champion art after visual development. A collector should want the image without needing to see a rarity label.
 
 For the current hybrid contract, a persistent token ID is not guaranteed through fungible transfers: sender NFTs can burn and recipient NFTs can be created with new IDs. A self-transfer can also recycle IDs in the current implementation. Therefore, do not promise that holding/trading the fungible asset preserves a specific rare portrait. The contract also uses growing IDs rather than a fixed 24-ID art universe. Resolve metadata assignment, supply, exemptions, and rare-art preservation before selecting production economics.
@@ -99,8 +113,10 @@ Images were generated with the built-in imagegen tool. The animatic edits static
 
 ## Validation and next production steps
 
-`python3 tools/test-brand.py /path/to/luau` syntax-compiles `src` when a sibling `luau-compile` is available and runs host/NPC/roster/UI smoke checks with a small engine stub. This validates logic, not Roblox rendering, networking, text filtering, or HTTP-provider behavior.
+`python3 tools/test-brand.py /path/to/luau` syntax-compiles `src` when a sibling `luau-compile` is available and runs host/NPC/roster/UI smoke checks with a small engine stub. On the integrated revision, all 68 Luau files compile and the smoke checks pass, including retained Hard difficulty, tips, party entry and reserved-queue status. This validates logic, not Roblox rendering, networking, text filtering, or HTTP-provider behavior.
+
+The integration also fixes two startup blockers found during validation: `Theme.stroke` was both a color and a function, causing button borders to receive a function; the newer CombatFx and EmoteFx modules used Luau's reserved word `until` as a field identifier, preventing parsing. The color is now `strokeColor`, and the effect timers use `expiresAt`; timing behavior is unchanged.
 
 Studio checklist: verify three hosts at the lobby, read each Talk prompt, confirm the authored voices differ, ensure all 14 draft entries remain, start practice, verify hosts do not obstruct movement, and complete the existing nexus loop. Check phone and desktop UI layouts. This pass has not been playtested in Roblox Studio.
 
-Next: replace host primitives with approved meshes; capture a real match for visual alignment; make a champion model sheet; record the Options cast; decide the exact external financial product before implementing its integration. Existing NPC/HTTP text moderation and receipt persistence are separate production work, not solved by this concept merge.
+Next: replace host primitives with approved meshes; capture a real match for visual alignment; make a champion model sheet from `ChampionLooks`; record the Options cast; decide the exact external financial product before implementing its integration. Existing NPC/HTTP text moderation and production validation of receipt persistence/SIWE are separate work, not solved by this concept merge.

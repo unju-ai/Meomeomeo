@@ -1,6 +1,6 @@
 # Robinhood Chain pairing — integration status
 
-6 September 2026. Product intent: pair the Meo Meo Meo universe with a meme-stock/asset on Robinhood Chain. The exact instrument, issuer/platform, ticker, contract address and pairing mechanism remain to be confirmed. This document does not authorize or announce a launch.
+9 September 2026, code reconciled through `49bf1ae` (PR #24); network/platform references checked 6 September. Product intent: pair the Meo Meo Meo universe with a meme-stock/asset on Robinhood Chain. The exact instrument, issuer/platform, ticker, contract address and pairing mechanism remain to be confirmed. This document does not authorize or announce a launch.
 
 ## Three systems currently mean different things
 
@@ -28,7 +28,7 @@ Deploying on that network is separate from a Robinhood trading-app listing. Robi
 
 The current Meo404 interface needs compatibility review before any wallet/marketplace/DEX claim: `balanceOf` counts fungible units, NFT transfer/approval/event names differ from ERC-721, and `supportsInterface` nevertheless advertises ERC-721. Its automatic NFT synchronization has no pool exemption and iterates across whole-token counts. Its metadata IDs grow as tokens move, and minting has no fixed supply cap. These are direct code observations, not an audit of the complete contract.
 
-The bridge is also a prototype: the ledger and wallet links are in memory, ownership proof is a TODO, the TypeScript handler delegates verification and minting to injected functions, and no hosted server is started by this repo. Keep its mock status visible in technical documentation.
+The latest game now persists entitlements and wallet verification records through DataStore with a memory fallback. The hosted prototype implements SIWE challenge/verify and rejects unverified wallets unless a mock bypass is enabled. This supersedes the earlier in-memory-only/ownership-proof-TODO assessment. Remaining integration work includes durable hosted nonce/verification storage, verification bound to the intended user and claim, entitlement revalidation, mint submission/finality, and reliable failure recovery. The handler still delegates entitlement checks and minting to injected functions, and the repository does not start a hosted HTTP server. `SIWE_CHAIN_ID` currently defaults to Ethereum's `1`; choose and validate the intended Robinhood Chain network in the hosted service before testing its integration. A signature check alone does not establish financial rights or platform approval.
 
 ## Roblox boundary
 

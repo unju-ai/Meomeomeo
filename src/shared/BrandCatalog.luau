@@ -45,6 +45,7 @@ local HOSTS: { HostDef } = {
 			"F recalls. B opens Pawmart at the fountain. We had a meeting about this.",
 			"Press 4 to place a ward when it is ready. The fog is not going to explain itself.",
 			"Take all three enemy towers before their nexus. Yes, all three.",
+			"Hold G to choose a team ping. MEO's thoughts are not automatically broadcast.",
 		},
 	},
 	{

@@ -52,4 +52,16 @@ assert(lobby.root:FindFirstChild("Queue").Visible == false)
 lobby.setQueued(false)
 assert(lobby.root:FindFirstChild("Queue").Visible == true)
 assert(lobby.difficulty() == "Normal")
+lobby.setDifficulty("Hard")
+assert(lobby.difficulty() == "Hard", "Latest Hard difficulty must survive the merge")
+assert(lobby.root:FindFirstChild("Practice").Text == "Practice vs 3 bots (Hard)")
+assert(lobby.root:FindFirstChild("ShowTips") ~= nil, "Latest tutorial entry must survive")
+assert(lobby.root:FindFirstChild("Invite") ~= nil, "Latest party entry must survive")
+lobby.updateQueue({
+	phase = "Teleporting", mode = "Reserved", inQueue = true, count = 6,
+	needed = 6, estimatedSeconds = 0, party = { "Cat", "Friend" }, detail = "Joining match",
+})
+assert(lobby.root:FindFirstChild("Queue").Visible == false)
+assert(lobby.root:FindFirstChild("Leave").Visible == false)
+assert(lobby.root:FindFirstChild("Blurb").Text == "Joining match", "Live queue status must keep priority")
 print("PASS: host dialogue, original roster/NPCs, safe substitutions, theme buttons, lobby copy and queue state")
