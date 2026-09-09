@@ -75,10 +75,13 @@ end
 modules = [
     ("BrandCatalog", "src/shared/BrandCatalog.luau"),
     ("ChampionCatalog", "src/shared/ChampionCatalog.luau"),
+    ("ModeCatalog", "src/shared/ModeCatalog.luau"),
+    ("YarnRunCatalog", "src/shared/YarnRunCatalog.luau"),
     ("NpcCatalog", "src/server/Npcs/NpcCatalog.luau"),
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),
     ("LobbyPanel", "src/client/UI/LobbyPanel.luau"),
+    ("HubPanel", "src/client/UI/HubPanel.luau"),
     ("NpcChatPanel", "src/client/UI/NpcChatPanel.luau"),
 ]
 chunks = [prelude]

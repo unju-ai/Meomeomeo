@@ -11,6 +11,8 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 
 local Music = {}
 
+export type MusicPhase = Types.MatchPhase | "Hub" | "YarnRun"
+
 local CROSSFADE = 1
 local DEFAULT_MASTER = 0.35
 local DUCK_MUL = 0.22
@@ -21,7 +23,7 @@ local master = DEFAULT_MASTER
 local muted = false
 local duckMul = 1
 local duckGen = 0
-local currentPhase: Types.MatchPhase? = nil
+local currentPhase: MusicPhase? = nil
 local current: Sound? = nil
 local outgoing: Sound? = nil
 local fadeConn: RBXScriptConnection? = nil
@@ -68,14 +70,21 @@ local function destroySound(sound: Sound?)
 	end
 end
 
-local function bedDef(phase: Types.MatchPhase): MusicIds.BedDef?
-	if phase == "Lobby" or phase == "ChampionSelect" or phase == "InProgress" or phase == "Ended" then
+local function bedDef(phase: MusicPhase): MusicIds.BedDef?
+	if
+		phase == "Lobby"
+		or phase == "ChampionSelect"
+		or phase == "InProgress"
+		or phase == "Ended"
+		or phase == "Hub"
+		or phase == "YarnRun"
+	then
 		return MusicIds[phase]
 	end
 	return nil
 end
 
-local function makeBed(phase: Types.MatchPhase): Sound?
+local function makeBed(phase: MusicPhase): Sound?
 	local def = bedDef(phase)
 	if not def then
 		return nil
@@ -92,7 +101,7 @@ local function makeBed(phase: Types.MatchPhase): Sound?
 	return sound
 end
 
-local function crossfade(nextPhase: Types.MatchPhase)
+local function crossfade(nextPhase: MusicPhase)
 	stopFade()
 	local def = bedDef(nextPhase)
 	local incoming = makeBed(nextPhase)
@@ -144,7 +153,7 @@ function Music.setMuted(on: boolean)
 	applyMaster()
 end
 
-function Music.setPhase(phase: Types.MatchPhase)
+function Music.setPhase(phase: MusicPhase)
 	if currentPhase == phase and current and current.Parent then
 		return
 	end

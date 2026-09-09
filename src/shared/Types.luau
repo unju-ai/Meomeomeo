@@ -12,6 +12,9 @@ export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" |
 export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
 export type QueueMode = "InPlace" | "Reserved"
+export type GameMode = "Hub" | "Moba" | "YarnRun"
+export type YarnRunPhase = "Idle" | "Running" | "Dead"
+export type YarnRunnerId = "NyanRocket" | "Shadowpounce" | "ChairmanMeow"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -312,6 +315,43 @@ export type PersistMode = "DataStore" | "Memory"
 export type TutorialStatus = {
 	done: boolean,
 	persistMode: PersistMode,
+}
+
+export type ModeTileStatus = {
+	id: string,
+	playing: number,
+}
+
+export type HubStatus = {
+	mode: GameMode,
+	tiles: { ModeTileStatus },
+	yarnBest: number,
+}
+
+export type YarnRunSnapshot = {
+	phase: YarnRunPhase,
+	championId: string,
+	lane: number,
+	z: number,
+	y: number,
+	sliding: boolean,
+	jumping: boolean,
+	speed: number,
+	score: number,
+	combo: number,
+	yarn: number,
+	bestScore: number,
+	bestCombo: number,
+	seed: number,
+	meters: number,
+	event: string?,
+	failReason: string?,
+}
+
+export type YarnRunInput = {
+	lane: number?,
+	jump: boolean?,
+	slide: boolean?,
 }
 
 export type PlayerPrefs = {

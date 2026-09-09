@@ -23,6 +23,8 @@ local ShopService = require(script.Match.ShopService)
 local SettingsStore = require(script.Settings.SettingsStore)
 local TutorialStore = require(script.Tutorial.TutorialStore)
 local VoiceService = require(script.Voice.VoiceService)
+local ModeService = require(script.Mode.ModeService)
+local YarnRunService = require(script.YarnRun.YarnRunService)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -50,6 +52,23 @@ MatchmakingService.init()
 AiChatService.init(MatchService.snapshot)
 VoiceService.init()
 EmoteService.init()
+ModeService.init({
+	matchBusy = function()
+		return MatchService.isBusy()
+	end,
+	riftPlaying = function()
+		local n = 0
+		for _, player in Players:GetPlayers() do
+			if ModeService.is(player, "Moba") then
+				n += 1
+			end
+		end
+		return n
+	end,
+	yarnPlaying = function()
+		return YarnRunService.playingCount()
+	end,
+})
 
 local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
 	local queue = MatchmakingService.statusFor(player)
@@ -76,6 +95,9 @@ local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types
 end
 
 Remotes.function_("QueueMatch").OnServerInvoke = function(player: Player)
+	if YarnRunService.isPlaying(player) then
+		return { ok = false, error = "Leave Yarn Run before queueing the Rift." }
+	end
 	local result = MatchmakingService.queue(player)
 	Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 	return result
@@ -94,6 +116,9 @@ Remotes.function_("InviteParty").OnServerInvoke = function(player: Player, targe
 end
 
 Remotes.function_("StartPractice").OnServerInvoke = function(player: Player, difficulty: unknown)
+	if YarnRunService.isPlaying(player) then
+		return { ok = false, error = "Leave Yarn Run before Practice." }
+	end
 	return MatchmakingService.practice(player, difficulty)
 end
 
@@ -229,6 +254,29 @@ Remotes.function_("GetSettings").OnServerInvoke = function(player: Player)
 	return prefs
 end
 
+Remotes.function_("GetHubStatus").OnServerInvoke = function(player: Player)
+	return ModeService.status(player)
+end
+
+Remotes.function_("StartYarnRun").OnServerInvoke = function(player: Player, championId: unknown)
+	if MatchmakingService.statusFor(player).inQueue then
+		MatchmakingService.leave(player)
+	end
+	return YarnRunService.start(player, championId)
+end
+
+Remotes.function_("YarnRunInput").OnServerInvoke = function(player: Player, payload: unknown)
+	return YarnRunService.input(player, payload)
+end
+
+Remotes.function_("LeaveYarnRun").OnServerInvoke = function(player: Player)
+	return YarnRunService.leave(player)
+end
+
+Remotes.function_("RetryYarnRun").OnServerInvoke = function(player: Player)
+	return YarnRunService.retry(player)
+end
+
 Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)
 	if typeof(patch) ~= "table" then
 		return SettingsStore.get(player.UserId)
@@ -244,6 +292,11 @@ local function sendLobby(player: Player)
 		SettingsStore.applyAttributes(player, prefs)
 		local done = TutorialStore.isDone(player.UserId)
 		player:SetAttribute(Constants.Attributes.TutorialDone, done)
+		if not ModeService.is(player, "YarnRun") and not ModeService.is(player, "Moba") then
+			ModeService.set(player, "Hub")
+		else
+			ModeService.fire(player)
+		end
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 		Remotes.event("VoiceStatusChanged"):FireClient(player, VoiceService.getStatus(player))
 		Remotes.event("MintStatusChanged"):FireClient(player, MintService.getStatus(player))
@@ -253,11 +306,13 @@ end
 Players.PlayerAdded:Connect(sendLobby)
 Players.PlayerRemoving:Connect(function(player)
 	SettingsStore.clear(player.UserId)
+	YarnRunService.clear(player.UserId)
+	ModeService.clear(player.UserId)
 end)
 for _, player in Players:GetPlayers() do
 	sendLobby(player)
 end
 
 print(
-	`[Meo Meo Meo] Cat MOBA scaffold online. Queue mode={if Config.Match.MatchPlaceId > 0 then "reserved" else "in-place"} min={Config.Match.MinPlayersToStart}.`
+	`[Meo Meo Meo] Cat hub online. Queue mode={if Config.Match.MatchPlaceId > 0 then "reserved" else "in-place"} min={Config.Match.MinPlayersToStart}.`
 )

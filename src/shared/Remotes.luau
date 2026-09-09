@@ -42,7 +42,14 @@ export type RemoteName =
 	| "GetSettings"
 	| "SaveSettings"
 	| "PlayEmote"
+	| "GetHubStatus"
+	| "StartYarnRun"
+	| "YarnRunInput"
+	| "LeaveYarnRun"
+	| "RetryYarnRun"
 	| "MatchStateChanged"
+	| "ModeChanged"
+	| "YarnRunUpdated"
 	| "QueueUpdated"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -93,6 +100,11 @@ local FUNCTION_NAMES = {
 	"GetSettings",
 	"SaveSettings",
 	"PlayEmote",
+	"GetHubStatus",
+	"StartYarnRun",
+	"YarnRunInput",
+	"LeaveYarnRun",
+	"RetryYarnRun",
 }
 
 local EVENT_NAMES = {
@@ -109,6 +121,8 @@ local EVENT_NAMES = {
 	"QueueUpdated",
 	"CombatFx",
 	"EmotePlayed",
+	"ModeChanged",
+	"YarnRunUpdated",
 }
 
 local function getFolder(): Folder

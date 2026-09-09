@@ -19,6 +19,7 @@ export type LobbyApi = {
 	onInvite: (() -> ()) -> (),
 	onShowTips: (() -> ()) -> (),
 	onDifficulty: ((difficulty: Types.BotDifficulty) -> ()) -> (),
+	onBack: (() -> ()) -> (),
 	setDifficulty: (difficulty: Types.BotDifficulty) -> (),
 	difficulty: () -> Types.BotDifficulty,
 }
@@ -35,8 +36,14 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	Theme.stroke(root, Theme.peach, 3, 0.15)
 	Theme.pad(root, 22)
 
-	local title = Theme.text(root, "Title", BrandCatalog.Name, 32, Theme.amber, Theme.fontTitle)
-	title.Size = UDim2.new(1, -120, 0, 40)
+	local backBtn = Theme.button(root, "BackHub", "← Hub", Theme.peach)
+	backBtn.Position = UDim2.fromOffset(0, 4)
+	backBtn.Size = UDim2.fromOffset(88, 32)
+	backBtn.TextSize = 14
+
+	local title = Theme.text(root, "Title", "CAT RIFT", 32, Theme.amber, Theme.fontTitle)
+	title.Size = UDim2.new(1, -220, 0, 40)
+	title.Position = UDim2.fromOffset(96, 0)
 	title.TextXAlignment = Enum.TextXAlignment.Center
 
 	local tipsBtn = Theme.button(root, "ShowTips", "Show tips", Theme.cream)
@@ -118,6 +125,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local inviteHandler: (() -> ())? = nil
 	local tipsHandler: (() -> ())? = nil
 	local difficultyHandler: ((Types.BotDifficulty) -> ())? = nil
+	local backHandler: (() -> ())? = nil
 
 	local function paintDifficulty()
 		easyBtn.BackgroundColor3 = if difficulty == "Easy" then Theme.mint else Theme.peach
@@ -219,6 +227,11 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 			tipsHandler()
 		end
 	end)
+	backBtn.MouseButton1Click:Connect(function()
+		if backHandler then
+			backHandler()
+		end
+	end)
 
 	return {
 		root = root,
@@ -262,6 +275,9 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onDifficulty = function(fn)
 			difficultyHandler = fn
+		end,
+		onBack = function(fn)
+			backHandler = fn
 		end,
 		setDifficulty = function(nextDifficulty: Types.BotDifficulty)
 			if nextDifficulty ~= "Easy" and nextDifficulty ~= "Normal" and nextDifficulty ~= "Hard" then
