@@ -8,6 +8,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared:WaitForChild("Constants"))
 local Types = require(Shared:WaitForChild("Types"))
+local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
 
 local MapBuilder = {}
 
@@ -328,6 +329,41 @@ local function brushPocket(parent: Instance, name: string, position: Vector3, si
 	})
 end
 
+local function makeHost(parent: Instance, host: BrandCatalog.HostDef, position: Vector3)
+	local model = Instance.new("Model")
+	model.Name = host.id
+	model.Parent = parent
+
+	-- Placeholder art-toy silhouette. Non-colliding so the lobby cast cannot block a lane.
+	local function detail(name: string, size: Vector3, offset: Vector3, color: Color3): Part
+		return part(model, name, size, CFrame.new(position + offset), color, { CanCollide = false })
+	end
+	local body = detail("Body", Vector3.new(3.4, 4.2, 2.8), Vector3.new(0, 2.1, 0), host.color)
+	body.Shape = Enum.PartType.Ball
+	model.PrimaryPart = body
+	detail("EarL", Vector3.new(0.6, 0.9, 0.6), Vector3.new(-1, 3.9, 0), host.color)
+	detail("EarR", Vector3.new(0.6, 0.9, 0.6), Vector3.new(1, 3.9, 0), host.color)
+	for _, side in { -1, 1 } do
+		local eyeY = if host.id == "HostMo" and side == 1 then 2.7 else 2.6
+		local eye = detail(`Eye{side}`, Vector3.new(0.32, 0.32, 0.2), Vector3.new(side * 0.8, eyeY, -1.24), BrandCatalog.PaperColor)
+		eye.Shape = Enum.PartType.Ball
+		local pupil = detail(`Pupil{side}`, Vector3.new(0.12, 0.12, 0.08), Vector3.new(side * 0.8, eyeY, -1.36), BrandCatalog.InkColor)
+		pupil.Shape = Enum.PartType.Ball
+	end
+	detail("Mouth", Vector3.new(0.32, 0.06, 0.08), Vector3.new(0, 2.1, -1.4), Color3.fromRGB(8, 8, 8))
+	detail("Braincell", Vector3.new(0.3, 0.3, 0.1), Vector3.new(0, 3.2, -1.15), BrandCatalog.BraincellColor)
+	body:SetAttribute(Constants.Attributes.NpcId, host.id)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = "Talk"
+	prompt.ObjectText = host.name
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 16
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = body
+	billboard(body, host.name, BrandCatalog.PaperColor)
+end
+
 function MapBuilder.build(): Folder
 	local existing = Workspace:FindFirstChild(Constants.MapFolderName)
 	if existing then
@@ -452,6 +488,9 @@ function MapBuilder.build(): Folder
 	makeCatNpc(npcs, "PawmartRed", "Pawmart Clerk", Vector3.new(160, 0, -18), Color3.fromRGB(240, 200, 120))
 	makeCatNpc(npcs, "OldTom", "Old Tom", Vector3.new(-40, 0, -100), Color3.fromRGB(160, 140, 120))
 	makeCatNpc(npcs, "KittyCaster", "Kitty Caster", Vector3.new(0, 0, 24), Color3.fromRGB(80, 80, 90))
+	for index, host in BrandCatalog.hosts() do
+		makeHost(npcs, host, Vector3.new((index - 2) * 9, 1.2, 12))
+	end
 
 	root:SetAttribute("Built", true)
 	root:SetAttribute("LobbySpawn", lobbySpawn.Name)

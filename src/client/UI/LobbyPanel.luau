@@ -2,6 +2,7 @@
 
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 
 local LobbyPanel = {}
 
@@ -34,7 +35,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	Theme.stroke(root, Theme.peach, 3, 0.15)
 	Theme.pad(root, 22)
 
-	local title = Theme.text(root, "Title", "MEO MEO MEO", 36, Theme.amber, Theme.fontTitle)
+	local title = Theme.text(root, "Title", BrandCatalog.Name, 32, Theme.amber, Theme.fontTitle)
 	title.Size = UDim2.new(1, -120, 0, 40)
 	title.TextXAlignment = Enum.TextXAlignment.Center
 
@@ -44,7 +45,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	tipsBtn.Size = UDim2.fromOffset(112, 32)
 	tipsBtn.TextSize = 14
 
-	local subtitle = Theme.text(root, "Sub", "A cat MOBA. Lanes, nexuses, voice, chaos.", 16, Theme.cream, Theme.fontBody)
+	local subtitle = Theme.text(root, "Sub", BrandCatalog.GameLine, 16, Theme.cream, Theme.fontBody)
 	subtitle.Position = UDim2.fromOffset(0, 44)
 	subtitle.Size = UDim2.new(1, 0, 0, 22)
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -62,7 +63,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local blurb = Theme.text(
 		root,
 		"Blurb",
-		"Queue for a real match (in-place until MatchPlaceId is set). Practice: Easy / Normal / Hard bots.",
+		"Pick a cat. Three towers, then the nexus. Practice with Easy / Normal / Hard bots, or queue with friends. Meet MEO, ME and MO by the lobby.",
 		13,
 		Theme.cream,
 		Theme.fontBody

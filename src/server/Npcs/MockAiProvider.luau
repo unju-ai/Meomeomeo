@@ -1,6 +1,7 @@
 --!strict
 
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 
 export type ChatContext = {
 	npc: Types.NpcDef,
@@ -42,13 +43,19 @@ local FALLBACK = {
 local MockAiProvider = {}
 
 function MockAiProvider.complete(message: string, context: ChatContext): string
-	local pool = LINES[context.npc.id] or FALLBACK
+	local host = BrandCatalog.host(context.npc.id)
+	local pool = if host then host.lines else LINES[context.npc.id] or FALLBACK
 	local template = pool[(string.len(message) % #pool) + 1] or FALLBACK[1]
 	local reply = template
-		:gsub("{name}", context.playerName)
-		:gsub("{champ}", context.championName or "a mystery cat")
-		:gsub("{phase}", context.phase)
-		:gsub("{score}", context.scoreline)
+		:gsub("{name}", function() return context.playerName end)
+		:gsub("{champ}", function() return context.championName or "a mystery cat" end)
+		:gsub("{phase}", function() return context.phase end)
+		:gsub("{score}", function() return context.scoreline end)
+
+	-- Hosts deliver authored lines without repeating arbitrary player input.
+	if host then
+		return reply
+	end
 
 	local clipped = string.sub(message, 1, 42)
 	return `{reply} (re: "{clipped}{if string.len(message) > 42 then "…" else ""}")`
