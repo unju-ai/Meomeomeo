@@ -1,8 +1,8 @@
 # Meo Meo Meo
 
-A **cat-themed MOBA** for Roblox — every champion and NPC is a cat, lanes and nexuses are the core loop, and **voice chat is first-class**.
+A **night-market cat game hub** for Roblox. The lobby is a **mode-select grid** (yarn/coral stalls, Meo branding — not a Fortnite Discover clone). **Cat Rift** is the 3-lane MOBA. **Yarn Run** is a streamable infinite 3-lane dash. More stalls are Coming Soon.
 
-Players queue into a match, lock a cat champion, fight down three placeholder lanes, and try to scratch the enemy nexus to death. Teammates talk over Roblox voice (team routing when the Audio API is available). Fountain shopkeepers, a jungle coach, and a play-by-play announcer talk back through an AI chat interface that **runs on a mock provider** until you plug in a real key.
+On the Rift, every champion and NPC is a cat, lanes and nexuses are the core loop, and **voice chat is first-class**. Players queue or Practice, lock a cat, and scratch the enemy nexus. Teammates talk over Roblox voice (team routing when the Audio API is available). Fountain shopkeepers, a jungle coach, and a play-by-play announcer talk back through an AI chat interface that **runs on a mock provider** until you plug in a real key.
 
 Meme stocks are a **side system**: champion tickers drift in the HUD and bump on kills. They are not the game.
 
@@ -46,7 +46,7 @@ Full walkthrough (Practice vs Queue, Meo404 API Services, publish ids): **[PLAYT
    ```
 
 4. In Studio: create a new place (or open an existing one), click the Rojo plugin, **Connect**.
-5. Press Play. Use **Practice match** to walk the full loop alone. **?** or hold **H** lists keybinds.
+5. Press Play. You land on the **hub grid**. **Cat Rift → Practice** for the MOBA loop, or **Yarn Run** for the dash. **?** or hold **H** lists keybinds for the current stall.
 
 `default.project.json` maps:
 
@@ -60,7 +60,9 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 ### Playtest tips
 
-- **Practice match** — one player on Blue vs **3 AI cats** on Red (top / mid / bot). Lobby toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
+- **Hub** — pick **Cat Rift** (MOBA Practice/Queue) or **Yarn Run** (3-lane dash). Mint / Audio / **T** emotes / **?** stay on the chrome. Koi Pond, Yarn Party, and Meme Arcade are Soon tiles.
+- **Yarn Run** — pick Nyan / Shadow / Chairman → Play. **A/D** lanes, **Space** jump dogs, **C** slide signs, Roomba rails boost. Death card → Retry or Hub. Score is server-authoritative.
+- **Practice match** — from the Cat Rift stall: one player on Blue vs **3 AI cats** on Red (top / mid / bot). Toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). Confirmed swings show a claw flash + debounced hit spark. **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire (beam / ring / streak on confirm). Instant/self and ground AoEs still fire on press.
@@ -79,7 +81,8 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 ## How the MOBA loop works
 
 ```
-Lobby  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  End screen  →  Lobby
+Hub grid  →  Cat Rift stall  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  End screen  →  Hub
+Hub grid  →  Yarn Run  →  dash  →  summary  →  Retry / Hub
 ```
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
@@ -375,10 +378,12 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, champion catalog, champion looks, item catalog, progression, targeting, emote catalog, ping catalog
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, champion catalog, champion looks, item catalog, progression, targeting, emote catalog, ping catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
+  Mode/              Per-player Hub / Moba / YarnRun gate
+  YarnRun/           Authoritative 3-lane dash + night-market track Parts
   Match/             Matchmaking, reserved-server teleport, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
   World/             3-lane map (art pass + lighting), cat NPC placeholders, champion appearance builder, FX relay
@@ -388,7 +393,7 @@ src/server/
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
   Settings/          Audio + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
   Social/            Emote cooldown + nearby replicate
-src/client/          HUD, lobby, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
+src/client/          HUD, hub grid, lobby, Yarn Run HUD/camera, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
@@ -397,7 +402,8 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
+1. Ship a Coming Soon stall (Koi Pond fishing, Yarn Party, or Meme Arcade). Persist Yarn Run best beyond the server. Ghost replay.
+2. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 2. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
 4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.

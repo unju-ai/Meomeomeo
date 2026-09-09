@@ -25,6 +25,7 @@ local TowerService = require(script.Parent.TowerService)
 local VisionService = require(script.Parent.VisionService)
 local VoiceService = require(script.Parent.Parent.Voice.VoiceService)
 local WardService = require(script.Parent.WardService)
+local ModeService = require(script.Parent.Parent.Mode.ModeService)
 
 local MatchService = {}
 
@@ -232,7 +233,18 @@ end
 function MatchService.returnToLobby(formQueue: boolean)
 	local reserved = current ~= nil and current.reserved == true
 	local lobbyId = MatchService.lobbyPlaceId()
-	local humans = Players:GetPlayers()
+	local humans: { Player } = {}
+	if current then
+		for _, matchPlayer in current.players do
+			local person = Players:GetPlayerByUserId(matchPlayer.userId)
+			if person then
+				table.insert(humans, person)
+			end
+		end
+	end
+	if #humans == 0 then
+		humans = Players:GetPlayers()
+	end
 	phaseToken += 1
 	MinionService.stop()
 	JungleService.stop()
@@ -243,9 +255,12 @@ function MatchService.returnToLobby(formQueue: boolean)
 	CombatService.clearAll()
 	ShopService.clearAll()
 	nextBotId = -1001
-	for _, player in Players:GetPlayers() do
-		assignRobloxTeam(player, nil)
-		teleport(player, nil)
+	for _, player in humans do
+		if not ModeService.is(player, "YarnRun") then
+			assignRobloxTeam(player, nil)
+			teleport(player, nil)
+			ModeService.set(player, "Hub")
+		end
 	end
 	VoiceService.onTeamsChanged()
 	current = nil
@@ -392,6 +407,7 @@ function MatchService.start(
 			if present then
 				assignRobloxTeam(present, seat.team)
 				teleport(present, nil)
+				ModeService.set(present, "Moba")
 			end
 		end
 	end
@@ -406,6 +422,7 @@ function MatchService.start(
 		players[tostring(player.UserId)] = blankPlayer(player.UserId, player.DisplayName, team, false, nil)
 		assignRobloxTeam(player, team)
 		teleport(player, nil)
+		ModeService.set(player, "Moba")
 	end
 	local pad = if options and options.padWithBots ~= nil then options.padWithBots else nil
 	fillBots(players, practice, pad)
