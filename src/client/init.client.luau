@@ -25,6 +25,7 @@ local PingFx = require(script.Juice.PingFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
+local YarnCamera = require(script.YarnRun.YarnCamera)
 
 local player = Players.LocalPlayer
 
@@ -181,6 +182,9 @@ if loadedPrefs then
 end
 persistReady = true
 
+local gameMode: Types.GameMode = "Hub"
+local hubPage: "grid" | "moba" = "grid"
+local latestYarn: Types.YarnRunSnapshot? = nil
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
@@ -220,6 +224,34 @@ local function refreshBars()
 	end
 end
 
+local function applyShellView()
+	hud.applyShell(gameMode, hubPage, latestMatch, player.UserId)
+	if gameMode == "YarnRun" then
+		Music.setPhase("YarnRun")
+		hud.help.setContext("runner")
+		CameraFollow.setEnabled(false)
+		cameraArmed = false
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			YarnCamera.setSubject(root)
+		end
+		YarnCamera.setEnabled(true)
+	elseif gameMode == "Hub" and hubPage == "grid" and (latestMatch == nil or latestMatch.phase == "Lobby") then
+		Music.setPhase("Hub")
+		hud.help.setContext("hub")
+		YarnCamera.setEnabled(false)
+		CameraFollow.setEnabled(false)
+		cameraArmed = false
+	else
+		YarnCamera.setEnabled(false)
+		hud.help.setContext("moba")
+		if latestMatch then
+			Music.setPhase(latestMatch.phase)
+		end
+	end
+end
+
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	if snapshot == nil then
 		snapshot = Remotes.function_("GetMatchSnapshot"):InvokeServer()
@@ -228,10 +260,21 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		return
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
-	hud.applyPhase(latestMatch, player.UserId)
-	Music.setPhase(latestMatch.phase)
-	hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
+	if latestMatch.phase ~= "Lobby" then
+		gameMode = "Moba"
+		hubPage = "moba"
+	elseif gameMode == "Moba" then
+		gameMode = "Hub"
+		hubPage = "grid"
+	end
+	applyShellView()
+	if gameMode ~= "YarnRun" and latestMatch.phase ~= "Lobby" then
+		hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
+	end
 	refreshBars()
+	if gameMode == "YarnRun" then
+		return
+	end
 	if latestMatch.phase == "InProgress" then
 		hud.minimap.update(latestMatch, lastVision, player.UserId)
 		local character = player.Character
@@ -338,6 +381,50 @@ end)
 
 hud.lobby.onShowTips(function()
 	hud.tips.replay()
+end)
+
+hud.lobby.onBack(function()
+	hubPage = "grid"
+	gameMode = "Hub"
+	applyShellView()
+end)
+
+hud.hub.onPlayRift(function()
+	hubPage = "moba"
+	gameMode = "Hub"
+	applyShellView()
+end)
+
+hud.hub.onPlayRun(function(championId)
+	local result = Remotes.function_("StartYarnRun"):InvokeServer(championId)
+	if result and result.ok == false then
+		toast(result.error or "Yarn Run failed")
+		return
+	end
+	gameMode = "YarnRun"
+	applyShellView()
+end)
+
+hud.hub.onMint(function()
+	hud.mint.toggle()
+end)
+
+hud.yarn.onRetry(function()
+	local result = Remotes.function_("RetryYarnRun"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Retry failed")
+	end
+end)
+
+hud.yarn.onHub(function()
+	local result = Remotes.function_("LeaveYarnRun"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not leave Yarn Run")
+	end
+	gameMode = "Hub"
+	hubPage = "grid"
+	latestYarn = nil
+	applyShellView()
 end)
 
 hud.tips.onDismissed(function(permanent: boolean)
@@ -476,6 +563,59 @@ end)
 
 Remotes.event("MatchStateChanged").OnClientEvent:Connect(function(snapshot)
 	applySnapshot(snapshot)
+end)
+
+Remotes.event("ModeChanged").OnClientEvent:Connect(function(status)
+	if typeof(status) ~= "table" then
+		return
+	end
+	local hub = status :: Types.HubStatus
+	if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" then
+		gameMode = hub.mode
+	end
+	if gameMode == "Hub" and hubPage == "moba" then
+		-- stay on the Cat Rift stall until they hit ← Hub
+	elseif gameMode == "Hub" then
+		hubPage = "grid"
+	end
+	hud.hub.update(hub)
+	applyShellView()
+end)
+
+local lastYarnEvent: string? = nil
+local lastYarnPhase: Types.YarnRunPhase? = nil
+
+Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local snap = payload :: Types.YarnRunSnapshot
+	latestYarn = snap
+	gameMode = "YarnRun"
+	hud.yarn.update(snap)
+	if lastYarnPhase ~= "Running" then
+		applyShellView()
+	end
+	if snap.event and snap.event ~= lastYarnEvent then
+		if snap.event == "YARN" or snap.event == "MEGA YARN" or snap.event == "ROOMBA RAIL" or snap.event == "COMBO x" then
+			Sfx.play("ShopBuy")
+		elseif string.find(snap.event, "COMBO") == 1 then
+			Sfx.play("LevelUp")
+		elseif snap.event == "GO GO YARN" then
+			Sfx.play("MatchFound")
+		end
+	end
+	if snap.phase == "Dead" and lastYarnPhase ~= "Dead" then
+		Sfx.play("Kill")
+		applyShellView()
+	end
+	lastYarnEvent = snap.event
+	lastYarnPhase = snap.phase
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if root and root:IsA("BasePart") then
+		YarnCamera.setSubject(root)
+	end
 end)
 
 Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
@@ -998,6 +1138,7 @@ player.CharacterAdded:Connect(function(character)
 		local root = character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
 			CameraFollow.setSubject(root)
+			YarnCamera.setSubject(root)
 		end
 	end)
 end)
@@ -1021,6 +1162,40 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		return
 	end
 	if processed then
+		return
+	end
+	if gameMode == "YarnRun" then
+		if input.KeyCode == Enum.KeyCode.T then
+			if not canEmoteNow() then
+				toast("Can't emote while down")
+				return
+			end
+			emoteHeld = true
+			emoteConsumed = false
+			hud.emotes.open()
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.G then
+			toast("Pings are for the Rift")
+			return
+		end
+		local send: Types.YarnRunInput = {}
+		if input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.Left then
+			local lane = if latestYarn then latestYarn.lane else 1
+			send.lane = math.max(0, lane - 1)
+		elseif input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Right then
+			local lane = if latestYarn then latestYarn.lane else 1
+			send.lane = math.min(2, lane + 1)
+		elseif input.KeyCode == Enum.KeyCode.Space then
+			send.jump = true
+		elseif input.KeyCode == Enum.KeyCode.C or input.KeyCode == Enum.KeyCode.LeftControl then
+			send.slide = true
+		else
+			return
+		end
+		task.spawn(function()
+			Remotes.function_("YarnRunInput"):InvokeServer(send)
+		end)
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.T then
@@ -1149,6 +1324,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 task.spawn(function()
+	local hubOk, hubStatus = pcall(function()
+		return Remotes.function_("GetHubStatus"):InvokeServer()
+	end)
+	if hubOk and typeof(hubStatus) == "table" then
+		local hub = hubStatus :: Types.HubStatus
+		if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" then
+			gameMode = hub.mode
+		end
+		hud.hub.update(hub)
+		if gameMode == "Hub" then
+			hubPage = "grid"
+		end
+	end
 	if not loadedPrefs then
 		local ok, result = pcall(function()
 			return Remotes.function_("GetSettings"):InvokeServer()

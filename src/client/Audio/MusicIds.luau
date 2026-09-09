@@ -4,7 +4,7 @@
 -- Swap any `id` for a Creator Store upload: "rbxassetid://123456789".
 -- See README "Audio & juice" → Music beds.
 
-export type BedId = "Lobby" | "ChampionSelect" | "InProgress" | "Ended"
+export type BedId = "Lobby" | "ChampionSelect" | "InProgress" | "Ended" | "Hub" | "YarnRun"
 
 export type BedDef = {
 	id: string,
@@ -38,6 +38,18 @@ local MusicIds: { [BedId]: BedDef } = {
 		volume = 0.11,
 		playbackSpeed = 0.4,
 		note = "Post-match wind-down — swap for a victory/defeat sting loop",
+	},
+	Hub = {
+		id = "rbxasset://sounds/action_get_up.mp3",
+		volume = 0.13,
+		playbackSpeed = 0.48,
+		note = "Night-market hub — cozy stall loop",
+	},
+	YarnRun = {
+		id = "rbxasset://sounds/action_get_up.mp3",
+		volume = 0.17,
+		playbackSpeed = 1.28,
+		note = "Yarn dash — slightly faster placeholder",
 	},
 }
 

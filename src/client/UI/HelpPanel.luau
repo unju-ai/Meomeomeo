@@ -6,16 +6,19 @@ local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
 
+export type HelpContext = "hub" | "moba" | "runner"
+
 export type HelpApi = {
 	root: Frame,
 	button: TextButton,
 	setHeld: (held: boolean) -> (),
 	toggle: () -> (),
 	setVisible: (visible: boolean) -> (),
+	setContext: (ctx: HelpContext) -> (),
 	isOpen: () -> boolean,
 }
 
-local LINES: { { string } } = {
+local LINES_MOBA: { { string } } = {
 	{ "LMB", "Lock auto-attack on an enemy / minion / tower" },
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
@@ -34,6 +37,25 @@ local LINES: { { string } } = {
 	{ "Talk", "Fountain / jungle cats" },
 	{ "Practice", "Easy / Normal / Hard (Hard dodges + lens)" },
 	{ "Tips", "First Practice cards · replay from lobby" },
+}
+
+local LINES_HUB: { { string } } = {
+	{ "Click tile", "Cat Rift (MOBA) or Yarn Run" },
+	{ "Mint 404", "Hub chrome — same Meo404 panel" },
+	{ "T", "Hold emote wheel on the hub pad" },
+	{ "Audio", "SFX + Music sliders · mute (top-right)" },
+	{ "H / ?", "This help (hold H or click ?)" },
+	{ "Soon", "Koi Pond, Yarn Party, Meme Arcade" },
+}
+
+local LINES_RUNNER: { { string } } = {
+	{ "A / D", "Switch lane (also arrows)" },
+	{ "Space", "Jump a dog" },
+	{ "C / Ctrl", "Slide under a laundry sign" },
+	{ "T", "Emote mid-dash (stream juice)" },
+	{ "Audio", "SFX + Music sliders · mute" },
+	{ "H / ?", "This help" },
+	{ "Death", "Retry dash or back to hub" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi
@@ -86,24 +108,32 @@ function HelpPanel.create(parent: Instance): HelpApi
 	Theme.pad(list, 8)
 	Theme.list(list, 4)
 
-	for i, pair in LINES do
-		local row = Instance.new("Frame")
-		row.Name = `Bind{i}`
-		row.BackgroundTransparency = 1
-		row.Size = UDim2.new(1, -4, 0, 22)
-		row.LayoutOrder = i
-		row.Parent = list
+	local function paintLines(lines: { { string } })
+		for _, child in list:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		for i, pair in lines do
+			local row = Instance.new("Frame")
+			row.Name = `Bind{i}`
+			row.BackgroundTransparency = 1
+			row.Size = UDim2.new(1, -4, 0, 22)
+			row.LayoutOrder = i
+			row.Parent = list
 
-		local key = Theme.text(row, "K", pair[1], 12, Theme.amber, Theme.fontMono)
-		key.Size = UDim2.fromOffset(88, 22)
-		key.TextWrapped = false
+			local key = Theme.text(row, "K", pair[1], 12, Theme.amber, Theme.fontMono)
+			key.Size = UDim2.fromOffset(88, 22)
+			key.TextWrapped = false
 
-		local desc = Theme.text(row, "D", pair[2], 12, Theme.cream)
-		desc.Position = UDim2.fromOffset(92, 0)
-		desc.Size = UDim2.new(1, -92, 0, 22)
-		desc.TextWrapped = false
-		desc.TextTruncate = Enum.TextTruncate.AtEnd
+			local desc = Theme.text(row, "D", pair[2], 12, Theme.cream)
+			desc.Position = UDim2.fromOffset(92, 0)
+			desc.Size = UDim2.new(1, -92, 0, 22)
+			desc.TextWrapped = false
+			desc.TextTruncate = Enum.TextTruncate.AtEnd
+		end
 	end
+	paintLines(LINES_HUB)
 
 	local function paint()
 		root.Visible = pinned or held
@@ -136,6 +166,21 @@ function HelpPanel.create(parent: Instance): HelpApi
 		end,
 		setVisible = function(visible: boolean)
 			setPinned(visible)
+		end,
+		setContext = function(ctx: HelpContext)
+			if ctx == "runner" then
+				title.Text = "Yarn Run"
+				sub.Text = "3-lane night-market dash"
+				paintLines(LINES_RUNNER)
+			elseif ctx == "moba" then
+				title.Text = "Cat Rift"
+				sub.Text = "Hold H or click ?  ·  PLAYTEST.md"
+				paintLines(LINES_MOBA)
+			else
+				title.Text = "Hub"
+				sub.Text = "Pick a stall  ·  PLAYTEST.md"
+				paintLines(LINES_HUB)
+			end
 		end,
 		isOpen = function()
 			return pinned or held

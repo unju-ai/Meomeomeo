@@ -9,7 +9,9 @@ local Types = require(Shared:WaitForChild("Types"))
 
 local AbilityBar = require(script.Parent.AbilityBar)
 local ChampionSelect = require(script.Parent.ChampionSelect)
+local HubPanel = require(script.Parent.HubPanel)
 local LobbyPanel = require(script.Parent.LobbyPanel)
+local YarnRunHud = require(script.Parent.YarnRunHud)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EndScreen = require(script.Parent.EndScreen)
@@ -28,7 +30,9 @@ local Hud = {}
 
 export type HudApi = {
 	gui: ScreenGui,
+	hub: HubPanel.HubApi,
 	lobby: LobbyPanel.LobbyApi,
+	yarn: YarnRunHud.YarnHudApi,
 	mint: MintPanel.MintApi,
 	select: ChampionSelect.SelectApi,
 	abilities: AbilityBar.BarApi,
@@ -47,6 +51,7 @@ export type HudApi = {
 	banner: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
+	applyShell: (mode: Types.GameMode, hubPage: "grid" | "moba", snapshot: Types.MatchSnapshot?, localUserId: number) -> (),
 }
 
 function Hud.create(): HudApi
@@ -76,7 +81,12 @@ function Hud.create(): HudApi
 	banner.TextStrokeTransparency = 0.4
 	banner.ZIndex = 10
 
+	local hub = HubPanel.create(gui)
+	local yarn = YarnRunHud.create(gui)
 	local lobby = LobbyPanel.create(gui)
+	hub.setVisible(true)
+	lobby.setVisible(false)
+	yarn.setVisible(false)
 	local mint = MintPanel.create(gui)
 	local select = ChampionSelect.create(gui)
 	local abilities = AbilityBar.create(gui)
@@ -104,9 +114,21 @@ function Hud.create(): HudApi
 	local help = HelpPanel.create(gui)
 	local tips = TutorialTips.create(gui)
 
+	local function hideMobaPlay()
+		select.setVisible(false)
+		abilities.setVisible(false)
+		minimap.setVisible(false)
+		feed.setVisible(false)
+		endScreen.setVisible(false)
+		shop.setVisible(false)
+		scoreboard.setVisible(false)
+	end
+
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
 		local phase = snapshot.phase
 		lobby.setVisible(phase == "Lobby")
+		hub.setVisible(false)
+		yarn.setVisible(false)
 		if phase ~= "Lobby" then
 			mint.setVisible(false)
 		end
@@ -121,7 +143,7 @@ function Hud.create(): HudApi
 		end
 		if phase == "Lobby" then
 			lobby.update(snapshot)
-			banner.Text = "Hold H or click ? for controls"
+			banner.Text = "Cat Rift · ← Hub to change stalls"
 		elseif phase == "ChampionSelect" then
 			select.update(snapshot, localUserId)
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
@@ -135,8 +157,43 @@ function Hud.create(): HudApi
 		end
 	end
 
+	local function applyShell(
+		mode: Types.GameMode,
+		hubPage: "grid" | "moba",
+		snapshot: Types.MatchSnapshot?,
+		localUserId: number
+	)
+		if mode == "YarnRun" then
+			hub.setVisible(false)
+			lobby.setVisible(false)
+			yarn.setVisible(true)
+			hideMobaPlay()
+			mint.setVisible(false)
+			banner.Text = "Yarn Run · A/D lanes · Space jump · C slide"
+			return
+		end
+		yarn.setVisible(false)
+		if mode == "Hub" and hubPage == "grid" and (snapshot == nil or snapshot.phase == "Lobby") then
+			hub.setVisible(true)
+			lobby.setVisible(false)
+			hideMobaPlay()
+			banner.Text = "Night-market hub · pick a stall"
+			return
+		end
+		if snapshot then
+			applyPhase(snapshot, localUserId)
+		else
+			hub.setVisible(true)
+			lobby.setVisible(false)
+			hideMobaPlay()
+			banner.Text = "Night-market hub · pick a stall"
+		end
+	end
+
 	return {
 		gui = gui,
+		hub = hub,
+		yarn = yarn,
 		lobby = lobby,
 		mint = mint,
 		select = select,
@@ -160,6 +217,7 @@ function Hud.create(): HudApi
 			ticker.Text = text
 		end,
 		applyPhase = applyPhase,
+		applyShell = applyShell,
 	}
 end
 

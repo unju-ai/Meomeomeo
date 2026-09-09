@@ -3,6 +3,8 @@
 local Constants = {
 	RemotesFolderName = "MeoRemotes",
 	MapFolderName = "MeoMap",
+	YarnRunFolderName = "MeoYarnRun",
+	YarnRunOrigin = Vector3.new(0, 2, 4200),
 
 	Teams = {
 		Blue = "Blue" :: "Blue",
@@ -37,6 +39,8 @@ local Constants = {
 		MusicMuted = "MeoMusicMuted",
 		MuteOthersEmotes = "MeoMuteOthersEmotes",
 		PracticeDifficulty = "MeoPracticeDifficulty",
+		GameMode = "MeoGameMode",
+		YarnBest = "MeoYarnBest",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },
