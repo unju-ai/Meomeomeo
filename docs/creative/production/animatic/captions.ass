@@ -1,0 +1,25 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Brand,Helvetica,94,&H00252725,&H00252725,&H00E5EFF3,&H00E5EFF3,-1,0,0,0,100,100,-3,0,1,0,0,5,70,70,0,1
+Style: Small,Menlo,23,&H006A706A,&H006A706A,&H00E5EFF3,&H00E5EFF3,0,0,0,0,100,100,2,0,1,0,0,5,70,70,0,1
+Style: Caption,Helvetica,61,&H00252725,&H00252725,&H00E5EFF3,&H00E5EFF3,-1,0,0,0,100,100,0,0,1,0,0,5,80,80,0,1
+Style: Speaker,Menlo,24,&H004588E8,&H004588E8,&H00E5EFF3,&H00E5EFF3,-1,0,0,0,100,100,2,0,1,0,0,5,70,70,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:15.00,Brand,,0,0,0,,{\pos(540,270)}meo meo meo
+Dialogue: 0,0:00:00.00,0:00:15.00,Small,,0,0,0,,{\pos(540,365)}01 / OPTIONS
+Dialogue: 0,0:00:00.00,0:00:15.00,Small,,0,0,0,,{\pos(540,1650)}404 / THOUGHT NOT FOUND
+Dialogue: 0,0:00:00.00,0:00:15.00,Small,,0,0,0,,{\pos(540,1710)}ANIMATIC / SCRATCH VOICES
+Dialogue: 1,0:00:00.00,0:00:01.80,Speaker,,0,0,0,,{\pos(540,1360)}MEO
+Dialogue: 1,0:00:00.00,0:00:01.80,Caption,,0,0,0,,{\pos(540,1450)}Open the door.\NIt's urgent.
+Dialogue: 1,0:00:03.30,0:00:04.50,Speaker,,0,0,0,,{\pos(540,1360)}ME
+Dialogue: 1,0:00:03.30,0:00:04.50,Caption,,0,0,0,,{\pos(540,1440)}Are we going?
+Dialogue: 1,0:00:05.80,0:00:08.20,Speaker,,0,0,0,,{\pos(540,1360)}MO
+Dialogue: 1,0:00:05.80,0:00:08.20,Caption,,0,0,0,,{\pos(540,1450)}We requested\Noptions.

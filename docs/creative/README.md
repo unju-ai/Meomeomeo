@@ -103,6 +103,8 @@ The art may share characters with Roblox. Ownership does not automatically unloc
 
 ## Included creative assets
 
+The [complete creative library](FILES.md) includes the original research briefs, scripts, subtitles, experiment tracker, scratch voice stems and a portable animatic rebuild script.
+
 - [Approved art direction](assets/art-direction.png)
 - [Character study](assets/character-study.png)
 - [Options storyboard](assets/options-storyboard.png)
