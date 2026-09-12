@@ -2,11 +2,13 @@
 
 A **cat-themed MOBA** for Roblox — every champion and NPC is a cat, lanes and nexuses are the core loop, and **voice chat is first-class**.
 
+**Three lanes. One shared braincell.** The channel's orange **MEO**, ivory **ME**, and charcoal **MO** are now talkable lobby hosts alongside the existing champion roster. See the [unified creative direction and art](docs/creative/README.md) and the [Robinhood Chain pairing status](docs/robinhood-chain-pairing.md).
+
 Players queue into a match, lock a cat champion, fight down three placeholder lanes, and try to scratch the enemy nexus to death. Teammates talk over Roblox voice (team routing when the Audio API is available). Fountain shopkeepers, a jungle coach, and a play-by-play announcer talk back through an AI chat interface that **runs on a mock provider** until you plug in a real key.
 
 Meme stocks are a **side system**: champion tickers drift in the HUD and bump on kills. They are not the game.
 
-**Meo404** is a lobby/meta feature: a Roblox Developer Product (Robux) grants a **claim entitlement**. A separate hosted service may later mint an ERC-404-style asset (1 whole token ↔ 1 NFT) to a linked wallet. This is **not** a Robux-to-crypto swap.
+**Meo404** is an experimental lobby/meta flow: a Roblox Developer Product (Robux) grants a **claim entitlement**. A separate hosted service may later mint an ERC-404-style asset (1 whole token ↔ 1 NFT) to a linked wallet. This receipt-linked flow has not been established as production-ready or permitted merely because minting happens off-platform. It is not a stock token or a live Robinhood Chain integration.
 
 This repo is a playable **scaffold** (architecture + stubs), not a finished live-ops title.
 
@@ -26,6 +28,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
+- Three channel hosts (MEO / ME / MO) with shared identities, authored dialogue and non-colliding lobby stand-ins
 - Optional yarn / meme-stock ticker on champions
 - Playful HUD: lobby, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music) sliders, hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
@@ -217,7 +220,7 @@ Kitty Caster also broadcasts match events (`AnnouncerMessage`) without an LLM.
 
 Roblox Terms restrict exchanging Robux for real-world crypto or cash-like value.
 
-**This scaffold does not send crypto because someone spent Robux.** There is no `wallet.transfer`, no “paste your address and we airdrop from the game server,” and no in-experience swap UI.
+**This scaffold models a purchase-linked entitlement that could result in an off-platform mint.** Moving the signing operation off Roblox does not establish permission for the economic flow. The current provider is mock; production review must cover the complete purchase-to-mint relationship, not only private-key placement. See [pairing boundaries and outstanding decisions](docs/robinhood-chain-pairing.md).
 
 What it *does* model:
 

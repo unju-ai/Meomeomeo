@@ -1,6 +1,7 @@
 --!strict
 
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 
 local CATALOG: { [string]: Types.NpcDef } = {
 	PawmartBlue = {
@@ -32,6 +33,16 @@ local CATALOG: { [string]: Types.NpcDef } = {
 		team = nil,
 	},
 }
+
+for _, host in BrandCatalog.hosts() do
+	CATALOG[host.id] = {
+		id = host.id,
+		name = host.name,
+		role = "Lobby host",
+		personality = host.personality,
+		team = nil,
+	}
+end
 
 local NpcCatalog = {}
 

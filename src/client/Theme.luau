@@ -13,7 +13,7 @@ local Theme = {
 	mint = Color3.fromRGB(120, 196, 150),
 	panel = Color3.fromRGB(44, 30, 28),
 	panelAlt = Color3.fromRGB(62, 42, 38),
-	stroke = Color3.fromRGB(255, 220, 180),
+	strokeColor = Color3.fromRGB(255, 220, 180),
 	good = Color3.fromRGB(96, 196, 120),
 	warn = Color3.fromRGB(230, 170, 70),
 	bad = Color3.fromRGB(220, 80, 80),
@@ -84,7 +84,7 @@ function Theme.button(parent: Instance, name: string, text: string, color: Color
 	button.AutoLocalize = false
 	button.Parent = parent
 	Theme.corner(button, 12)
-	Theme.stroke(button, Theme.stroke, 2, 0.35)
+	Theme.stroke(button, Theme.strokeColor, 2, 0.35)
 	return button
 end
 

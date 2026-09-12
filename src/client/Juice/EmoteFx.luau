@@ -21,7 +21,7 @@ local BOB = 1.45
 
 type Active = {
 	userId: number,
-	until: number,
+	expiresAt: number,
 	part: BasePart,
 	gui: BillboardGui,
 	motion: EmoteCatalog.EmoteMotion,
@@ -124,7 +124,7 @@ local function ensureLoop()
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
 		for userId, active in actives do
-			if now >= active.until then
+			if now >= active.expiresAt then
 				clear(userId)
 				continue
 			end
@@ -133,7 +133,7 @@ local function ensureLoop()
 				clear(userId)
 				continue
 			end
-			local t = 1 - (active.until - now) / BOB
+			local t = 1 - (active.expiresAt - now) / BOB
 			local offset = motionOffset(active.motion, t * BOB, active.seed)
 			active.part.CFrame = root.CFrame * offset
 			if active.motion == "puff" then
@@ -195,7 +195,7 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean }?)
 
 	actives[event.userId] = {
 		userId = event.userId,
-		until = os.clock() + math.max(BILLBOARD, BOB),
+		expiresAt = os.clock() + math.max(BILLBOARD, BOB),
 		part = part,
 		gui = gui,
 		motion = def.motion,

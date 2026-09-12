@@ -22,7 +22,7 @@ type Follow = {
 	kind: string,
 	userId: number,
 	parts: { BasePart },
-	until: number,
+	expiresAt: number,
 	offset: number,
 }
 
@@ -253,7 +253,7 @@ local function ensureLoop()
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
 		for key, follow in follows do
-			if now >= follow.until then
+			if now >= follow.expiresAt then
 				clearFollow(key)
 				continue
 			end
@@ -299,7 +299,7 @@ local function followRecall(userId: number, duration: number)
 		kind = "recall",
 		userId = userId,
 		parts = { ring },
-		until = os.clock() + duration,
+		expiresAt = os.clock() + duration,
 		offset = 0,
 	}
 	ensureLoop()
@@ -319,7 +319,7 @@ local function followShield(userId: number, at: Vector3, duration: number)
 		kind = "shield",
 		userId = userId,
 		parts = { bubble },
-		until = os.clock() + duration,
+		expiresAt = os.clock() + duration,
 		offset = 0,
 	}
 	ensureLoop()
@@ -340,7 +340,7 @@ local function followStun(userId: number, duration: number)
 		kind = "stun",
 		userId = userId,
 		parts = stars,
-		until = os.clock() + math.max(duration, 0.35),
+		expiresAt = os.clock() + math.max(duration, 0.35),
 		offset = os.clock(),
 	}
 	ensureLoop()
