@@ -51,14 +51,14 @@
         "$className": "Team",
         "$properties": {
           "AutoAssignable": false,
-          "TeamColor": "Bright blue"
+          "TeamColor": { "BrickColor": 23 }
         }
       },
       "RedPaws": {
         "$className": "Team",
         "$properties": {
           "AutoAssignable": false,
-          "TeamColor": "Bright red"
+          "TeamColor": { "BrickColor": 21 }
         }
       }
     },

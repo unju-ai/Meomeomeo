@@ -1,10 +1,10 @@
 # Playtest Meo Meo Meo
 
-Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree (PRs 1–19). In Play, press **?** or hold **H** for the same keybinds.
+Step-by-step for running the cat MOBA in **Roblox Studio** or a **published experience**. Source of truth is this Rojo tree. In Play, press **?** or hold **H** for the same keybinds.
 
 Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
-## 0. What you have after PRs 1–19
+## 0. What you have
 
 Playable scaffold: lobby → practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → lobby.
 
@@ -12,9 +12,11 @@ Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
+The channel trio **MEO, ME and MO** now appear as talkable lobby hosts, with the shared sculptural silhouette, cobalt braincell and character dialogue. The 14 playable champions remain available. Creative sources and production assets live in [docs/creative](docs/creative/README.md).
+
 ## 1. Install tools
 
-Pinned in `aftman.toml`: **Rojo 7.4.4** (7.x). Latest Rojo is 7.7.0 (websockets + syncback). Keep **CLI and Studio plugin on the same 7.x line** — mixing 7.4 CLI with a 7.7 plugin (or the reverse) can fail to connect.
+Pinned in `aftman.toml`: **Rojo 7.4.4**. Use the matching Studio plugin when live syncing.
 
 ```bash
 # https://github.com/LPGhatguy/aftman
@@ -36,6 +38,26 @@ selene src
 `selene 0.31.0` against this tree: no parse errors. Three pre-existing `if_same_then_else` hits remain in `KillFeed.luau` and `MatchService.luau` (same-color / same-assignment branches). This slice does not refactor those.
 
 ## 2. Sync into Studio
+
+For a standalone place, build from the repo root and open the resulting file in Studio:
+
+```bash
+rojo build default.project.json -o MeoMeoMeo.rbxlx
+```
+
+Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
+
+Build verification on 2026-09-12: Rojo 7.4.4 successfully produced the place, all 68 Luau sources compiled, and the brand/lobby smoke checks passed. This is build verification, not a Studio playtest.
+
+### Lobby host acceptance check
+
+1. Start Play and check the title **Meo Meo Meo** and **Three lanes. One shared braincell.**
+2. Walk toward the three hosts near the lobby spawn. Confirm orange MEO, ivory ME and charcoal MO each show a name and **Talk** prompt. Check the eyes and cobalt forehead square from the front.
+3. Talk to each host. Confirm the dialogue panel names the selected host and replies in that host's voice. Hosts should not block movement.
+4. Start a Practice match and confirm the full 14-champion draft still appears. Return to the lobby after a match and check the host prompts again.
+5. With two Studio clients, queue both players and confirm live queue status stays readable and the match starts.
+
+### Live sync
 
 From the repo root:
 
