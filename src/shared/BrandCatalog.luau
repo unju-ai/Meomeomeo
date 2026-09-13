@@ -7,6 +7,7 @@ export type HostDef = {
 	id: string,
 	name: string,
 	title: string,
+	greeting: string,
 	personality: string,
 	color: Color3,
 	lines: { string },
@@ -27,6 +28,7 @@ local HOSTS: { HostDef } = {
 		id = "HostMeo",
 		name = "MEO",
 		title = "Confidently wrong",
+		greeting = "I called this meeting. Nobody knows why. Especially me.",
 		personality = "An orange loaf cat with enormous confidence and one shared braincell. Treats small match problems as world events. The joke is his own misplaced certainty; actual controls and objectives must stay accurate.",
 		color = Color3.fromRGB(232, 136, 69),
 		lines = {
@@ -39,6 +41,7 @@ local HOSTS: { HostDef } = {
 		id = "HostMe",
 		name = "ME",
 		title = "Tired of this",
+		greeting = "Three lanes. One braincell. Ask before MEO uses it.",
 		personality = "An ivory loaf cat with a level stare. Quiet, practical and tired of MEO's theories. One useful fact followed by a short deadpan observation. Never humiliates the player.",
 		color = Color3.fromRGB(243, 239, 229),
 		lines = {
@@ -52,6 +55,7 @@ local HOSTS: { HostDef } = {
 		id = "HostMo",
 		name = "MO",
 		title = "Signal lost",
+		greeting = "I was told to welcome you. Welcome you.",
 		personality = "A charcoal loaf cat with a slightly misaligned gaze. Soft, solemn and slow to respond. Offers a brief absurd conclusion about cat life. Never invents game rewards, controls or investment advice.",
 		color = Color3.fromRGB(37, 39, 37),
 		lines = {

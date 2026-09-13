@@ -27,14 +27,28 @@ end })
 local UDim = { new = function(...) return {...} end }
 local UDim2 = { new = function(...) return {...} end, fromOffset = function(...) return {...} end, fromScale = function(...) return {...} end }
 local Vector2 = { new = function(...) return {...} end }
+local function signal()
+    local callbacks = {}
+    return {
+        Connect = function(_, fn) table.insert(callbacks, fn) end,
+        Fire = function(_, ...) for _, fn in callbacks do fn(...) end end,
+    }
+end
 local Instance = {}
 function Instance.new(class)
     local values = { ClassName = class, Name = class, children = {},
-        MouseButton1Click = { Connect = function(_, fn) return fn end } }
+        MouseButton1Click = signal(), FocusLost = signal() }
     local object
     object = setmetatable({}, {
         __index = function(_, key)
-            if key == "FindFirstChild" then
+            if key == "Destroy" then
+                return function()
+                    if values.Parent then
+                        local index = table.find(values.Parent.children, object)
+                        if index then table.remove(values.Parent.children, index) end
+                    end
+                end
+            elseif key == "FindFirstChild" then
                 return function(_, name)
                     for _, child in values.children do if child.Name == name then return child end end
                     return nil
@@ -65,6 +79,7 @@ modules = [
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),
     ("LobbyPanel", "src/client/UI/LobbyPanel.luau"),
+    ("NpcChatPanel", "src/client/UI/NpcChatPanel.luau"),
 ]
 chunks = [prelude]
 for name, path in modules:

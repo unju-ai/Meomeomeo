@@ -465,12 +465,18 @@ hud.shop.onBuy(function(itemId: string)
 	end
 end)
 
-hud.chat.onSend(function(npcId: string, text: string)
-	local result = Remotes.function_("ChatWithNpc"):InvokeServer(npcId, text)
-	if result and result.ok and result.reply then
-		hud.chat.append(result.speaker or "Cat", result.reply)
-	elseif result and result.error then
-		hud.chat.append("System", result.error)
+hud.chat.onSend(function(npcId: string, text: string, reply: (string, string) -> ())
+	local ok, result = pcall(function()
+		return Remotes.function_("ChatWithNpc"):InvokeServer(npcId, text)
+	end)
+	if not ok then
+		reply("System", "That meow got lost. Try again.")
+	elseif typeof(result) == "table" then
+		if result.ok and typeof(result.reply) == "string" then
+			reply(result.speaker or "Cat", result.reply)
+		elseif typeof(result.error) == "string" then
+			reply("System", result.error)
+		end
 	end
 end)
 

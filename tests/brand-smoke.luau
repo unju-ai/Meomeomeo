@@ -65,3 +65,42 @@ assert(lobby.root:FindFirstChild("Queue").Visible == false)
 assert(lobby.root:FindFirstChild("Leave").Visible == false)
 assert(lobby.root:FindFirstChild("Blurb").Text == "Joining match", "Live queue status must keep priority")
 print("PASS: host dialogue, original roster/NPCs, safe substitutions, theme buttons, lobby copy and queue state")
+
+-- A yielded NPC request must never leak into a newly opened conversation.
+local chat = NpcChatPanel.create(parent)
+local log = chat.root:FindFirstChild("Log")
+local function chatLines()
+	local rows = {}
+	for _, child in log.children do
+		if child.Name == "Line" then table.insert(rows, child.Text) end
+	end
+	return rows
+end
+local pending
+chat.onSend(function(_, _, reply) pending = reply end)
+chat.open("HostMeo", "MEO")
+assert(chatLines()[1] == "MEO: " .. BrandCatalog.host("HostMeo").greeting)
+chat.root:FindFirstChild("Input").Text = "hello"
+chat.root:FindFirstChild("Send").MouseButton1Click:Fire()
+assert(#chatLines() == 2)
+local oldReply = pending
+chat.open("HostMo", "MO")
+oldReply("MEO", "late reply")
+assert(#chatLines() == 1, "Previous host reply leaked into new chat")
+assert(chatLines()[1] == "MO: " .. BrandCatalog.host("HostMo").greeting)
+chat.root:FindFirstChild("Input").Text = "mrrp"
+chat.root:FindFirstChild("Input").FocusLost:Fire(true)
+pending("MO", "received")
+assert(chatLines()[3] == "MO: received")
+chat.close()
+pending("MO", "after close")
+assert(#chatLines() == 3)
+chat.open("HostMo", "MO")
+pending("MO", "after reopen")
+assert(#chatLines() == 1, "Same-host reopen must invalidate old requests")
+chat.open("OldTom", "Old Tom")
+assert(chatLines()[1] == "Old Tom: Mrrp. What is on your mind?")
+for i = 1, 100 do chat.append("Cat", tostring(i)) end
+assert(#chatLines() == 60, "Transcript must remain bounded")
+assert(chatLines()[60] == "Cat: 100")
+print("PASS: authored greetings, separate conversations, late replies, close/reopen and transcript cap")

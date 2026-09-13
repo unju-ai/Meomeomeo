@@ -1,5 +1,6 @@
 --!strict
 
+local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local NpcChatPanel = {}
@@ -9,7 +10,7 @@ export type ChatApi = {
 	open: (npcId: string, npcName: string) -> (),
 	close: () -> (),
 	append: (who: string, text: string) -> (),
-	onSend: ((npcId: string, text: string) -> ()) -> (),
+	onSend: ((npcId: string, text: string, reply: (string, string) -> ()) -> ()) -> (),
 }
 
 function NpcChatPanel.create(parent: Instance): ChatApi
@@ -67,12 +68,18 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	send.TextSize = 14
 
 	local activeId = ""
-	local sendHandler: ((string, string) -> ())? = nil
+	local session = 0
+	local sendHandler: ((string, string, (string, string) -> ()) -> ())? = nil
+	local lines: { TextLabel } = {}
 
 	local function append(who: string, text: string)
 		local line = Theme.text(log, "Line", `{who}: {text}`, 13, Theme.cream)
 		line.Size = UDim2.new(1, -8, 0, 0)
 		line.AutomaticSize = Enum.AutomaticSize.Y
+		table.insert(lines, line)
+		if #lines > 60 then
+			table.remove(lines, 1):Destroy()
+		end
 	end
 
 	local function submit()
@@ -83,7 +90,12 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		box.Text = ""
 		append("You", text)
 		if sendHandler then
-			sendHandler(activeId, text)
+			local requestSession = session
+			sendHandler(activeId, text, function(who: string, reply: string)
+				if session == requestSession and root.Visible then
+					append(who, reply)
+				end
+			end)
 		end
 	end
 
@@ -93,21 +105,27 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			submit()
 		end
 	end)
-	close.MouseButton1Click:Connect(function()
+	local function closeChat()
+		session += 1
 		root.Visible = false
-	end)
+	end
+	close.MouseButton1Click:Connect(closeChat)
 
 	return {
 		root = root,
 		open = function(npcId: string, npcName: string)
+			session += 1
+			for _, line in lines do line:Destroy() end
+			table.clear(lines)
+			box.Text = ""
+			log.CanvasPosition = Vector2.new(0, 0)
 			activeId = npcId
 			title.Text = `Talk · {npcName}`
 			root.Visible = true
-			append(npcName, "mrrp? (AI stub — mock replies until a provider key is set)")
+			local host = BrandCatalog.host(npcId)
+			append(npcName, if host then host.greeting else "Mrrp. What is on your mind?")
 		end,
-		close = function()
-			root.Visible = false
-		end,
+		close = closeChat,
 		append = append,
 		onSend = function(fn)
 			sendHandler = fn

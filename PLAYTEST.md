@@ -54,6 +54,8 @@ Build verification on 2026-09-12: Rojo 7.4.4 successfully produced the place, al
 1. Start Play and check the title **Meo Meo Meo** and **Three lanes. One shared braincell.**
 2. Walk toward the three hosts near the lobby spawn. Confirm orange MEO, ivory ME and charcoal MO each show a name and **Talk** prompt. Check the eyes and cobalt forehead square from the front.
 3. Talk to each host. Confirm the dialogue panel names the selected host and replies in that host's voice. Hosts should not block movement.
+   - Each host opens with a distinct authored greeting. Switch hosts while a reply is pending: the new conversation should contain only the new host's greeting and subsequent messages. Closing and reopening the same host should also discard pending replies from the old conversation.
+   - Send with both Enter and the Send button. If a request fails, the panel should offer a retry message. The transcript keeps the most recent 60 lines per open conversation.
 4. Start a Practice match and confirm the full 14-champion draft still appears. Return to the lobby after a match and check the host prompts again.
 5. With two Studio clients, queue both players and confirm live queue status stays readable and the match starts.
 
