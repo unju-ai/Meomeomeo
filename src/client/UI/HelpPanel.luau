@@ -6,7 +6,7 @@ local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
 
-export type HelpContext = "hub" | "moba" | "runner"
+export type HelpContext = "hub" | "moba" | "runner" | "koi"
 
 export type HelpApi = {
 	root: Frame,
@@ -40,13 +40,13 @@ local LINES_MOBA: { { string } } = {
 }
 
 local LINES_HUB: { { string } } = {
-	{ "Click tile", "Cat Rift (MOBA) or Yarn Run" },
+	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond" },
 	{ "Board", "Daily Yarn leaderboard (UTC day)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
-	{ "Soon", "Koi Pond, Yarn Party, Meme Arcade" },
+	{ "Soon", "Yarn Party, Meme Arcade" },
 }
 
 local LINES_RUNNER: { { string } } = {
@@ -59,6 +59,18 @@ local LINES_RUNNER: { { string } } = {
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
 	{ "Death", "Slow-mo cam · daily rank / podium · Retry same seed" },
+}
+
+local LINES_KOI: { { string } } = {
+	{ "Space / Click", "Cast the yarn bobber (Idle)" },
+	{ "Space / Click", "Reel when the loaf hits the cream window" },
+	{ "Wait", "Don't yank early — patience, loaf" },
+	{ "Rarities", "Cream · Peach · Mint · Cobalt · Amber · Coral Crown" },
+	{ "Stall log", "Session collection + best catch / PB" },
+	{ "T", "Emote on the dock" },
+	{ "Audio", "SFX + Music sliders · mute" },
+	{ "H / ?", "This help" },
+	{ "Hub", "Back to hub (clean exit)" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi
@@ -175,6 +187,10 @@ function HelpPanel.create(parent: Instance): HelpApi
 				title.Text = "Yarn Run"
 				sub.Text = "Daily seed dash · chase your ghost"
 				paintLines(LINES_RUNNER)
+			elseif ctx == "koi" then
+				title.Text = "Koi Pond"
+				sub.Text = "Cast · cream window · cat-koi"
+				paintLines(LINES_KOI)
 			elseif ctx == "moba" then
 				title.Text = "Cat Rift"
 				sub.Text = "Hold H or click ?  ·  PLAYTEST.md"

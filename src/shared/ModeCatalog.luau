@@ -40,9 +40,9 @@ local TILES: { ModeTile } = {
 	{
 		id = "KoiPond",
 		title = "Koi Pond",
-		blurb = "Lazy fishing on the night-market canal.",
-		tag = "SOON",
-		playable = false,
+		blurb = "Cast yarn. Reel the cream window. Cat-koi rarities.",
+		tag = "POND",
+		playable = true,
 		swatch = Color3.fromRGB(70, 110, 140),
 		accent = Color3.fromRGB(120, 196, 150),
 		art = "fish",

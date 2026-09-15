@@ -509,6 +509,9 @@ function YarnRunService.start(player: Player, championId: unknown): Types.TradeR
 	if ModeService.is(player, "Moba") then
 		return { ok = false, error = "Leave the Rift first." }
 	end
+	if ModeService.is(player, "KoiPond") then
+		return { ok = false, error = "Leave the pond first." }
+	end
 	local champ = YarnRunCatalog.parseRunner(championId)
 	local existing = runs[player.UserId]
 	if existing and existing.phase == "Running" then

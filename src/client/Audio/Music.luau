@@ -11,7 +11,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 
 local Music = {}
 
-export type MusicPhase = Types.MatchPhase | "Hub" | "YarnRun"
+export type MusicPhase = Types.MatchPhase | "Hub" | "YarnRun" | "KoiPond"
 
 local CROSSFADE = 1
 local DEFAULT_MASTER = 0.35
@@ -78,6 +78,7 @@ local function bedDef(phase: MusicPhase): MusicIds.BedDef?
 		or phase == "Ended"
 		or phase == "Hub"
 		or phase == "YarnRun"
+		or phase == "KoiPond"
 	then
 		return MusicIds[phase]
 	end

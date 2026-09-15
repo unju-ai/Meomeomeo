@@ -16,6 +16,7 @@ export type HubApi = {
 	update: (status: Types.HubStatus) -> (),
 	onPlayRift: (() -> ()) -> (),
 	onPlayRun: ((championId: string) -> ()) -> (),
+	onPlayPond: (() -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
@@ -50,7 +51,9 @@ local function swatchArt(parent: Frame, art: ModeCatalog.ModeArt, color: Color3)
 		blob("Rail", UDim2.fromOffset(16, 58), UDim2.new(1, -32, 0, 8), Theme.peach)
 	elseif art == "fish" then
 		blob("Pond", UDim2.fromOffset(18, 28), UDim2.new(1, -36, 0, 28), Theme.blue)
+		blob("Lily", UDim2.fromOffset(88, 22), UDim2.fromOffset(18, 10), Theme.mint)
 		blob("Koi", UDim2.fromOffset(40, 34), UDim2.fromOffset(34, 14), Theme.coral)
+		blob("Lantern", UDim2.fromOffset(110, 12), UDim2.fromOffset(10, 16), Theme.amber)
 	elseif art == "party" then
 		blob("Ball", UDim2.fromOffset(48, 16), UDim2.fromOffset(36, 36), Theme.peach)
 		blob("Cat", UDim2.fromOffset(20, 40), UDim2.fromOffset(22, 22), Theme.cream)
@@ -99,12 +102,14 @@ function HubPanel.create(parent: Instance): HubApi
 
 	local playRift: (() -> ())? = nil
 	local playRun: ((string) -> ())? = nil
+	local playPond: (() -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
 	local picked = "NyanRocket"
 	local runnerButtons: { TextButton } = {}
 	local yarnBest = 0
+	local koiBest = 0
 	local yarnLead = ""
 
 	local function countText(id: string): string
@@ -121,6 +126,15 @@ function HubPanel.create(parent: Instance): HubApi
 					return `PB {yarnBest}`
 				end
 				return `{n} playing · PB {yarnBest}`
+			end
+		end
+		if id == "KoiPond" then
+			local n = counts[id] or 0
+			if koiBest > 0 then
+				if n <= 0 then
+					return `PB catch {koiBest}`
+				end
+				return `{n} playing · PB {koiBest}`
 			end
 		end
 		local n = counts[id] or 0
@@ -203,6 +217,10 @@ function HubPanel.create(parent: Instance): HubApi
 					if playRun then
 						playRun(picked)
 					end
+				elseif def.id == "KoiPond" then
+					if playPond then
+						playPond()
+					end
 				end
 			end)
 		end
@@ -233,6 +251,7 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		update = function(status: Types.HubStatus)
 			yarnBest = status.yarnBest
+			koiBest = status.koiBest or 0
 			for _, tile in status.tiles do
 				counts[tile.id] = tile.playing
 			end
@@ -250,6 +269,9 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onPlayRun = function(fn)
 			playRun = fn
+		end,
+		onPlayPond = function(fn)
+			playPond = fn
 		end,
 		onMint = function(fn)
 			mintHandler = fn

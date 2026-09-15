@@ -27,6 +27,7 @@ local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
 local YarnCamera = require(script.YarnRun.YarnCamera)
 local YarnGhost = require(script.YarnRun.YarnGhost)
+local KoiCamera = require(script.KoiPond.KoiCamera)
 
 local player = Players.LocalPlayer
 
@@ -186,6 +187,7 @@ persistReady = true
 local gameMode: Types.GameMode = "Hub"
 local hubPage: "grid" | "moba" = "grid"
 local latestYarn: Types.YarnRunSnapshot? = nil
+local latestKoi: Types.KoiPondSnapshot? = nil
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
@@ -230,6 +232,7 @@ local function applyShellView()
 	if gameMode == "YarnRun" then
 		Music.setPhase("YarnRun")
 		hud.help.setContext("runner")
+		KoiCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 		local character = player.Character
@@ -242,16 +245,31 @@ local function applyShellView()
 		if latestYarn then
 			YarnGhost.update(latestYarn.ghostLane, latestYarn.ghostZ, latestYarn.ghostY, latestYarn.ghostAlive)
 		end
+	elseif gameMode == "KoiPond" then
+		Music.setPhase("KoiPond")
+		hud.help.setContext("koi")
+		YarnCamera.setEnabled(false)
+		YarnGhost.setVisible(false)
+		CameraFollow.setEnabled(false)
+		cameraArmed = false
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			KoiCamera.setSubject(root)
+		end
+		KoiCamera.setEnabled(true)
 	elseif gameMode == "Hub" and hubPage == "grid" and (latestMatch == nil or latestMatch.phase == "Lobby") then
 		Music.setPhase("Hub")
 		hud.help.setContext("hub")
 		YarnCamera.setEnabled(false)
 		YarnGhost.setVisible(false)
+		KoiCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 	else
 		YarnCamera.setEnabled(false)
 		YarnGhost.setVisible(false)
+		KoiCamera.setEnabled(false)
 		hud.help.setContext("moba")
 		if latestMatch then
 			Music.setPhase(latestMatch.phase)
@@ -267,19 +285,21 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		return
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
-	if latestMatch.phase ~= "Lobby" then
-		gameMode = "Moba"
-		hubPage = "moba"
-	elseif gameMode == "Moba" then
-		gameMode = "Hub"
-		hubPage = "grid"
+	if gameMode ~= "YarnRun" and gameMode ~= "KoiPond" then
+		if latestMatch.phase ~= "Lobby" then
+			gameMode = "Moba"
+			hubPage = "moba"
+		elseif gameMode == "Moba" then
+			gameMode = "Hub"
+			hubPage = "grid"
+		end
 	end
 	applyShellView()
-	if gameMode ~= "YarnRun" and latestMatch.phase ~= "Lobby" then
+	if gameMode ~= "YarnRun" and gameMode ~= "KoiPond" and latestMatch.phase ~= "Lobby" then
 		hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
 	end
 	refreshBars()
-	if gameMode == "YarnRun" then
+	if gameMode == "YarnRun" or gameMode == "KoiPond" then
 		return
 	end
 	if latestMatch.phase == "InProgress" then
@@ -412,6 +432,16 @@ hud.hub.onPlayRun(function(championId)
 	applyShellView()
 end)
 
+hud.hub.onPlayPond(function()
+	local result = Remotes.function_("StartKoiPond"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Koi Pond failed")
+		return
+	end
+	gameMode = "KoiPond"
+	applyShellView()
+end)
+
 hud.hub.onMint(function()
 	hud.mint.toggle()
 end)
@@ -453,6 +483,17 @@ hud.yarn.onHub(function()
 	hud.board.setVisible(false)
 	applyShellView()
 	refreshYarnBoard()
+end)
+
+hud.koi.onHub(function()
+	local result = Remotes.function_("LeaveKoiPond"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not leave the pond")
+	end
+	gameMode = "Hub"
+	hubPage = "grid"
+	latestKoi = nil
+	applyShellView()
 end)
 
 hud.tips.onDismissed(function(permanent: boolean)
@@ -604,7 +645,7 @@ Remotes.event("ModeChanged").OnClientEvent:Connect(function(status)
 		return
 	end
 	local hub = status :: Types.HubStatus
-	if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" then
+	if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" then
 		gameMode = hub.mode
 	end
 	if gameMode == "Hub" and hubPage == "moba" then
@@ -706,6 +747,50 @@ Remotes.event("YarnBoardUpdated").OnClientEvent:Connect(function(payload)
 	local board = payload :: Types.YarnBoard
 	hud.board.update(board)
 	hud.hub.updateBoard(board)
+end)
+
+local lastKoiEvent: string? = nil
+local lastKoiPhase: Types.KoiPondPhase? = nil
+
+Remotes.event("KoiPondUpdated").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local snap = payload :: Types.KoiPondSnapshot
+	latestKoi = snap
+	gameMode = "KoiPond"
+	hud.koi.update(snap)
+	if lastKoiPhase ~= snap.phase then
+		applyShellView()
+	end
+	if snap.event and snap.event ~= lastKoiEvent then
+		if snap.event == "LEGENDARY KOI" then
+			Sfx.play("MatchFound")
+			ScreenJuice.banner("LEGENDARY KOI", Color3.fromRGB(255, 122, 98))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 122, 98))
+			hud.ticker("LEGENDARY KOI · coral crown loaf")
+		elseif snap.lastCatchRarity == "Epic" then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner(snap.lastCatchName or "Amber Lantern", Color3.fromRGB(255, 196, 74))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
+		elseif snap.lastCatchName then
+			Sfx.play("ShopBuy")
+			ScreenJuice.banner(snap.lastCatchName, Color3.fromRGB(255, 184, 140))
+		elseif snap.missReason then
+			Sfx.play("Kill")
+		elseif snap.event == "Nibble — reel the cream window" then
+			Sfx.play("WardPlace")
+		elseif snap.event == "Yarn's in the drink" then
+			Sfx.play("AbilityCast")
+		end
+	end
+	lastKoiEvent = snap.event
+	lastKoiPhase = snap.phase
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if root and root:IsA("BasePart") then
+		KoiCamera.setSubject(root)
+	end
 end)
 
 Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
@@ -1229,6 +1314,7 @@ player.CharacterAdded:Connect(function(character)
 		if root and root:IsA("BasePart") then
 			CameraFollow.setSubject(root)
 			YarnCamera.setSubject(root)
+			KoiCamera.setSubject(root)
 		end
 	end)
 end)
@@ -1285,6 +1371,34 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 		task.spawn(function()
 			Remotes.function_("YarnRunInput"):InvokeServer(send)
+		end)
+		return
+	end
+	if gameMode == "KoiPond" then
+		if input.KeyCode == Enum.KeyCode.T then
+			if not canEmoteNow() then
+				toast("Can't emote while down")
+				return
+			end
+			emoteHeld = true
+			emoteConsumed = false
+			hud.emotes.open()
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.G then
+			toast("Pings are for the Rift")
+			return
+		end
+		local tap = input.KeyCode == Enum.KeyCode.Space
+			or input.UserInputType == Enum.UserInputType.MouseButton1
+		if not tap then
+			return
+		end
+		local action: Types.KoiPondInput = {
+			action = if latestKoi and latestKoi.phase == "Bite" then "reel" else "cast",
+		}
+		task.spawn(function()
+			Remotes.function_("KoiPondInput"):InvokeServer(action)
 		end)
 		return
 	end
@@ -1419,7 +1533,7 @@ task.spawn(function()
 	end)
 	if hubOk and typeof(hubStatus) == "table" then
 		local hub = hubStatus :: Types.HubStatus
-		if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" then
+		if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" then
 			gameMode = hub.mode
 		end
 		hud.hub.update(hub)

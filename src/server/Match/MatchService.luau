@@ -256,7 +256,7 @@ function MatchService.returnToLobby(formQueue: boolean)
 	ShopService.clearAll()
 	nextBotId = -1001
 	for _, player in humans do
-		if not ModeService.is(player, "YarnRun") then
+		if not ModeService.is(player, "YarnRun") and not ModeService.is(player, "KoiPond") then
 			assignRobloxTeam(player, nil)
 			teleport(player, nil)
 			ModeService.set(player, "Hub")

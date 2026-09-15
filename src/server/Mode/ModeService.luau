@@ -1,6 +1,6 @@
 --!strict
 
--- Per-player game mode. Hub is default. MOBA and Yarn Run are exclusive per player.
+-- Per-player game mode. Hub is default. MOBA, Yarn Run, and Koi Pond are exclusive.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,9 +16,11 @@ local ModeService = {}
 
 local modes: { [number]: Types.GameMode } = {}
 local yarnBest: { [number]: YarnRunCatalog.YarnBest } = {}
+local koiBest: { [number]: number } = {}
 local matchBusy: (() -> boolean)? = nil
 local riftPlaying: (() -> number)? = nil
 local yarnPlaying: (() -> number)? = nil
+local koiPlaying: (() -> number)? = nil
 
 local function current(userId: number): Types.GameMode
 	return modes[userId] or "Hub"
@@ -28,10 +30,12 @@ function ModeService.init(hooks: {
 	matchBusy: () -> boolean,
 	riftPlaying: () -> number,
 	yarnPlaying: () -> number,
+	koiPlaying: () -> number,
 })
 	matchBusy = hooks.matchBusy
 	riftPlaying = hooks.riftPlaying
 	yarnPlaying = hooks.yarnPlaying
+	koiPlaying = hooks.koiPlaying
 end
 
 function ModeService.get(player: Player): Types.GameMode
@@ -81,9 +85,21 @@ function ModeService.yarnRecord(userId: number): YarnRunCatalog.YarnBest?
 	return yarnBest[userId]
 end
 
+function ModeService.noteKoiBest(userId: number, score: number)
+	local prev = koiBest[userId] or 0
+	if score > prev then
+		koiBest[userId] = score
+	end
+end
+
+function ModeService.koiBestOf(userId: number): number
+	return koiBest[userId] or 0
+end
+
 function ModeService.status(player: Player): Types.HubStatus
 	local rift = if riftPlaying then riftPlaying() else 0
 	local run = if yarnPlaying then yarnPlaying() else 0
+	local pond = if koiPlaying then koiPlaying() else 0
 	local tiles = {}
 	for _, tile in ModeCatalog.all() do
 		local playing = 0
@@ -91,6 +107,8 @@ function ModeService.status(player: Player): Types.HubStatus
 			playing = rift
 		elseif tile.id == "YarnRun" then
 			playing = run
+		elseif tile.id == "KoiPond" then
+			playing = pond
 		end
 		table.insert(tiles, { id = tile.id, playing = playing })
 	end
@@ -98,6 +116,7 @@ function ModeService.status(player: Player): Types.HubStatus
 		mode = current(player.UserId),
 		tiles = tiles,
 		yarnBest = ModeService.yarnBestOf(player.UserId),
+		koiBest = ModeService.koiBestOf(player.UserId),
 	}
 end
 

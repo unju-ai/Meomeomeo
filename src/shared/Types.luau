@@ -12,9 +12,11 @@ export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" |
 export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
 export type QueueMode = "InPlace" | "Reserved"
-export type GameMode = "Hub" | "Moba" | "YarnRun"
+export type GameMode = "Hub" | "Moba" | "YarnRun" | "KoiPond"
 export type YarnRunPhase = "Idle" | "Running" | "Dead"
 export type YarnRunnerId = "NyanRocket" | "Shadowpounce" | "ChairmanMeow"
+export type KoiPondPhase = "Idle" | "Waiting" | "Bite" | "Reveal"
+export type KoiRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -326,6 +328,7 @@ export type HubStatus = {
 	mode: GameMode,
 	tiles: { ModeTileStatus },
 	yarnBest: number,
+	koiBest: number,
 }
 
 export type YarnBoardEntry = {
@@ -392,6 +395,36 @@ export type YarnRunInput = {
 	lane: number?,
 	jump: boolean?,
 	slide: boolean?,
+}
+
+export type KoiLogRow = {
+	id: string,
+	name: string,
+	rarity: KoiRarity,
+	count: number,
+}
+
+export type KoiPondSnapshot = {
+	phase: KoiPondPhase,
+	score: number,
+	bestCatchScore: number,
+	bestCatchName: string,
+	bestCatchRarity: string,
+	dayKey: string,
+	event: string?,
+	missReason: string?,
+	bar: number?,
+	sweetHalf: number?,
+	caught: { KoiLogRow },
+	lastCatchName: string?,
+	lastCatchRarity: string?,
+	lastCatchScore: number,
+	ticker: boolean,
+	pb: number,
+}
+
+export type KoiPondInput = {
+	action: "cast" | "reel",
 }
 
 export type PlayerPrefs = {
