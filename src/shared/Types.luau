@@ -328,6 +328,13 @@ export type HubStatus = {
 	yarnBest: number,
 }
 
+export type YarnRunPowers = {
+	speed: boolean,
+	magnet: boolean,
+	shield: boolean,
+	double: boolean,
+}
+
 export type YarnRunSnapshot = {
 	phase: YarnRunPhase,
 	championId: string,
@@ -341,11 +348,19 @@ export type YarnRunSnapshot = {
 	combo: number,
 	yarn: number,
 	bestScore: number,
+	bestMeters: number,
 	bestCombo: number,
 	seed: number,
+	dayKey: string,
 	meters: number,
 	event: string?,
 	failReason: string?,
+	powers: YarnRunPowers,
+	ghostLane: number?,
+	ghostZ: number?,
+	ghostY: number?,
+	ghostAlive: boolean?,
+	newBest: boolean?,
 }
 
 export type YarnRunInput = {

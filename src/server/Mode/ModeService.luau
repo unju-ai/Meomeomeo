@@ -10,11 +10,12 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local ModeCatalog = require(Shared:WaitForChild("ModeCatalog"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
+local YarnRunCatalog = require(Shared:WaitForChild("YarnRunCatalog"))
 
 local ModeService = {}
 
 local modes: { [number]: Types.GameMode } = {}
-local yarnBest: { [number]: number } = {}
+local yarnBest: { [number]: YarnRunCatalog.YarnBest } = {}
 local matchBusy: (() -> boolean)? = nil
 local riftPlaying: (() -> number)? = nil
 local yarnPlaying: (() -> number)? = nil
@@ -47,19 +48,37 @@ function ModeService.set(player: Player, mode: Types.GameMode)
 	ModeService.fire(player)
 end
 
-function ModeService.noteYarnBest(userId: number, score: number)
-	local prev = yarnBest[userId] or 0
-	if score > prev then
-		yarnBest[userId] = score
+function ModeService.noteYarnBest(userId: number, score: number, meters: number?, samples: { YarnRunCatalog.GhostSample }?, combo: number?)
+	local prev = yarnBest[userId]
+	local prevScore = if prev then prev.score else 0
+	if score > prevScore then
+		local copy: { YarnRunCatalog.GhostSample } = {}
+		if samples then
+			for _, sample in samples do
+				table.insert(copy, { t = sample.t, lane = sample.lane, y = sample.y, z = sample.z })
+			end
+		end
+		yarnBest[userId] = {
+			score = score,
+			meters = meters or 0,
+			combo = combo or 0,
+			samples = copy,
+		}
 	end
 	local player = Players:GetPlayerByUserId(userId)
 	if player then
-		player:SetAttribute(Constants.Attributes.YarnBest, yarnBest[userId] or 0)
+		local best = yarnBest[userId]
+		player:SetAttribute(Constants.Attributes.YarnBest, if best then best.score else 0)
 	end
 end
 
 function ModeService.yarnBestOf(userId: number): number
-	return yarnBest[userId] or 0
+	local best = yarnBest[userId]
+	return if best then best.score else 0
+end
+
+function ModeService.yarnRecord(userId: number): YarnRunCatalog.YarnBest?
+	return yarnBest[userId]
 end
 
 function ModeService.status(player: Player): Types.HubStatus
@@ -78,7 +97,7 @@ function ModeService.status(player: Player): Types.HubStatus
 	return {
 		mode = current(player.UserId),
 		tiles = tiles,
-		yarnBest = yarnBest[player.UserId] or 0,
+		yarnBest = ModeService.yarnBestOf(player.UserId),
 	}
 end
 

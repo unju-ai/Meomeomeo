@@ -98,11 +98,14 @@ Practice **never** teleports. `MatchPlaceId` can stay `0`.
 ## 3b. Yarn Run (solo dash)
 
 1. Hub → **Yarn Run**. Pick **Nyan / Shad / Chai** (NyanRocket / Shadowpounce / ChairmanMeow looks) → **Play**.
-2. You teleport to a night-market ribbon far from the rift (`MeoYarnRun`). 3/4 chase cam. **A/D** (or arrows) change lanes, **Space** jumps dogs, **C** / **Ctrl** slides under laundry signs. Roomba discs are boosts (`ROOMBA RAIL` / `MEGA YARN` ticker).
-3. Die → funny fail line + score / yarn / combo → **Retry dash** or **Back to hub**.
-4. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
+2. You teleport to a night-market ribbon far from the rift (`MeoYarnRun`). 3/4 chase cam. **A/D** (or arrows) change lanes, **Space** jumps dogs / Roomba gaps, **C** / **Ctrl** slides under laundry signs and the **laundry tunnel**.
+3. **Power-ups** (server pickups, big HUD chips): cyan **SPD** bolt = Speed Burst, magenta **MAG** horseshoe = Magnet Yarn (sucks adjacent balls), mint **SHD** dome = one free hit (`SHIELD UP` / `SHIELD POP`), gold **2X** twins = Double Score window. Ticker lines match (`SPEED BURST`, `MAGNET ON`, `2X YARN`).
+4. **PB / ghost:** a translucent cat replays your personal-best path (session memory). A gold **PB {meters}m** gate sits on the ribbon. HUD shows `PB score / meters`. Beat it for **NEW PERSONAL BEST** on the death card.
+5. Layout **ramps with distance**: zig-zag dogs, laundry tunnel, Roomba jump gap, yarn fountain, narrow bridge, billboard dodge. Same **daily UTC seed** every run that day (HUD `Daily seed YYYY-MM-DD`) so streamers share a layout.
+6. Die → fail line or **NEW PERSONAL BEST**, score / yarn / combo / PB compare, death cam pulls back. Combo ≥ 2 flashes **COMBO BREAK**. Near-misses tick **CLOSE!**. **Retry dash** (same daily seed + ghost) or **Back to hub**.
+7. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
 
-Score / hits are server-authoritative. Best score is session memory (`MeoYarnBest`).
+Score / hits / pickups are server-authoritative. Best score + ghost samples are session memory (`MeoYarnBest`).
 
 ## 4. Queue (2+ clients)
 
@@ -138,8 +141,8 @@ Same list as the in-game **?** / hold **H** panel.
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
 | **A / D** (Yarn Run) | Switch lane (also arrows). In the Rift, **A** is still engine strafe |
-| **Space** (Yarn Run) | Jump a dog |
-| **C / Ctrl** (Yarn Run) | Slide under a laundry sign |
+| **Space** (Yarn Run) | Jump a dog or the Roomba gap |
+| **C / Ctrl** (Yarn Run) | Slide under a laundry sign / tunnel |
 
 Hub: **Cat Rift** / **Yarn Run** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
 

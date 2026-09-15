@@ -169,7 +169,7 @@ function Hud.create(): HudApi
 			yarn.setVisible(true)
 			hideMobaPlay()
 			mint.setVisible(false)
-			banner.Text = "Yarn Run · A/D lanes · Space jump · C slide"
+			banner.Text = "Yarn Run · chase the ghost · SPD MAG SHD 2X"
 			return
 		end
 		yarn.setVisible(false)
