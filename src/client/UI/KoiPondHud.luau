@@ -13,6 +13,7 @@ export type KoiHudApi = {
 	setVisible: (visible: boolean) -> (),
 	update: (snap: Types.KoiPondSnapshot) -> (),
 	onHub: (() -> ()) -> (),
+	onBoard: (() -> ()) -> (),
 }
 
 function KoiPondHud.create(parent: Instance): KoiHudApi
@@ -118,12 +119,23 @@ function KoiPondHud.create(parent: Instance): KoiHudApi
 	local hub = Theme.button(root, "Hub", "Back to hub", Theme.peach)
 	hub.AnchorPoint = Vector2.new(0, 1)
 	hub.Position = UDim2.new(0, 18, 1, -18)
-	hub.Size = UDim2.fromOffset(160, 36)
+	hub.Size = UDim2.fromOffset(148, 36)
+
+	local board = Theme.button(root, "Board", "Board", Theme.amber)
+	board.AnchorPoint = Vector2.new(0, 1)
+	board.Position = UDim2.new(0, 176, 1, -18)
+	board.Size = UDim2.fromOffset(110, 36)
 
 	local hubHandler: (() -> ())? = nil
+	local boardHandler: (() -> ())? = nil
 	hub.MouseButton1Click:Connect(function()
 		if hubHandler then
 			hubHandler()
+		end
+	end)
+	board.MouseButton1Click:Connect(function()
+		if boardHandler then
+			boardHandler()
 		end
 	end)
 
@@ -155,10 +167,11 @@ function KoiPondHud.create(parent: Instance): KoiHudApi
 			score.Text = tostring(snap.score)
 			day.Text = if snap.dayKey ~= "" then `Canal  {snap.dayKey}` else ""
 			local pb = if snap.pb > 0 then `  ·  PB catch {snap.pb}` else ""
+			local rank = if snap.dailyRank then `  ·  Daily #{snap.dailyRank}` else ""
 			if snap.bestCatchName ~= "" then
-				meta.Text = `best  {snap.bestCatchName}  {snap.bestCatchScore}{pb}`
+				meta.Text = `best  {snap.bestCatchName}  {snap.bestCatchScore}{pb}{rank}`
 			else
-				meta.Text = `best catch —{pb}`
+				meta.Text = `best catch —{pb}{rank}`
 			end
 			event.Text = snap.event or if snap.phase == "Idle"
 				then "Toss the yarn bobber"
@@ -202,6 +215,9 @@ function KoiPondHud.create(parent: Instance): KoiHudApi
 		end,
 		onHub = function(fn)
 			hubHandler = fn
+		end,
+		onBoard = function(fn)
+			boardHandler = fn
 		end,
 	}
 end

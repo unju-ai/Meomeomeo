@@ -72,6 +72,9 @@ assert(YarnRunCatalog.runnerTag("Shadowpounce") == "Shad")
 
 assert(YarnBoardLogic.clipName("   ") == "Cat")
 assert(YarnBoardLogic.clipName("abcdefghijklmnopqrstuvwxyz") == "abcdefghijklmnopqr")
+assert(YarnBoardLogic.AnonName == "Anonymous Cat")
+assert(YarnBoardLogic.visibleName("Nyan", true) == "Anonymous Cat")
+assert(YarnBoardLogic.visibleName("Nyan", false) == "Nyan")
 assert(YarnBoardLogic.podiumTitle(1) == "#1 YARN LORD")
 assert(YarnBoardLogic.podiumTitle(2) == "#2 YARN ACE")
 assert(YarnBoardLogic.podiumTitle(3) == "#3 YARN CREW")
@@ -133,6 +136,45 @@ assert(#tiny == 2)
 assert(YarnRunCatalog.readSample({ t = 1, z = 8, lane = 2, y = 0 }))
 assert(YarnRunCatalog.readSample("nope") == nil)
 
+assert(StallBoardLogic.AnonName == "Anonymous Cat")
+assert(StallBoardLogic.clipName("abcdefghijklmnopqrstuvwxyz") == "abcdefghijklmnopqr")
+assert(StallBoardLogic.visibleName("Loaf", true) == "Anonymous Cat")
+assert(StallBoardLogic.clipDetail("") == "—")
+local koiFirst = StallBoardLogic.submit({}, {
+	userId = 1, name = "Nyan", score = 40, detail = "Rare · Peach Koi", at = 1, anon = false,
+})
+assert(koiFirst.improved and koiFirst.rank == 1)
+local koiSame = StallBoardLogic.submit(koiFirst.entries, {
+	userId = 1, name = "Nyan", score = 20, detail = "Common · Cream Loaf", at = 2, anon = true,
+})
+assert(koiSame.improved == false and koiSame.entries[1].score == 40)
+local koiBeat = StallBoardLogic.submit(koiSame.entries, {
+	userId = 1, name = "Nyan", score = 90, detail = "Legendary · Canal Crown", at = 3, anon = true,
+})
+assert(koiBeat.improved and koiBeat.entries[1].detail == "Legendary · Canal Crown")
+assert(koiBeat.entries[1].anon == true)
+local bust = StallBoardLogic.submit({}, {
+	userId = 8, name = "Tape", score = -12, detail = "-12 yarn", at = 1,
+})
+assert(bust.rank == 1 and bust.entries[1].score == -12)
+local worseBust = StallBoardLogic.submit(bust.entries, {
+	userId = 8, name = "Tape", score = -30, detail = "-30 yarn", at = 2,
+})
+assert(worseBust.improved == false and worseBust.entries[1].score == -12)
+local boom = StallBoardLogic.submit(worseBust.entries, {
+	userId = 9, name = "Moon", score = 25, detail = "+25 yarn", at = 3,
+})
+assert(boom.rank == 1 and boom.entries[2].score == -12)
+local packedBoard = {}
+for i = 1, 12 do
+	packedBoard = StallBoardLogic.submit(packedBoard, {
+		userId = i, name = "Cat" .. i, score = i, detail = "Catch", at = i,
+	}).entries
+end
+assert(#packedBoard == StallBoardLogic.TopN)
+assert(StallBoardLogic.rankOf(packedBoard, 1) == nil)
+
 print("PASS: daily seed, new segments, power-ups, ghost interpolation")
-print("PASS: daily board ranking, name clip, podium titles")
+print("PASS: daily board ranking, name clip, podium titles, Anonymous Cat")
 print("PASS: UTC week keys, ghost sample cap, runner parse")
+print("PASS: stall boards rank koi catches and negative arcade profit")

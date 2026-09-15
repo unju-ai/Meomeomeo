@@ -41,11 +41,11 @@ local LINES_MOBA: { { string } } = {
 
 local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
-	{ "Board", "Daily / weekly Yarn leaderboard (UTC)" },
+	{ "Board", "Yarn daily/weekly · Koi/Arcade dailies (UTC)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "Closet", "Hats + trails · yarn points, not Robux" },
 	{ "T", "Hold emote wheel on the hub pad" },
-	{ "Audio", "SFX + Music sliders · mute (top-right)" },
+	{ "Audio", "SFX + Music · Hide my name → Anonymous Cat" },
 	{ "H / ?", "This help (hold H or click ?)" },
 }
 
@@ -66,11 +66,11 @@ local LINES_KOI: { { string } } = {
 	{ "Space / Click", "Reel when the loaf hits the cream window" },
 	{ "Wait", "Don't yank early — patience, loaf" },
 	{ "Rarities", "Cream · Peach · Mint · Cobalt · Amber · Coral Crown" },
-	{ "Stall log", "Session collection + best catch / PB" },
+	{ "Stall log", "Session collection + best catch / PB / daily board" },
 	{ "T", "Emote on the dock" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub (clean exit)" },
+	{ "Hub", "Back to hub · Board for today's catches" },
 }
 
 local LINES_PARTY: { { string } } = {
@@ -89,13 +89,13 @@ local LINES_ARCADE: { { string } } = {
 	{ "1–5", "Buy 1 bag of that ticker (LOAF NYAN CHNK BRAIN RUG)" },
 	{ "Shift+1–5", "Sell 1 bag at the listed yarn price" },
 	{ "Tap", "Buy / Sell on the stall cards" },
-	{ "Round", "28s tape · auto-sell at the bell · score = profit" },
+	{ "Round", "28s tape · auto-sell at the bell · daily profit board" },
 	{ "Events", "TO THE MOON · RUG PULL · WHALE SNEEZE" },
 	{ "Yarn only", "Play yarn / points — not real money" },
 	{ "T", "Emote at the counter" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub (clean exit)" },
+	{ "Hub", "Back to hub · Board for today's yarn profit" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi

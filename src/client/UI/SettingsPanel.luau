@@ -8,6 +8,7 @@ export type SettingsState = {
 	sfxVolume: number,
 	sfxMuted: boolean,
 	muteOthersEmotes: boolean,
+	hideBoardName: boolean,
 	musicVolume: number,
 	musicMuted: boolean,
 }
@@ -50,6 +51,7 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 	local sfxVolume = clamp01(start.sfxVolume)
 	local sfxMuted = start.sfxMuted == true
 	local muteOthers = start.muteOthersEmotes == true
+	local hideBoardName = start.hideBoardName == true
 	local musicVolume = clamp01(start.musicVolume)
 	local musicMuted = start.musicMuted == true
 	local changeHandler: ((SettingsState) -> ())? = nil
@@ -65,7 +67,7 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 	root.Name = "SettingsPanel"
 	root.AnchorPoint = Vector2.new(1, 0)
 	root.Position = UDim2.new(1, -16, 0, 144)
-	root.Size = UDim2.fromOffset(248, 268)
+	root.Size = UDim2.fromOffset(248, 312)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 30
@@ -110,13 +112,23 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 
 	local valueLbl = Theme.text(root, "Value", "", 11, Theme.muted)
 	valueLbl.Position = UDim2.fromOffset(0, 180)
-	valueLbl.Size = UDim2.new(1, 0, 0, 32)
+	valueLbl.Size = UDim2.new(1, 0, 0, 28)
+
+	local hideBtn = Theme.button(root, "HideName", "Hide my name", Theme.peach)
+	hideBtn.Position = UDim2.fromOffset(0, 214)
+	hideBtn.Size = UDim2.new(1, 0, 0, 28)
+	hideBtn.TextSize = 13
+
+	local privacyHint = Theme.text(root, "Privacy", "Boards show Anonymous Cat when on.", 11, Theme.muted)
+	privacyHint.Position = UDim2.fromOffset(0, 246)
+	privacyHint.Size = UDim2.new(1, 0, 0, 28)
 
 	local function snapshot(): SettingsState
 		return {
 			sfxVolume = sfxVolume,
 			sfxMuted = sfxMuted,
 			muteOthersEmotes = muteOthers,
+			hideBoardName = hideBoardName,
 			musicVolume = musicVolume,
 			musicMuted = musicMuted,
 		}
@@ -131,6 +143,11 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 		muteMusic.BackgroundColor3 = if musicMuted then Theme.muted else Theme.blue
 		othersBtn.Text = if muteOthers then "Hearing others' emotes" else "Mute others' emotes"
 		othersBtn.BackgroundColor3 = if muteOthers then Theme.muted else Theme.peach
+		hideBtn.Text = if hideBoardName then "Anonymous Cat" else "Hide my name"
+		hideBtn.BackgroundColor3 = if hideBoardName then Theme.muted else Theme.peach
+		privacyHint.Text = if hideBoardName
+			then "Boards list you as Anonymous Cat."
+			else "Boards show your display name."
 		local sfxBit = if sfxMuted then "SFX muted" else `SFX {math.floor(sfxVolume * 100 + 0.5)}%`
 		local musicBit = if musicMuted then "Music muted" else `Music {math.floor(musicVolume * 100 + 0.5)}%`
 		valueLbl.Text = `{sfxBit}  ·  {musicBit}`
@@ -196,6 +213,10 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 		muteOthers = not muteOthers
 		paint()
 	end)
+	hideBtn.MouseButton1Click:Connect(function()
+		hideBoardName = not hideBoardName
+		paint()
+	end)
 
 	gear.MouseButton1Click:Connect(function()
 		root.Visible = not root.Visible
@@ -207,6 +228,7 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 		sfxVolume = clamp01(next.sfxVolume)
 		sfxMuted = next.sfxMuted == true
 		muteOthers = next.muteOthersEmotes == true
+		hideBoardName = next.hideBoardName == true
 		musicVolume = clamp01(next.musicVolume)
 		musicMuted = next.musicMuted == true
 		paint()

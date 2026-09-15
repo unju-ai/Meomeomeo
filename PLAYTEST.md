@@ -6,7 +6,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 ## 0. What you have
 
-Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily/weekly board + persisted PB ghost. **Koi Pond** fishing. **Yarn Party** 4-cat micro-rounds (bots fill). **Meme Arcade** timed yarn-tape stall (play yarn only).
+Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily/weekly board + persisted PB ghost. **Koi Pond** fishing + UTC daily catch board. **Yarn Party** 4-cat micro-rounds (bots fill). **Meme Arcade** timed yarn-tape stall + UTC daily profit board (play yarn only). **Audio → Hide my name** lists you as **Anonymous Cat** on those boards.
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-15: Luau compiled 101 sources; brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
+Build verification on 2026-09-15: Luau compiled 105 sources; brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -103,7 +103,7 @@ Practice **never** teleports. `MatchPlaceId` can stay `0`.
 4. **PB / ghost:** a translucent cat replays your personal-best path. Path samples persist in DataStore `MeoYarnGhost_v1` (capped ~240 points so payloads stay small; Studio without API Services is memory-only). A gold **PB {meters}m** gate sits on the ribbon. HUD shows `PB score / meters`. Pass that distance for a **BEAT YOUR GHOST** ticker. Beat the score for **NEW PERSONAL BEST** on the death card. Stop / Play with API Services on: the ghost should still be there.
 5. Layout **ramps with distance**: zig-zag dogs, laundry tunnel, Roomba jump gap, yarn fountain, narrow bridge, billboard dodge. Same **daily UTC seed** every run that day (HUD `Daily seed YYYY-MM-DD`) so streamers share a layout.
 6. Die → fail line or **NEW PERSONAL BEST**, score / yarn / combo / PB compare, death cam pulls back. Combo ≥ 2 flashes **COMBO BREAK**. Near-misses tick **CLOSE!**. Death card shows **Daily #K** and **Weekly #K** when you are on those boards. Top 3 **daily** get a podium + ticker (`#1 YARN LORD` / `#2 YARN ACE` / `#3 YARN CREW`). **Retry dash** (same daily seed + ghost) or **Back to hub**. **Leaderboard** opens the board with a **Daily / Weekly** toggle.
-7. **Boards:** Hub Yarn Run tile **Board** (and the death-card button) lists top 10. **Daily** is the UTC day (`MeoYarnDaily_v1`). **Weekly** is the UTC week starting Monday (`MeoYarnWeekly_v1`). Roblox **display name**, score, meters, champion tag. Studio without API Services is **Save: Memory**. Submit is server-side on death only if the score beats that player's prior for that board (rate-limited). No user ids on the public list. Daily podium titles are unchanged.
+7. **Boards:** Hub Yarn Run tile **Board** (and the death-card button) lists top 10. **Daily** is the UTC day (`MeoYarnDaily_v1`). **Weekly** is the UTC week starting Monday (`MeoYarnWeekly_v1`). Roblox **display name**, score, meters, champion tag — or **Anonymous Cat** if **Audio → Hide my name** is on (`MeoSettings_v1`). Studio without API Services is **Save: Memory**. Submit is server-side on death only if the score beats that player's prior for that board (rate-limited). No user ids on the public list. Daily podium titles are unchanged.
 8. During a run, a top-right **Daily #K** chip is the stream overlay stub (shows **Daily —** until you are on today's board).
 9. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
 
@@ -111,14 +111,14 @@ Score / hits / pickups / board writes are server-authoritative. Personal best + 
 
 ## 3c. Koi Pond (solo fishing)
 
-1. Hub → **Koi Pond → Play**. You teleport to a lantern canal far from the rift (`MeoKoiPond`, east of the map). Cozy 3/4 dock cam. **Back to hub** returns like Yarn Run.
+1. Hub → **Koi Pond → Play** (tile **Board** opens today's catch list without playing). You teleport to a lantern canal far from the rift (`MeoKoiPond`, east of the map). Cozy 3/4 dock cam. **Back to hub** returns like Yarn Run; HUD **Board** is the same daily list.
 2. **Space** or **Click** **casts** a yarn bobber. Wait for a nibble (do not mash — an extra press spooked the canal).
 3. When the lantern rail appears, **Space / Click** again to **reel**. Hit the **cream window** (middle glow) to land the cat-koi. Miss / timeout: *The loaf swam off* / *Slipped the cream window*.
 4. Rarities (Meo canal, not a generic fish UI): cream loaf → peach koi → mint whisker / cobalt braincell → amber lantern → **coral crown**. Tighter window = rarer. Big pops on the HUD; **LEGENDARY KOI** ticker + coral flash for the crown.
-5. **Stall log** (right) is a session collection. HUD **best catch** + tile **PB catch** are personal (session memory, no DataStore board this slice). Canal day chip is UTC like Yarn Run's daily seed.
+5. **Stall log** (right) is a session collection. HUD **best catch** + tile **PB catch** are personal (session memory). **Daily board** (`MeoKoiDaily_v1`) ranks the best **single catch** score of the UTC day (rarity · name · score). Submit is server-side on each catch if it beats that player's prior catch that day (rate-limited). Display names only, or **Anonymous Cat** when hide-my-name is on. Canal day chip is UTC like Yarn Run's daily seed.
 6. Help overlay (**?** / **H**) swaps to pond binds (cast / reel). **T** emotes still work. **G** pings do not.
 
-Cast / reel / catch / score are server-authoritative. Yarn Run board, power-ups, and Cat Rift are unchanged. Exclusive with Hub / Moba / Yarn Run (`ModeService`).
+Cast / reel / catch / score / board writes are server-authoritative. Yarn Run board, power-ups, Closet, and Cat Rift are unchanged. Exclusive with Hub / Moba / Yarn Run (`ModeService`).
 
 ## 3d. Yarn Party (solo + bots)
 
@@ -131,10 +131,10 @@ Scores / elims / bots are server-authoritative. Yarn Run, Koi Pond, and Cat Rift
 
 ## 3e. Meme Arcade (solo tape)
 
-1. Hub → **Meme Arcade → Play**. You teleport to a neon tape stall west of the rift (`MeoMemeArcade`). 3/4 cam on the ticker wall. **Play yarn only** — the HUD and stall sign say this is not real money / not a broker.
+1. Hub → **Meme Arcade → Play** (tile **Board** opens today's profit list). You teleport to a neon tape stall west of the rift (`MeoMemeArcade`). 3/4 cam on the ticker wall. **Play yarn only** — the HUD and stall sign say this is not real money / not a broker.
 2. Start with **100 yarn**. Five cat tickers (LOAF / NYAN / CHNK / BRAIN / RUG) drift on a chaotic micro-market. **Buy** / **Sell** 1 bag at the listed price (cards, or **1–5** buy / **Shift+1–5** sell). Simple candle bars sit on each card.
-3. Timed round (~28s). Mark-to-market PnL is the big green/red pop. Events shout **TO THE MOON**, **RUG PULL**, **WHALE SNEEZE**. At the bell, holdings auto-sell. **Score = profit** vs the starting wallet. Session **daily high** (UTC day, memory — light, no DataStore board).
-4. **Play again** or **Back to hub**. Help overlay (**?** / **H**) swaps to arcade binds. **T** emotes still work. **G** pings do not.
+3. Timed round (~28s). Mark-to-market PnL is the big green/red pop. Events shout **TO THE MOON**, **RUG PULL**, **WHALE SNEEZE**. At the bell, holdings auto-sell. **Score = profit** vs the starting wallet. Session **daily high** stays in memory; the **daily board** (`MeoArcadeDaily_v1`) ranks that UTC day's best profit (negatives allowed; higher is better). Submit is server-side on settle if it beats that player's prior profit that day (rate-limited). Display names only, or **Anonymous Cat**.
+4. **Play again**, recap **Board**, or **Back to hub**. Help overlay (**?** / **H**) swaps to arcade binds. **T** emotes still work. **G** pings do not.
 
 Tape / wallets / events are server-authoritative and **isolated** from in-match `MemeStockService` cheer tickers. Exclusive with Hub / Moba / Yarn Run / Koi Pond / Yarn Party.
 
@@ -186,7 +186,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only; cooldown. Aim at a tower/nexus/visible champ to name them |
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
-| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes. Mix + last Practice difficulty persist (`MeoSettings_v1`) |
+| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes, **Hide my name** (boards show **Anonymous Cat**). Mix + hide-name + last Practice difficulty persist (`MeoSettings_v1`) |
 | **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
@@ -251,7 +251,7 @@ Also for a live place:
 
 **SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / KoiPond / YarnParty / MemeArcade / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
 
-Audio sliders / mutes, mute-others-emotes, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
+Audio sliders / mutes, mute-others-emotes, **Hide my name**, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
 
 The current beds reuse `action_get_up.mp3` at different speeds — placeholders only. See README "Audio & juice".
 
@@ -281,7 +281,7 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 - No music: **Audio → unmute Music**, slider > 0. Placeholder bed is a quiet loop of `action_get_up.mp3`; swap `MusicIds` for a real loop. Phase change should crossfade, not cut.
 - Mint says Memory: enable Studio API Services.
 - Closet says Memory: same API Services toggle (`MeoCloset_v1`). Starters still equip in-session.
-- Yarn ghost / board says Memory: same toggle (`MeoYarnGhost_v1`, `MeoYarnDaily_v1`, `MeoYarnWeekly_v1`). Ghost still works for the current Studio session.
+- Yarn ghost / board says Memory: same toggle (`MeoYarnGhost_v1`, `MeoYarnDaily_v1`, `MeoYarnWeekly_v1`, `MeoKoiDaily_v1`, `MeoArcadeDaily_v1`). Ghost still works for the current Studio session.
 - Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
 - Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.
@@ -301,4 +301,4 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 95 Luau sources compile; brand/hub, Yarn Run, Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 105 Luau sources compile; brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.

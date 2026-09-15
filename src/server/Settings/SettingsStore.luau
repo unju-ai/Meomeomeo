@@ -1,6 +1,6 @@
 --!strict
 
--- Per-player audio + lobby prefs.
+-- Per-player audio + lobby prefs (including Hide my name for public boards).
 -- DataStore when available; memory cache always. Studio without API Services stays in-memory.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -50,6 +50,7 @@ local function defaults(): Types.PlayerPrefs
 		musicVolume = 0.35,
 		musicMuted = false,
 		muteOthersEmotes = false,
+		hideBoardName = false,
 		practiceDifficulty = "Normal",
 		persistMode = persistMode,
 	}
@@ -69,6 +70,7 @@ local function hydrate(value: any): Types.PlayerPrefs
 	row.sfxMuted = value.sfxMuted == true
 	row.musicMuted = value.musicMuted == true
 	row.muteOthersEmotes = value.muteOthersEmotes == true
+	row.hideBoardName = value.hideBoardName == true
 	row.practiceDifficulty = parseDifficulty(value.practiceDifficulty)
 	row.persistMode = persistMode
 	return row
@@ -76,6 +78,15 @@ end
 
 function SettingsStore.persistMode(): Types.PersistMode
 	return persistMode
+end
+
+function SettingsStore.peek(userId: number): Types.PlayerPrefs?
+	local cached = cache[userId]
+	if cached then
+		cached.persistMode = persistMode
+		return cached
+	end
+	return nil
 end
 
 function SettingsStore.get(userId: number): Types.PlayerPrefs
@@ -116,6 +127,7 @@ function SettingsStore.set(userId: number, patch: any): Types.PlayerPrefs
 		muteOthersEmotes = if typeof(patch.muteOthersEmotes) == "boolean"
 			then patch.muteOthersEmotes
 			else current.muteOthersEmotes,
+		hideBoardName = if typeof(patch.hideBoardName) == "boolean" then patch.hideBoardName else current.hideBoardName,
 		practiceDifficulty = if patch.practiceDifficulty ~= nil then patch.practiceDifficulty else current.practiceDifficulty,
 	})
 	cache[userId] = nextRow
@@ -127,6 +139,7 @@ function SettingsStore.set(userId: number, patch: any): Types.PlayerPrefs
 				musicVolume = nextRow.musicVolume,
 				musicMuted = nextRow.musicMuted,
 				muteOthersEmotes = nextRow.muteOthersEmotes,
+				hideBoardName = nextRow.hideBoardName,
 				practiceDifficulty = nextRow.practiceDifficulty,
 			})
 		end)
@@ -145,6 +158,7 @@ function SettingsStore.applyAttributes(player: Player, prefs: Types.PlayerPrefs?
 	player:SetAttribute(Constants.Attributes.MusicVolume, row.musicVolume)
 	player:SetAttribute(Constants.Attributes.MusicMuted, row.musicMuted)
 	player:SetAttribute(Constants.Attributes.MuteOthersEmotes, row.muteOthersEmotes)
+	player:SetAttribute(Constants.Attributes.HideBoardName, row.hideBoardName)
 	player:SetAttribute(Constants.Attributes.PracticeDifficulty, row.practiceDifficulty)
 end
 

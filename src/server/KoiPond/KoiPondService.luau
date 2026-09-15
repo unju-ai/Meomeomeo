@@ -14,6 +14,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local KoiPondBuilder = require(script.Parent.KoiPondBuilder)
+local KoiBoardStore = require(script.Parent.KoiBoardStore)
 
 type Session = {
 	player: Player,
@@ -42,6 +43,7 @@ type Session = {
 	ticker: boolean,
 	sendAcc: number,
 	charConn: RBXScriptConnection?,
+	dailyRank: number?,
 }
 
 local KoiPondService = {}
@@ -77,6 +79,7 @@ local function snapshotOf(session: Session): Types.KoiPondSnapshot
 		lastCatchScore = session.lastCatchScore,
 		ticker = session.ticker,
 		pb = ModeService.koiBestOf(session.player.UserId),
+		dailyRank = session.dailyRank,
 	}
 end
 
@@ -189,6 +192,8 @@ local function catch(session: Session)
 		ModeService.noteKoiLegendary(session.player.UserId)
 	end
 	remember(session)
+	local posted = KoiBoardStore.submit(session.player, fish.score, `{fish.rarity} · {fish.name}`, now())
+	session.dailyRank = posted.rank
 	CosmeticService.refresh(session.player)
 	session.phase = "Reveal"
 	session.missReason = nil
@@ -201,6 +206,7 @@ local function catch(session: Session)
 	KoiPondBuilder.setBobber(session.player.UserId, "catch", fish.color)
 	session.fish = nil
 	fire(session)
+	Remotes.event("KoiBoardUpdated"):FireClient(session.player, posted.board)
 end
 
 local function beginBite(session: Session)
@@ -343,6 +349,7 @@ function KoiPondService.start(player: Player): Types.TradeResult
 		ticker = false,
 		sendAcc = 1,
 		charConn = nil,
+		dailyRank = KoiBoardStore.rankOf(player.UserId, unix),
 	}
 	sessions[player.UserId] = session
 	ModeService.set(player, "KoiPond")

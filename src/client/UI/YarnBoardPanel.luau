@@ -52,7 +52,7 @@ function YarnBoardPanel.create(parent: Instance): BoardApi
 	weeklyBtn.TextSize = 15
 	weeklyBtn.ZIndex = 41
 
-	local sub = Theme.text(root, "Sub", "UTC day · display names only", 13, Theme.peach)
+	local sub = Theme.text(root, "Sub", "UTC day · display names · hide in Audio", 13, Theme.peach)
 	sub.Position = UDim2.fromOffset(0, 68)
 	sub.Size = UDim2.new(1, 0, 0, 18)
 

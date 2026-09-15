@@ -29,8 +29,10 @@ local YarnRunService = require(script.YarnRun.YarnRunService)
 local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
 local YarnGhostStore = require(script.YarnRun.YarnGhostStore)
 local KoiPondService = require(script.KoiPond.KoiPondService)
+local KoiBoardStore = require(script.KoiPond.KoiBoardStore)
 local YarnPartyService = require(script.YarnParty.YarnPartyService)
 local ArcadeService = require(script.Arcade.ArcadeService)
+local ArcadeBoardStore = require(script.Arcade.ArcadeBoardStore)
 local CosmeticService = require(script.Cosmetics.CosmeticService)
 
 local function ensureTeam(name: string, color: BrickColor)
@@ -316,6 +318,14 @@ Remotes.function_("GetYarnBoard").OnServerInvoke = function(player: Player)
 	return YarnBoardStore.getBoards(Workspace:GetServerTimeNow(), player.UserId)
 end
 
+Remotes.function_("GetKoiBoard").OnServerInvoke = function(player: Player)
+	return KoiBoardStore.get(Workspace:GetServerTimeNow(), player.UserId)
+end
+
+Remotes.function_("GetArcadeBoard").OnServerInvoke = function(player: Player)
+	return ArcadeBoardStore.get(Workspace:GetServerTimeNow(), player.UserId)
+end
+
 Remotes.function_("StartKoiPond").OnServerInvoke = function(player: Player)
 	if MatchmakingService.statusFor(player).inQueue then
 		MatchmakingService.leave(player)
@@ -381,8 +391,18 @@ Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patc
 	if typeof(patch) ~= "table" then
 		return SettingsStore.get(player.UserId)
 	end
+	local before = SettingsStore.peek(player.UserId)
+	local prevHide = if before then before.hideBoardName else false
 	local prefs = SettingsStore.set(player.UserId, patch)
 	SettingsStore.applyAttributes(player, prefs)
+	if prevHide ~= prefs.hideBoardName then
+		local unix = Workspace:GetServerTimeNow()
+		for _, other in Players:GetPlayers() do
+			Remotes.event("YarnBoardUpdated"):FireClient(other, YarnBoardStore.getBoards(unix, other.UserId))
+			Remotes.event("KoiBoardUpdated"):FireClient(other, KoiBoardStore.get(unix, other.UserId))
+			Remotes.event("ArcadeBoardUpdated"):FireClient(other, ArcadeBoardStore.get(unix, other.UserId))
+		end
+	end
 	return prefs
 end
 

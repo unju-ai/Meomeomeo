@@ -23,7 +23,11 @@ export type HubApi = {
 	onMint: (() -> ()) -> (),
 	onCloset: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
+	onKoiBoard: (() -> ()) -> (),
+	onArcadeBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
+	updateKoiBoard: (board: Types.StallBoard) -> (),
+	updateArcadeBoard: (board: Types.StallBoard) -> (),
 }
 
 local function swatchArt(parent: Frame, art: ModeCatalog.ModeArt, color: Color3)
@@ -120,6 +124,8 @@ function HubPanel.create(parent: Instance): HubApi
 	local mintHandler: (() -> ())? = nil
 	local closetHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
+	local koiBoardHandler: (() -> ())? = nil
+	local arcadeBoardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
 	local picked = "NyanRocket"
 	local runnerButtons: { TextButton } = {}
@@ -127,6 +133,8 @@ function HubPanel.create(parent: Instance): HubApi
 	local koiBest = 0
 	local arcadeBest = 0
 	local yarnLead = ""
+	local koiLead = ""
+	local arcadeLead = ""
 
 	local function countText(id: string): string
 		if id == "YarnRun" then
@@ -146,6 +154,12 @@ function HubPanel.create(parent: Instance): HubApi
 		end
 		if id == "KoiPond" then
 			local n = counts[id] or 0
+			if koiLead ~= "" then
+				if n > 0 then
+					return `{n} playing · {koiLead}`
+				end
+				return koiLead
+			end
 			if koiBest > 0 then
 				if n <= 0 then
 					return `PB catch {koiBest}`
@@ -155,6 +169,12 @@ function HubPanel.create(parent: Instance): HubApi
 		end
 		if id == "MemeArcade" then
 			local n = counts[id] or 0
+			if arcadeLead ~= "" then
+				if n > 0 then
+					return `{n} playing · {arcadeLead}`
+				end
+				return arcadeLead
+			end
 			if arcadeBest > 0 then
 				if n <= 0 then
 					return `Daily +{arcadeBest} yarn`
@@ -268,6 +288,28 @@ function HubPanel.create(parent: Instance): HubApi
 					boardHandler()
 				end
 			end)
+		elseif def.id == "KoiPond" then
+			play.Size = UDim2.new(0.58, 0, 0, 26)
+			local boardBtn = Theme.button(card, "Board", "Board", Theme.peach)
+			boardBtn.Position = UDim2.new(0.62, 0, 1, -28)
+			boardBtn.Size = UDim2.new(0.38, 0, 0, 26)
+			boardBtn.TextSize = 14
+			boardBtn.MouseButton1Click:Connect(function()
+				if koiBoardHandler then
+					koiBoardHandler()
+				end
+			end)
+		elseif def.id == "MemeArcade" then
+			play.Size = UDim2.new(0.58, 0, 0, 26)
+			local boardBtn = Theme.button(card, "Board", "Board", Theme.peach)
+			boardBtn.Position = UDim2.new(0.62, 0, 1, -28)
+			boardBtn.Size = UDim2.new(0.38, 0, 0, 26)
+			boardBtn.TextSize = 14
+			boardBtn.MouseButton1Click:Connect(function()
+				if arcadeBoardHandler then
+					arcadeBoardHandler()
+				end
+			end)
 		end
 	end
 
@@ -370,6 +412,12 @@ function HubPanel.create(parent: Instance): HubApi
 		onBoard = function(fn)
 			boardHandler = fn
 		end,
+		onKoiBoard = function(fn)
+			koiBoardHandler = fn
+		end,
+		onArcadeBoard = function(fn)
+			arcadeBoardHandler = fn
+		end,
 		updateBoard = function(board: Types.YarnBoard)
 			local first = board.entries[1]
 			if first then
@@ -382,6 +430,38 @@ function HubPanel.create(parent: Instance): HubApi
 					local pop = child:FindFirstChild("Pop")
 					if pop and pop:IsA("TextLabel") then
 						pop.Text = countText("YarnRun")
+					end
+				end
+			end
+		end,
+		updateKoiBoard = function(board: Types.StallBoard)
+			local first = board.entries[1]
+			if first then
+				koiLead = `#{1} {first.name}`
+			else
+				koiLead = ""
+			end
+			for _, child in grid:GetChildren() do
+				if child:IsA("Frame") and child.Name == "KoiPond" then
+					local pop = child:FindFirstChild("Pop")
+					if pop and pop:IsA("TextLabel") then
+						pop.Text = countText("KoiPond")
+					end
+				end
+			end
+		end,
+		updateArcadeBoard = function(board: Types.StallBoard)
+			local first = board.entries[1]
+			if first then
+				arcadeLead = `#{1} {first.name}`
+			else
+				arcadeLead = ""
+			end
+			for _, child in grid:GetChildren() do
+				if child:IsA("Frame") and child.Name == "MemeArcade" then
+					local pop = child:FindFirstChild("Pop")
+					if pop and pop:IsA("TextLabel") then
+						pop.Text = countText("MemeArcade")
 					end
 				end
 			end

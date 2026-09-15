@@ -402,6 +402,28 @@ export type YarnBoardPost = {
 	boards: YarnBoards,
 }
 
+export type StallBoardEntry = {
+	rank: number,
+	name: string,
+	score: number,
+	detail: string,
+	isSelf: boolean?,
+}
+
+export type StallBoard = {
+	dayKey: string,
+	persistMode: PersistMode,
+	entries: { StallBoardEntry },
+	selfRank: number?,
+}
+
+export type StallBoardPost = {
+	ok: boolean,
+	improved: boolean,
+	rank: number?,
+	board: StallBoard,
+}
+
 export type YarnRunPowers = {
 	speed: boolean,
 	magnet: boolean,
@@ -470,6 +492,7 @@ export type KoiPondSnapshot = {
 	lastCatchScore: number,
 	ticker: boolean,
 	pb: number,
+	dailyRank: number?,
 }
 
 export type KoiPondInput = {
@@ -531,6 +554,7 @@ export type ArcadeSnapshot = {
 	toast: string,
 	disclaimer: string,
 	dayKey: string,
+	dailyRank: number?,
 }
 
 export type ArcadeInput = {
@@ -544,6 +568,7 @@ export type PlayerPrefs = {
 	musicVolume: number,
 	musicMuted: boolean,
 	muteOthersEmotes: boolean,
+	hideBoardName: boolean,
 	practiceDifficulty: BotDifficulty,
 	persistMode: PersistMode,
 }

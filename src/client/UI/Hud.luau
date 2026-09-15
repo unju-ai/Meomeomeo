@@ -16,6 +16,7 @@ local KoiPondHud = require(script.Parent.KoiPondHud)
 local YarnPartyHud = require(script.Parent.YarnPartyHud)
 local ArcadeHud = require(script.Parent.ArcadeHud)
 local YarnBoardPanel = require(script.Parent.YarnBoardPanel)
+local StallBoardPanel = require(script.Parent.StallBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
@@ -42,6 +43,8 @@ export type HudApi = {
 	party: YarnPartyHud.PartyHudApi,
 	arcade: ArcadeHud.ArcadeHudApi,
 	board: YarnBoardPanel.BoardApi,
+	koiBoard: StallBoardPanel.StallBoardApi,
+	arcadeBoard: StallBoardPanel.StallBoardApi,
 	mint: MintPanel.MintApi,
 	closet: ClosetPanel.ClosetApi,
 	select: ChampionSelect.SelectApi,
@@ -97,6 +100,18 @@ function Hud.create(): HudApi
 	local party = YarnPartyHud.create(gui)
 	local arcade = ArcadeHud.create(gui)
 	local board = YarnBoardPanel.create(gui)
+	local koiBoard = StallBoardPanel.create(gui, {
+		name = "KoiBoard",
+		title = "Koi Daily",
+		empty = "No catches logged today. Land a cream loaf.",
+		accent = Theme.mint,
+	})
+	local arcadeBoard = StallBoardPanel.create(gui, {
+		name = "ArcadeBoard",
+		title = "Arcade Daily",
+		empty = "No tape settled today. Print some yarn.",
+		accent = Theme.amber,
+	})
 	local lobby = LobbyPanel.create(gui)
 	hub.setVisible(true)
 	lobby.setVisible(false)
@@ -105,6 +120,8 @@ function Hud.create(): HudApi
 	party.setVisible(false)
 	arcade.setVisible(false)
 	board.setVisible(false)
+	koiBoard.setVisible(false)
+	arcadeBoard.setVisible(false)
 	local mint = MintPanel.create(gui)
 	local closet = ClosetPanel.create(gui)
 	local select = ChampionSelect.create(gui)
@@ -119,12 +136,14 @@ function Hud.create(): HudApi
 	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
 	local startMuted = player:GetAttribute(Constants.Attributes.SfxMuted)
 	local startMuteOthers = player:GetAttribute(Constants.Attributes.MuteOthersEmotes)
+	local startHideName = player:GetAttribute(Constants.Attributes.HideBoardName)
 	local startMusic = player:GetAttribute(Constants.Attributes.MusicVolume)
 	local startMusicMuted = player:GetAttribute(Constants.Attributes.MusicMuted)
 	local settings = SettingsPanel.create(gui, {
 		sfxVolume = if typeof(startVolume) == "number" then startVolume :: number else 0.8,
 		sfxMuted = startMuted == true,
 		muteOthersEmotes = startMuteOthers == true,
+		hideBoardName = startHideName == true,
 		musicVolume = if typeof(startMusic) == "number" then startMusic :: number else 0.35,
 		musicMuted = startMusicMuted == true,
 	})
@@ -151,6 +170,9 @@ function Hud.create(): HudApi
 		koi.setVisible(false)
 		party.setVisible(false)
 		arcade.setVisible(false)
+		board.setVisible(false)
+		koiBoard.setVisible(false)
+		arcadeBoard.setVisible(false)
 		if phase ~= "Lobby" then
 			mint.setVisible(false)
 			closet.setVisible(false)
@@ -196,6 +218,8 @@ function Hud.create(): HudApi
 			koi.setVisible(false)
 			party.setVisible(false)
 			arcade.setVisible(false)
+			koiBoard.setVisible(false)
+			arcadeBoard.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
@@ -209,6 +233,8 @@ function Hud.create(): HudApi
 			koi.setVisible(true)
 			party.setVisible(false)
 			arcade.setVisible(false)
+			board.setVisible(false)
+			arcadeBoard.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
@@ -222,6 +248,9 @@ function Hud.create(): HudApi
 			koi.setVisible(false)
 			party.setVisible(true)
 			arcade.setVisible(false)
+			board.setVisible(false)
+			koiBoard.setVisible(false)
+			arcadeBoard.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
@@ -235,6 +264,8 @@ function Hud.create(): HudApi
 			koi.setVisible(false)
 			party.setVisible(false)
 			arcade.setVisible(true)
+			board.setVisible(false)
+			koiBoard.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
@@ -270,6 +301,8 @@ function Hud.create(): HudApi
 		party = party,
 		arcade = arcade,
 		board = board,
+		koiBoard = koiBoard,
+		arcadeBoard = arcadeBoard,
 		lobby = lobby,
 		mint = mint,
 		closet = closet,
