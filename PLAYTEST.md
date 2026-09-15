@@ -6,7 +6,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 ## 0. What you have
 
-Playable scaffold: lobby → practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → lobby.
+Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Soon) → Cat Rift practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → hub.
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
@@ -51,7 +51,7 @@ Build verification on 2026-09-12: Rojo 7.4.4 successfully produced the place, al
 
 ### Lobby host acceptance check
 
-1. Start Play and check the title **Meo Meo Meo** and **Three lanes. One shared braincell.**
+1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
 2. Walk toward the three hosts near the lobby spawn. Confirm orange MEO, ivory ME and charcoal MO each show a name and **Talk** prompt. Check the eyes and cobalt forehead square from the front.
 3. Talk to each host. Confirm the dialogue panel names the selected host and replies in that host's voice. Hosts should not block movement.
    - Each host opens with a distinct authored greeting. Switch hosts while a reply is pending: the new conversation should contain only the new host's greeting and subsequent messages. Closing and reopening the same host should also discard pending replies from the old conversation.
@@ -70,7 +70,7 @@ rojo serve
 1. Studio → **New place** (or an existing unpublished place).
 2. Rojo plugin → **Connect** to `localhost` (default port 34872).
 3. Confirm `ReplicatedStorage.Shared`, `ServerScriptService.Server`, and `StarterPlayer.StarterPlayerScripts.Client` appeared.
-4. **Play** (F5). Character should load on the 3-lane map with the lobby panel.
+4. **Play** (F5). Character loads on the night-market pad with the **hub grid** (Cat Rift / Yarn Run / Soon tiles).
 
 `*.rbxl` is gitignored. Do not treat a Studio file as source of truth.
 
@@ -82,7 +82,7 @@ rojo serve
 
 ## 3. First session — Practice (solo)
 
-1. Lobby → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**. After lock-in, a cream/coral **tip card** (top-left) walks move/AA/QWER/shop/recall/ward/Tab/nexus. **Next** or **Skip all**. Combat still works — the card is not a modal. Lobby **Show tips** replays anytime. Skip/finish persists (`MeoTutorial_v1` DataStore, memory fallback in Studio).
+1. Hub → **Cat Rift → Play** → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**. **← Hub** returns to the grid. After lock-in, a cream/coral **tip card** (top-left) walks move/AA/QWER/shop/recall/ward/Tab/nexus. **Next** or **Skip all**. Combat still works — the card is not a modal. Lobby **Show tips** replays anytime. Skip/finish persists (`MeoTutorial_v1` DataStore, memory fallback in Studio).
    - **Easy** — slow, panicky, sloppy CS, two items, 0.88× damage. No dodge; will not dive towers.
    - **Normal** — last-hits, leads and sidesteps skillshots, dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early ward, kill-dives, uses Whisker Lens on revealed enemy wards.
@@ -94,6 +94,15 @@ rojo serve
 7. End screen → **Back to lobby** or **Practice again**.
 
 Practice **never** teleports. `MatchPlaceId` can stay `0`.
+
+## 3b. Yarn Run (solo dash)
+
+1. Hub → **Yarn Run**. Pick **Nyan / Shad / Chai** (NyanRocket / Shadowpounce / ChairmanMeow looks) → **Play**.
+2. You teleport to a night-market ribbon far from the rift (`MeoYarnRun`). 3/4 chase cam. **A/D** (or arrows) change lanes, **Space** jumps dogs, **C** / **Ctrl** slides under laundry signs. Roomba discs are boosts (`ROOMBA RAIL` / `MEGA YARN` ticker).
+3. Die → funny fail line + score / yarn / combo → **Retry dash** or **Back to hub**.
+4. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
+
+Score / hits are server-authoritative. Best score is session memory (`MeoYarnBest`).
 
 ## 4. Queue (2+ clients)
 
@@ -128,9 +137,11 @@ Same list as the in-game **?** / hold **H** panel.
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
-| **A** | Engine strafe — not rebound |
+| **A / D** (Yarn Run) | Switch lane (also arrows). In the Rift, **A** is still engine strafe |
+| **Space** (Yarn Run) | Jump a dog |
+| **C / Ctrl** (Yarn Run) | Slide under a laundry sign |
 
-Lobby only: **Queue**, **Leave queue**, **Practice**, **Invite**, **Mint Meo 404**. Hold **T** for emotes in lobby too.
+Hub: **Cat Rift** / **Yarn Run** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -138,7 +149,7 @@ This is a **Developer Product → entitlement → hosted mint** stub, not a Robu
 
 1. Studio → **Game Settings → Security → Enable Studio Access to API Services** if you want DataStore `Meo404_v1` to survive Stop. Off = in-memory fallback (panel shows `Save: Memory`).
 2. Leave `Nft404.DeveloperProductId = 0` and `AllowStudioMockPurchase = true`.
-3. Play → lobby → **Mint Meo 404**.
+3. Play → hub **Mint 404** (or Cat Rift stall **Mint Meo 404**).
 4. **Studio: grant mock entitlement** (or **Studio: replay last receipt**).
 5. Paste a dummy `0x` + 40 hex (not the zero address) → **Link**. Panel shows **Linked (unverified)**.
 6. **Mock bypass (default):** leave `AllowSiweMockBypass = true`. **Claim 404** works without a signature. Mock provider writes `0xMOCK…`. Failed claims stay **Retry claim**.
@@ -179,7 +190,7 @@ Also for a live place:
 
 `src/client/Audio/SoundIds.luau` (SFX) and `src/client/Audio/MusicIds.luau` (phase beds) use engine `rbxasset://sounds/…` so git stays binary-free. Swap any `id` to `rbxassetid://YOUR_ID` after a Creator Store upload.
 
-**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
+**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
 
 Audio sliders / mutes, mute-others-emotes, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
 
