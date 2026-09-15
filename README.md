@@ -17,7 +17,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 ## What’s in the scaffold
 
 - Rojo-ready `src/` layout that syncs into Roblox Studio
-- Night-market **hub grid** (all five stalls live: Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) plus **Yarn Run** 3-lane dash (daily seed, power-ups, persisted PB ghost, daily/weekly boards), **Koi Pond** fishing, **Yarn Party** 4-cat micro-rounds, **Meme Arcade** yarn-tape rounds, and **Closet** hats/trails that persist across those modes
+- Night-market **hub grid** (all five stalls live: Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) plus **Yarn Run** 3-lane dash (daily seed, power-ups, persisted PB ghost, daily/weekly boards), **Koi Pond** fishing + UTC daily catch board, **Yarn Party** 4-cat micro-rounds, **Meme Arcade** yarn-tape rounds + UTC daily profit board, **Closet** hats/trails that persist across those modes, and **Audio → Hide my name** (**Anonymous Cat** on public boards)
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
@@ -31,7 +31,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Three channel hosts (MEO / ME / MO) with shared identities, authored dialogue and non-colliding lobby stand-ins
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music) sliders, hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
+- Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
 - Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
@@ -66,10 +66,10 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 - **Hub** — pick **Cat Rift** (MOBA Practice/Queue), **Yarn Run** (3-lane dash), **Koi Pond** (fishing), **Yarn Party** (4-cat micro-rounds), or **Meme Arcade** (yarn tape). **Closet** / Mint / Audio / **T** emotes / **?** stay on the chrome. All five tiles are live.
 - **Closet** — hub or Cat Rift **Closet**. Starters Cream Cap + Yarn Puff. Buy **Gold Bell** for 25 closet yarn (start 40; play points, not Robux). Unlock Coral Beanie / Mint Aura from Yarn Run distance, Canal Crown from a legendary koi, Party Tiara + Moon Dust from a party win, Tape Shades / Braincell Orbs from arcade daily profit. Drip shows in every mode; loadout saves on `MeoCloset_v1` (Studio memory fallback). See PLAYTEST §3f.
-- **Yarn Run** — pick Nyan / Shadow / Chairman → Play. **A/D** lanes, **Space** jump, **C** slide. Grab **SPD / MAG / SHD / 2X** pickups. Chase the **PB ghost** (persists across Play sessions when API Services are on). Pass the PB gate for **BEAT YOUR GHOST**. Same **daily seed** all day. Die to post **daily + weekly** boards (hub **Board** Daily/Weekly toggle / death-card **Leaderboard**; daily top-3 podium ticker). Stream chip **Daily #K**. Score / pickups / board writes are server-authoritative.
-- **Koi Pond** — Play from the hub tile. **Space / Click** casts a yarn bobber; wait for a nibble; reel in the **cream window** (lantern rail, not a stock fishing meter). Catch cream / peach / mint / cobalt / amber / **coral crown** cat-koi. Stall log + best catch. **LEGENDARY KOI** ticker on the crown. **Back to hub** exits like Yarn Run. Exclusive with the Rift and Yarn Run.
+- **Yarn Run** — pick Nyan / Shadow / Chairman → Play. **A/D** lanes, **Space** jump, **C** slide. Grab **SPD / MAG / SHD / 2X** pickups. Chase the **PB ghost** (persists across Play sessions when API Services are on). Pass the PB gate for **BEAT YOUR GHOST**. Same **daily seed** all day. Die to post **daily + weekly** boards (hub **Board** Daily/Weekly toggle / death-card **Leaderboard**; daily top-3 podium ticker). Stream chip **Daily #K**. **Audio → Hide my name** lists you as **Anonymous Cat**. Score / pickups / board writes are server-authoritative.
+- **Koi Pond** — Play from the hub tile (**Board** for today's catches). **Space / Click** casts a yarn bobber; wait for a nibble; reel in the **cream window** (lantern rail, not a stock fishing meter). Catch cream / peach / mint / cobalt / amber / **coral crown** cat-koi. Stall log + best catch. UTC daily board ranks the best **single catch** (`MeoKoiDaily_v1`). **LEGENDARY KOI** ticker on the crown. **Back to hub** exits like Yarn Run. Exclusive with the Rift and Yarn Run.
 - **Yarn Party** — Play from the hub. Bots fill empty seats. **WASD** + **Space** hop. Three rounds: Yarn Dodge, Stall Freeze (lit pillows), Dodge again. Scoreboard + **CROWNED** podium. Exclusive with other modes.
-- **Meme Arcade** — Play from the hub. Timed yarn-tape round: tap **Buy / Sell** (or **1–5** / **Shift+1–5**) on LOAF / NYAN / CHNK / BRAIN / RUG. Candles, wallet, bust/boom events (**RUG PULL** / **TO THE MOON**). Score is yarn profit. **Play yarn only — not real money.** Isolated from in-match meme stocks. Exclusive with other modes.
+- **Meme Arcade** — Play from the hub (**Board** for today's yarn profit). Timed yarn-tape round: tap **Buy / Sell** (or **1–5** / **Shift+1–5**) on LOAF / NYAN / CHNK / BRAIN / RUG. Candles, wallet, bust/boom events (**RUG PULL** / **TO THE MOON**). Score is yarn profit. UTC daily board (`MeoArcadeDaily_v1`) ranks that day's best settle (negatives allowed). **Play yarn only — not real money.** Isolated from in-match meme stocks. Exclusive with other modes.
 - **Practice match** — from the Cat Rift stall: one player on Blue vs **3 AI cats** on Red (top / mid / bot). Toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). Confirmed swings show a claw flash + debounced hit spark. **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
@@ -81,7 +81,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
-- **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. Mix + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
+- **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
 - **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release to fire → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
@@ -92,9 +92,9 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 Hub grid  →  Closet  →  equip hat + trail  →  any stall (drip stays on)
 Hub grid  →  Cat Rift stall  →  Queue / Practice  →  Champion select  →  Fight  →  Nexus down  →  End screen  →  Hub
 Hub grid  →  Yarn Run  →  dash  →  summary  →  Retry / Hub
-Hub grid  →  Koi Pond  →  cast / reel  →  Hub
+Hub grid  →  Koi Pond  →  cast / reel  →  daily catch board  →  Hub
 Hub grid  →  Yarn Party  →  micro-rounds  →  CROWNED  →  Retry / Hub
-Hub grid  →  Meme Arcade  →  tape round  →  settle  →  Retry / Hub
+Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit board  →  Retry / Hub
 ```
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
@@ -397,9 +397,9 @@ src/server/
   Mode/              Per-player Hub / Moba / YarnRun / KoiPond / YarnParty / MemeArcade gate
   Cosmetics/         Closet DataStore + Part hats/trails applied on any player character
   YarnRun/           Authoritative 3-lane dash + night-market track Parts + daily/weekly boards + persisted PB ghost
-  KoiPond/           Authoritative fishing + night-market canal Parts
+  KoiPond/           Authoritative fishing + UTC daily catch board + night-market canal Parts
   YarnParty/         Authoritative 4-cat micro-rounds + courtyard Parts + bots
-  Arcade/            Authoritative yarn-tape stall (isolated from in-match meme stocks)
+  Arcade/            Authoritative yarn-tape stall + UTC daily profit board (isolated from in-match meme stocks)
   Match/             Matchmaking, reserved-server teleport, match lifecycle, combat, minions, jungle, towers, vision, wards, shop, practice bots
   Voice/             VoiceChatService wrapper
   World/             3-lane map (art pass + lighting), cat NPC placeholders, champion appearance builder, FX relay
@@ -407,9 +407,9 @@ src/server/
   Economy/           Optional meme stocks
   Mint/              ProcessReceipt, DataStore entitlements, SIWE challenge/verify, claim API stub, Studio GrantProduct/ReplayReceipt
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
-  Settings/          Audio + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
+  Settings/          Audio + Hide my name + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
   Social/            Emote cooldown + nearby replicate
-src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily+weekly board, Koi Pond HUD/camera, Yarn Party HUD/camera, Meme Arcade HUD/camera, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
+src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily+weekly board, Koi Pond HUD/camera/daily board, Yarn Party HUD/camera, Meme Arcade HUD/camera/daily board, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
@@ -418,7 +418,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Hide-my-name toggle on Yarn boards. Optional Koi Pond daily catch DataStore board. Arcade daily high currently session-memory. Yarn Party 2-player join polish / more micro-round types.
+1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
 2. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 3. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 4. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).

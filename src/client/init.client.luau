@@ -41,6 +41,7 @@ local function writePrefAttrs(
 	musicVolume: number,
 	musicMuted: boolean,
 	muteOthers: boolean,
+	hideBoardName: boolean,
 	difficulty: Types.BotDifficulty?
 )
 	player:SetAttribute(Constants.Attributes.SfxVolume, sfxVolume)
@@ -48,6 +49,7 @@ local function writePrefAttrs(
 	player:SetAttribute(Constants.Attributes.MusicVolume, musicVolume)
 	player:SetAttribute(Constants.Attributes.MusicMuted, musicMuted)
 	player:SetAttribute(Constants.Attributes.MuteOthersEmotes, muteOthers)
+	player:SetAttribute(Constants.Attributes.HideBoardName, hideBoardName)
 	if difficulty == "Easy" or difficulty == "Normal" or difficulty == "Hard" then
 		player:SetAttribute(Constants.Attributes.PracticeDifficulty, difficulty)
 	end
@@ -73,6 +75,7 @@ local function prefsFromRemote(value: any): Types.PlayerPrefs?
 		musicVolume = math.clamp(row.musicVolume, 0, 1),
 		musicMuted = row.musicMuted == true,
 		muteOthersEmotes = row.muteOthersEmotes == true,
+		hideBoardName = row.hideBoardName == true,
 		practiceDifficulty = difficulty,
 		persistMode = if row.persistMode == "DataStore" then "DataStore" else "Memory",
 	}
@@ -93,6 +96,7 @@ do
 				loadedPrefs.musicVolume,
 				loadedPrefs.musicMuted,
 				loadedPrefs.muteOthersEmotes,
+				loadedPrefs.hideBoardName,
 				loadedPrefs.practiceDifficulty
 			)
 		end
@@ -111,6 +115,7 @@ local function applyAudio(state: {
 	musicVolume: number,
 	musicMuted: boolean,
 	muteOthersEmotes: boolean,
+	hideBoardName: boolean,
 })
 	Sfx.setVolume(state.sfxVolume)
 	Sfx.setMuted(state.sfxMuted)
@@ -123,6 +128,7 @@ local function applyAudio(state: {
 		state.musicVolume,
 		state.musicMuted,
 		state.muteOthersEmotes,
+		state.hideBoardName,
 		hud.lobby.difficulty()
 	)
 end
@@ -145,6 +151,7 @@ local function queueSavePrefs()
 				musicVolume = state.musicVolume,
 				musicMuted = state.musicMuted,
 				muteOthersEmotes = state.muteOthersEmotes,
+				hideBoardName = state.hideBoardName,
 				practiceDifficulty = hud.lobby.difficulty(),
 			})
 		end)
@@ -171,6 +178,7 @@ local function applyLoadedPrefs(prefs: Types.PlayerPrefs)
 		prefs.musicVolume,
 		prefs.musicMuted,
 		prefs.muteOthersEmotes,
+		prefs.hideBoardName,
 		prefs.practiceDifficulty
 	)
 	hud.settings.apply({
@@ -179,6 +187,7 @@ local function applyLoadedPrefs(prefs: Types.PlayerPrefs)
 		musicVolume = prefs.musicVolume,
 		musicMuted = prefs.musicMuted,
 		muteOthersEmotes = prefs.muteOthersEmotes,
+		hideBoardName = prefs.hideBoardName,
 	})
 	hud.lobby.setDifficulty(prefs.practiceDifficulty)
 end
@@ -586,6 +595,13 @@ local function applyYarnBoards(payload: any)
 	end
 end
 
+local function applyStallBoard(payload: any): Types.StallBoard?
+	if typeof(payload) ~= "table" or typeof(payload.entries) ~= "table" then
+		return nil
+	end
+	return payload :: Types.StallBoard
+end
+
 local function refreshYarnBoard()
 	local ok, board = pcall(function()
 		return Remotes.function_("GetYarnBoard"):InvokeServer()
@@ -595,13 +611,59 @@ local function refreshYarnBoard()
 	end
 end
 
+local function refreshKoiBoard()
+	local ok, board = pcall(function()
+		return Remotes.function_("GetKoiBoard"):InvokeServer()
+	end)
+	if ok then
+		local stall = applyStallBoard(board)
+		if stall then
+			hud.koiBoard.update(stall)
+			hud.hub.updateKoiBoard(stall)
+		end
+	end
+end
+
+local function refreshArcadeBoard()
+	local ok, board = pcall(function()
+		return Remotes.function_("GetArcadeBoard"):InvokeServer()
+	end)
+	if ok then
+		local stall = applyStallBoard(board)
+		if stall then
+			hud.arcadeBoard.update(stall)
+			hud.hub.updateArcadeBoard(stall)
+		end
+	end
+end
+
 local function openYarnBoard()
+	hud.koiBoard.setVisible(false)
+	hud.arcadeBoard.setVisible(false)
 	refreshYarnBoard()
 	hud.board.setVisible(true)
 end
 
+local function openKoiBoard()
+	hud.board.setVisible(false)
+	hud.arcadeBoard.setVisible(false)
+	refreshKoiBoard()
+	hud.koiBoard.setVisible(true)
+end
+
+local function openArcadeBoard()
+	hud.board.setVisible(false)
+	hud.koiBoard.setVisible(false)
+	refreshArcadeBoard()
+	hud.arcadeBoard.setVisible(true)
+end
+
 hud.hub.onBoard(openYarnBoard)
+hud.hub.onKoiBoard(openKoiBoard)
+hud.hub.onArcadeBoard(openArcadeBoard)
 hud.yarn.onBoard(openYarnBoard)
+hud.koi.onBoard(openKoiBoard)
+hud.arcade.onBoard(openArcadeBoard)
 
 hud.yarn.onRetry(function()
 	local result = Remotes.function_("RetryYarnRun"):InvokeServer()
@@ -631,7 +693,9 @@ hud.koi.onHub(function()
 	gameMode = "Hub"
 	hubPage = "grid"
 	latestKoi = nil
+	hud.koiBoard.setVisible(false)
 	applyShellView()
+	refreshKoiBoard()
 end)
 
 hud.party.onHub(function()
@@ -660,7 +724,9 @@ hud.arcade.onHub(function()
 	gameMode = "Hub"
 	hubPage = "grid"
 	latestArcade = nil
+	hud.arcadeBoard.setVisible(false)
 	applyShellView()
+	refreshArcadeBoard()
 end)
 
 hud.arcade.onRetry(function()
@@ -940,6 +1006,22 @@ end)
 
 Remotes.event("YarnBoardUpdated").OnClientEvent:Connect(function(payload)
 	applyYarnBoards(payload)
+end)
+
+Remotes.event("KoiBoardUpdated").OnClientEvent:Connect(function(payload)
+	local stall = applyStallBoard(payload)
+	if stall then
+		hud.koiBoard.update(stall)
+		hud.hub.updateKoiBoard(stall)
+	end
+end)
+
+Remotes.event("ArcadeBoardUpdated").OnClientEvent:Connect(function(payload)
+	local stall = applyStallBoard(payload)
+	if stall then
+		hud.arcadeBoard.update(stall)
+		hud.hub.updateArcadeBoard(stall)
+	end
 end)
 
 local lastKoiEvent: string? = nil
@@ -1901,6 +1983,8 @@ task.spawn(function()
 		end
 	end
 	refreshYarnBoard()
+	refreshKoiBoard()
+	refreshArcadeBoard()
 	if not loadedPrefs then
 		local ok, result = pcall(function()
 			return Remotes.function_("GetSettings"):InvokeServer()

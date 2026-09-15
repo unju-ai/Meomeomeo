@@ -14,6 +14,7 @@ export type ArcadeHudApi = {
 	update: (snap: Types.ArcadeSnapshot) -> (),
 	onHub: (() -> ()) -> (),
 	onRetry: (() -> ()) -> (),
+	onBoard: (() -> ()) -> (),
 	onTrade: ((tickerId: string, action: "buy" | "sell") -> ()) -> (),
 }
 
@@ -131,16 +132,27 @@ function ArcadeHud.create(parent: Instance): ArcadeHudApi
 
 	local hub = Theme.button(recap, "Hub", "Back to hub", Theme.peach)
 	hub.Position = UDim2.new(0, 0, 1, -42)
-	hub.Size = UDim2.new(1, 0, 0, 36)
+	hub.Size = UDim2.new(0.48, 0, 0, 36)
 	hub.ZIndex = 9
+
+	local recapBoard = Theme.button(recap, "Board", "Board", Theme.amber)
+	recapBoard.Position = UDim2.new(0.52, 0, 1, -42)
+	recapBoard.Size = UDim2.new(0.48, 0, 0, 36)
+	recapBoard.ZIndex = 9
 
 	local leave = Theme.button(root, "Leave", "Back to hub", Theme.peach)
 	leave.AnchorPoint = Vector2.new(1, 1)
 	leave.Position = UDim2.new(1, -18, 1, -18)
 	leave.Size = UDim2.fromOffset(150, 36)
 
+	local playBoard = Theme.button(root, "PlayBoard", "Board", Theme.amber)
+	playBoard.AnchorPoint = Vector2.new(1, 1)
+	playBoard.Position = UDim2.new(1, -178, 1, -18)
+	playBoard.Size = UDim2.fromOffset(110, 36)
+
 	local hubHandler: (() -> ())? = nil
 	local retryHandler: (() -> ())? = nil
+	local boardHandler: (() -> ())? = nil
 	local tradeHandler: ((string, "buy" | "sell") -> ())? = nil
 
 	leave.MouseButton1Click:Connect(function()
@@ -156,6 +168,16 @@ function ArcadeHud.create(parent: Instance): ArcadeHudApi
 	retry.MouseButton1Click:Connect(function()
 		if retryHandler then
 			retryHandler()
+		end
+	end)
+	recapBoard.MouseButton1Click:Connect(function()
+		if boardHandler then
+			boardHandler()
+		end
+	end)
+	playBoard.MouseButton1Click:Connect(function()
+		if boardHandler then
+			boardHandler()
 		end
 	end)
 
@@ -343,12 +365,14 @@ function ArcadeHud.create(parent: Instance): ArcadeHudApi
 			local done = snap.phase == "Settled"
 			recap.Visible = done
 			leave.Visible = not done
+			playBoard.Visible = not done
 			tape.Visible = true
 			if done then
 				recapTitle.Text = if snap.profit >= 0 then "BOOM" else "BUST"
 				recapPnl.Text = `{signed} yarn`
 				recapPnl.TextColor3 = if snap.profit >= 0 then Theme.good else Theme.bad
-				recapMeta.Text = `wallet {snap.cash}\ndaily high {ArcadeCatalog.signedYarn(snap.bestProfit)} yarn`
+				local rank = if snap.dailyRank then `\nDaily #{snap.dailyRank}` else ""
+				recapMeta.Text = `wallet {snap.cash}\ndaily high {ArcadeCatalog.signedYarn(snap.bestProfit)} yarn{rank}`
 			end
 		end,
 		onHub = function(fn)
@@ -356,6 +380,9 @@ function ArcadeHud.create(parent: Instance): ArcadeHudApi
 		end,
 		onRetry = function(fn)
 			retryHandler = fn
+		end,
+		onBoard = function(fn)
+			boardHandler = fn
 		end,
 		onTrade = function(fn)
 			tradeHandler = fn

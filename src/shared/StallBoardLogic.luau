@@ -1,24 +1,23 @@
 --!strict
 
--- Pure daily-board ranking. No DataStore, no Player — easy to smoke-test.
+-- Pure stall-board ranking (Koi daily catch, Arcade daily profit). No DataStore, no Player.
 
 export type StoredEntry = {
 	userId: number,
 	name: string,
 	score: number,
-	meters: number,
-	championId: string,
+	detail: string,
 	at: number,
 	anon: boolean?,
 }
 
-local YarnBoardLogic = {
+local StallBoardLogic = {
 	TopN = 10,
 	RateLimit = 2.5,
 	AnonName = "Anonymous Cat",
 }
 
-function YarnBoardLogic.clipName(name: string): string
+function StallBoardLogic.clipName(name: string): string
 	local trimmed = string.gsub(name, "^%s+", "")
 	trimmed = string.gsub(trimmed, "%s+$", "")
 	if trimmed == "" then
@@ -30,40 +29,38 @@ function YarnBoardLogic.clipName(name: string): string
 	return trimmed
 end
 
-function YarnBoardLogic.visibleName(name: string, hidden: boolean): string
-	if hidden then
-		return YarnBoardLogic.AnonName
+function StallBoardLogic.clipDetail(detail: string): string
+	local trimmed = string.gsub(detail, "^%s+", "")
+	trimmed = string.gsub(trimmed, "%s+$", "")
+	if trimmed == "" then
+		return "—"
 	end
-	return YarnBoardLogic.clipName(name)
+	if #trimmed > 40 then
+		return string.sub(trimmed, 1, 40)
+	end
+	return trimmed
 end
 
-function YarnBoardLogic.podiumTitle(rank: number): string?
-	if rank == 1 then
-		return "#1 YARN LORD"
-	elseif rank == 2 then
-		return "#2 YARN ACE"
-	elseif rank == 3 then
-		return "#3 YARN CREW"
+function StallBoardLogic.visibleName(name: string, hidden: boolean): string
+	if hidden then
+		return StallBoardLogic.AnonName
 	end
-	return nil
+	return StallBoardLogic.clipName(name)
 end
 
 local function better(a: StoredEntry, b: StoredEntry): boolean
 	if a.score ~= b.score then
 		return a.score > b.score
 	end
-	if a.meters ~= b.meters then
-		return a.meters > b.meters
-	end
 	return a.at < b.at
 end
 
-function YarnBoardLogic.sort(entries: { StoredEntry }): { StoredEntry }
+function StallBoardLogic.sort(entries: { StoredEntry }): { StoredEntry }
 	table.sort(entries, better)
 	return entries
 end
 
-function YarnBoardLogic.rankOf(entries: { StoredEntry }, userId: number): number?
+function StallBoardLogic.rankOf(entries: { StoredEntry }, userId: number): number?
 	for i, row in entries do
 		if row.userId == userId then
 			return i
@@ -72,7 +69,7 @@ function YarnBoardLogic.rankOf(entries: { StoredEntry }, userId: number): number
 	return nil
 end
 
-function YarnBoardLogic.submit(
+function StallBoardLogic.submit(
 	entries: { StoredEntry },
 	incoming: StoredEntry
 ): {
@@ -92,23 +89,23 @@ function YarnBoardLogic.submit(
 	local improved = prior == nil or incoming.score > prior.score
 	if not improved then
 		table.insert(nextList, prior :: StoredEntry)
-		YarnBoardLogic.sort(nextList)
+		StallBoardLogic.sort(nextList)
 		return {
 			entries = nextList,
-			rank = YarnBoardLogic.rankOf(nextList, incoming.userId),
+			rank = StallBoardLogic.rankOf(nextList, incoming.userId),
 			improved = false,
 		}
 	end
 	table.insert(nextList, incoming)
-	YarnBoardLogic.sort(nextList)
-	while #nextList > YarnBoardLogic.TopN do
+	StallBoardLogic.sort(nextList)
+	while #nextList > StallBoardLogic.TopN do
 		table.remove(nextList)
 	end
 	return {
 		entries = nextList,
-		rank = YarnBoardLogic.rankOf(nextList, incoming.userId),
+		rank = StallBoardLogic.rankOf(nextList, incoming.userId),
 		improved = true,
 	}
 end
 
-return YarnBoardLogic
+return StallBoardLogic

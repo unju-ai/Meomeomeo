@@ -14,6 +14,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local ArcadeBuilder = require(script.Parent.ArcadeBuilder)
+local ArcadeBoardStore = require(script.Parent.ArcadeBoardStore)
 
 type LiveTicker = {
 	def: ArcadeCatalog.TickerDef,
@@ -48,6 +49,7 @@ type Session = {
 	ticks: number,
 	rng: Random,
 	charConn: RBXScriptConnection?,
+	dailyRank: number?,
 }
 
 local ArcadeService = {}
@@ -129,6 +131,7 @@ local function snapshotOf(session: Session): Types.ArcadeSnapshot
 		toast = if t < session.toastUntil then session.toast else "",
 		disclaimer = ArcadeCatalog.Disclaimer,
 		dayKey = session.dayKey,
+		dailyRank = session.dailyRank,
 	}
 end
 
@@ -223,9 +226,12 @@ local function settle(session: Session)
 	session.profit = ArcadeCatalog.profit(session.cash, session.startYarn)
 	session.bestProfit = ModeService.noteArcadeBest(session.player.UserId, session.profit)
 	CosmeticService.refresh(session.player)
+	local posted = ArcadeBoardStore.submit(session.player, session.profit, now())
+	session.dailyRank = posted.rank
 	shout(session, if session.profit >= 0 then "BOOM · yarn prints" else "BUST · yarn crumbs", if session.profit >= 0 then "moon" else "rug", 2.2)
 	toast(session, `Settled  {ArcadeCatalog.signedYarn(session.profit)} yarn`, 2.2)
 	fire(session)
+	Remotes.event("ArcadeBoardUpdated"):FireClient(session.player, posted.board)
 end
 
 local function driftTick(session: Session)
@@ -364,6 +370,7 @@ function ArcadeService.start(player: Player): Types.TradeResult
 		ticks = 0,
 		rng = rng,
 		charConn = nil,
+		dailyRank = ArcadeBoardStore.rankOf(player.UserId, unix),
 	}
 	sessions[player.UserId] = session
 	ModeService.set(player, "MemeArcade")

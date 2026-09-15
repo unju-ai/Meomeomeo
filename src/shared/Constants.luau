@@ -44,6 +44,7 @@ local Constants = {
 		MusicVolume = "MeoMusicVolume",
 		MusicMuted = "MeoMusicMuted",
 		MuteOthersEmotes = "MeoMuteOthersEmotes",
+		HideBoardName = "MeoHideBoardName",
 		PracticeDifficulty = "MeoPracticeDifficulty",
 		GameMode = "MeoGameMode",
 		YarnBest = "MeoYarnBest",

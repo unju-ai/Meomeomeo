@@ -48,6 +48,8 @@ export type RemoteName =
 	| "LeaveYarnRun"
 	| "RetryYarnRun"
 	| "GetYarnBoard"
+	| "GetKoiBoard"
+	| "GetArcadeBoard"
 	| "StartKoiPond"
 	| "KoiPondInput"
 	| "LeaveKoiPond"
@@ -65,6 +67,8 @@ export type RemoteName =
 	| "ModeChanged"
 	| "YarnRunUpdated"
 	| "YarnBoardUpdated"
+	| "KoiBoardUpdated"
+	| "ArcadeBoardUpdated"
 	| "KoiPondUpdated"
 	| "YarnPartyUpdated"
 	| "MemeArcadeUpdated"
@@ -125,6 +129,8 @@ local FUNCTION_NAMES = {
 	"LeaveYarnRun",
 	"RetryYarnRun",
 	"GetYarnBoard",
+	"GetKoiBoard",
+	"GetArcadeBoard",
 	"StartKoiPond",
 	"KoiPondInput",
 	"LeaveKoiPond",
@@ -157,6 +163,8 @@ local EVENT_NAMES = {
 	"ModeChanged",
 	"YarnRunUpdated",
 	"YarnBoardUpdated",
+	"KoiBoardUpdated",
+	"ArcadeBoardUpdated",
 	"KoiPondUpdated",
 	"YarnPartyUpdated",
 	"MemeArcadeUpdated",

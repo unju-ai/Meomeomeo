@@ -10,6 +10,8 @@ local Types = require(Shared:WaitForChild("Types"))
 local YarnBoardLogic = require(Shared:WaitForChild("YarnBoardLogic"))
 local YarnRunCatalog = require(Shared:WaitForChild("YarnRunCatalog"))
 
+local SettingsStore = require(script.Parent.Parent.Settings.SettingsStore)
+
 local DAILY_STORE = "MeoYarnDaily_v1"
 local WEEKLY_STORE = "MeoYarnWeekly_v1"
 
@@ -36,6 +38,14 @@ end
 dailyStore = connect(DAILY_STORE)
 weeklyStore = connect(WEEKLY_STORE)
 
+local function hiddenOf(userId: number, storedAnon: boolean?): boolean
+	local prefs = SettingsStore.peek(userId)
+	if prefs then
+		return prefs.hideBoardName == true
+	end
+	return storedAnon == true
+end
+
 local function hydrate(value: any): { YarnBoardLogic.StoredEntry }
 	local bag: { YarnBoardLogic.StoredEntry } = {}
 	if typeof(value) ~= "table" then
@@ -54,6 +64,7 @@ local function hydrate(value: any): { YarnBoardLogic.StoredEntry }
 				meters = if typeof(row.meters) == "number" then math.floor(row.meters) else 0,
 				championId = YarnRunCatalog.parseRunner(row.championId),
 				at = if typeof(row.at) == "number" then row.at else 0,
+				anon = row.anon == true,
 			})
 		end
 	end
@@ -70,6 +81,7 @@ local function serialize(entries: { YarnBoardLogic.StoredEntry }): any
 			meters = row.meters,
 			championId = row.championId,
 			at = row.at,
+			anon = row.anon == true,
 		})
 	end
 	return { entries = rows }
@@ -85,7 +97,7 @@ local function publicBoard(
 	for i, row in entries do
 		table.insert(list, {
 			rank = i,
-			name = row.name,
+			name = YarnBoardLogic.visibleName(row.name, hiddenOf(row.userId, row.anon)),
 			score = row.score,
 			meters = row.meters,
 			championId = row.championId,
@@ -193,6 +205,7 @@ function YarnBoardStore.submit(
 	championId: string,
 	unix: number
 ): Types.YarnBoardPost
+	local prefs = SettingsStore.get(player.UserId)
 	local incoming: YarnBoardLogic.StoredEntry = {
 		userId = player.UserId,
 		name = YarnBoardLogic.clipName(player.DisplayName),
@@ -200,6 +213,7 @@ function YarnBoardStore.submit(
 		meters = math.max(0, math.floor(meters)),
 		championId = YarnRunCatalog.parseRunner(championId),
 		at = unix,
+		anon = prefs.hideBoardName == true,
 	}
 	local nowClock = os.clock()
 	local last = lastSubmitAt[player.UserId] or 0

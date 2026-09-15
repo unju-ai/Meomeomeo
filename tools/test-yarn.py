@@ -16,6 +16,7 @@ def wrap(name: str, rel: str) -> str:
 script = (
     wrap("YarnRunCatalog", "src/shared/YarnRunCatalog.luau")
     + wrap("YarnBoardLogic", "src/shared/YarnBoardLogic.luau")
+    + wrap("StallBoardLogic", "src/shared/StallBoardLogic.luau")
     + (root / "tests/yarn-run-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-yarn-test-") as folder:
