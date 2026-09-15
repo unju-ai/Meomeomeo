@@ -51,11 +51,15 @@ export type RemoteName =
 	| "StartKoiPond"
 	| "KoiPondInput"
 	| "LeaveKoiPond"
+	| "StartYarnParty"
+	| "LeaveYarnParty"
+	| "RetryYarnParty"
 	| "MatchStateChanged"
 	| "ModeChanged"
 	| "YarnRunUpdated"
 	| "YarnBoardUpdated"
 	| "KoiPondUpdated"
+	| "YarnPartyUpdated"
 	| "QueueUpdated"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -115,6 +119,9 @@ local FUNCTION_NAMES = {
 	"StartKoiPond",
 	"KoiPondInput",
 	"LeaveKoiPond",
+	"StartYarnParty",
+	"LeaveYarnParty",
+	"RetryYarnParty",
 }
 
 local EVENT_NAMES = {
@@ -135,6 +142,7 @@ local EVENT_NAMES = {
 	"YarnRunUpdated",
 	"YarnBoardUpdated",
 	"KoiPondUpdated",
+	"YarnPartyUpdated",
 }
 
 local function getFolder(): Folder

@@ -12,11 +12,13 @@ export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" |
 export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
 export type QueueMode = "InPlace" | "Reserved"
-export type GameMode = "Hub" | "Moba" | "YarnRun" | "KoiPond"
+export type GameMode = "Hub" | "Moba" | "YarnRun" | "KoiPond" | "YarnParty"
 export type YarnRunPhase = "Idle" | "Running" | "Dead"
 export type YarnRunnerId = "NyanRocket" | "Shadowpounce" | "ChairmanMeow"
 export type KoiPondPhase = "Idle" | "Waiting" | "Bite" | "Reveal"
 export type KoiRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
+export type YarnPartyPhase = "Lobby" | "Intro" | "Playing" | "Recap" | "Podium"
+export type YarnPartyRoundKind = "Dodge" | "Pillows"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -425,6 +427,34 @@ export type KoiPondSnapshot = {
 
 export type KoiPondInput = {
 	action: "cast" | "reel",
+}
+
+export type YarnPartySeat = {
+	id: number,
+	name: string,
+	championId: string,
+	isBot: boolean,
+	alive: boolean,
+	score: number,
+}
+
+export type YarnPartySnapshot = {
+	phase: YarnPartyPhase,
+	roundIndex: number,
+	roundKind: YarnPartyRoundKind,
+	roundTitle: string,
+	hint: string,
+	event: string?,
+	countdown: number,
+	yarnX: number,
+	yarnZ: number,
+	safePads: { boolean },
+	musicOn: boolean,
+	freeze: boolean,
+	seats: { YarnPartySeat },
+	winnerName: string?,
+	winnerId: number?,
+	roundCount: number,
 }
 
 export type PlayerPrefs = {

@@ -17,6 +17,7 @@ export type HubApi = {
 	onPlayRift: (() -> ()) -> (),
 	onPlayRun: ((championId: string) -> ()) -> (),
 	onPlayPond: (() -> ()) -> (),
+	onPlayParty: (() -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
@@ -55,8 +56,9 @@ local function swatchArt(parent: Frame, art: ModeCatalog.ModeArt, color: Color3)
 		blob("Koi", UDim2.fromOffset(40, 34), UDim2.fromOffset(34, 14), Theme.coral)
 		blob("Lantern", UDim2.fromOffset(110, 12), UDim2.fromOffset(10, 16), Theme.amber)
 	elseif art == "party" then
-		blob("Ball", UDim2.fromOffset(48, 16), UDim2.fromOffset(36, 36), Theme.peach)
+		blob("Ball", UDim2.fromOffset(48, 16), UDim2.fromOffset(36, 36), Theme.coral)
 		blob("Cat", UDim2.fromOffset(20, 40), UDim2.fromOffset(22, 22), Theme.cream)
+		blob("Pillow", UDim2.fromOffset(88, 44), UDim2.fromOffset(28, 14), Theme.peach)
 	else
 		blob("Chart", UDim2.fromOffset(20, 20), UDim2.fromOffset(18, 40), Theme.mint)
 		blob("Chart2", UDim2.fromOffset(48, 32), UDim2.fromOffset(18, 28), Theme.amber)
@@ -103,6 +105,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local playRift: (() -> ())? = nil
 	local playRun: ((string) -> ())? = nil
 	local playPond: (() -> ())? = nil
+	local playParty: (() -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
@@ -221,6 +224,10 @@ function HubPanel.create(parent: Instance): HubApi
 					if playPond then
 						playPond()
 					end
+				elseif def.id == "YarnParty" then
+					if playParty then
+						playParty()
+					end
 				end
 			end)
 		end
@@ -272,6 +279,9 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onPlayPond = function(fn)
 			playPond = fn
+		end,
+		onPlayParty = function(fn)
+			playParty = fn
 		end,
 		onMint = function(fn)
 			mintHandler = fn

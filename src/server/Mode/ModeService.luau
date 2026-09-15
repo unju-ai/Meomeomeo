@@ -1,6 +1,6 @@
 --!strict
 
--- Per-player game mode. Hub is default. MOBA, Yarn Run, and Koi Pond are exclusive.
+-- Per-player game mode. Hub is default. Mini-games are exclusive.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +21,7 @@ local matchBusy: (() -> boolean)? = nil
 local riftPlaying: (() -> number)? = nil
 local yarnPlaying: (() -> number)? = nil
 local koiPlaying: (() -> number)? = nil
+local partyPlaying: (() -> number)? = nil
 
 local function current(userId: number): Types.GameMode
 	return modes[userId] or "Hub"
@@ -31,11 +32,13 @@ function ModeService.init(hooks: {
 	riftPlaying: () -> number,
 	yarnPlaying: () -> number,
 	koiPlaying: () -> number,
+	partyPlaying: () -> number,
 })
 	matchBusy = hooks.matchBusy
 	riftPlaying = hooks.riftPlaying
 	yarnPlaying = hooks.yarnPlaying
 	koiPlaying = hooks.koiPlaying
+	partyPlaying = hooks.partyPlaying
 end
 
 function ModeService.get(player: Player): Types.GameMode
@@ -100,6 +103,7 @@ function ModeService.status(player: Player): Types.HubStatus
 	local rift = if riftPlaying then riftPlaying() else 0
 	local run = if yarnPlaying then yarnPlaying() else 0
 	local pond = if koiPlaying then koiPlaying() else 0
+	local bash = if partyPlaying then partyPlaying() else 0
 	local tiles = {}
 	for _, tile in ModeCatalog.all() do
 		local playing = 0
@@ -109,6 +113,8 @@ function ModeService.status(player: Player): Types.HubStatus
 			playing = run
 		elseif tile.id == "KoiPond" then
 			playing = pond
+		elseif tile.id == "YarnParty" then
+			playing = bash
 		end
 		table.insert(tiles, { id = tile.id, playing = playing })
 	end

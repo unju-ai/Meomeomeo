@@ -7,6 +7,8 @@ local Constants = {
 	YarnRunOrigin = Vector3.new(0, 2, 4200),
 	KoiPondFolderName = "MeoKoiPond",
 	KoiPondOrigin = Vector3.new(900, 2, 0),
+	YarnPartyFolderName = "MeoYarnParty",
+	YarnPartyOrigin = Vector3.new(0, 2, -4200),
 
 	Teams = {
 		Blue = "Blue" :: "Blue",
