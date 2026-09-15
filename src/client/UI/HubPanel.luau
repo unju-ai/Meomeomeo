@@ -20,6 +20,7 @@ export type HubApi = {
 	onPlayParty: (() -> ()) -> (),
 	onPlayArcade: (() -> ()) -> (),
 	onMint: (() -> ()) -> (),
+	onCloset: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
 }
@@ -80,7 +81,13 @@ function HubPanel.create(parent: Instance): HubApi
 	Theme.pad(root, 18)
 
 	local title = Theme.text(root, "Title", BrandCatalog.Name, 34, Theme.amber, Theme.fontTitle)
-	title.Size = UDim2.new(1, -150, 0, 36)
+	title.Size = UDim2.new(1, -270, 0, 36)
+
+	local closetBtn = Theme.button(root, "Closet", "Closet", Theme.peach)
+	closetBtn.AnchorPoint = Vector2.new(1, 0)
+	closetBtn.Position = UDim2.new(1, -136, 0, 2)
+	closetBtn.Size = UDim2.fromOffset(128, 34)
+	closetBtn.TextSize = 15
 
 	local mintBtn = Theme.button(root, "Mint", "Mint 404", Theme.coral)
 	mintBtn.AnchorPoint = Vector2.new(1, 0)
@@ -109,6 +116,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local playParty: (() -> ())? = nil
 	local playArcade: (() -> ())? = nil
 	local mintHandler: (() -> ())? = nil
+	local closetHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
 	local picked = "NyanRocket"
@@ -266,6 +274,11 @@ function HubPanel.create(parent: Instance): HubApi
 			mintHandler()
 		end
 	end)
+	closetBtn.MouseButton1Click:Connect(function()
+		if closetHandler then
+			closetHandler()
+		end
+	end)
 
 	return {
 		root = root,
@@ -305,6 +318,9 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onMint = function(fn)
 			mintHandler = fn
+		end,
+		onCloset = function(fn)
+			closetHandler = fn
 		end,
 		onBoard = function(fn)
 			boardHandler = fn

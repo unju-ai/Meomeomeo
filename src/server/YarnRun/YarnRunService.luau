@@ -14,6 +14,7 @@ local YarnRunCatalog = require(Shared:WaitForChild("YarnRunCatalog"))
 local YarnBoardLogic = require(Shared:WaitForChild("YarnBoardLogic"))
 
 local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local YarnBoardStore = require(script.Parent.YarnBoardStore)
 local YarnTrackBuilder = require(script.Parent.YarnTrackBuilder)
@@ -188,6 +189,7 @@ local function dress(run: Run)
 		displayName = run.player.DisplayName,
 		isBot = false,
 	})
+	CosmeticService.dress(run.player)
 end
 
 local function sendHome(player: Player)
@@ -213,6 +215,8 @@ local function remember(run: Run)
 		run.samples,
 		run.bestCombo
 	)
+	ModeService.noteYarnMeters(run.player.UserId, math.floor(run.z))
+	CosmeticService.refresh(run.player)
 end
 
 local function finish(run: Run, reason: string)

@@ -12,6 +12,7 @@ local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 
 local Config = require(script.Parent.Parent.Config)
 local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local JungleService = require(script.Parent.JungleService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
@@ -355,6 +356,9 @@ local function resetFor(userId: number, championId: string)
 			displayName = if matchPlayer then matchPlayer.displayName else champ.name,
 			isBot = if matchPlayer then matchPlayer.isBot else userId < 0,
 		})
+		if player and not (matchPlayer and matchPlayer.isBot) then
+			CosmeticService.dress(player)
+		end
 	end
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)
@@ -480,6 +484,9 @@ function CombatService.init(api: MatchApi)
 				local matchPlayer = snapshot.players[tostring(player.UserId)]
 				if matchPlayer and matchPlayer.championId then
 					ChampionAppearance.applyMatchPlayer(character, matchPlayer)
+					if not matchPlayer.isBot then
+						CosmeticService.dress(player)
+					end
 					local existing = combat[player.UserId]
 					if existing and not existing.alive then
 						applyHumanoid(player.UserId, existing)

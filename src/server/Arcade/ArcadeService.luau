@@ -12,6 +12,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local ArcadeBuilder = require(script.Parent.ArcadeBuilder)
 
 type LiveTicker = {
@@ -186,6 +187,7 @@ local function place(session: Session)
 			root.CFrame = cf
 		end
 	end
+	CosmeticService.dress(session.player)
 end
 
 local function sendHome(player: Player)
@@ -220,6 +222,7 @@ local function settle(session: Session)
 	session.phaseEnds = clockNow()
 	session.profit = ArcadeCatalog.profit(session.cash, session.startYarn)
 	session.bestProfit = ModeService.noteArcadeBest(session.player.UserId, session.profit)
+	CosmeticService.refresh(session.player)
 	shout(session, if session.profit >= 0 then "BOOM · yarn prints" else "BUST · yarn crumbs", if session.profit >= 0 then "moon" else "rug", 2.2)
 	toast(session, `Settled  {ArcadeCatalog.signedYarn(session.profit)} yarn`, 2.2)
 	fire(session)

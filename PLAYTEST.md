@@ -8,7 +8,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily board. **Koi Pond** fishing. **Yarn Party** 4-cat micro-rounds (bots fill). **Meme Arcade** timed yarn-tape stall (play yarn only).
 
-Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
+Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-12: Rojo 7.4.4 successfully produced the place, all 68 Luau sources compiled, and the brand/lobby smoke checks passed. This is build verification, not a Studio playtest.
+Build verification on 2026-09-15: Luau compiled 100 sources; brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -138,6 +138,25 @@ Scores / elims / bots are server-authoritative. Yarn Run, Koi Pond, and Cat Rift
 
 Tape / wallets / events are server-authoritative and **isolated** from in-match `MemeStockService` cheer tickers. Exclusive with Hub / Moba / Yarn Run / Koi Pond / Yarn Party.
 
+## 3f. Closet (cross-mode drip)
+
+Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn / stall scores only** — there is no Robux cosmetic shop.
+
+1. Hub chrome **Closet** (left of **Mint 404**), or Cat Rift stall **Closet**. Panel: disclaimer, **Save: DataStore | Memory**, closet-yarn wallet, cat silhouette preview, item list.
+2. Starters **Cream Cap** + **Yarn Puff** are owned and equipped on first load. **Equip** / tap **Worn** to unequip. One hat + one trail at a time.
+3. **Gold Bell** (collar) costs **25 closet yarn**. New cats start with **40**. Closet yarn is **play points**, not in-match meme-stock yarn and not Robux.
+4. Stall unlocks (granted once, then persist even if a daily score resets):
+   - **Coral Beanie** — Yarn Run **200m** (best distance this server, including non-PB scores)
+   - **Mint Aura** — Yarn Run **400m**
+   - **Canal Crown** + emote flair — catch a **legendary** koi
+   - **Party Tiara** + **Moon Dust** (emote flair) — win a Yarn Party (human, not a bot)
+   - **Tape Shades** — Meme Arcade daily profit **+15**
+   - **Braincell Orbs** + emote flair — Arcade daily **+25**
+5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Rare flair tints **T** emote bobs. Equip / unlock lines hit the ticker (`EQUIPPED ·` / `UNLOCKED ·`).
+6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Bots do not wear closet drip.
+
+Help overlay lists Closet on the hub sheet. ModeService gates are unchanged.
+
 ## 4. Queue (2+ clients)
 
 Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this server**), `PadQueueWithBots = true` (fill to 3 per side).
@@ -168,6 +187,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **Tab** (hold) | Scoreboard |
 | **V** | Toggle locked follow camera |
 | **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes. Mix + last Practice difficulty persist (`MeoSettings_v1`) |
+| **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
@@ -180,7 +200,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **1–5** (Meme Arcade) | Buy 1 yarn bag of LOAF / NYAN / CHNK / BRAIN / RUG |
 | **Shift+1–5** (Meme Arcade) | Sell 1 bag at the listed yarn price |
 
-Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
+Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Closet**, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **Closet**, **← Hub**.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -260,6 +280,7 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 - No SFX: click **Audio**, unmute SFX, volume > 0. Some engine `rbxasset://sounds/` names are silent in newer Studio — swap ids.
 - No music: **Audio → unmute Music**, slider > 0. Placeholder bed is a quiet loop of `action_get_up.mp3`; swap `MusicIds` for a real loop. Phase change should crossfade, not cut.
 - Mint says Memory: enable Studio API Services.
+- Closet says Memory: same API Services toggle (`MeoCloset_v1`). Starters still equip in-session.
 - Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
 - Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.

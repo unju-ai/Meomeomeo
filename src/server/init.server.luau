@@ -30,6 +30,7 @@ local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
 local KoiPondService = require(script.KoiPond.KoiPondService)
 local YarnPartyService = require(script.YarnParty.YarnPartyService)
 local ArcadeService = require(script.Arcade.ArcadeService)
+local CosmeticService = require(script.Cosmetics.CosmeticService)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -83,6 +84,7 @@ ModeService.init({
 		return ArcadeService.playingCount()
 	end,
 })
+CosmeticService.init()
 
 local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
 	local queue = MatchmakingService.statusFor(player)
@@ -362,6 +364,18 @@ Remotes.function_("RetryMemeArcade").OnServerInvoke = function(player: Player)
 	return ArcadeService.retry(player)
 end
 
+Remotes.function_("GetCloset").OnServerInvoke = function(player: Player)
+	return CosmeticService.status(player)
+end
+
+Remotes.function_("EquipCosmetic").OnServerInvoke = function(player: Player, payload: unknown)
+	return CosmeticService.equip(player, payload)
+end
+
+Remotes.function_("BuyCosmetic").OnServerInvoke = function(player: Player, id: unknown)
+	return CosmeticService.buy(player, id)
+end
+
 Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)
 	if typeof(patch) ~= "table" then
 		return SettingsStore.get(player.UserId)
@@ -391,6 +405,7 @@ local function sendLobby(player: Player)
 		Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
 		Remotes.event("VoiceStatusChanged"):FireClient(player, VoiceService.getStatus(player))
 		Remotes.event("MintStatusChanged"):FireClient(player, MintService.getStatus(player))
+		Remotes.event("ClosetUpdated"):FireClient(player, CosmeticService.status(player))
 	end)
 end
 
@@ -401,6 +416,7 @@ Players.PlayerRemoving:Connect(function(player)
 	KoiPondService.clear(player.UserId)
 	YarnPartyService.clear(player.UserId)
 	ArcadeService.clear(player.UserId)
+	CosmeticService.clear(player.UserId)
 	ModeService.clear(player.UserId)
 end)
 for _, player in Players:GetPlayers() do

@@ -144,7 +144,7 @@ local function ensureLoop()
 	end)
 end
 
-function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean }?)
+function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean, tint: Color3? }?)
 	local def = EmoteCatalog.get(event.emoteId)
 	if not def then
 		return
@@ -160,12 +160,16 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean }?)
 		Sfx.play(def.cue :: SoundIds.Cue)
 	end
 
+	local tint = if opts then opts.tint else nil
+	local color = tint or def.color
+	local bob = if tint then 0.78 else 0.55
+
 	local part = Instance.new("Part")
 	part.Name = "EmoteBob"
 	part.Shape = Enum.PartType.Ball
 	part.Material = Enum.Material.Neon
-	part.Color = def.color
-	part.Size = Vector3.new(0.55, 0.55, 0.55)
+	part.Color = color
+	part.Size = Vector3.new(bob, bob, bob)
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
@@ -191,7 +195,7 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean }?)
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextStrokeTransparency = 0.35
 	Theme.corner(label, 12)
-	Theme.stroke(label, def.color, 2, 0.15)
+	Theme.stroke(label, color, 2, 0.15)
 
 	actives[event.userId] = {
 		userId = event.userId,

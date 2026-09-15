@@ -16,6 +16,7 @@ export type LobbyApi = {
 	onLeave: (() -> ()) -> (),
 	onPractice: ((difficulty: Types.BotDifficulty) -> ()) -> (),
 	onMint: (() -> ()) -> (),
+	onCloset: (() -> ()) -> (),
 	onInvite: (() -> ()) -> (),
 	onShowTips: (() -> ()) -> (),
 	onDifficulty: ((difficulty: Types.BotDifficulty) -> ()) -> (),
@@ -111,9 +112,13 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	practiceBtn.Position = UDim2.new(0, 0, 1, -96)
 	practiceBtn.Size = UDim2.new(1, 0, 0, 40)
 
+	local closetBtn = Theme.button(root, "Closet", "Closet", Theme.peach)
+	closetBtn.Position = UDim2.new(0, 0, 1, -48)
+	closetBtn.Size = UDim2.new(0.48, 0, 0, 40)
+
 	local mintBtn = Theme.button(root, "Mint", "Mint Meo 404", Theme.coral)
-	mintBtn.Position = UDim2.new(0, 0, 1, -48)
-	mintBtn.Size = UDim2.new(1, 0, 0, 40)
+	mintBtn.Position = UDim2.new(0.52, 0, 1, -48)
+	mintBtn.Size = UDim2.new(0.48, 0, 0, 40)
 
 	local inQueue = false
 	local difficulty: Types.BotDifficulty = "Normal"
@@ -122,6 +127,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local leaveHandler: (() -> ())? = nil
 	local practiceHandler: ((Types.BotDifficulty) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
+	local closetHandler: (() -> ())? = nil
 	local inviteHandler: (() -> ())? = nil
 	local tipsHandler: (() -> ())? = nil
 	local difficultyHandler: ((Types.BotDifficulty) -> ())? = nil
@@ -222,6 +228,11 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 			mintHandler()
 		end
 	end)
+	closetBtn.MouseButton1Click:Connect(function()
+		if closetHandler then
+			closetHandler()
+		end
+	end)
 	tipsBtn.MouseButton1Click:Connect(function()
 		if tipsHandler then
 			tipsHandler()
@@ -266,6 +277,9 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 		end,
 		onMint = function(fn)
 			mintHandler = fn
+		end,
+		onCloset = function(fn)
+			closetHandler = fn
 		end,
 		onInvite = function(fn)
 			inviteHandler = fn

@@ -47,6 +47,8 @@ local Constants = {
 		PracticeDifficulty = "MeoPracticeDifficulty",
 		GameMode = "MeoGameMode",
 		YarnBest = "MeoYarnBest",
+		CosmeticHat = "MeoHat",
+		CosmeticTrail = "MeoTrail",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },

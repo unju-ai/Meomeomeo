@@ -43,6 +43,7 @@ local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
 	{ "Board", "Daily Yarn leaderboard (UTC day)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
+	{ "Closet", "Hats + trails · yarn points, not Robux" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },

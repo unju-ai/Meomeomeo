@@ -17,6 +17,7 @@ local YarnPartyHud = require(script.Parent.YarnPartyHud)
 local ArcadeHud = require(script.Parent.ArcadeHud)
 local YarnBoardPanel = require(script.Parent.YarnBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
+local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
@@ -42,6 +43,7 @@ export type HudApi = {
 	arcade: ArcadeHud.ArcadeHudApi,
 	board: YarnBoardPanel.BoardApi,
 	mint: MintPanel.MintApi,
+	closet: ClosetPanel.ClosetApi,
 	select: ChampionSelect.SelectApi,
 	abilities: AbilityBar.BarApi,
 	voice: VoiceHud.VoiceHudApi,
@@ -104,6 +106,7 @@ function Hud.create(): HudApi
 	arcade.setVisible(false)
 	board.setVisible(false)
 	local mint = MintPanel.create(gui)
+	local closet = ClosetPanel.create(gui)
 	local select = ChampionSelect.create(gui)
 	local abilities = AbilityBar.create(gui)
 	local voice = VoiceHud.create(gui)
@@ -150,6 +153,7 @@ function Hud.create(): HudApi
 		arcade.setVisible(false)
 		if phase ~= "Lobby" then
 			mint.setVisible(false)
+			closet.setVisible(false)
 		end
 		select.setVisible(phase == "ChampionSelect")
 		abilities.setVisible(phase == "InProgress")
@@ -191,6 +195,7 @@ function Hud.create(): HudApi
 			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
+			closet.setVisible(false)
 			banner.Text = "Yarn Run · chase the ghost · SPD MAG SHD 2X"
 			return
 		end
@@ -203,6 +208,7 @@ function Hud.create(): HudApi
 			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
+			closet.setVisible(false)
 			banner.Text = "Koi Pond · Space cast · reel in the cream window"
 			return
 		end
@@ -215,6 +221,7 @@ function Hud.create(): HudApi
 			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
+			closet.setVisible(false)
 			banner.Text = "Yarn Party · WASD · Space hop · lit pillows"
 			return
 		end
@@ -227,6 +234,7 @@ function Hud.create(): HudApi
 			arcade.setVisible(true)
 			hideMobaPlay()
 			mint.setVisible(false)
+			closet.setVisible(false)
 			banner.Text = "Meme Arcade · play yarn only · tap the tape"
 			return
 		end
@@ -261,6 +269,7 @@ function Hud.create(): HudApi
 		board = board,
 		lobby = lobby,
 		mint = mint,
+		closet = closet,
 		select = select,
 		abilities = abilities,
 		voice = voice,
