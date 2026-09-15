@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
+local Workspace = game:GetService("Workspace")
 
 local Config = require(script.Config)
 
@@ -25,6 +26,7 @@ local TutorialStore = require(script.Tutorial.TutorialStore)
 local VoiceService = require(script.Voice.VoiceService)
 local ModeService = require(script.Mode.ModeService)
 local YarnRunService = require(script.YarnRun.YarnRunService)
+local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -275,6 +277,10 @@ end
 
 Remotes.function_("RetryYarnRun").OnServerInvoke = function(player: Player)
 	return YarnRunService.retry(player)
+end
+
+Remotes.function_("GetYarnBoard").OnServerInvoke = function(player: Player)
+	return YarnBoardStore.get(Workspace:GetServerTimeNow(), player.UserId)
 end
 
 Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)

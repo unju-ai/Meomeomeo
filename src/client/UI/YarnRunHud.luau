@@ -13,6 +13,7 @@ export type YarnHudApi = {
 	update: (snap: Types.YarnRunSnapshot) -> (),
 	onRetry: (() -> ()) -> (),
 	onHub: (() -> ()) -> (),
+	onBoard: (() -> ()) -> (),
 }
 
 local function chip(parent: Instance, name: string, text: string, color: Color3, order: number): TextLabel
@@ -76,6 +77,16 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 	local shdChip = chip(powers, "Shield", "SHD", Color3.fromRGB(120, 220, 160), 3)
 	local dblChip = chip(powers, "Double", "2X", Theme.amber, 4)
 
+	local rankChip = Theme.text(root, "DailyRank", "Daily —", 18, Theme.ink, Theme.fontTitle)
+	rankChip.AnchorPoint = Vector2.new(1, 0)
+	rankChip.Position = UDim2.new(1, -16, 0, 148)
+	rankChip.Size = UDim2.fromOffset(168, 36)
+	rankChip.BackgroundColor3 = Theme.amber
+	rankChip.BackgroundTransparency = 0.08
+	rankChip.TextXAlignment = Enum.TextXAlignment.Center
+	Theme.corner(rankChip, 10)
+	Theme.stroke(rankChip, Theme.foam, 2, 0.3)
+
 	local event = Theme.text(root, "Event", "", 32, Theme.foam, Theme.fontTitle)
 	event.AnchorPoint = Vector2.new(0, 0)
 	event.Position = UDim2.new(0, 20, 0, 248)
@@ -92,7 +103,7 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 	summary.Name = "Summary"
 	summary.AnchorPoint = Vector2.new(0.5, 0.5)
 	summary.Position = UDim2.fromScale(0.5, 0.55)
-	summary.Size = UDim2.fromOffset(440, 300)
+	summary.Size = UDim2.fromOffset(440, 360)
 	summary.BackgroundColor3 = Theme.panel
 	summary.Visible = false
 	summary.Parent = root
@@ -104,10 +115,37 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 	fail.Size = UDim2.new(1, 0, 0, 28)
 	fail.TextXAlignment = Enum.TextXAlignment.Center
 
-	local recap = Theme.text(summary, "Recap", "", 16, Theme.cream)
+	local recap = Theme.text(summary, "Recap", "", 15, Theme.cream)
 	recap.Position = UDim2.fromOffset(0, 36)
-	recap.Size = UDim2.new(1, 0, 0, 110)
+	recap.Size = UDim2.new(1, 0, 0, 72)
 	recap.TextXAlignment = Enum.TextXAlignment.Center
+
+	local podium = Instance.new("Frame")
+	podium.Name = "Podium"
+	podium.BackgroundTransparency = 1
+	podium.Position = UDim2.fromOffset(80, 108)
+	podium.Size = UDim2.fromOffset(260, 56)
+	podium.Visible = false
+	podium.Parent = summary
+	local function step(name: string, x: number, h: number, color: Color3): Frame
+		local bar = Instance.new("Frame")
+		bar.Name = name
+		bar.AnchorPoint = Vector2.new(0, 1)
+		bar.Position = UDim2.fromOffset(x, 56)
+		bar.Size = UDim2.fromOffset(70, h)
+		bar.BackgroundColor3 = color
+		bar.Parent = podium
+		Theme.corner(bar, 8)
+		return bar
+	end
+	step("P2", 8, 36, Theme.peach)
+	step("P1", 94, 52, Theme.amber)
+	step("P3", 180, 28, Theme.mint)
+
+	local rankLine = Theme.text(summary, "Rank", "", 16, Theme.amber, Theme.fontTitle)
+	rankLine.Position = UDim2.fromOffset(0, 166)
+	rankLine.Size = UDim2.new(1, 0, 0, 22)
+	rankLine.TextXAlignment = Enum.TextXAlignment.Center
 
 	local retry = Theme.button(summary, "Retry", "Retry dash", Theme.amber)
 	retry.Position = UDim2.new(0, 0, 1, -88)
@@ -115,10 +153,15 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 
 	local hub = Theme.button(summary, "Hub", "Back to hub", Theme.peach)
 	hub.Position = UDim2.new(0, 0, 1, -42)
-	hub.Size = UDim2.new(1, 0, 0, 36)
+	hub.Size = UDim2.new(0.48, 0, 0, 36)
+
+	local board = Theme.button(summary, "Board", "Leaderboard", Theme.amber)
+	board.Position = UDim2.new(0.52, 0, 1, -42)
+	board.Size = UDim2.new(0.48, 0, 0, 36)
 
 	local retryHandler: (() -> ())? = nil
 	local hubHandler: (() -> ())? = nil
+	local boardHandler: (() -> ())? = nil
 
 	retry.MouseButton1Click:Connect(function()
 		if retryHandler then
@@ -128,6 +171,11 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 	hub.MouseButton1Click:Connect(function()
 		if hubHandler then
 			hubHandler()
+		end
+	end)
+	board.MouseButton1Click:Connect(function()
+		if boardHandler then
+			boardHandler()
 		end
 	end)
 
@@ -150,11 +198,18 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 			shdChip.Visible = snap.powers.shield
 			dblChip.Visible = snap.powers.double
 			event.Text = snap.event or ""
-			if snap.event == "MEGA YARN" or snap.event == "NEW PB" or snap.event == "2X YARN" then
+			if snap.dailyRank then
+				rankChip.Text = `Daily #{snap.dailyRank}`
+				rankChip.Visible = true
+			else
+				rankChip.Text = "Daily —"
+				rankChip.Visible = snap.phase == "Running" or snap.phase == "Dead"
+			end
+			if snap.event == "MEGA YARN" or snap.event == "NEW PB" or snap.event == "2X YARN" or snap.event == "#1 YARN LORD" then
 				event.TextColor3 = Theme.amber
 			elseif snap.event == "COMBO BREAK" or snap.event == "CLOSE!" then
 				event.TextColor3 = Theme.coral
-			elseif snap.event == "SHIELD UP" or snap.event == "SHIELD POP" or snap.event == "MAGNET ON" then
+			elseif snap.event == "SHIELD UP" or snap.event == "SHIELD POP" or snap.event == "MAGNET ON" or snap.event == "#3 YARN CREW" then
 				event.TextColor3 = Theme.mint
 			else
 				event.TextColor3 = Theme.foam
@@ -162,11 +217,21 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 			local dead = snap.phase == "Dead"
 			summary.Visible = dead
 			if dead then
-				fail.Text = if snap.newBest then "NEW PERSONAL BEST" else (snap.failReason or "Faceplant")
-				fail.TextColor3 = if snap.newBest then Theme.amber else Theme.coral
+				local crowned = snap.podium == true
+				fail.Text = if crowned and snap.dailyRank == 1
+					then "#1 YARN LORD"
+					elseif snap.newBest then "NEW PERSONAL BEST"
+					else (snap.failReason or "Faceplant")
+				fail.TextColor3 = if crowned or snap.newBest then Theme.amber else Theme.coral
 				local ghostLine = if snap.bestMeters > 0 then `\nPB was {snap.bestScore} at {snap.bestMeters}m` else ""
 				recap.Text =
-					`Score {snap.score}\nYarn {snap.yarn}  ·  best combo x{snap.bestCombo}\n{snap.meters} meters of night-market chaos{ghostLine}`
+					`Score {snap.score}\nYarn {snap.yarn}  ·  best combo x{snap.bestCombo}\n{snap.meters}m of night-market chaos{ghostLine}`
+				podium.Visible = crowned
+				if snap.dailyRank then
+					rankLine.Text = if crowned then `Daily podium  ·  #{snap.dailyRank}` else `Daily rank  #{snap.dailyRank}`
+				else
+					rankLine.Text = "Not on today's board yet"
+				end
 			end
 		end,
 		onRetry = function(fn)
@@ -174,6 +239,9 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 		end,
 		onHub = function(fn)
 			hubHandler = fn
+		end,
+		onBoard = function(fn)
+			boardHandler = fn
 		end,
 	}
 end

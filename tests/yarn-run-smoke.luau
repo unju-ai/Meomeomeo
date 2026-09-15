@@ -68,5 +68,43 @@ assert(YarnRunCatalog.ghostAt(samples, 8).z == 40, "Ghost holds the PB finish")
 assert(YarnRunCatalog.isPickup("speed") and YarnRunCatalog.isLethal("wall"))
 assert(YarnRunCatalog.pickupLabel("double") == "2X YARN")
 assert(YarnRunCatalog.pickupLabel("shield") == "SHIELD UP")
+assert(YarnRunCatalog.runnerTag("Shadowpounce") == "Shad")
+
+assert(YarnBoardLogic.clipName("   ") == "Cat")
+assert(YarnBoardLogic.clipName("abcdefghijklmnopqrstuvwxyz") == "abcdefghijklmnopqr")
+assert(YarnBoardLogic.podiumTitle(1) == "#1 YARN LORD")
+assert(YarnBoardLogic.podiumTitle(2) == "#2 YARN ACE")
+assert(YarnBoardLogic.podiumTitle(3) == "#3 YARN CREW")
+assert(YarnBoardLogic.podiumTitle(4) == nil)
+
+local first = YarnBoardLogic.submit({}, {
+	userId = 1, name = "Nyan", score = 100, meters = 40, championId = "NyanRocket", at = 1,
+})
+assert(first.improved and first.rank == 1)
+local same = YarnBoardLogic.submit(first.entries, {
+	userId = 1, name = "Nyan", score = 80, meters = 90, championId = "NyanRocket", at = 2,
+})
+assert(same.improved == false and same.entries[1].score == 100)
+local beat = YarnBoardLogic.submit(same.entries, {
+	userId = 1, name = "Nyan", score = 200, meters = 10, championId = "NyanRocket", at = 3,
+})
+assert(beat.improved and beat.entries[1].score == 200)
+local rival = YarnBoardLogic.submit(beat.entries, {
+	userId = 2, name = "Shad", score = 250, meters = 80, championId = "Shadowpounce", at = 4,
+})
+assert(rival.rank == 1)
+assert(rival.entries[1].userId == 2)
+assert(YarnBoardLogic.rankOf(rival.entries, 1) == 2)
+
+local crowded = {}
+for i = 1, 12 do
+	crowded = YarnBoardLogic.submit(crowded, {
+		userId = i, name = "Cat" .. i, score = i * 10, meters = i, championId = "NyanRocket", at = i,
+	}).entries
+end
+assert(#crowded == YarnBoardLogic.TopN)
+assert(crowded[1].score == 120)
+assert(YarnBoardLogic.rankOf(crowded, 1) == nil)
 
 print("PASS: daily seed, new segments, power-ups, ghost interpolation")
+print("PASS: daily board ranking, name clip, podium titles")

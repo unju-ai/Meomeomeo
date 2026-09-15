@@ -41,6 +41,7 @@ local LINES_MOBA: { { string } } = {
 
 local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift (MOBA) or Yarn Run" },
+	{ "Board", "Daily Yarn leaderboard (UTC day)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
@@ -57,7 +58,7 @@ local LINES_RUNNER: { { string } } = {
 	{ "T", "Emote mid-dash (stream juice)" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Death", "Slow-mo cam · Retry same daily seed" },
+	{ "Death", "Slow-mo cam · daily rank / podium · Retry same seed" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi

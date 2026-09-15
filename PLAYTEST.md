@@ -102,10 +102,12 @@ Practice **never** teleports. `MatchPlaceId` can stay `0`.
 3. **Power-ups** (server pickups, big HUD chips): cyan **SPD** bolt = Speed Burst, magenta **MAG** horseshoe = Magnet Yarn (sucks adjacent balls), mint **SHD** dome = one free hit (`SHIELD UP` / `SHIELD POP`), gold **2X** twins = Double Score window. Ticker lines match (`SPEED BURST`, `MAGNET ON`, `2X YARN`).
 4. **PB / ghost:** a translucent cat replays your personal-best path (session memory). A gold **PB {meters}m** gate sits on the ribbon. HUD shows `PB score / meters`. Beat it for **NEW PERSONAL BEST** on the death card.
 5. Layout **ramps with distance**: zig-zag dogs, laundry tunnel, Roomba jump gap, yarn fountain, narrow bridge, billboard dodge. Same **daily UTC seed** every run that day (HUD `Daily seed YYYY-MM-DD`) so streamers share a layout.
-6. Die → fail line or **NEW PERSONAL BEST**, score / yarn / combo / PB compare, death cam pulls back. Combo ≥ 2 flashes **COMBO BREAK**. Near-misses tick **CLOSE!**. **Retry dash** (same daily seed + ghost) or **Back to hub**.
-7. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
+6. Die → fail line or **NEW PERSONAL BEST**, score / yarn / combo / PB compare, death cam pulls back. Combo ≥ 2 flashes **COMBO BREAK**. Near-misses tick **CLOSE!**. If the run lands on today's board, the death card shows **Daily rank #K**. Top 3 get a podium + ticker (`#1 YARN LORD` / `#2 YARN ACE` / `#3 YARN CREW`). **Retry dash** (same daily seed + ghost) or **Back to hub**. **Leaderboard** on the death card opens the full daily list.
+7. **Daily board:** Hub Yarn Run tile **Board** (and the death-card button) lists top 10 for the UTC day: Roblox **display name**, score, meters, champion tag. DataStore `MeoYarnDaily_v1` when API Services are on; Studio without them is **Save: Memory**. Submit is server-side on death only if the score beats that player's prior for the day (rate-limited). No user ids on the public list.
+8. During a run, a top-right **Daily #K** chip is the stream overlay stub (shows **Daily —** until you are on the board).
+9. Help overlay (**?** / **H**) swaps to runner binds. **T** emotes still work. **G** pings do not.
 
-Score / hits / pickups are server-authoritative. Best score + ghost samples are session memory (`MeoYarnBest`).
+Score / hits / pickups / board writes are server-authoritative. Personal best + ghost samples stay session memory (`MeoYarnBest`). Daily ranks persist when DataStore is available.
 
 ## 4. Queue (2+ clients)
 

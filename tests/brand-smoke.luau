@@ -46,6 +46,9 @@ assert(stroke and stroke.Color == Theme.strokeColor, "Button border must receive
 local hub = HubPanel.create(parent)
 assert(hub.root:FindFirstChild("Title").Text == BrandCatalog.Name)
 assert(string.find(hub.root:FindFirstChild("Sub").Text, BrandCatalog.Tagline, 1, true), "Hub must keep channel tagline")
+local yarnCard = hub.root:FindFirstChild("Grid") and hub.root:FindFirstChild("Grid"):FindFirstChild("YarnRun")
+assert(yarnCard and yarnCard:FindFirstChild("Board") ~= nil, "Yarn Run tile must expose the daily board")
+assert(hub.onBoard ~= nil and hub.updateBoard ~= nil)
 
 local lobby = LobbyPanel.create(parent)
 assert(lobby.root:FindFirstChild("Title").Text == "CAT RIFT")
