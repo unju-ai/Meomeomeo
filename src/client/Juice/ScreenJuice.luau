@@ -74,14 +74,15 @@ function ScreenJuice.healFlash()
 	pulse(Theme.mint, 0.84)
 end
 
-function ScreenJuice.levelUp(level: number)
+function ScreenJuice.banner(text: string, color: Color3?)
 	local label = levelLabel
 	if not label then
 		return
 	end
 	levelToken += 1
 	local token = levelToken
-	label.Text = `LEVEL {level}!`
+	label.Text = text
+	label.TextColor3 = color or Theme.mint
 	label.TextTransparency = 1
 	label.TextSize = 28
 	local pop = TweenService:Create(label, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -95,6 +96,23 @@ function ScreenJuice.levelUp(level: number)
 		end
 		TweenService:Create(label, TweenInfo.new(0.22), { TextTransparency = 1, TextSize = 36 }):Play()
 	end)
+end
+
+function ScreenJuice.levelUp(level: number)
+	ScreenJuice.banner(`LEVEL {level}!`, Theme.mint)
+end
+
+function ScreenJuice.comboBreak()
+	pulse(Theme.coral, 0.7)
+	ScreenJuice.banner("COMBO BREAK", Theme.coral)
+end
+
+function ScreenJuice.nearMiss()
+	pulse(Theme.amber, 0.88)
+end
+
+function ScreenJuice.powerFlash(color: Color3)
+	pulse(color, 0.82)
 end
 
 function ScreenJuice.shakeTower()

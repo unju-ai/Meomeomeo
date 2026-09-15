@@ -26,6 +26,7 @@ local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
 local YarnCamera = require(script.YarnRun.YarnCamera)
+local YarnGhost = require(script.YarnRun.YarnGhost)
 
 local player = Players.LocalPlayer
 
@@ -237,14 +238,20 @@ local function applyShellView()
 			YarnCamera.setSubject(root)
 		end
 		YarnCamera.setEnabled(true)
+		YarnCamera.setDeath(latestYarn ~= nil and latestYarn.phase == "Dead")
+		if latestYarn then
+			YarnGhost.update(latestYarn.ghostLane, latestYarn.ghostZ, latestYarn.ghostY, latestYarn.ghostAlive)
+		end
 	elseif gameMode == "Hub" and hubPage == "grid" and (latestMatch == nil or latestMatch.phase == "Lobby") then
 		Music.setPhase("Hub")
 		hud.help.setContext("hub")
 		YarnCamera.setEnabled(false)
+		YarnGhost.setVisible(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 	else
 		YarnCamera.setEnabled(false)
+		YarnGhost.setVisible(false)
 		hud.help.setContext("moba")
 		if latestMatch then
 			Music.setPhase(latestMatch.phase)
@@ -599,21 +606,53 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 	latestYarn = snap
 	gameMode = "YarnRun"
 	hud.yarn.update(snap)
+	YarnGhost.update(snap.ghostLane, snap.ghostZ, snap.ghostY, snap.ghostAlive)
 	if lastYarnPhase ~= "Running" then
 		applyShellView()
 	end
 	if snap.event and snap.event ~= lastYarnEvent then
-		if snap.event == "YARN" or snap.event == "MEGA YARN" or snap.event == "ROOMBA RAIL" or snap.event == "COMBO x" then
+		if snap.event == "YARN" or snap.event == "MEGA YARN" or snap.event == "ROOMBA RAIL" then
 			Sfx.play("ShopBuy")
-		elseif string.find(snap.event, "COMBO") == 1 then
+		elseif snap.event == "COMBO BREAK" then
+			Sfx.play("Kill")
+			ScreenJuice.comboBreak()
+		elseif string.find(snap.event, "COMBO x", 1, true) == 1 then
 			Sfx.play("LevelUp")
 		elseif snap.event == "GO GO YARN" then
 			Sfx.play("MatchFound")
+		elseif snap.event == "SPEED BURST" then
+			Sfx.play("LevelUp")
+			ScreenJuice.powerFlash(Color3.fromRGB(90, 220, 255))
+		elseif snap.event == "MAGNET ON" then
+			Sfx.play("ShopBuy")
+			ScreenJuice.powerFlash(Color3.fromRGB(220, 90, 210))
+		elseif snap.event == "MAGNET YARN" then
+			Sfx.play("ShopBuy")
+		elseif snap.event == "SHIELD UP" then
+			Sfx.play("LevelUp")
+			ScreenJuice.healFlash()
+		elseif snap.event == "SHIELD POP" then
+			Sfx.play("Kill")
+			ScreenJuice.damageFlash()
+		elseif snap.event == "2X YARN" then
+			Sfx.play("LevelUp")
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
+		elseif snap.event == "CLOSE!" then
+			ScreenJuice.nearMiss()
+		elseif snap.event == "NEW PB" then
+			Sfx.play("MatchFound")
+			ScreenJuice.banner("NEW PB", Color3.fromRGB(255, 196, 74))
 		end
 	end
 	if snap.phase == "Dead" and lastYarnPhase ~= "Dead" then
 		Sfx.play("Kill")
+		YarnCamera.setDeath(true)
+		if snap.event ~= "COMBO BREAK" then
+			ScreenJuice.damageFlash()
+		end
 		applyShellView()
+	elseif snap.phase == "Running" then
+		YarnCamera.setDeath(false)
 	end
 	lastYarnEvent = snap.event
 	lastYarnPhase = snap.phase

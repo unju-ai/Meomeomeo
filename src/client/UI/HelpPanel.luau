@@ -50,12 +50,14 @@ local LINES_HUB: { { string } } = {
 
 local LINES_RUNNER: { { string } } = {
 	{ "A / D", "Switch lane (also arrows)" },
-	{ "Space", "Jump a dog" },
-	{ "C / Ctrl", "Slide under a laundry sign" },
+	{ "Space", "Jump a dog / Roomba gap" },
+	{ "C / Ctrl", "Slide under laundry / tunnel" },
+	{ "Pickups", "SPD burst · MAG yarn · SHD hit · 2X score" },
+	{ "Ghost", "Translucent PB cat + gold PB gate" },
 	{ "T", "Emote mid-dash (stream juice)" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Death", "Retry dash or back to hub" },
+	{ "Death", "Slow-mo cam · Retry same daily seed" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi
@@ -170,7 +172,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 		setContext = function(ctx: HelpContext)
 			if ctx == "runner" then
 				title.Text = "Yarn Run"
-				sub.Text = "3-lane night-market dash"
+				sub.Text = "Daily seed dash · chase your ghost"
 				paintLines(LINES_RUNNER)
 			elseif ctx == "moba" then
 				title.Text = "Cat Rift"

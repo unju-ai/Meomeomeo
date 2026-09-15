@@ -102,7 +102,16 @@ function HubPanel.create(parent: Instance): HubApi
 	local picked = "NyanRocket"
 	local runnerButtons: { TextButton } = {}
 
+	local yarnBest = 0
+
 	local function countText(id: string): string
+		if id == "YarnRun" and yarnBest > 0 then
+			local n = counts[id] or 0
+			if n <= 0 then
+				return `PB {yarnBest}`
+			end
+			return `{n} playing · PB {yarnBest}`
+		end
 		local n = counts[id] or 0
 		if n <= 0 then
 			return "Quiet stall"
@@ -200,6 +209,7 @@ function HubPanel.create(parent: Instance): HubApi
 			root.Visible = visible
 		end,
 		update = function(status: Types.HubStatus)
+			yarnBest = status.yarnBest
 			for _, tile in status.tiles do
 				counts[tile.id] = tile.playing
 			end
