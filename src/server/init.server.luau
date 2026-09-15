@@ -27,6 +27,7 @@ local VoiceService = require(script.Voice.VoiceService)
 local ModeService = require(script.Mode.ModeService)
 local YarnRunService = require(script.YarnRun.YarnRunService)
 local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
+local YarnGhostStore = require(script.YarnRun.YarnGhostStore)
 local KoiPondService = require(script.KoiPond.KoiPondService)
 local YarnPartyService = require(script.YarnParty.YarnPartyService)
 local ArcadeService = require(script.Arcade.ArcadeService)
@@ -312,7 +313,7 @@ Remotes.function_("RetryYarnRun").OnServerInvoke = function(player: Player)
 end
 
 Remotes.function_("GetYarnBoard").OnServerInvoke = function(player: Player)
-	return YarnBoardStore.get(Workspace:GetServerTimeNow(), player.UserId)
+	return YarnBoardStore.getBoards(Workspace:GetServerTimeNow(), player.UserId)
 end
 
 Remotes.function_("StartKoiPond").OnServerInvoke = function(player: Player)
@@ -387,6 +388,10 @@ end
 
 local function sendLobby(player: Player)
 	task.defer(function()
+		local ghost = YarnGhostStore.get(player.UserId)
+		if ghost then
+			ModeService.seedYarnBest(player.UserId, ghost)
+		end
 		local prefs = SettingsStore.get(player.UserId)
 		SettingsStore.applyAttributes(player, prefs)
 		local done = TutorialStore.isDone(player.UserId)
@@ -413,6 +418,7 @@ Players.PlayerAdded:Connect(sendLobby)
 Players.PlayerRemoving:Connect(function(player)
 	SettingsStore.clear(player.UserId)
 	YarnRunService.clear(player.UserId)
+	YarnGhostStore.clear(player.UserId)
 	KoiPondService.clear(player.UserId)
 	YarnPartyService.clear(player.UserId)
 	ArcadeService.clear(player.UserId)

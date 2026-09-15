@@ -71,6 +71,7 @@ local YarnRunCatalog = {
 	DoubleSeconds = 5.5,
 	GhostHz = 8,
 	GhostCap = 480,
+	GhostStoreCap = 240,
 	Runners = { "NyanRocket", "Shadowpounce", "ChairmanMeow" } :: { Types.YarnRunnerId },
 }
 
@@ -110,6 +111,34 @@ function YarnRunCatalog.dayKey(unix: number): string
 		return text
 	end
 	return `UTC-{YarnRunCatalog.utcDay(unix)}`
+end
+
+-- Monday 00:00 UTC. Epoch is Thursday, so shift three days.
+function YarnRunCatalog.weekStart(unix: number): number
+	local week = math.floor((math.floor(unix) + 259200) / 604800)
+	return week * 604800 - 259200
+end
+
+function YarnRunCatalog.weekKey(unix: number): string
+	local start = YarnRunCatalog.weekStart(unix)
+	local ok, text = pcall(function()
+		return os.date("!%Y-%m-%d", start)
+	end)
+	if ok and typeof(text) == "string" then
+		return `W{text}`
+	end
+	return `W{start}`
+end
+
+function YarnRunCatalog.weekLabel(unix: number): string
+	local start = YarnRunCatalog.weekStart(unix)
+	local ok, text = pcall(function()
+		return os.date("!%Y-%m-%d", start)
+	end)
+	if ok and typeof(text) == "string" then
+		return `Week of {text}`
+	end
+	return YarnRunCatalog.weekKey(unix)
 end
 
 function YarnRunCatalog.isPickup(kind: ObstacleKind): boolean
@@ -302,6 +331,68 @@ function YarnRunCatalog.isRunner(id: string): boolean
 		end
 	end
 	return false
+end
+
+function YarnRunCatalog.parseRunner(id: any): string
+	if typeof(id) == "string" and YarnRunCatalog.isRunner(id) then
+		return id
+	end
+	return "NyanRocket"
+end
+
+function YarnRunCatalog.packSample(sample: GhostSample): GhostSample
+	return {
+		t = math.floor(sample.t * 50 + 0.5) / 50,
+		lane = math.clamp(math.floor(sample.lane + 0.5), 0, 2),
+		y = math.floor(sample.y * 10 + 0.5) / 10,
+		z = math.floor(sample.z * 10 + 0.5) / 10,
+	}
+end
+
+function YarnRunCatalog.readSample(value: any): GhostSample?
+	if typeof(value) ~= "table" then
+		return nil
+	end
+	if typeof(value.t) ~= "number" or typeof(value.z) ~= "number" then
+		return nil
+	end
+	return YarnRunCatalog.packSample({
+		t = value.t,
+		lane = if typeof(value.lane) == "number" then value.lane else 1,
+		y = if typeof(value.y) == "number" then value.y else 0,
+		z = value.z,
+	})
+end
+
+function YarnRunCatalog.capSamples(samples: { GhostSample }, cap: number?): { GhostSample }
+	local limit = cap or YarnRunCatalog.GhostStoreCap
+	if limit < 2 then
+		limit = 2
+	end
+	if #samples == 0 then
+		return {}
+	end
+	if #samples <= limit then
+		local copy = {}
+		for _, sample in samples do
+			table.insert(copy, YarnRunCatalog.packSample(sample))
+		end
+		return copy
+	end
+	local out: { GhostSample } = {}
+	local lastIdx = 0
+	for i = 0, limit - 1 do
+		local idx = 1 + math.floor(i * (#samples - 1) / (limit - 1) + 0.5)
+		idx = math.clamp(idx, 1, #samples)
+		if idx ~= lastIdx then
+			table.insert(out, YarnRunCatalog.packSample(samples[idx]))
+			lastIdx = idx
+		end
+	end
+	if lastIdx ~= #samples then
+		table.insert(out, YarnRunCatalog.packSample(samples[#samples]))
+	end
+	return out
 end
 
 return YarnRunCatalog

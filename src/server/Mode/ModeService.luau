@@ -69,8 +69,8 @@ function ModeService.noteYarnBest(userId: number, score: number, meters: number?
 	if score > prevScore then
 		local copy: { YarnRunCatalog.GhostSample } = {}
 		if samples then
-			for _, sample in samples do
-				table.insert(copy, { t = sample.t, lane = sample.lane, y = sample.y, z = sample.z })
+			for _, sample in YarnRunCatalog.capSamples(samples) do
+				table.insert(copy, sample)
 			end
 		end
 		yarnBest[userId] = {
@@ -94,6 +94,27 @@ end
 
 function ModeService.yarnRecord(userId: number): YarnRunCatalog.YarnBest?
 	return yarnBest[userId]
+end
+
+function ModeService.seedYarnBest(userId: number, record: YarnRunCatalog.YarnBest)
+	local prev = yarnBest[userId]
+	if prev == nil or record.score > prev.score then
+		local copy: { YarnRunCatalog.GhostSample } = {}
+		for _, sample in record.samples do
+			table.insert(copy, YarnRunCatalog.packSample(sample))
+		end
+		yarnBest[userId] = {
+			score = record.score,
+			meters = record.meters,
+			combo = record.combo,
+			samples = copy,
+		}
+		local player = Players:GetPlayerByUserId(userId)
+		if player then
+			player:SetAttribute(Constants.Attributes.YarnBest, record.score)
+		end
+	end
+	ModeService.noteYarnMeters(userId, record.meters)
 end
 
 function ModeService.noteYarnMeters(userId: number, meters: number)

@@ -571,14 +571,27 @@ hud.closet.onBuy(function(id)
 	end
 end)
 
+local function applyYarnBoards(payload: any)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	if typeof(payload.daily) == "table" and typeof(payload.weekly) == "table" then
+		local boards = payload :: Types.YarnBoards
+		hud.board.update(boards)
+		hud.hub.updateBoard(boards.daily)
+	elseif typeof(payload.entries) == "table" then
+		local board = payload :: Types.YarnBoard
+		hud.board.updateDaily(board)
+		hud.hub.updateBoard(board)
+	end
+end
+
 local function refreshYarnBoard()
 	local ok, board = pcall(function()
 		return Remotes.function_("GetYarnBoard"):InvokeServer()
 	end)
-	if ok and typeof(board) == "table" then
-		local row = board :: Types.YarnBoard
-		hud.board.update(row)
-		hud.hub.updateBoard(row)
+	if ok then
+		applyYarnBoards(board)
 	end
 end
 
@@ -886,6 +899,9 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 		elseif snap.event == "NEW PB" then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner("NEW PB", Color3.fromRGB(255, 196, 74))
+		elseif snap.event == "BEAT YOUR GHOST" then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner("BEAT YOUR GHOST", Color3.fromRGB(255, 196, 74))
 		elseif snap.event == "#1 YARN LORD" then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner("#1 YARN LORD", Color3.fromRGB(255, 196, 74))
@@ -910,7 +926,7 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 	elseif snap.phase == "Running" then
 		YarnCamera.setDeath(false)
 	end
-	if snap.phase == "Dead" and snap.dailyRank ~= nil then
+	if snap.phase == "Dead" and (snap.dailyRank ~= nil or snap.weeklyRank ~= nil) then
 		task.defer(refreshYarnBoard)
 	end
 	lastYarnEvent = snap.event
@@ -923,12 +939,7 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 end)
 
 Remotes.event("YarnBoardUpdated").OnClientEvent:Connect(function(payload)
-	if typeof(payload) ~= "table" then
-		return
-	end
-	local board = payload :: Types.YarnBoard
-	hud.board.update(board)
-	hud.hub.updateBoard(board)
+	applyYarnBoards(payload)
 end)
 
 local lastKoiEvent: string? = nil

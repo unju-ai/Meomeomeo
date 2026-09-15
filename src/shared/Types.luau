@@ -365,6 +365,8 @@ export type CosmeticEquip = {
 	slot: string?,
 }
 
+export type YarnBoardPeriod = "daily" | "weekly"
+
 export type YarnBoardEntry = {
 	rank: number,
 	name: string,
@@ -375,10 +377,16 @@ export type YarnBoardEntry = {
 }
 
 export type YarnBoard = {
+	period: YarnBoardPeriod,
 	dayKey: string,
 	persistMode: PersistMode,
 	entries: { YarnBoardEntry },
 	selfRank: number?,
+}
+
+export type YarnBoards = {
+	daily: YarnBoard,
+	weekly: YarnBoard,
 }
 
 export type YarnBoardSubmit = {
@@ -386,6 +394,12 @@ export type YarnBoardSubmit = {
 	improved: boolean,
 	rank: number?,
 	board: YarnBoard,
+}
+
+export type YarnBoardPost = {
+	daily: YarnBoardSubmit,
+	weekly: YarnBoardSubmit,
+	boards: YarnBoards,
 }
 
 export type YarnRunPowers = {
@@ -422,6 +436,7 @@ export type YarnRunSnapshot = {
 	ghostAlive: boolean?,
 	newBest: boolean?,
 	dailyRank: number?,
+	weeklyRank: number?,
 	podium: boolean?,
 }
 

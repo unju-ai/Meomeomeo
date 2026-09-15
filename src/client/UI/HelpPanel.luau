@@ -41,7 +41,7 @@ local LINES_MOBA: { { string } } = {
 
 local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
-	{ "Board", "Daily Yarn leaderboard (UTC day)" },
+	{ "Board", "Daily / weekly Yarn leaderboard (UTC)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "Closet", "Hats + trails · yarn points, not Robux" },
 	{ "T", "Hold emote wheel on the hub pad" },
@@ -54,11 +54,11 @@ local LINES_RUNNER: { { string } } = {
 	{ "Space", "Jump a dog / Roomba gap" },
 	{ "C / Ctrl", "Slide under laundry / tunnel" },
 	{ "Pickups", "SPD burst · MAG yarn · SHD hit · 2X score" },
-	{ "Ghost", "Translucent PB cat + gold PB gate" },
+	{ "Ghost", "Translucent PB cat + gold PB gate (persists)" },
 	{ "T", "Emote mid-dash (stream juice)" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Death", "Slow-mo cam · daily rank / podium · Retry same seed" },
+	{ "Death", "Slow-mo cam · daily / weekly rank · podium · Retry same seed" },
 }
 
 local LINES_KOI: { { string } } = {

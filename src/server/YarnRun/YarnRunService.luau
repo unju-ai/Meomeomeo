@@ -17,6 +17,7 @@ local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance
 local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local YarnBoardStore = require(script.Parent.YarnBoardStore)
+local YarnGhostStore = require(script.Parent.YarnGhostStore)
 local YarnTrackBuilder = require(script.Parent.YarnTrackBuilder)
 
 type Run = {
@@ -56,7 +57,9 @@ type Run = {
 	nearUntil: number,
 	newBest: boolean,
 	dailyRank: number?,
+	weeklyRank: number?,
 	podium: boolean,
+	beatGhost: boolean,
 }
 
 local YarnRunService = {}
@@ -127,6 +130,7 @@ local function snapshotOf(run: Run): Types.YarnRunSnapshot
 		ghostAlive = gAlive,
 		newBest = if run.phase == "Dead" then run.newBest else nil,
 		dailyRank = run.dailyRank,
+		weeklyRank = run.weeklyRank,
 		podium = if run.phase == "Dead" then run.podium else nil,
 	}
 end
@@ -216,6 +220,10 @@ local function remember(run: Run)
 		run.bestCombo
 	)
 	ModeService.noteYarnMeters(run.player.UserId, math.floor(run.z))
+	local record = ModeService.yarnRecord(run.player.UserId)
+	if record then
+		YarnGhostStore.save(run.player.UserId, record)
+	end
 	CosmeticService.refresh(run.player)
 end
 
@@ -252,16 +260,17 @@ local function finish(run: Run, reason: string)
 		if not runs[run.player.UserId] or runs[run.player.UserId] ~= run then
 			return
 		end
-		run.dailyRank = posted.rank
-		run.podium = posted.rank ~= nil and posted.rank <= 3
-		local title = if posted.rank then YarnBoardLogic.podiumTitle(posted.rank) else nil
+		run.dailyRank = posted.daily.rank
+		run.weeklyRank = posted.weekly.rank
+		run.podium = posted.daily.rank ~= nil and posted.daily.rank <= 3
+		local title = if posted.daily.rank then YarnBoardLogic.podiumTitle(posted.daily.rank) else nil
 		if title then
 			shout(run, title, 2.2)
-		elseif posted.rank then
-			shout(run, `DAILY #{posted.rank}`, 1.6)
+		elseif posted.daily.rank then
+			shout(run, `DAILY #{posted.daily.rank}`, 1.6)
 		end
 		fire(run)
-		Remotes.event("YarnBoardUpdated"):FireClient(run.player, posted.board)
+		Remotes.event("YarnBoardUpdated"):FireClient(run.player, posted.boards)
 	end)
 end
 
@@ -445,13 +454,25 @@ local function step(dt: number)
 		run.ghostAcc += dt
 		if run.ghostAcc >= 1 / YarnRunCatalog.GhostHz then
 			run.ghostAcc = 0
-			if #run.samples < YarnRunCatalog.GhostCap then
-				table.insert(run.samples, {
-					t = now() - run.startedAt,
-					lane = run.lane,
-					y = run.y,
-					z = run.z,
-				})
+			if #run.samples >= YarnRunCatalog.GhostCap then
+				local thinned = {}
+				for i = 1, #run.samples, 2 do
+					table.insert(thinned, run.samples[i])
+				end
+				run.samples = thinned
+			end
+			table.insert(run.samples, {
+				t = now() - run.startedAt,
+				lane = run.lane,
+				y = run.y,
+				z = run.z,
+			})
+		end
+		if not run.beatGhost then
+			local pb = run.ghost
+			if pb and pb.meters > 0 and run.z > pb.meters then
+				run.beatGhost = true
+				shout(run, "BEAT YOUR GHOST", 1.7)
 			end
 		end
 
@@ -541,6 +562,10 @@ function YarnRunService.start(player: Player, championId: unknown): Types.TradeR
 	if YarnRunService.playingCount() == 0 then
 		YarnTrackBuilder.reset(seed)
 	end
+	local saved = YarnGhostStore.get(player.UserId)
+	if saved then
+		ModeService.seedYarnBest(player.UserId, saved)
+	end
 	local record = ModeService.yarnRecord(player.UserId)
 	YarnTrackBuilder.sync(0, seed)
 	YarnTrackBuilder.markBest(if record then record.meters else 0)
@@ -583,7 +608,9 @@ function YarnRunService.start(player: Player, championId: unknown): Types.TradeR
 		nearUntil = 0,
 		newBest = false,
 		dailyRank = YarnBoardStore.rankOf(player.UserId, unix),
+		weeklyRank = YarnBoardStore.weeklyRankOf(player.UserId, unix),
 		podium = false,
+		beatGhost = false,
 	}
 	runs[player.UserId] = run
 	ModeService.set(player, "YarnRun")
