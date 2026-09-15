@@ -612,6 +612,9 @@ function YarnPartyService.start(player: Player): Types.TradeResult
 	if ModeService.is(player, "KoiPond") then
 		return { ok = false, error = "Leave the pond first." }
 	end
+	if ModeService.is(player, "MemeArcade") then
+		return { ok = false, error = "Leave the arcade first." }
+	end
 	if YarnPartyService.isPlaying(player) then
 		return { ok = false, error = "Already at the party." }
 	end

@@ -6,7 +6,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 ## 0. What you have
 
-Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Soon) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily board. **Koi Pond** fishing. **Yarn Party** 4-cat micro-rounds (bots fill).
+Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily board. **Koi Pond** fishing. **Yarn Party** 4-cat micro-rounds (bots fill). **Meme Arcade** timed yarn-tape stall (play yarn only).
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
@@ -70,7 +70,7 @@ rojo serve
 1. Studio → **New place** (or an existing unpublished place).
 2. Rojo plugin → **Connect** to `localhost` (default port 34872).
 3. Confirm `ReplicatedStorage.Shared`, `ServerScriptService.Server`, and `StarterPlayer.StarterPlayerScripts.Client` appeared.
-4. **Play** (F5). Character loads on the night-market pad with the **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Soon tiles).
+4. **Play** (F5). Character loads on the night-market pad with the **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade).
 
 `*.rbxl` is gitignored. Do not treat a Studio file as source of truth.
 
@@ -129,6 +129,15 @@ Cast / reel / catch / score are server-authoritative. Yarn Run board, power-ups,
 
 Scores / elims / bots are server-authoritative. Yarn Run, Koi Pond, and Cat Rift stay exclusive and unchanged.
 
+## 3e. Meme Arcade (solo tape)
+
+1. Hub → **Meme Arcade → Play**. You teleport to a neon tape stall west of the rift (`MeoMemeArcade`). 3/4 cam on the ticker wall. **Play yarn only** — the HUD and stall sign say this is not real money / not a broker.
+2. Start with **100 yarn**. Five cat tickers (LOAF / NYAN / CHNK / BRAIN / RUG) drift on a chaotic micro-market. **Buy** / **Sell** 1 bag at the listed price (cards, or **1–5** buy / **Shift+1–5** sell). Simple candle bars sit on each card.
+3. Timed round (~28s). Mark-to-market PnL is the big green/red pop. Events shout **TO THE MOON**, **RUG PULL**, **WHALE SNEEZE**. At the bell, holdings auto-sell. **Score = profit** vs the starting wallet. Session **daily high** (UTC day, memory — light, no DataStore board).
+4. **Play again** or **Back to hub**. Help overlay (**?** / **H**) swaps to arcade binds. **T** emotes still work. **G** pings do not.
+
+Tape / wallets / events are server-authoritative and **isolated** from in-match `MemeStockService` cheer tickers. Exclusive with Hub / Moba / Yarn Run / Koi Pond / Yarn Party.
+
 ## 4. Queue (2+ clients)
 
 Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this server**), `PadQueueWithBots = true` (fill to 3 per side).
@@ -168,8 +177,10 @@ Same list as the in-game **?** / hold **H** panel.
 | **Space / Click** (Koi Pond) | Cast the yarn bobber; reel when the loaf hits the cream window |
 | **WASD** (Yarn Party) | Run the courtyard. Engine jump **Space** hops the yarn |
 | **Space** (Yarn Party) | Hop the coral yarn (Dodge) · walk onto lit pillows (Stall Freeze) |
+| **1–5** (Meme Arcade) | Buy 1 yarn bag of LOAF / NYAN / CHNK / BRAIN / RUG |
+| **Shift+1–5** (Meme Arcade) | Sell 1 bag at the listed yarn price |
 
-Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
+Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -218,7 +229,7 @@ Also for a live place:
 
 `src/client/Audio/SoundIds.luau` (SFX) and `src/client/Audio/MusicIds.luau` (phase beds) use engine `rbxasset://sounds/…` so git stays binary-free. Swap any `id` to `rbxassetid://YOUR_ID` after a Creator Store upload.
 
-**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / KoiPond / YarnParty / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
+**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / KoiPond / YarnParty / MemeArcade / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
 
 Audio sliders / mutes, mute-others-emotes, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
 

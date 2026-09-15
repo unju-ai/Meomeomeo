@@ -54,12 +54,17 @@ export type RemoteName =
 	| "StartYarnParty"
 	| "LeaveYarnParty"
 	| "RetryYarnParty"
+	| "StartMemeArcade"
+	| "MemeArcadeInput"
+	| "LeaveMemeArcade"
+	| "RetryMemeArcade"
 	| "MatchStateChanged"
 	| "ModeChanged"
 	| "YarnRunUpdated"
 	| "YarnBoardUpdated"
 	| "KoiPondUpdated"
 	| "YarnPartyUpdated"
+	| "MemeArcadeUpdated"
 	| "QueueUpdated"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -122,6 +127,10 @@ local FUNCTION_NAMES = {
 	"StartYarnParty",
 	"LeaveYarnParty",
 	"RetryYarnParty",
+	"StartMemeArcade",
+	"MemeArcadeInput",
+	"LeaveMemeArcade",
+	"RetryMemeArcade",
 }
 
 local EVENT_NAMES = {
@@ -143,6 +152,7 @@ local EVENT_NAMES = {
 	"YarnBoardUpdated",
 	"KoiPondUpdated",
 	"YarnPartyUpdated",
+	"MemeArcadeUpdated",
 }
 
 local function getFolder(): Folder

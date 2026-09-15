@@ -300,6 +300,9 @@ function KoiPondService.start(player: Player): Types.TradeResult
 	if ModeService.is(player, "YarnParty") then
 		return { ok = false, error = "Leave Yarn Party first." }
 	end
+	if ModeService.is(player, "MemeArcade") then
+		return { ok = false, error = "Leave the arcade first." }
+	end
 	if sessions[player.UserId] then
 		return { ok = false, error = "Already at the pond." }
 	end

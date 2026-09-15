@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local Constants = require(Shared:WaitForChild("Constants"))
 local ModeCatalog = require(Shared:WaitForChild("ModeCatalog"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -17,11 +18,13 @@ local ModeService = {}
 local modes: { [number]: Types.GameMode } = {}
 local yarnBest: { [number]: YarnRunCatalog.YarnBest } = {}
 local koiBest: { [number]: number } = {}
+local arcadeBest: { [number]: { day: string, profit: number } } = {}
 local matchBusy: (() -> boolean)? = nil
 local riftPlaying: (() -> number)? = nil
 local yarnPlaying: (() -> number)? = nil
 local koiPlaying: (() -> number)? = nil
 local partyPlaying: (() -> number)? = nil
+local arcadePlaying: (() -> number)? = nil
 
 local function current(userId: number): Types.GameMode
 	return modes[userId] or "Hub"
@@ -33,12 +36,14 @@ function ModeService.init(hooks: {
 	yarnPlaying: () -> number,
 	koiPlaying: () -> number,
 	partyPlaying: () -> number,
+	arcadePlaying: () -> number,
 })
 	matchBusy = hooks.matchBusy
 	riftPlaying = hooks.riftPlaying
 	yarnPlaying = hooks.yarnPlaying
 	koiPlaying = hooks.koiPlaying
 	partyPlaying = hooks.partyPlaying
+	arcadePlaying = hooks.arcadePlaying
 end
 
 function ModeService.get(player: Player): Types.GameMode
@@ -99,11 +104,33 @@ function ModeService.koiBestOf(userId: number): number
 	return koiBest[userId] or 0
 end
 
+function ModeService.noteArcadeBest(userId: number, profit: number): number
+	local today = ArcadeCatalog.dayKey(os.time())
+	local rec = arcadeBest[userId]
+	if rec == nil or rec.day ~= today then
+		rec = { day = today, profit = 0 }
+	end
+	if profit > rec.profit then
+		rec.profit = profit
+	end
+	arcadeBest[userId] = rec
+	return rec.profit
+end
+
+function ModeService.arcadeBestOf(userId: number): number
+	local rec = arcadeBest[userId]
+	if rec == nil or rec.day ~= ArcadeCatalog.dayKey(os.time()) then
+		return 0
+	end
+	return rec.profit
+end
+
 function ModeService.status(player: Player): Types.HubStatus
 	local rift = if riftPlaying then riftPlaying() else 0
 	local run = if yarnPlaying then yarnPlaying() else 0
 	local pond = if koiPlaying then koiPlaying() else 0
 	local bash = if partyPlaying then partyPlaying() else 0
+	local tape = if arcadePlaying then arcadePlaying() else 0
 	local tiles = {}
 	for _, tile in ModeCatalog.all() do
 		local playing = 0
@@ -115,6 +142,8 @@ function ModeService.status(player: Player): Types.HubStatus
 			playing = pond
 		elseif tile.id == "YarnParty" then
 			playing = bash
+		elseif tile.id == "MemeArcade" then
+			playing = tape
 		end
 		table.insert(tiles, { id = tile.id, playing = playing })
 	end
@@ -123,6 +152,7 @@ function ModeService.status(player: Player): Types.HubStatus
 		tiles = tiles,
 		yarnBest = ModeService.yarnBestOf(player.UserId),
 		koiBest = ModeService.koiBestOf(player.UserId),
+		arcadeBest = ModeService.arcadeBestOf(player.UserId),
 	}
 end
 

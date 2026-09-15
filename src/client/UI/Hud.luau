@@ -14,6 +14,7 @@ local LobbyPanel = require(script.Parent.LobbyPanel)
 local YarnRunHud = require(script.Parent.YarnRunHud)
 local KoiPondHud = require(script.Parent.KoiPondHud)
 local YarnPartyHud = require(script.Parent.YarnPartyHud)
+local ArcadeHud = require(script.Parent.ArcadeHud)
 local YarnBoardPanel = require(script.Parent.YarnBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
@@ -38,6 +39,7 @@ export type HudApi = {
 	yarn: YarnRunHud.YarnHudApi,
 	koi: KoiPondHud.KoiHudApi,
 	party: YarnPartyHud.PartyHudApi,
+	arcade: ArcadeHud.ArcadeHudApi,
 	board: YarnBoardPanel.BoardApi,
 	mint: MintPanel.MintApi,
 	select: ChampionSelect.SelectApi,
@@ -91,6 +93,7 @@ function Hud.create(): HudApi
 	local yarn = YarnRunHud.create(gui)
 	local koi = KoiPondHud.create(gui)
 	local party = YarnPartyHud.create(gui)
+	local arcade = ArcadeHud.create(gui)
 	local board = YarnBoardPanel.create(gui)
 	local lobby = LobbyPanel.create(gui)
 	hub.setVisible(true)
@@ -98,6 +101,7 @@ function Hud.create(): HudApi
 	yarn.setVisible(false)
 	koi.setVisible(false)
 	party.setVisible(false)
+	arcade.setVisible(false)
 	board.setVisible(false)
 	local mint = MintPanel.create(gui)
 	local select = ChampionSelect.create(gui)
@@ -143,6 +147,7 @@ function Hud.create(): HudApi
 		yarn.setVisible(false)
 		koi.setVisible(false)
 		party.setVisible(false)
+		arcade.setVisible(false)
 		if phase ~= "Lobby" then
 			mint.setVisible(false)
 		end
@@ -183,6 +188,7 @@ function Hud.create(): HudApi
 			yarn.setVisible(true)
 			koi.setVisible(false)
 			party.setVisible(false)
+			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			banner.Text = "Yarn Run · chase the ghost · SPD MAG SHD 2X"
@@ -194,6 +200,7 @@ function Hud.create(): HudApi
 			yarn.setVisible(false)
 			koi.setVisible(true)
 			party.setVisible(false)
+			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			banner.Text = "Koi Pond · Space cast · reel in the cream window"
@@ -205,14 +212,28 @@ function Hud.create(): HudApi
 			yarn.setVisible(false)
 			koi.setVisible(false)
 			party.setVisible(true)
+			arcade.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			banner.Text = "Yarn Party · WASD · Space hop · lit pillows"
 			return
 		end
+		if mode == "MemeArcade" then
+			hub.setVisible(false)
+			lobby.setVisible(false)
+			yarn.setVisible(false)
+			koi.setVisible(false)
+			party.setVisible(false)
+			arcade.setVisible(true)
+			hideMobaPlay()
+			mint.setVisible(false)
+			banner.Text = "Meme Arcade · play yarn only · tap the tape"
+			return
+		end
 		yarn.setVisible(false)
 		koi.setVisible(false)
 		party.setVisible(false)
+		arcade.setVisible(false)
 		if mode == "Hub" and hubPage == "grid" and (snapshot == nil or snapshot.phase == "Lobby") then
 			hub.setVisible(true)
 			lobby.setVisible(false)
@@ -236,6 +257,7 @@ function Hud.create(): HudApi
 		yarn = yarn,
 		koi = koi,
 		party = party,
+		arcade = arcade,
 		board = board,
 		lobby = lobby,
 		mint = mint,

@@ -18,6 +18,7 @@ export type HubApi = {
 	onPlayRun: ((championId: string) -> ()) -> (),
 	onPlayPond: (() -> ()) -> (),
 	onPlayParty: (() -> ()) -> (),
+	onPlayArcade: (() -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
@@ -106,6 +107,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local playRun: ((string) -> ())? = nil
 	local playPond: (() -> ())? = nil
 	local playParty: (() -> ())? = nil
+	local playArcade: (() -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
@@ -113,6 +115,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local runnerButtons: { TextButton } = {}
 	local yarnBest = 0
 	local koiBest = 0
+	local arcadeBest = 0
 	local yarnLead = ""
 
 	local function countText(id: string): string
@@ -138,6 +141,15 @@ function HubPanel.create(parent: Instance): HubApi
 					return `PB catch {koiBest}`
 				end
 				return `{n} playing · PB {koiBest}`
+			end
+		end
+		if id == "MemeArcade" then
+			local n = counts[id] or 0
+			if arcadeBest > 0 then
+				if n <= 0 then
+					return `Daily +{arcadeBest} yarn`
+				end
+				return `{n} playing · daily +{arcadeBest}`
 			end
 		end
 		local n = counts[id] or 0
@@ -228,6 +240,10 @@ function HubPanel.create(parent: Instance): HubApi
 					if playParty then
 						playParty()
 					end
+				elseif def.id == "MemeArcade" then
+					if playArcade then
+						playArcade()
+					end
 				end
 			end)
 		end
@@ -259,6 +275,7 @@ function HubPanel.create(parent: Instance): HubApi
 		update = function(status: Types.HubStatus)
 			yarnBest = status.yarnBest
 			koiBest = status.koiBest or 0
+			arcadeBest = status.arcadeBest or 0
 			for _, tile in status.tiles do
 				counts[tile.id] = tile.playing
 			end
@@ -282,6 +299,9 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onPlayParty = function(fn)
 			playParty = fn
+		end,
+		onPlayArcade = function(fn)
+			playArcade = fn
 		end,
 		onMint = function(fn)
 			mintHandler = fn

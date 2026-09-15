@@ -6,7 +6,7 @@ local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
 
-export type HelpContext = "hub" | "moba" | "runner" | "koi" | "party"
+export type HelpContext = "hub" | "moba" | "runner" | "koi" | "party" | "arcade"
 
 export type HelpApi = {
 	root: Frame,
@@ -40,13 +40,12 @@ local LINES_MOBA: { { string } } = {
 }
 
 local LINES_HUB: { { string } } = {
-	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party" },
+	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
 	{ "Board", "Daily Yarn leaderboard (UTC day)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
-	{ "Soon", "Meme Arcade" },
 }
 
 local LINES_RUNNER: { { string } } = {
@@ -80,6 +79,19 @@ local LINES_PARTY: { { string } } = {
 	{ "Rounds", "3 micro-rounds: Dodge · Stall Freeze · Dodge" },
 	{ "Bots", "Empty seats fill with Loaf / Nib / Purr" },
 	{ "T", "Emote mid-party" },
+	{ "Audio", "SFX + Music sliders · mute" },
+	{ "H / ?", "This help" },
+	{ "Hub", "Back to hub (clean exit)" },
+}
+
+local LINES_ARCADE: { { string } } = {
+	{ "1–5", "Buy 1 bag of that ticker (LOAF NYAN CHNK BRAIN RUG)" },
+	{ "Shift+1–5", "Sell 1 bag at the listed yarn price" },
+	{ "Tap", "Buy / Sell on the stall cards" },
+	{ "Round", "28s tape · auto-sell at the bell · score = profit" },
+	{ "Events", "TO THE MOON · RUG PULL · WHALE SNEEZE" },
+	{ "Yarn only", "Play yarn / points — not real money" },
+	{ "T", "Emote at the counter" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
 	{ "Hub", "Back to hub (clean exit)" },
@@ -207,6 +219,10 @@ function HelpPanel.create(parent: Instance): HelpApi
 				title.Text = "Yarn Party"
 				sub.Text = "Three rounds · four cats · yarn chaos"
 				paintLines(LINES_PARTY)
+			elseif ctx == "arcade" then
+				title.Text = "Meme Arcade"
+				sub.Text = "Play yarn only · tap the tape"
+				paintLines(LINES_ARCADE)
 			elseif ctx == "moba" then
 				title.Text = "Cat Rift"
 				sub.Text = "Hold H or click ?  ·  PLAYTEST.md"
