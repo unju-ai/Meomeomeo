@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -120,7 +121,8 @@ function WardService.visibleToTeam(team: Types.TeamId, viewerPosition: Vector3?)
 	local t = now()
 	local ids = {}
 	for _, ward in wards do
-		local show = ward.team == team
+		-- Control yarn is a visible totem (not stealthed). Trinkets stay team-only unless revealed.
+		local show = ward.team == team or ward.kind == "control"
 		if not show and ward.revealedUntil > t then
 			show = true
 		end
@@ -141,7 +143,7 @@ function WardService.canSee(viewerTeam: Types.TeamId, wardId: string, viewerPosi
 	if not ward then
 		return false
 	end
-	if ward.team == viewerTeam then
+	if ward.team == viewerTeam or ward.kind == "control" then
 		return true
 	end
 	if ward.revealedUntil > now() then
@@ -153,14 +155,26 @@ function WardService.canSee(viewerTeam: Types.TeamId, wardId: string, viewerPosi
 	return false
 end
 
-function WardService.sources(team: Types.TeamId): { Vector3 }
+function WardService.sources(team: Types.TeamId): { { position: Vector3, control: boolean } }
 	local points = {}
 	for _, ward in wards do
 		if ward.team == team then
-			table.insert(points, ward.part.Position)
+			table.insert(points, { position = ward.part.Position, control = ward.kind == "control" })
 		end
 	end
 	return points
+end
+
+function WardService.slowMul(team: Types.TeamId, position: Vector3): number
+	local radius = Config.Vision.ControlSlowRadius
+	for _, ward in wards do
+		if ward.kind == "control" and ward.team ~= team then
+			if (ward.part.Position - position).Magnitude <= radius then
+				return Config.Vision.ControlSlowMul
+			end
+		end
+	end
+	return 1
 end
 
 function WardService.applyDamage(attacker: Player?, wardId: string, amount: number): boolean
@@ -224,6 +238,7 @@ local function placeWardFor(userId: number, team: Types.TeamId, position: Vector
 	part.CFrame = CFrame.new(dest)
 	part:SetAttribute(Constants.Attributes.WardId, id)
 	part:SetAttribute(Constants.Attributes.Team, team)
+	part:SetAttribute(Constants.Attributes.WardKind, kind)
 	part.Parent = folder()
 
 	local gui = Instance.new("BillboardGui")
@@ -238,17 +253,19 @@ local function placeWardFor(userId: number, team: Types.TeamId, position: Vector
 	text.Font = Enum.Font.GothamBold
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(255, 243, 224)
-	text.Text = if kind == "control" then `pink {Config.Vision.WardHealth}` else `ward {Config.Vision.WardHealth}`
+	text.Text = if kind == "control" then `pink {Config.Vision.ControlHealth}` else `ward {Config.Vision.WardHealth}`
 	text.Parent = gui
 
+	local hp = if kind == "control" then Config.Vision.ControlHealth else Config.Vision.WardHealth
+	local life = if kind == "control" then Config.Vision.ControlDuration else Config.Vision.TrinketDuration
 	local ward: Ward = {
 		id = id,
 		team = team,
 		ownerUserId = userId,
 		kind = kind,
-		health = Config.Vision.WardHealth,
-		maxHealth = Config.Vision.WardHealth,
-		expiresAt = t + Config.Vision.TrinketDuration,
+		health = hp,
+		maxHealth = hp,
+		expiresAt = t + life,
 		revealedUntil = 0,
 		part = part,
 	}
@@ -274,6 +291,21 @@ function WardService.placeTrinket(player: Player, team: Types.TeamId, position: 
 		return { ok = false, error = "No character." }
 	end
 	return WardService.placeTrinketFor(player.UserId, team, position, root)
+end
+
+function WardService.placeControl(player: Player, team: Types.TeamId, position: Vector3): Types.AbilityResult
+	if ShopService.count(player.UserId, ItemCatalog.ControlYarnId) < 1 then
+		return { ok = false, error = "Buy Control Yarn at Pawmart (B). Press 6 to plant." }
+	end
+	local root = characterRoot(player)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	local result = WardService.placeControlFor(player.UserId, team, position, root)
+	if result.ok then
+		ShopService.consume(player.UserId, ItemCatalog.ControlYarnId)
+	end
+	return result
 end
 
 function WardService.useLensFor(userId: number, team: Types.TeamId, root: BasePart): Types.AbilityResult
@@ -332,6 +364,15 @@ function WardService.start()
 			for id, ward in wards do
 				if not ward.part.Parent or t >= ward.expiresAt then
 					table.insert(expired, id)
+				elseif ward.kind == "control" then
+					local sight = Config.Vision.ControlTrueSight
+					for otherId, other in wards do
+						if otherId ~= id and other.team ~= ward.team then
+							if (other.part.Position - ward.part.Position).Magnitude <= sight then
+								other.revealedUntil = math.max(other.revealedUntil, t + Config.Vision.ControlRevealSeconds)
+							end
+						end
+					end
 				end
 			end
 			for _, id in expired do

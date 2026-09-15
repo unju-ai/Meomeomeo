@@ -259,6 +259,10 @@ Remotes.function_("PlaceWard").OnServerInvoke = function(player: Player, positio
 	return CombatService.placeWard(player, position)
 end
 
+Remotes.function_("PlaceControl").OnServerInvoke = function(player: Player, position: unknown)
+	return CombatService.placeControl(player, position)
+end
+
 Remotes.function_("UseLens").OnServerInvoke = function(player: Player)
 	return CombatService.useLens(player)
 end

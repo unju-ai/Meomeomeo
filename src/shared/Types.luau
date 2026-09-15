@@ -282,6 +282,8 @@ export type ItemDef = {
 	maxHealth: number,
 	maxMana: number,
 	walkSpeed: number,
+	-- Consumable stock cap. Nil means unique (own at most one).
+	stackMax: number?,
 }
 
 export type ShopStatus = {

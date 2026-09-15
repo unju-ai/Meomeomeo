@@ -24,7 +24,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
-- Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards (Hard jungle bots plant magenta control/pink yarn)
+- Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
 - Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
@@ -78,8 +78,9 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
   - **Dash**: hold to preview, release to blink + streak (still instant on the server).
   - **Ground AoE**: **first key** arms the ring at the cursor; **LMB or the same key** confirms the cast; **Esc / right-click** cancels. **S** also clears the indicator.
   - **Instant** (self heal/shield): fires on press.
-- **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-blue/red pillar. Placing another replaces yours. **Hard** jungle bots plant a **magenta control (pink)** ball instead (`WardService.placeControlFor`) — same vision, distinct tint. No player shop bind yet.
+- **4** — free **trinket** (stealthed team-tinted pillar, 70s cooldown, 60s duration, one live). Replacing yours pops the old one.
 - **5** — Whisker Lens sweep (buy at Pawmart). Reveals and damages enemy wards in a short radius.
+- **6** — **Control Yarn / pink ward** (buy at Pawmart, 75g, **2 charges**). Magenta ball, visible to everyone, 90s, 90 HP. Team vision (slightly larger radius), **slows** enemies in 22 studs (0.7×), and **reveals** enemy trinkets in 36 studs. One live pink per owner. Hard jungle bots still plant one for free.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
 - **B** — Pawmart (fountain only). **Not recall.**
@@ -88,7 +89,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release a traveling bolt → ground kits: press then click → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
+- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release a traveling bolt → ground kits: press then click → **4** trinket → **B** Control Yarn + **6** pink → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -117,9 +118,10 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
 - **Vision:** stub fog — enemy champs/minions/jungle are hidden unless an ally champ, minion, tower, or **ward** is in radius (`VisionUpdated`).
-- **Trinket ward (4):** free. Server places a team-colored pillar (`WardService`) that feeds `VisionService` for 60s. One trinket per player; 70s cooldown. **Hard** jungle bots also place one **control / pink** ward (magenta ball, label `pink`) — one live per kind. Not shop — **B stays Pawmart**. Player **4** is still trinket-only.
-- **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (wards have 60 HP — one sweep or ~3 AAs). Enemy wards are stealthed unless revealed or you stand within 14 studs.
-- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots / **Whisker Lens**. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F, ward is 4.**
+- **Trinket ward (4):** free. Server places a stealthed team-colored pillar (`WardService`) that feeds `VisionService` for 60s. One trinket per player; 70s cooldown. Not shop — **B stays Pawmart**.
+- **Control Yarn / pink (6):** Pawmart consumable, 75g, max **2** charges. Magenta ball (visible, not stealthed), 90s / 90 HP, one live per owner. Team vision uses `ControlRadius` (48). Enemies in `ControlSlowRadius` walk at `ControlSlowMul`. Nearby enemy trinkets get `revealedUntil` refreshed (`ControlTrueSight` / `ControlRevealSeconds`). **Hard** jungle bots still call `placeControlFor` once (no charge). Destroyable like trinkets (AA / lens / skillshots).
+- **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (trinkets 60 HP, pinks 90 HP). Enemy **trinkets** are stealthed unless revealed, you stand within 14 studs, or a pink is nearby. Pinks are always on the map.
+- **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots / **Whisker Lens** / **Control Yarn**. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F, trinket is 4, pink is 6.**
 - **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. Interrupted by champion/minion/tower/jungle damage, movement > 2.5 studs, AA, attack-move, abilities, **S**, or **F** again. Fountain regen still ticks while you channel.
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
@@ -424,7 +426,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
 2. Smarter bots: dive / dodge / lens / projectile lead are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
-3. Player **control / pink ward** shop or bind (Hard junglers already drop magenta yarn). Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
+3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency). Pink true-sight on trinkets is in; FoW still uses LocalTransparency.
 4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).

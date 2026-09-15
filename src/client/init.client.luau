@@ -1957,6 +1957,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.Six then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			reportAttack(Remotes.function_("PlaceControl"):InvokeServer(aimPoint()), "WardPlace")
+		end
+		return
+	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if not slot then
 		return
@@ -2094,4 +2100,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. 4 ward, 5 lens, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
+print("[Meo Meo Meo] Client HUD ready. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")

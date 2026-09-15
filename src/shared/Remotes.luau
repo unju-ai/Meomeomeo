@@ -34,6 +34,7 @@ export type RemoteName =
 	| "LeaveMatch"
 	| "PlayAgain"
 	| "PlaceWard"
+	| "PlaceControl"
 	| "UseLens"
 	| "InviteParty"
 	| "GetQueueStatus"
@@ -115,6 +116,7 @@ local FUNCTION_NAMES = {
 	"LeaveMatch",
 	"PlayAgain",
 	"PlaceWard",
+	"PlaceControl",
 	"UseLens",
 	"InviteParty",
 	"GetQueueStatus",

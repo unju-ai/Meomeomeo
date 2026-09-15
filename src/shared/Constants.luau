@@ -36,6 +36,7 @@ local Constants = {
 		MinionId = "MeoMinionId",
 		JungleId = "MeoJungleId",
 		WardId = "MeoWardId",
+		WardKind = "MeoWardKind",
 		Recalling = "MeoRecalling",
 		UserId = "MeoUserId",
 		TutorialDone = "MeoTutorialDone",

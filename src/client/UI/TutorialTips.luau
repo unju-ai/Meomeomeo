@@ -52,8 +52,8 @@ local SEQUENCE: { Tip } = {
 	},
 	{
 		id = "ward",
-		title = "Ward (4)",
-		body = "4 drops a free team-tinted trinket (one live, 70s cooldown). Hard jungle bots drop magenta control (pink) yarn instead. 5 is Whisker Lens after you buy it.",
+		title = "Ward (4 / 6)",
+		body = "4 drops a free team-tinted trinket (stealthed, one live, 70s cooldown). Buy Control Yarn at Pawmart and press 6 for a magenta pink ward (2 charges, visible, slows enemies, reveals nearby trinkets). 5 is Whisker Lens after you buy it.",
 	},
 	{
 		id = "tab",
