@@ -464,6 +464,10 @@ hud.lobby.onBack(function()
 	applyShellView()
 end)
 
+hud.hub.onTalk(function(hostId, hostName)
+	hud.chat.open(hostId, hostName)
+end)
+
 hud.hub.onPlayRift(function()
 	hubPage = "moba"
 	gameMode = "Hub"

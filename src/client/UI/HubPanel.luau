@@ -19,6 +19,7 @@ export type HubApi = {
 	onPlayPond: (() -> ()) -> (),
 	onPlayParty: (() -> ()) -> (),
 	onPlayArcade: (() -> ()) -> (),
+	onTalk: ((hostId: string, hostName: string) -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onBoard: (() -> ()) -> (),
 	updateBoard: (board: Types.YarnBoard) -> (),
@@ -92,7 +93,7 @@ function HubPanel.create(parent: Instance): HubApi
 	sub.Position = UDim2.fromOffset(0, 36)
 	sub.Size = UDim2.new(1, 0, 0, 20)
 
-	local hint = Theme.text(root, "Hint", "T emote · Audio · ? help · yarn/coral stalls, not a battle-pass grid.", 12, Theme.muted)
+	local hint = Theme.text(root, "Hint", "Pick a game or meet the cats · T emote · Audio · ? help", 12, Theme.muted)
 	hint.Position = UDim2.fromOffset(0, 56)
 	hint.Size = UDim2.new(1, 0, 0, 16)
 
@@ -108,6 +109,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local playPond: (() -> ())? = nil
 	local playParty: (() -> ())? = nil
 	local playArcade: (() -> ())? = nil
+	local talkHandler: ((string, string) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
@@ -261,6 +263,46 @@ function HubPanel.create(parent: Instance): HubApi
 		end
 	end
 
+	local cast = Instance.new("Frame")
+	cast.Name = "MeetTheCats"
+	cast.BackgroundColor3 = BrandCatalog.InkColor
+	cast.Position = UDim2.new(0.68, 0, 0, 220)
+	cast.Size = UDim2.new(0.32, 0, 0, 208)
+	cast.Parent = grid
+	Theme.corner(cast, 16)
+	Theme.stroke(cast, BrandCatalog.BraincellColor, 2, 0.15)
+	Theme.pad(cast, 10)
+	local castTitle = Theme.text(cast, "Title", "Meet the cats", 20, BrandCatalog.PaperColor, Theme.fontTitle)
+	castTitle.Size = UDim2.new(1, 0, 0, 24)
+	local castSub = Theme.text(cast, "Sub", "Three cats. One shared braincell.", 12, BrandCatalog.PaperColor)
+	castSub.Position = UDim2.fromOffset(0, 26)
+	castSub.Size = UDim2.new(1, 0, 0, 32)
+	for index, host in BrandCatalog.hosts() do
+		local portrait = Theme.button(cast, host.id, host.name, host.color)
+		portrait.Position = UDim2.new((index - 1) * 0.34, 0, 0, 68)
+		portrait.Size = UDim2.new(0.32, 0, 0, 88)
+		portrait.TextYAlignment = Enum.TextYAlignment.Bottom
+		portrait.TextSize = 14
+		portrait.TextColor3 = if host.id == "HostMo" then BrandCatalog.PaperColor else BrandCatalog.InkColor
+		local cell = Instance.new("Frame")
+		cell.Name = "Braincell"
+		cell.BackgroundColor3 = BrandCatalog.BraincellColor
+		cell.BorderSizePixel = 0
+		cell.Position = UDim2.new(0.5, -3, 0, 13)
+		cell.Size = UDim2.fromOffset(6, 6)
+		cell.Parent = portrait
+		local face = Theme.text(portrait, "Face", if host.id == "HostMo" then "·  °" else "·  ·", 26, portrait.TextColor3, Theme.fontMono)
+		face.Position = UDim2.fromOffset(0, 22)
+		face.Size = UDim2.new(1, 0, 0, 30)
+		face.TextXAlignment = Enum.TextXAlignment.Center
+		portrait.MouseButton1Click:Connect(function()
+			if talkHandler then talkHandler(host.id, host.name) end
+		end)
+	end
+	local castHint = Theme.text(cast, "Hint", "Tap a cat to talk.", 12, BrandCatalog.PaperColor)
+	castHint.Position = UDim2.fromOffset(0, 166)
+	castHint.Size = UDim2.new(1, 0, 0, 20)
+
 	mintBtn.MouseButton1Click:Connect(function()
 		if mintHandler then
 			mintHandler()
@@ -302,6 +344,9 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onPlayArcade = function(fn)
 			playArcade = fn
+		end,
+		onTalk = function(fn)
+			talkHandler = fn
 		end,
 		onMint = function(fn)
 			mintHandler = fn

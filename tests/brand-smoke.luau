@@ -135,3 +135,18 @@ for i = 1, 100 do chat.append("Cat", tostring(i)) end
 assert(#chatLines() == 60, "Transcript must remain bounded")
 assert(chatLines()[60] == "Cat: 100")
 print("PASS: authored greetings, separate conversations, late replies, close/reopen and transcript cap")
+
+local castHub = HubPanel.create(parent)
+local cast = castHub.root:FindFirstChild("Grid"):FindFirstChild("MeetTheCats")
+assert(cast ~= nil, "Trio must be reachable from the hub")
+local selectedId, selectedName
+castHub.onTalk(function(id, name) selectedId, selectedName = id, name end)
+for _, host in BrandCatalog.hosts() do
+	local portrait = cast:FindFirstChild(host.id)
+	assert(portrait.BackgroundColor3 == host.color)
+	assert(portrait:FindFirstChild("Braincell").BackgroundColor3 == BrandCatalog.BraincellColor)
+	portrait.MouseButton1Click:Fire()
+	assert(selectedId == host.id and selectedName == host.name)
+end
+assert(#ModeCatalog.all() == 5, "Hosts are not an extra game mode")
+print("PASS: hub host entry points and shared portrait identity")

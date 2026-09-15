@@ -274,3 +274,9 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 ## 10. Still stubbed (do not expect)
 
 Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, traveling skillshot projectiles, original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.
+
+## Hub cast integration (2026-09-15)
+
+The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
+
+Verified locally: all 95 Luau sources compile; brand/hub, Yarn Run, Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.

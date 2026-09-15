@@ -182,6 +182,9 @@ function Hud.create(): HudApi
 		snapshot: Types.MatchSnapshot?,
 		localUserId: number
 	)
+		if mode ~= "Hub" or (snapshot ~= nil and snapshot.phase ~= "Lobby") then
+			chat.close()
+		end
 		if mode == "YarnRun" then
 			hub.setVisible(false)
 			lobby.setVisible(false)
