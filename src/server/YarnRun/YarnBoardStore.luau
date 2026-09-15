@@ -1,6 +1,6 @@
 --!strict
 
--- Daily Yarn Run leaderboard. DataStore keyed by UTC day; memory fallback in Studio.
+-- Daily + weekly Yarn Run boards. DataStore keyed by UTC day / Monday week; memory fallback in Studio.
 
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
@@ -10,28 +10,31 @@ local Types = require(Shared:WaitForChild("Types"))
 local YarnBoardLogic = require(Shared:WaitForChild("YarnBoardLogic"))
 local YarnRunCatalog = require(Shared:WaitForChild("YarnRunCatalog"))
 
-local STORE_NAME = "MeoYarnDaily_v1"
+local DAILY_STORE = "MeoYarnDaily_v1"
+local WEEKLY_STORE = "MeoYarnWeekly_v1"
 
 local YarnBoardStore = {}
 
-local store: any = nil
 local persistMode: Types.PersistMode = "Memory"
-local memory: { [string]: { YarnBoardLogic.StoredEntry } } = {}
+local dailyStore: any = nil
+local weeklyStore: any = nil
+local dailyMem: { [string]: { YarnBoardLogic.StoredEntry } } = {}
+local weeklyMem: { [string]: { YarnBoardLogic.StoredEntry } } = {}
 local lastSubmitAt: { [number]: number } = {}
 
-do
+local function connect(name: string): any
 	local ok, result = pcall(function()
-		return DataStoreService:GetDataStore(STORE_NAME)
+		return DataStoreService:GetDataStore(name)
 	end)
 	if ok and result then
-		store = result
 		persistMode = "DataStore"
+		return result
 	end
+	return nil
 end
 
-local function keyOf(dayKey: string): string
-	return `day:{dayKey}`
-end
+dailyStore = connect(DAILY_STORE)
+weeklyStore = connect(WEEKLY_STORE)
 
 local function hydrate(value: any): { YarnBoardLogic.StoredEntry }
 	local bag: { YarnBoardLogic.StoredEntry } = {}
@@ -72,7 +75,12 @@ local function serialize(entries: { YarnBoardLogic.StoredEntry }): any
 	return { entries = rows }
 end
 
-local function publicBoard(dayKey: string, entries: { YarnBoardLogic.StoredEntry }, selfUserId: number?): Types.YarnBoard
+local function publicBoard(
+	period: Types.YarnBoardPeriod,
+	label: string,
+	entries: { YarnBoardLogic.StoredEntry },
+	selfUserId: number?
+): Types.YarnBoard
 	local list: { Types.YarnBoardEntry } = {}
 	for i, row in entries do
 		table.insert(list, {
@@ -85,33 +93,66 @@ local function publicBoard(dayKey: string, entries: { YarnBoardLogic.StoredEntry
 		})
 	end
 	return {
-		dayKey = dayKey,
+		period = period,
+		dayKey = label,
 		persistMode = persistMode,
 		entries = list,
 		selfRank = if selfUserId then YarnBoardLogic.rankOf(entries, selfUserId) else nil,
 	}
 end
 
-local function loadMemory(dayKey: string): { YarnBoardLogic.StoredEntry }
-	local cached = memory[dayKey]
+local function loadMemory(
+	bucket: { [string]: { YarnBoardLogic.StoredEntry } },
+	store: any,
+	key: string
+): { YarnBoardLogic.StoredEntry }
+	local cached = bucket[key]
 	if cached then
 		return cached
 	end
 	if store then
 		local ok, value = pcall(function()
-			return store:GetAsync(keyOf(dayKey))
+			return store:GetAsync(key)
 		end)
 		if ok then
 			local rows = hydrate(value)
-			memory[dayKey] = rows
+			bucket[key] = rows
 			return rows
 		end
 		if RunService:IsStudio() then
 			persistMode = "Memory"
 		end
 	end
-	memory[dayKey] = {}
-	return memory[dayKey]
+	bucket[key] = {}
+	return bucket[key]
+end
+
+local function writeBucket(
+	bucket: { [string]: { YarnBoardLogic.StoredEntry } },
+	store: any,
+	key: string,
+	incoming: YarnBoardLogic.StoredEntry,
+	throttled: boolean
+): ({ YarnBoardLogic.StoredEntry }, boolean)
+	local result = YarnBoardLogic.submit(loadMemory(bucket, store, key), incoming)
+	bucket[key] = result.entries
+	if store and not throttled then
+		local ok, saved = pcall(function()
+			return store:UpdateAsync(key, function(old)
+				local rows = hydrate(old)
+				for _, row in bucket[key] do
+					rows = YarnBoardLogic.submit(rows, row).entries
+				end
+				return serialize(rows)
+			end)
+		end)
+		if ok then
+			bucket[key] = hydrate(saved)
+		elseif RunService:IsStudio() then
+			persistMode = "Memory"
+		end
+	end
+	return bucket[key], result.improved
 end
 
 function YarnBoardStore.persistMode(): Types.PersistMode
@@ -120,12 +161,29 @@ end
 
 function YarnBoardStore.get(unix: number, selfUserId: number?): Types.YarnBoard
 	local dayKey = YarnRunCatalog.dayKey(unix)
-	return publicBoard(dayKey, loadMemory(dayKey), selfUserId)
+	return publicBoard("daily", dayKey, loadMemory(dailyMem, dailyStore, `day:{dayKey}`), selfUserId)
+end
+
+function YarnBoardStore.getWeekly(unix: number, selfUserId: number?): Types.YarnBoard
+	local weekKey = YarnRunCatalog.weekKey(unix)
+	return publicBoard("weekly", YarnRunCatalog.weekLabel(unix), loadMemory(weeklyMem, weeklyStore, `week:{weekKey}`), selfUserId)
+end
+
+function YarnBoardStore.getBoards(unix: number, selfUserId: number?): Types.YarnBoards
+	return {
+		daily = YarnBoardStore.get(unix, selfUserId),
+		weekly = YarnBoardStore.getWeekly(unix, selfUserId),
+	}
 end
 
 function YarnBoardStore.rankOf(userId: number, unix: number): number?
 	local dayKey = YarnRunCatalog.dayKey(unix)
-	return YarnBoardLogic.rankOf(loadMemory(dayKey), userId)
+	return YarnBoardLogic.rankOf(loadMemory(dailyMem, dailyStore, `day:{dayKey}`), userId)
+end
+
+function YarnBoardStore.weeklyRankOf(userId: number, unix: number): number?
+	local weekKey = YarnRunCatalog.weekKey(unix)
+	return YarnBoardLogic.rankOf(loadMemory(weeklyMem, weeklyStore, `week:{weekKey}`), userId)
 end
 
 function YarnBoardStore.submit(
@@ -134,8 +192,7 @@ function YarnBoardStore.submit(
 	meters: number,
 	championId: string,
 	unix: number
-): Types.YarnBoardSubmit
-	local dayKey = YarnRunCatalog.dayKey(unix)
+): Types.YarnBoardPost
 	local incoming: YarnBoardLogic.StoredEntry = {
 		userId = player.UserId,
 		name = YarnBoardLogic.clipName(player.DisplayName),
@@ -144,37 +201,38 @@ function YarnBoardStore.submit(
 		championId = YarnRunCatalog.parseRunner(championId),
 		at = unix,
 	}
-	local now = os.clock()
+	local nowClock = os.clock()
 	local last = lastSubmitAt[player.UserId] or 0
-	local throttled = (now - last) < YarnBoardLogic.RateLimit
-
-	local result = YarnBoardLogic.submit(loadMemory(dayKey), incoming)
-	memory[dayKey] = result.entries
-
-	if store and not throttled then
-		lastSubmitAt[player.UserId] = now
-		local ok, saved = pcall(function()
-			return store:UpdateAsync(keyOf(dayKey), function(old)
-				local rows = hydrate(old)
-				for _, row in memory[dayKey] do
-					rows = YarnBoardLogic.submit(rows, row).entries
-				end
-				return serialize(rows)
-			end)
-		end)
-		if ok then
-			memory[dayKey] = hydrate(saved)
-		elseif RunService:IsStudio() then
-			persistMode = "Memory"
-		end
+	local throttled = (nowClock - last) < YarnBoardLogic.RateLimit
+	if not throttled then
+		lastSubmitAt[player.UserId] = nowClock
 	end
 
-	local entries = memory[dayKey]
+	local dayKey = YarnRunCatalog.dayKey(unix)
+	local weekKey = YarnRunCatalog.weekKey(unix)
+	local dailyRows, dailyImproved = writeBucket(dailyMem, dailyStore, `day:{dayKey}`, incoming, throttled)
+	local weeklyRows, weeklyImproved = writeBucket(weeklyMem, weeklyStore, `week:{weekKey}`, incoming, throttled)
+	local dailyBoard = publicBoard("daily", dayKey, dailyRows, player.UserId)
+	local weeklyBoard = publicBoard("weekly", YarnRunCatalog.weekLabel(unix), weeklyRows, player.UserId)
+	local dailyRank = YarnBoardLogic.rankOf(dailyRows, player.UserId)
+	local weeklyRank = YarnBoardLogic.rankOf(weeklyRows, player.UserId)
 	return {
-		ok = true,
-		improved = result.improved,
-		rank = YarnBoardLogic.rankOf(entries, player.UserId),
-		board = publicBoard(dayKey, entries, player.UserId),
+		daily = {
+			ok = true,
+			improved = dailyImproved,
+			rank = dailyRank,
+			board = dailyBoard,
+		},
+		weekly = {
+			ok = true,
+			improved = weeklyImproved,
+			rank = weeklyRank,
+			board = weeklyBoard,
+		},
+		boards = {
+			daily = dailyBoard,
+			weekly = weeklyBoard,
+		},
 	}
 end
 

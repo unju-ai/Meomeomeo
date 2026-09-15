@@ -106,5 +106,33 @@ assert(#crowded == YarnBoardLogic.TopN)
 assert(crowded[1].score == 120)
 assert(YarnBoardLogic.rankOf(crowded, 1) == nil)
 
+assert(YarnRunCatalog.parseRunner("Shadowpounce") == "Shadowpounce")
+assert(YarnRunCatalog.parseRunner("nope") == "NyanRocket")
+assert(YarnRunCatalog.parseRunner(nil) == "NyanRocket")
+
+local monday = YarnRunCatalog.weekStart(1_800_000_000)
+assert(YarnRunCatalog.weekKey(monday) == YarnRunCatalog.weekKey(monday + 86400 * 6), "UTC week is stable Mon–Sun")
+assert(YarnRunCatalog.weekKey(monday) ~= YarnRunCatalog.weekKey(monday + 86400 * 7), "Next Monday starts a new week")
+assert(YarnRunCatalog.weekStart(monday + 100000) == monday)
+assert(string.find(YarnRunCatalog.weekLabel(monday), "Week of", 1, true))
+
+local bag = {}
+for i = 1, 500 do
+	table.insert(bag, { t = i, lane = i % 3, y = 1.26, z = i * 10 })
+end
+local capped = YarnRunCatalog.capSamples(bag)
+assert(#capped <= YarnRunCatalog.GhostStoreCap, "Persisted ghost must stay under the DataStore cap")
+assert(#capped >= 2)
+assert(capped[1].z == YarnRunCatalog.packSample(bag[1]).z)
+assert(capped[#capped].z == YarnRunCatalog.packSample(bag[#bag]).z)
+local packed = YarnRunCatalog.packSample({ t = 1.234, lane = 1.4, y = 2.26, z = 40.04 })
+assert(packed.lane == 1)
+assert(packed.y == 2.3)
+local tiny = YarnRunCatalog.capSamples({ bag[1], bag[2] })
+assert(#tiny == 2)
+assert(YarnRunCatalog.readSample({ t = 1, z = 8, lane = 2, y = 0 }))
+assert(YarnRunCatalog.readSample("nope") == nil)
+
 print("PASS: daily seed, new segments, power-ups, ghost interpolation")
 print("PASS: daily board ranking, name clip, podium titles")
+print("PASS: UTC week keys, ghost sample cap, runner parse")

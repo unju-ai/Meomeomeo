@@ -17,7 +17,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 ## What’s in the scaffold
 
 - Rojo-ready `src/` layout that syncs into Roblox Studio
-- Night-market **hub grid** (all five stalls live: Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) plus **Yarn Run** 3-lane dash (daily seed, power-ups, PB ghost), **Koi Pond** fishing, **Yarn Party** 4-cat micro-rounds, **Meme Arcade** yarn-tape rounds, and **Closet** hats/trails that persist across those modes
+- Night-market **hub grid** (all five stalls live: Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) plus **Yarn Run** 3-lane dash (daily seed, power-ups, persisted PB ghost, daily/weekly boards), **Koi Pond** fishing, **Yarn Party** 4-cat micro-rounds, **Meme Arcade** yarn-tape rounds, and **Closet** hats/trails that persist across those modes
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
@@ -66,7 +66,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 
 - **Hub** — pick **Cat Rift** (MOBA Practice/Queue), **Yarn Run** (3-lane dash), **Koi Pond** (fishing), **Yarn Party** (4-cat micro-rounds), or **Meme Arcade** (yarn tape). **Closet** / Mint / Audio / **T** emotes / **?** stay on the chrome. All five tiles are live.
 - **Closet** — hub or Cat Rift **Closet**. Starters Cream Cap + Yarn Puff. Buy **Gold Bell** for 25 closet yarn (start 40; play points, not Robux). Unlock Coral Beanie / Mint Aura from Yarn Run distance, Canal Crown from a legendary koi, Party Tiara + Moon Dust from a party win, Tape Shades / Braincell Orbs from arcade daily profit. Drip shows in every mode; loadout saves on `MeoCloset_v1` (Studio memory fallback). See PLAYTEST §3f.
-- **Yarn Run** — pick Nyan / Shadow / Chairman → Play. **A/D** lanes, **Space** jump, **C** slide. Grab **SPD / MAG / SHD / 2X** pickups. Chase the **PB ghost**. Same **daily seed** all day. Die to post the **daily leaderboard** (hub **Board** / death-card **Leaderboard**; top-3 podium ticker). Stream chip **Daily #K**. Score / pickups / board writes are server-authoritative.
+- **Yarn Run** — pick Nyan / Shadow / Chairman → Play. **A/D** lanes, **Space** jump, **C** slide. Grab **SPD / MAG / SHD / 2X** pickups. Chase the **PB ghost** (persists across Play sessions when API Services are on). Pass the PB gate for **BEAT YOUR GHOST**. Same **daily seed** all day. Die to post **daily + weekly** boards (hub **Board** Daily/Weekly toggle / death-card **Leaderboard**; daily top-3 podium ticker). Stream chip **Daily #K**. Score / pickups / board writes are server-authoritative.
 - **Koi Pond** — Play from the hub tile. **Space / Click** casts a yarn bobber; wait for a nibble; reel in the **cream window** (lantern rail, not a stock fishing meter). Catch cream / peach / mint / cobalt / amber / **coral crown** cat-koi. Stall log + best catch. **LEGENDARY KOI** ticker on the crown. **Back to hub** exits like Yarn Run. Exclusive with the Rift and Yarn Run.
 - **Yarn Party** — Play from the hub. Bots fill empty seats. **WASD** + **Space** hop. Three rounds: Yarn Dodge, Stall Freeze (lit pillows), Dodge again. Scoreboard + **CROWNED** podium. Exclusive with other modes.
 - **Meme Arcade** — Play from the hub. Timed yarn-tape round: tap **Buy / Sell** (or **1–5** / **Shift+1–5**) on LOAF / NYAN / CHNK / BRAIN / RUG. Candles, wallet, bust/boom events (**RUG PULL** / **TO THE MOON**). Score is yarn profit. **Play yarn only — not real money.** Isolated from in-match meme stocks. Exclusive with other modes.
@@ -396,7 +396,7 @@ src/server/
   Config.luau        Tunables + AI / Meo404 product placeholders
   Mode/              Per-player Hub / Moba / YarnRun / KoiPond / YarnParty / MemeArcade gate
   Cosmetics/         Closet DataStore + Part hats/trails applied on any player character
-  YarnRun/           Authoritative 3-lane dash + night-market track Parts + daily board store
+  YarnRun/           Authoritative 3-lane dash + night-market track Parts + daily/weekly boards + persisted PB ghost
   KoiPond/           Authoritative fishing + night-market canal Parts
   YarnParty/         Authoritative 4-cat micro-rounds + courtyard Parts + bots
   Arcade/            Authoritative yarn-tape stall (isolated from in-match meme stocks)
@@ -409,7 +409,7 @@ src/server/
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
   Settings/          Audio + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
   Social/            Emote cooldown + nearby replicate
-src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily board, Koi Pond HUD/camera, Yarn Party HUD/camera, Meme Arcade HUD/camera, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
+src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily+weekly board, Koi Pond HUD/camera, Yarn Party HUD/camera, Meme Arcade HUD/camera, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
@@ -418,7 +418,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 ## Next suggested steps
 
-1. Persist Yarn Run ghost beyond the server. Weekly board / OrderedDataStore; hide-my-name toggle. Optional Koi Pond daily catch DataStore board. Arcade daily high currently session-memory. Yarn Party 2-player join polish / more micro-round types.
+1. Hide-my-name toggle on Yarn boards. Optional Koi Pond daily catch DataStore board. Arcade daily high currently session-memory. Yarn Party 2-player join polish / more micro-round types.
 2. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 3. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
 4. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).

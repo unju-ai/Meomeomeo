@@ -205,7 +205,7 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 				rankChip.Text = "Daily —"
 				rankChip.Visible = snap.phase == "Running" or snap.phase == "Dead"
 			end
-			if snap.event == "MEGA YARN" or snap.event == "NEW PB" or snap.event == "2X YARN" or snap.event == "#1 YARN LORD" then
+			if snap.event == "MEGA YARN" or snap.event == "NEW PB" or snap.event == "2X YARN" or snap.event == "#1 YARN LORD" or snap.event == "BEAT YOUR GHOST" then
 				event.TextColor3 = Theme.amber
 			elseif snap.event == "COMBO BREAK" or snap.event == "CLOSE!" then
 				event.TextColor3 = Theme.coral
@@ -227,8 +227,15 @@ function YarnRunHud.create(parent: Instance): YarnHudApi
 				recap.Text =
 					`Score {snap.score}\nYarn {snap.yarn}  ·  best combo x{snap.bestCombo}\n{snap.meters}m of night-market chaos{ghostLine}`
 				podium.Visible = crowned
+				local bits = {}
 				if snap.dailyRank then
-					rankLine.Text = if crowned then `Daily podium  ·  #{snap.dailyRank}` else `Daily rank  #{snap.dailyRank}`
+					table.insert(bits, if crowned then `Daily podium  ·  #{snap.dailyRank}` else `Daily #{snap.dailyRank}`)
+				end
+				if snap.weeklyRank then
+					table.insert(bits, `Weekly #{snap.weeklyRank}`)
+				end
+				if #bits > 0 then
+					rankLine.Text = table.concat(bits, "  ·  ")
 				else
 					rankLine.Text = "Not on today's board yet"
 				end
