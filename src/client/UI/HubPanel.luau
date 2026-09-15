@@ -17,6 +17,8 @@ export type HubApi = {
 	onPlayRift: (() -> ()) -> (),
 	onPlayRun: ((championId: string) -> ()) -> (),
 	onMint: (() -> ()) -> (),
+	onBoard: (() -> ()) -> (),
+	updateBoard: (board: Types.YarnBoard) -> (),
 }
 
 local function swatchArt(parent: Frame, art: ModeCatalog.ModeArt, color: Color3)
@@ -98,19 +100,28 @@ function HubPanel.create(parent: Instance): HubApi
 	local playRift: (() -> ())? = nil
 	local playRun: ((string) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
+	local boardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
 	local picked = "NyanRocket"
 	local runnerButtons: { TextButton } = {}
-
 	local yarnBest = 0
+	local yarnLead = ""
 
 	local function countText(id: string): string
-		if id == "YarnRun" and yarnBest > 0 then
+		if id == "YarnRun" then
 			local n = counts[id] or 0
-			if n <= 0 then
-				return `PB {yarnBest}`
+			if yarnLead ~= "" then
+				if n > 0 then
+					return `{n} playing · {yarnLead}`
+				end
+				return yarnLead
 			end
-			return `{n} playing · PB {yarnBest}`
+			if yarnBest > 0 then
+				if n <= 0 then
+					return `PB {yarnBest}`
+				end
+				return `{n} playing · PB {yarnBest}`
+			end
 		end
 		local n = counts[id] or 0
 		if n <= 0 then
@@ -195,6 +206,18 @@ function HubPanel.create(parent: Instance): HubApi
 				end
 			end)
 		end
+		if def.id == "YarnRun" then
+			play.Size = UDim2.new(0.58, 0, 0, 26)
+			local boardBtn = Theme.button(card, "Board", "Board", Theme.peach)
+			boardBtn.Position = UDim2.new(0.62, 0, 1, -28)
+			boardBtn.Size = UDim2.new(0.38, 0, 0, 26)
+			boardBtn.TextSize = 14
+			boardBtn.MouseButton1Click:Connect(function()
+				if boardHandler then
+					boardHandler()
+				end
+			end)
+		end
 	end
 
 	mintBtn.MouseButton1Click:Connect(function()
@@ -230,6 +253,25 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onMint = function(fn)
 			mintHandler = fn
+		end,
+		onBoard = function(fn)
+			boardHandler = fn
+		end,
+		updateBoard = function(board: Types.YarnBoard)
+			local first = board.entries[1]
+			if first then
+				yarnLead = `#{1} {first.name}`
+			else
+				yarnLead = ""
+			end
+			for _, child in grid:GetChildren() do
+				if child:IsA("Frame") and child.Name == "YarnRun" then
+					local pop = child:FindFirstChild("Pop")
+					if pop and pop:IsA("TextLabel") then
+						pop.Text = countText("YarnRun")
+					end
+				end
+			end
 		end,
 	}
 end

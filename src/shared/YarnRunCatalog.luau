@@ -85,11 +85,13 @@ function YarnRunCatalog.laneX(lane: number): number
 	return xs[index]
 end
 
-function YarnRunCatalog.parseRunner(value: unknown): Types.YarnRunnerId
-	if value == "Shadowpounce" or value == "ChairmanMeow" then
-		return value
+function YarnRunCatalog.runnerTag(id: string): string
+	if id == "Shadowpounce" then
+		return "Shad"
+	elseif id == "ChairmanMeow" then
+		return "Chai"
 	end
-	return "NyanRocket"
+	return "Nyan"
 end
 
 function YarnRunCatalog.utcDay(unix: number): number

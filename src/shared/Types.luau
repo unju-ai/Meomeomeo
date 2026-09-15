@@ -328,6 +328,29 @@ export type HubStatus = {
 	yarnBest: number,
 }
 
+export type YarnBoardEntry = {
+	rank: number,
+	name: string,
+	score: number,
+	meters: number,
+	championId: string,
+	isSelf: boolean?,
+}
+
+export type YarnBoard = {
+	dayKey: string,
+	persistMode: PersistMode,
+	entries: { YarnBoardEntry },
+	selfRank: number?,
+}
+
+export type YarnBoardSubmit = {
+	ok: boolean,
+	improved: boolean,
+	rank: number?,
+	board: YarnBoard,
+}
+
 export type YarnRunPowers = {
 	speed: boolean,
 	magnet: boolean,
@@ -361,6 +384,8 @@ export type YarnRunSnapshot = {
 	ghostY: number?,
 	ghostAlive: boolean?,
 	newBest: boolean?,
+	dailyRank: number?,
+	podium: boolean?,
 }
 
 export type YarnRunInput = {

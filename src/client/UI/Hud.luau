@@ -12,6 +12,7 @@ local ChampionSelect = require(script.Parent.ChampionSelect)
 local HubPanel = require(script.Parent.HubPanel)
 local LobbyPanel = require(script.Parent.LobbyPanel)
 local YarnRunHud = require(script.Parent.YarnRunHud)
+local YarnBoardPanel = require(script.Parent.YarnBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EndScreen = require(script.Parent.EndScreen)
@@ -33,6 +34,7 @@ export type HudApi = {
 	hub: HubPanel.HubApi,
 	lobby: LobbyPanel.LobbyApi,
 	yarn: YarnRunHud.YarnHudApi,
+	board: YarnBoardPanel.BoardApi,
 	mint: MintPanel.MintApi,
 	select: ChampionSelect.SelectApi,
 	abilities: AbilityBar.BarApi,
@@ -83,10 +85,12 @@ function Hud.create(): HudApi
 
 	local hub = HubPanel.create(gui)
 	local yarn = YarnRunHud.create(gui)
+	local board = YarnBoardPanel.create(gui)
 	local lobby = LobbyPanel.create(gui)
 	hub.setVisible(true)
 	lobby.setVisible(false)
 	yarn.setVisible(false)
+	board.setVisible(false)
 	local mint = MintPanel.create(gui)
 	local select = ChampionSelect.create(gui)
 	local abilities = AbilityBar.create(gui)
@@ -194,6 +198,7 @@ function Hud.create(): HudApi
 		gui = gui,
 		hub = hub,
 		yarn = yarn,
+		board = board,
 		lobby = lobby,
 		mint = mint,
 		select = select,

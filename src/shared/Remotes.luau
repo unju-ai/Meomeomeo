@@ -47,9 +47,11 @@ export type RemoteName =
 	| "YarnRunInput"
 	| "LeaveYarnRun"
 	| "RetryYarnRun"
+	| "GetYarnBoard"
 	| "MatchStateChanged"
 	| "ModeChanged"
 	| "YarnRunUpdated"
+	| "YarnBoardUpdated"
 	| "QueueUpdated"
 	| "CombatUpdated"
 	| "AnnouncerMessage"
@@ -105,6 +107,7 @@ local FUNCTION_NAMES = {
 	"YarnRunInput",
 	"LeaveYarnRun",
 	"RetryYarnRun",
+	"GetYarnBoard",
 }
 
 local EVENT_NAMES = {
@@ -123,6 +126,7 @@ local EVENT_NAMES = {
 	"EmotePlayed",
 	"ModeChanged",
 	"YarnRunUpdated",
+	"YarnBoardUpdated",
 }
 
 local function getFolder(): Folder

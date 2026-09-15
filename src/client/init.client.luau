@@ -416,6 +416,25 @@ hud.hub.onMint(function()
 	hud.mint.toggle()
 end)
 
+local function refreshYarnBoard()
+	local ok, board = pcall(function()
+		return Remotes.function_("GetYarnBoard"):InvokeServer()
+	end)
+	if ok and typeof(board) == "table" then
+		local row = board :: Types.YarnBoard
+		hud.board.update(row)
+		hud.hub.updateBoard(row)
+	end
+end
+
+local function openYarnBoard()
+	refreshYarnBoard()
+	hud.board.setVisible(true)
+end
+
+hud.hub.onBoard(openYarnBoard)
+hud.yarn.onBoard(openYarnBoard)
+
 hud.yarn.onRetry(function()
 	local result = Remotes.function_("RetryYarnRun"):InvokeServer()
 	if result and result.ok == false then
@@ -431,7 +450,9 @@ hud.yarn.onHub(function()
 	gameMode = "Hub"
 	hubPage = "grid"
 	latestYarn = nil
+	hud.board.setVisible(false)
 	applyShellView()
+	refreshYarnBoard()
 end)
 
 hud.tips.onDismissed(function(permanent: boolean)
@@ -642,6 +663,18 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 		elseif snap.event == "NEW PB" then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner("NEW PB", Color3.fromRGB(255, 196, 74))
+		elseif snap.event == "#1 YARN LORD" then
+			Sfx.play("MatchFound")
+			ScreenJuice.banner("#1 YARN LORD", Color3.fromRGB(255, 196, 74))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
+		elseif snap.event == "#2 YARN ACE" then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner("#2 YARN ACE", Color3.fromRGB(255, 184, 140))
+		elseif snap.event == "#3 YARN CREW" then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner("#3 YARN CREW", Color3.fromRGB(120, 196, 150))
+		elseif snap.event and string.find(snap.event, "DAILY #", 1, true) == 1 then
+			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 243, 224))
 		end
 	end
 	if snap.phase == "Dead" and lastYarnPhase ~= "Dead" then
@@ -654,6 +687,9 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 	elseif snap.phase == "Running" then
 		YarnCamera.setDeath(false)
 	end
+	if snap.phase == "Dead" and snap.dailyRank ~= nil then
+		task.defer(refreshYarnBoard)
+	end
 	lastYarnEvent = snap.event
 	lastYarnPhase = snap.phase
 	local character = player.Character
@@ -661,6 +697,15 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 	if root and root:IsA("BasePart") then
 		YarnCamera.setSubject(root)
 	end
+end)
+
+Remotes.event("YarnBoardUpdated").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local board = payload :: Types.YarnBoard
+	hud.board.update(board)
+	hud.hub.updateBoard(board)
 end)
 
 Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
@@ -1382,6 +1427,7 @@ task.spawn(function()
 			hubPage = "grid"
 		end
 	end
+	refreshYarnBoard()
 	if not loadedPrefs then
 		local ok, result = pcall(function()
 			return Remotes.function_("GetSettings"):InvokeServer()

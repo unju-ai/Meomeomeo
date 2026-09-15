@@ -11,9 +11,11 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 local YarnRunCatalog = require(Shared:WaitForChild("YarnRunCatalog"))
+local YarnBoardLogic = require(Shared:WaitForChild("YarnBoardLogic"))
 
 local ChampionAppearance = require(script.Parent.Parent.World.ChampionAppearance)
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
+local YarnBoardStore = require(script.Parent.YarnBoardStore)
 local YarnTrackBuilder = require(script.Parent.YarnTrackBuilder)
 
 type Run = {
@@ -52,6 +54,8 @@ type Run = {
 	ghost: YarnRunCatalog.YarnBest?,
 	nearUntil: number,
 	newBest: boolean,
+	dailyRank: number?,
+	podium: boolean,
 }
 
 local YarnRunService = {}
@@ -121,6 +125,8 @@ local function snapshotOf(run: Run): Types.YarnRunSnapshot
 		ghostY = gY,
 		ghostAlive = gAlive,
 		newBest = if run.phase == "Dead" then run.newBest else nil,
+		dailyRank = run.dailyRank,
+		podium = if run.phase == "Dead" then run.podium else nil,
 	}
 end
 
@@ -225,6 +231,34 @@ local function finish(run: Run, reason: string)
 	remember(run)
 	freezeCharacter(run.player, true, run.walkSpeed)
 	fire(run)
+	task.spawn(function()
+		if math.floor(run.score + 0.5) <= 0 then
+			return
+		end
+		if not runs[run.player.UserId] or runs[run.player.UserId] ~= run then
+			return
+		end
+		local posted = YarnBoardStore.submit(
+			run.player,
+			math.floor(run.score + 0.5),
+			math.floor(run.z),
+			run.championId,
+			now()
+		)
+		if not runs[run.player.UserId] or runs[run.player.UserId] ~= run then
+			return
+		end
+		run.dailyRank = posted.rank
+		run.podium = posted.rank ~= nil and posted.rank <= 3
+		local title = if posted.rank then YarnBoardLogic.podiumTitle(posted.rank) else nil
+		if title then
+			shout(run, title, 2.2)
+		elseif posted.rank then
+			shout(run, `DAILY #{posted.rank}`, 1.6)
+		end
+		fire(run)
+		Remotes.event("YarnBoardUpdated"):FireClient(run.player, posted.board)
+	end)
 end
 
 local function scoreMul(run: Run): number
@@ -535,6 +569,8 @@ function YarnRunService.start(player: Player, championId: unknown): Types.TradeR
 		ghost = record,
 		nearUntil = 0,
 		newBest = false,
+		dailyRank = YarnBoardStore.rankOf(player.UserId, unix),
+		podium = false,
 	}
 	runs[player.UserId] = run
 	ModeService.set(player, "YarnRun")
