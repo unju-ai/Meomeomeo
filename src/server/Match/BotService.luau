@@ -239,7 +239,8 @@ local function leadAim(tune: Tune, targetUserId: number?, targetPos: Vector3, or
 	end
 	recordSeen(targetUserId, targetPos)
 	local dist = (targetPos - origin).Magnitude
-	local travel = math.clamp(dist / math.max(tune.SkillshotSpeed, 20), 0, 0.55)
+	local speed = math.max(tune.SkillshotSpeed, Config.Combat.ProjectileSpeed)
+	local travel = math.clamp(dist / math.max(speed, 20), 0, 0.7)
 	return targetPos + vel * travel
 end
 
@@ -464,7 +465,8 @@ local function sidestepFromCast(cast: CombatService.AbilityCast)
 		local dist = if currentDifficulty == "Hard" then 12 else 8
 		local dest = root.Position + perp * dist
 		root.CFrame = CFrame.new(dest.X, root.Position.Y, dest.Z)
-		brain.dodgeUntil = Workspace:GetServerTimeNow() + 0.32
+		local hang = if cast.travel then math.clamp(cast.travel + 0.12, 0.28, 0.75) else 0.32
+		brain.dodgeUntil = Workspace:GetServerTimeNow() + hang
 		brain.dodgeDest = dest + perp * 4
 	end
 end
@@ -560,7 +562,9 @@ local function think(brain: BotBrain, dt: number)
 		if early and now >= WardService.trinketReadyAt(brain.userId) then
 			local towardRiver = Vector3.new(if team == "Blue" then 18 else -18, 0, 0)
 			local dest = root.Position + towardRiver
-			local placed = WardService.placeTrinketFor(brain.userId, team, dest, root)
+			local placed = if currentDifficulty == "Hard"
+				then WardService.placeControlFor(brain.userId, team, dest, root)
+				else WardService.placeTrinketFor(brain.userId, team, dest, root)
 			if placed.ok then
 				brain.warded = true
 			end

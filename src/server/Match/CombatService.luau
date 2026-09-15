@@ -8,6 +8,7 @@ local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
+local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -54,6 +55,7 @@ local recallOrigin: { [number]: Vector3 } = {}
 local matchApi: MatchApi? = nil
 local boundModels: { [number]: Model } = {}
 local tickAutoAttack: (userId: number) -> ()
+local tickShots: () -> ()
 local interruptRecall: (player: Player) -> ()
 
 export type AbilityCast = {
@@ -64,9 +66,31 @@ export type AbilityCast = {
 	origin: Vector3,
 	dest: Vector3,
 	radius: number,
+	travel: number?,
+}
+
+type Shot = {
+	id: number,
+	caster: number,
+	team: Types.TeamId,
+	origin: Vector3,
+	dest: Vector3,
+	speed: number,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind,
+	born: number,
+	duration: number,
+	lastPos: Vector3,
+	hit: { [string]: boolean },
 }
 
 local abilityCastListener: ((AbilityCast) -> ())? = nil
+local shots: { Shot } = {}
+local nextShotId = 0
 
 function CombatService.onAbilityCast(fn: (AbilityCast) -> ())
 	abilityCastListener = fn
@@ -465,6 +489,8 @@ function CombatService.clearAll()
 	table.clear(recallOrigin)
 	table.clear(boundModels)
 	table.clear(outgoingAmp)
+	table.clear(shots)
+	nextShotId = 0
 end
 
 function CombatService.init(api: MatchApi)
@@ -543,6 +569,13 @@ function CombatService.init(api: MatchApi)
 					tickAutoAttack(userId)
 				end
 			end
+		end
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.05)
+			tickShots()
 		end
 	end)
 end
@@ -1285,6 +1318,248 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 	return { ok = true, combat = state }
 end
 
+type StrikeCtx = {
+	caster: number,
+	team: Types.TeamId,
+	mode: Types.AbilityTargeting,
+	origin: Vector3,
+	dest: Vector3,
+	lastPos: Vector3?,
+	pos: Vector3?,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	hit: { [string]: boolean }?,
+}
+
+local function consumeHit(hit: { [string]: boolean }?, key: string): boolean
+	if not hit then
+		return true
+	end
+	if hit[key] then
+		return false
+	end
+	hit[key] = true
+	return true
+end
+
+local function pointHits(ctx: StrikeCtx, position: Vector3, extra: number): boolean
+	local radius = ctx.radius + extra
+	if ctx.lastPos and ctx.pos then
+		return ProjectileLogic.sweepHits(ctx.lastPos, ctx.pos, position, radius)
+	end
+	return Targeting.hits(ctx.mode, ctx.origin, ctx.dest, position, radius)
+end
+
+local function applyStrikes(ctx: StrikeCtx)
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot then
+		return
+	end
+	local player = playerOf(ctx.caster)
+	if ctx.healAmount > 0 then
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team == ctx.team and otherRoot then
+				local selfCast = otherMatch.userId == ctx.caster and ctx.lastPos == nil
+				if (pointHits(ctx, otherRoot.Position, 0) or selfCast) and consumeHit(ctx.hit, `h:{otherMatch.userId}`) then
+					healUser(otherMatch.userId, ctx.healAmount)
+				end
+			end
+		end
+	end
+	if ctx.shieldAmount > 0 then
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team == ctx.team and otherRoot then
+				local selfCast = otherMatch.userId == ctx.caster and ctx.lastPos == nil
+				if (pointHits(ctx, otherRoot.Position, 0) or selfCast) and consumeHit(ctx.hit, `s:{otherMatch.userId}`) then
+					shieldUser(otherMatch.userId, ctx.shieldAmount)
+				end
+			end
+		end
+	end
+	if ctx.stunSeconds > 0 then
+		for _, otherMatch in snapshot.players do
+			local otherRoot = rootOf(otherMatch.userId)
+			if otherMatch.team ~= ctx.team and otherRoot then
+				if pointHits(ctx, otherRoot.Position, 0) and consumeHit(ctx.hit, `t:{otherMatch.userId}`) then
+					stunUser(otherMatch.userId, ctx.stunSeconds)
+				end
+			end
+		end
+	end
+	if ctx.power <= 0 then
+		return
+	end
+	for _, otherMatch in snapshot.players do
+		local otherRoot = rootOf(otherMatch.userId)
+		if otherMatch.team ~= ctx.team and otherRoot then
+			if pointHits(ctx, otherRoot.Position, 0) and consumeHit(ctx.hit, `p:{otherMatch.userId}`) then
+				damageUser(ctx.caster, otherMatch.userId, ctx.power)
+			end
+		end
+	end
+	local minionHit = false
+	for _, minion in MinionService.list() do
+		if minion.team ~= ctx.team then
+			if pointHits(ctx, minion.part.Position, Config.Minions.HitRadius) and consumeHit(ctx.hit, `m:{minion.id}`) then
+				minionHit = true
+				MinionService.applyDamage(ctx.caster, minion.id, ctx.power)
+			end
+		end
+	end
+	if minionHit then
+		local foeTeam: Types.TeamId = if ctx.team == "Blue" then "Red" else "Blue"
+		TowerService.noteThreat(ctx.caster, foeTeam)
+	end
+	for _, monster in JungleService.list() do
+		if pointHits(ctx, monster.part.Position, Config.Minions.HitRadius) and consumeHit(ctx.hit, `j:{monster.id}`) then
+			JungleService.applyDamage(ctx.caster, monster.id, ctx.power)
+		end
+	end
+	for _, ward in WardService.list() do
+		if ward.team ~= ctx.team then
+			if pointHits(ctx, ward.part.Position, 2) and consumeHit(ctx.hit, `w:{ward.id}`) then
+				WardService.applyDamage(player, ward.id, ctx.power)
+			end
+		end
+	end
+	local map = MapBuilder.get()
+	local objectives = map:FindFirstChild("Objectives")
+	if objectives then
+		for _, child in objectives:GetChildren() do
+			if child:IsA("BasePart") then
+				local team = child:GetAttribute(Constants.Attributes.Team)
+				local objId = child:GetAttribute(Constants.Attributes.ObjectiveId)
+				local key = if typeof(objId) == "string" then `o:{objId}` else `o:{child.Name}`
+				if team ~= ctx.team and pointHits(ctx, child.Position, Config.Combat.StructureTouchRadius) and consumeHit(ctx.hit, key) then
+					damageObjective(ctx.caster, child, ctx.power)
+					if team == "Blue" or team == "Red" then
+						TowerService.noteThreat(ctx.caster, team)
+					end
+				end
+			end
+		end
+	end
+end
+
+local function launchShot(
+	caster: number,
+	team: Types.TeamId,
+	origin: Vector3,
+	dest: Vector3,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind
+)
+	while #shots >= ProjectileLogic.MaxLive do
+		local old = table.remove(shots, 1)
+		if old then
+			applyStrikes({
+				caster = old.caster,
+				team = old.team,
+				mode = "line",
+				origin = old.origin,
+				dest = old.dest,
+				lastPos = old.lastPos,
+				pos = old.dest,
+				radius = old.radius,
+				power = old.power,
+				healAmount = old.healAmount,
+				shieldAmount = old.shieldAmount,
+				stunSeconds = old.stunSeconds,
+				hit = old.hit,
+			})
+		end
+	end
+	nextShotId += 1
+	local duration = ProjectileLogic.travelSeconds(origin, dest, Config.Combat.ProjectileSpeed)
+	local shot: Shot = {
+		id = nextShotId,
+		caster = caster,
+		team = team,
+		origin = origin,
+		dest = dest,
+		speed = Config.Combat.ProjectileSpeed,
+		radius = radius,
+		power = power,
+		healAmount = healAmount,
+		shieldAmount = shieldAmount,
+		stunSeconds = stunSeconds,
+		kind = kind,
+		born = now(),
+		duration = duration,
+		lastPos = origin,
+		hit = {},
+	}
+	table.insert(shots, shot)
+	FxRelay.emit({
+		kind = "projectile",
+		origin = origin,
+		dest = dest,
+		userId = caster,
+		team = team,
+		mode = "line",
+		abilityKind = kind,
+		radius = radius,
+		duration = duration,
+		speed = Config.Combat.ProjectileSpeed,
+		id = shot.id,
+	})
+end
+
+tickShots = function()
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		if #shots > 0 then
+			table.clear(shots)
+		end
+		return
+	end
+	local t = now()
+	local keep: { Shot } = {}
+	for _, shot in shots do
+		local elapsed = t - shot.born
+		local pos = ProjectileLogic.positionAt(shot.origin, shot.dest, elapsed, shot.duration)
+		applyStrikes({
+			caster = shot.caster,
+			team = shot.team,
+			mode = "line",
+			origin = shot.origin,
+			dest = shot.dest,
+			lastPos = shot.lastPos,
+			pos = pos,
+			radius = shot.radius,
+			power = shot.power,
+			healAmount = shot.healAmount,
+			shieldAmount = shot.shieldAmount,
+			stunSeconds = shot.stunSeconds,
+			hit = shot.hit,
+		})
+		shot.lastPos = pos
+		if elapsed >= shot.duration then
+			FxRelay.emit({
+				kind = "projectileHit",
+				origin = shot.dest,
+				dest = shot.dest,
+				userId = shot.caster,
+				team = shot.team,
+				abilityKind = shot.kind,
+				radius = shot.radius,
+			})
+		else
+			table.insert(keep, shot)
+		end
+	end
+	shots = keep
+end
+
 function CombatService.useAbilityFor(userId: number, request: unknown): Types.AbilityResult
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
@@ -1356,17 +1631,23 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		end
 	end
 
-	local function hitsPoint(position: Vector3, extra: number): boolean
-		return Targeting.hits(mode, origin, dest, position, ability.radius + extra)
-	end
-
 	local player = playerOf(userId)
 	if player then
 		interruptRecall(player)
 	end
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
-	-- Notify before hits resolve so bots can sidestep this cast.
+	local scale = Progression.rankScale(rank)
+	local ap = state.abilityPower or 0
+	local power = 0
+	if ability.damage > 0 then
+		power = (ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35) * (outgoingAmp[userId] or 1)
+	end
+	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
+	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
+	local stunSeconds = ability.stunSeconds or 0
+	local travel = if mode == "line" then ProjectileLogic.travelSeconds(origin, dest, Config.Combat.ProjectileSpeed) else nil
+	-- Notify before hits resolve so bots can sidestep this cast (and lead using travel time).
 	if abilityCastListener and (mode == "line" or mode == "ground") then
 		abilityCastListener({
 			userId = userId,
@@ -1376,119 +1657,49 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			origin = origin,
 			dest = dest,
 			radius = ability.radius,
+			travel = travel,
 		})
 	end
-	local scale = Progression.rankScale(rank)
-	local ap = state.abilityPower or 0
-	local power = 0
-	if ability.damage > 0 then
-		power = (ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35) * (outgoingAmp[userId] or 1)
-	end
-	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
-	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
 
 	if mode == "dash" then
-		local travel = Targeting.flat(origin, dest)
-		if travel.Magnitude > 1 then
+		local dash = Targeting.flat(origin, dest)
+		if dash.Magnitude > 1 then
 			root.CFrame = CFrame.new(dest.X, root.Position.Y, dest.Z)
 		end
 	end
 
-	if healAmount > 0 then
-		for _, otherMatch in snapshot.players do
-			local otherRoot = rootOf(otherMatch.userId)
-			if otherMatch.team == matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) or otherMatch.userId == userId then
-					healUser(otherMatch.userId, healAmount)
-				end
-			end
-		end
-	end
-
-	if shieldAmount > 0 then
-		for _, otherMatch in snapshot.players do
-			local otherRoot = rootOf(otherMatch.userId)
-			if otherMatch.team == matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) or otherMatch.userId == userId then
-					shieldUser(otherMatch.userId, shieldAmount)
-				end
-			end
-		end
-	end
-
-	if (ability.stunSeconds or 0) > 0 then
-		for _, otherMatch in snapshot.players do
-			local otherRoot = rootOf(otherMatch.userId)
-			if otherMatch.team ~= matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) then
-					stunUser(otherMatch.userId, ability.stunSeconds or 0)
-				end
-			end
-		end
-	end
-
-	if power > 0 then
-		for _, otherMatch in snapshot.players do
-			local otherRoot = rootOf(otherMatch.userId)
-			if otherMatch.team ~= matchPlayer.team and otherRoot then
-				if hitsPoint(otherRoot.Position, 0) then
-					damageUser(userId, otherMatch.userId, power)
-				end
-			end
-		end
-
-		local minionHit = false
-		for _, minion in MinionService.list() do
-			if minion.team ~= matchPlayer.team then
-				if hitsPoint(minion.part.Position, Config.Minions.HitRadius) then
-					minionHit = true
-					MinionService.applyDamage(userId, minion.id, power)
-				end
-			end
-		end
-		if minionHit then
-			local foeTeam: Types.TeamId = if matchPlayer.team == "Blue" then "Red" else "Blue"
-			TowerService.noteThreat(userId, foeTeam)
-		end
-		for _, monster in JungleService.list() do
-			if hitsPoint(monster.part.Position, Config.Minions.HitRadius) then
-				JungleService.applyDamage(userId, monster.id, power)
-			end
-		end
-		WardService.damageWhere(player, matchPlayer.team, function(position: Vector3)
-			return hitsPoint(position, 2)
-		end, power)
-
-		local map = MapBuilder.get()
-		local objectives = map:FindFirstChild("Objectives")
-		if objectives then
-			for _, child in objectives:GetChildren() do
-				if child:IsA("BasePart") then
-					local team = child:GetAttribute(Constants.Attributes.Team)
-					if team ~= matchPlayer.team and hitsPoint(child.Position, Config.Combat.StructureTouchRadius) then
-						damageObjective(userId, child, power)
-						if team == "Blue" or team == "Red" then
-							TowerService.noteThreat(userId, team)
-						end
-					end
-				end
-			end
-		end
+	if mode == "line" then
+		launchShot(userId, matchPlayer.team, origin, dest, ability.radius, power, healAmount, shieldAmount, stunSeconds, ability.kind)
+	else
+		applyStrikes({
+			caster = userId,
+			team = matchPlayer.team,
+			mode = mode,
+			origin = origin,
+			dest = dest,
+			radius = ability.radius,
+			power = power,
+			healAmount = healAmount,
+			shieldAmount = shieldAmount,
+			stunSeconds = stunSeconds,
+		})
 	end
 
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)
 	fireCombat(userId)
-	FxRelay.emit({
-		kind = "ability",
-		origin = origin,
-		dest = dest,
-		userId = userId,
-		team = matchPlayer.team,
-		mode = mode,
-		abilityKind = ability.kind,
-		radius = ability.radius,
-	})
+	if mode ~= "line" then
+		FxRelay.emit({
+			kind = "ability",
+			origin = origin,
+			dest = dest,
+			userId = userId,
+			team = matchPlayer.team,
+			mode = mode,
+			abilityKind = ability.kind,
+			radius = ability.radius,
+		})
+	end
 	return { ok = true, combat = state }
 end
 

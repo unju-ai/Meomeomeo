@@ -24,7 +24,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
-- Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), line skillshots / dash indicators, destroyable enemy wards
+- Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards (Hard jungle bots plant magenta control/pink yarn)
 - Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
 - 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
@@ -33,7 +33,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Optional yarn / meme-stock ticker on champions
 - Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
-- Combat VFX stubs: ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
+- Combat VFX stubs: **pooled traveling bolts** for line Qs, ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -73,8 +73,12 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Practice match** — from the Cat Rift stall: one player on Blue vs **3 AI cats** on Red (top / mid / bot). Toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). Confirmed swings show a claw flash + debounced hit spark. **X then click** is attack-move (walk + auto-acquire). **S** stops. **A** stays as strafe.
-- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures. **Hold** a line skillshot or dash (Professor / Bytekit / Nyan Q, Shadowpounce W, and any dash) to see a range + path indicator; **release** to fire (beam / ring / streak on confirm). Instant/self and ground AoEs still fire on press.
-- **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-only vision bubble. Placing another replaces yours.
+- **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures.
+  - **Line** (Professor Whiskers / Bytekit / Nyan Q, etc.): **hold** to see the path, **release** to spawn a **traveling projectile** (`Config.Combat.ProjectileSpeed` = 72 studs/s). Hits apply **on contact** (sweep uniqueness) or at the end of the line — server-authoritative. Client VFX is a pooled neon bolt that follows the same origin→dest timing.
+  - **Dash**: hold to preview, release to blink + streak (still instant on the server).
+  - **Ground AoE**: **first key** arms the ring at the cursor; **LMB or the same key** confirms the cast; **Esc / right-click** cancels. **S** also clears the indicator.
+  - **Instant** (self heal/shield): fires on press.
+- **4** — trinket ward (free, 70s cooldown, 60s duration, one live). Team-blue/red pillar. Placing another replaces yours. **Hard** jungle bots plant a **magenta control (pink)** ball instead (`WardService.placeControlFor`) — same vision, distinct tint. No player shop bind yet.
 - **5** — Whisker Lens sweep (buy at Pawmart). Reveals and damages enemy wards in a short radius.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
@@ -84,7 +88,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release to fire → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
+- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release a traveling bolt → ground kits: press then click → **4** ward → **B** at fountain → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -99,12 +103,12 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 
 - **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
-- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). **Easy** thinks slowly, retreats early (~42% HP), AAs anything, no lead/dodge/dive IQ, buys Longclaw + Yarnplate, 0.88× damage, and will not walk under enemy towers. **Normal** last-hits, leads line shots, sidesteps incoming line/ground casts, dives only with a crashing wave or a short low-HP chase, mid can take a nearby camp. **Hard** is faster, 1.22× damage, tighter CS, fuller build (incl. Whisker Lens), one early ward, dives to finish a kill, and uses lens when an enemy ward is revealed nearby. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on (uses the last practice difficulty). Practice is always **in-place** (never teleports).
+- **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). **Easy** thinks slowly, retreats early (~42% HP), AAs anything, no lead/dodge/dive IQ, buys Longclaw + Yarnplate, 0.88× damage, and will not walk under enemy towers. **Normal** last-hits, leads line shots using `Config.Combat.ProjectileSpeed` (72 studs/s, 0.7s cap), sidesteps incoming line/ground casts (dodge hang uses the bolt's travel time), dives only with a crashing wave or a short low-HP chase, mid can take a nearby camp. **Hard** is faster, 1.22× damage, tighter CS, fuller build (incl. Whisker Lens), one early **magenta control ward**, dives to finish a kill, and uses lens when an enemy ward is revealed nearby. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on (uses the last practice difficulty). Practice is always **in-place** (never teleports).
 - **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls. Locked cats get a **readable silhouette** (see below).
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
 - **Map:** `src/server/World/MapBuilder.luau` builds a 3-lane rift with a night-market art pass (lane dots, indigo river, fountain kits, tower ears / yarn, jungle camp pedestals, soft brush). Same `MapBounds` / lane Z as the minimap. Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
-- **Combat:** `CombatService` applies heals, **direction dashes** (clamped to range), **line skillshots**, and ground AoE. `Shared.Targeting` picks the mode. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions/wards and respect nexus gating + vision.
+- **Combat:** `CombatService` applies heals, **direction dashes** (clamped to range), **traveling line skillshots** (`Shared.ProjectileLogic`, pooled, max 24 live), and ground AoE. `Shared.Targeting` picks the mode. Line hits tick every 0.05s along the bolt; damage is server-side. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions/wards and respect nexus gating + vision.
 - **Assists:** if an ally damaged a champion within 8s of the kill, they get assist gold/XP (`AssistGold = 60`, kill bounty stays `180`). Minion last-hits stay last-hit only.
 - **Levels 1–18:** shared `Progression.luau`. XP to next level = `40 + (level-1)*28`. Last-hits (`18` XP), nearby minion deaths (`10` XP in 42 studs), kills (`80`), assists (`30`). On level-up: +72 HP, +28 mana, +3 AD, +4 AP. **Ranks auto-assign** (Q then W then E, max 5). **R unlocks at 6**, ranks again at 11 and 16. No + buttons.
 - **Death:** soft-death (character stays, combat drops). Respawn = `6 + (level-1)*0.55` seconds at your fountain with full HP/mana. HUD shows the timer. Kill/assist gold unchanged.
@@ -113,7 +117,7 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
 - **Vision:** stub fog — enemy champs/minions/jungle are hidden unless an ally champ, minion, tower, or **ward** is in radius (`VisionUpdated`).
-- **Trinket ward (4):** free. Server places a team-colored totem (`WardService`) that feeds `VisionService` for 60s. One per player; 70s cooldown. Not shop — **B stays Pawmart**.
+- **Trinket ward (4):** free. Server places a team-colored pillar (`WardService`) that feeds `VisionService` for 60s. One trinket per player; 70s cooldown. **Hard** jungle bots also place one **control / pink** ward (magenta ball, label `pink`) — one live per kind. Not shop — **B stays Pawmart**. Player **4** is still trinket-only.
 - **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (wards have 60 HP — one sweep or ~3 AAs). Enemy wards are stealthed unless revealed or you stand within 14 studs.
 - **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots / **Whisker Lens**. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F, ward is 4.**
 - **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. Interrupted by champion/minion/tower/jungle damage, movement > 2.5 studs, AA, attack-move, abilities, **S**, or **F** again. Fountain regen still ticks while you channel.
@@ -370,8 +374,8 @@ Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/F
 
 | Cue | What you see |
 | --- | --- |
-| Line skillshot | Brief neon beam + impact burst |
-| Ground / instant AoE | Expanding ring |
+| Line skillshot | Pooled neon bolt travels origin→dest; burst at the end |
+| Ground / instant AoE | Expanding ring (after click-to-confirm) |
 | Dash | Streak along the path |
 | Heal / shield | Soft burst; shield also gets a ForceField bubble (~1.1s) |
 | Auto-attack | Claw flash + hit spark (spark debounced ~140ms) |
@@ -380,7 +384,7 @@ Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/F
 | Stun | Three stars orbit the head for the stun duration |
 | Recall | Mint cylinder under feet for the 7s channel |
 
-Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E/R. World FX spawn only after the server confirms the cast or hit. Combat numbers are unchanged.
+Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is held or a ground AoE is armed. World FX spawn only after the server confirms the cast or projectile tick. Combat numbers stay server-authoritative.
 
 ## Meme stocks (side system)
 
@@ -390,7 +394,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while you hold Q/W/E
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, emote catalog, ping catalog
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, emote catalog, ping catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -419,19 +423,18 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 ## Next suggested steps
 
 1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
-2. Smarter bots: dive / dodge / lens are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
-3. Control / pink wards, **traveling** skillshot projectiles (hitscan + telegraph VFX are in), click-to-confirm ground targeting.
-4. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
-5. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
-6. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
-7. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
-8. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`). Closet drip stays Parts-only unless you hang accessories on the same `MeoCosmetics` welds.
-9. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
-10. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
-11. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
-12. More closet slots (back / emote-only) funded by yarn / meme-stock wagers — still no Robux cosmetic shop unless legal review says otherwise.
-13. Open Cloud re-verify of DataStore entitlements from the bridge; persist SIWE nonces / verified wallets beyond one process.
-14. Compliance / legal review before any live Developer Product that mentions 404 / NFTs.
+2. Smarter bots: dive / dodge / lens / projectile lead are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
+3. Player **control / pink ward** shop or bind (Hard junglers already drop magenta yarn). Brush / true fog of war (server-authoritative visibility, not just LocalTransparency).
+4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
+5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
+6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
+7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`). Closet drip stays Parts-only unless you hang accessories on the same `MeoCosmetics` welds.
+8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
+9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
+10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
+11. More closet slots (back / emote-only) funded by yarn / meme-stock wagers — still no Robux cosmetic shop unless legal review says otherwise.
+12. Open Cloud re-verify of DataStore entitlements from the bridge; persist SIWE nonces / verified wallets beyond one process.
+13. Compliance / legal review before any live Developer Product that mentions 404 / NFTs.
 
 ## License / secrets
 
