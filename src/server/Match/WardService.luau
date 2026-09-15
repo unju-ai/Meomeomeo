@@ -10,11 +10,13 @@ local Config = require(script.Parent.Parent.Config)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local ShopService = require(script.Parent.ShopService)
 
+export type WardKind = "trinket" | "control"
+
 export type Ward = {
 	id: string,
 	team: Types.TeamId,
 	ownerUserId: number,
-	kind: "trinket",
+	kind: WardKind,
 	health: number,
 	maxHealth: number,
 	expiresAt: number,
@@ -69,14 +71,29 @@ local function destroyWard(id: string)
 	wards[id] = nil
 end
 
-local function paint(ward: Ward)
+local CONTROL_COLOR = Color3.fromRGB(255, 92, 196)
+
+local function tint(ward: Ward)
+	if ward.kind == "control" then
+		ward.part.Color = CONTROL_COLOR
+	else
+		ward.part.Color = if ward.team == "Blue" then Color3.fromRGB(90, 160, 230) else Color3.fromRGB(230, 90, 100)
+	end
 	local label = ward.part:FindFirstChild("Label")
 	if label and label:IsA("BillboardGui") then
 		local text = label:FindFirstChildOfClass("TextLabel")
 		if text then
-			text.Text = `ward {math.floor(ward.health)}`
+			local tag = if ward.kind == "control" then "pink" else "ward"
+			text.Text = `{tag} {math.floor(ward.health)}`
+			if ward.kind == "control" then
+				text.TextColor3 = CONTROL_COLOR
+			end
 		end
 	end
+end
+
+local function paint(ward: Ward)
+	tint(ward)
 end
 
 function WardService.trinketReadyAt(userId: number): number
@@ -168,17 +185,17 @@ function WardService.damageWhere(attacker: Player?, attackerTeam: Types.TeamId, 
 	end
 end
 
-local function popOwnerTrinket(userId: number)
+local function popOwnerKind(userId: number, kind: WardKind)
 	for id, ward in wards do
-		if ward.ownerUserId == userId and ward.kind == "trinket" then
+		if ward.ownerUserId == userId and ward.kind == kind then
 			destroyWard(id)
 		end
 	end
 end
 
-function WardService.placeTrinketFor(userId: number, team: Types.TeamId, position: Vector3, root: BasePart): Types.AbilityResult
+local function placeWardFor(userId: number, team: Types.TeamId, position: Vector3, root: BasePart, kind: WardKind): Types.AbilityResult
 	local t = now()
-	if (trinketReady[userId] or 0) > t then
+	if kind == "trinket" and (trinketReady[userId] or 0) > t then
 		return { ok = false, error = "Trinket on cooldown." }
 	end
 	local dest = Vector3.new(
@@ -190,7 +207,7 @@ function WardService.placeTrinketFor(userId: number, team: Types.TeamId, positio
 		return { ok = false, error = "Ward out of range." }
 	end
 
-	popOwnerTrinket(userId)
+	popOwnerKind(userId, kind)
 	nextId += 1
 	local id = `ward-{nextId}`
 	local part = Instance.new("Part")
@@ -198,9 +215,13 @@ function WardService.placeTrinketFor(userId: number, team: Types.TeamId, positio
 	part.Anchored = true
 	part.CanCollide = false
 	part.Material = Enum.Material.Neon
-	part.Size = Vector3.new(1.6, 3.4, 1.6)
+	if kind == "control" then
+		part.Shape = Enum.PartType.Ball
+		part.Size = Vector3.new(2.2, 2.2, 2.2)
+	else
+		part.Size = Vector3.new(1.6, 3.4, 1.6)
+	end
 	part.CFrame = CFrame.new(dest)
-	part.Color = if team == "Blue" then Color3.fromRGB(90, 160, 230) else Color3.fromRGB(230, 90, 100)
 	part:SetAttribute(Constants.Attributes.WardId, id)
 	part:SetAttribute(Constants.Attributes.Team, team)
 	part.Parent = folder()
@@ -217,22 +238,34 @@ function WardService.placeTrinketFor(userId: number, team: Types.TeamId, positio
 	text.Font = Enum.Font.GothamBold
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(255, 243, 224)
-	text.Text = `ward {Config.Vision.WardHealth}`
+	text.Text = if kind == "control" then `pink {Config.Vision.WardHealth}` else `ward {Config.Vision.WardHealth}`
 	text.Parent = gui
 
-	wards[id] = {
+	local ward: Ward = {
 		id = id,
 		team = team,
 		ownerUserId = userId,
-		kind = "trinket",
+		kind = kind,
 		health = Config.Vision.WardHealth,
 		maxHealth = Config.Vision.WardHealth,
 		expiresAt = t + Config.Vision.TrinketDuration,
 		revealedUntil = 0,
 		part = part,
 	}
-	trinketReady[userId] = t + Config.Vision.TrinketCooldown
+	wards[id] = ward
+	tint(ward)
+	if kind == "trinket" then
+		trinketReady[userId] = t + Config.Vision.TrinketCooldown
+	end
 	return { ok = true }
+end
+
+function WardService.placeTrinketFor(userId: number, team: Types.TeamId, position: Vector3, root: BasePart): Types.AbilityResult
+	return placeWardFor(userId, team, position, root, "trinket")
+end
+
+function WardService.placeControlFor(userId: number, team: Types.TeamId, position: Vector3, root: BasePart): Types.AbilityResult
+	return placeWardFor(userId, team, position, root, "control")
 end
 
 function WardService.placeTrinket(player: Player, team: Types.TeamId, position: Vector3): Types.AbilityResult

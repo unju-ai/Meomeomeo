@@ -38,7 +38,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "qwer",
 		title = "Abilities",
-		body = "Q W E R. Hold a line skillshot or dash to see the path, then release to fire. Instant kits fire on press.",
+		body = "Q W E R. Hold a line skillshot or dash to see the path, then release to fire a traveling bolt. Ground AoEs: first press shows the ring, click or press again to confirm. Esc / right-click cancels. Instant kits still fire on press.",
 	},
 	{
 		id = "shop",
@@ -53,7 +53,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "ward",
 		title = "Ward (4)",
-		body = "4 drops a free trinket ward (one live, 70s cooldown). Team-only vision. 5 is Whisker Lens after you buy it.",
+		body = "4 drops a free team-tinted trinket (one live, 70s cooldown). Hard jungle bots drop magenta control (pink) yarn instead. 5 is Whisker Lens after you buy it.",
 	},
 	{
 		id = "tab",

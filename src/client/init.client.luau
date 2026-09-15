@@ -214,6 +214,7 @@ end
 
 local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
 local armedSlot: Types.AbilitySlot? = nil
+local armedKind: "hold" | "ground" | nil = nil
 local lastErrorAt = 0
 local cameraArmed = false
 
@@ -375,6 +376,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 		armedSlot = nil
+		armedKind = nil
 		TargetingIndicator.hide()
 		Sfx.stopLoop("RecallLoop")
 	end
@@ -1611,6 +1613,7 @@ end
 
 local function hideAim()
 	armedSlot = nil
+	armedKind = nil
 	TargetingIndicator.hide()
 end
 
@@ -1684,7 +1687,7 @@ UserInputService.InputEnded:Connect(function(input)
 		hud.pings.close()
 	end
 	local slot = SLOT_KEYS[input.KeyCode]
-	if slot and armedSlot == slot then
+	if slot and armedSlot == slot and armedKind == "hold" then
 		castAbility(slot)
 		hideAim()
 	end
@@ -1719,6 +1722,11 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	if input.KeyCode == Enum.KeyCode.H then
 		hud.help.setHeld(true)
+		return
+	end
+	if armedSlot and (input.KeyCode == Enum.KeyCode.Escape or input.UserInputType == Enum.UserInputType.MouseButton2) then
+		hideAim()
+		toast("Cast canceled")
 		return
 	end
 	if processed then
@@ -1912,6 +1920,11 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		if hud.minimap.contains(mouse.X, mouse.Y) then
 			return
 		end
+		if armedSlot and armedKind == "ground" then
+			castAbility(armedSlot)
+			hideAim()
+			return
+		end
 		local target = pickAttack()
 		if target then
 			attackMoveArmed = false
@@ -1958,11 +1971,28 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	local mode = Targeting.of(ability)
 	if mode == "line" or mode == "dash" then
 		armedSlot = slot
+		armedKind = "hold"
 		local character = player.Character
 		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 		if root and root:IsA("BasePart") then
 			TargetingIndicator.show(ability, root.Position, aimPoint())
 		end
+		return
+	end
+	if mode == "ground" then
+		if armedSlot == slot and armedKind == "ground" then
+			castAbility(slot)
+			hideAim()
+			return
+		end
+		armedSlot = slot
+		armedKind = "ground"
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			TargetingIndicator.show(ability, root.Position, aimPoint())
+		end
+		toast("Click or press again to cast · Esc / RMB cancel")
 		return
 	end
 	castAbility(slot)
@@ -2064,4 +2094,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. 4 ward, 5 lens, hold Q for skillshots, F recall, B shop.")
+print("[Meo Meo Meo] Client HUD ready. 4 ward, 5 lens, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")

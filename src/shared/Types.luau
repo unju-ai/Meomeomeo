@@ -213,7 +213,17 @@ export type FeedEvent = {
 	at: number,
 }
 
-export type CombatFxKind = "ability" | "aa" | "towerShot" | "structureDeath" | "shield" | "stun" | "heal" | "recall"
+export type CombatFxKind =
+	"ability"
+	| "aa"
+	| "towerShot"
+	| "structureDeath"
+	| "shield"
+	| "stun"
+	| "heal"
+	| "recall"
+	| "projectile"
+	| "projectileHit"
 
 export type CombatFxEvent = {
 	kind: CombatFxKind,
@@ -225,6 +235,8 @@ export type CombatFxEvent = {
 	abilityKind: AbilityKind?,
 	radius: number?,
 	duration: number?,
+	speed: number?,
+	id: number?,
 	structureKind: "Tower" | "Nexus"?,
 }
 

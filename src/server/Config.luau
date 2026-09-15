@@ -84,6 +84,8 @@ local Config = {
 		-- B is Pawmart. F channels home. Damage / combat orders cancel.
 		RecallSeconds = 7,
 		RecallMoveCancel = 2.5,
+		-- Line skillshots travel this many studs/s; hits apply on contact.
+		ProjectileSpeed = 72,
 	},
 
 	Jungle = {
@@ -166,7 +168,7 @@ local Config = {
 			LastHit = false,
 			LastHitMul = 2,
 			LeadShots = false,
-			SkillshotSpeed = 55,
+			SkillshotSpeed = 72,
 			Jungle = false,
 			Ward = false,
 			Dodge = false,
@@ -184,7 +186,7 @@ local Config = {
 			LastHit = true,
 			LastHitMul = 1.4,
 			LeadShots = true,
-			SkillshotSpeed = 64,
+			SkillshotSpeed = 72,
 			Jungle = true,
 			Ward = false,
 			Dodge = true,
@@ -203,7 +205,7 @@ local Config = {
 			LastHit = true,
 			LastHitMul = 1.18,
 			LeadShots = true,
-			SkillshotSpeed = 78,
+			SkillshotSpeed = 72,
 			Jungle = true,
 			Ward = true,
 			Dodge = true,

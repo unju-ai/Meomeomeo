@@ -14,7 +14,7 @@ local Theme = require(script.Parent.Parent.Theme)
 local CombatFx = {}
 
 local FOLDER_NAME = "MeoFx"
-local POOL_CAP = 28
+local POOL_CAP = 40
 local AA_DEBOUNCE = 0.14
 local HEAL_DEBOUNCE = 0.2
 
@@ -24,6 +24,10 @@ type Follow = {
 	parts: { BasePart },
 	expiresAt: number,
 	offset: number,
+	origin: Vector3?,
+	dest: Vector3?,
+	bornAt: number?,
+	width: number?,
 }
 
 local folder: Folder? = nil
@@ -257,6 +261,23 @@ local function ensureLoop()
 				clearFollow(key)
 				continue
 			end
+			if follow.kind == "projectile" then
+				local bolt = follow.parts[1]
+				local origin = follow.origin
+				local dest = follow.dest
+				local born = follow.bornAt or now
+				local life = math.max(follow.expiresAt - born, 0.08)
+				if bolt and origin and dest then
+					local alpha = math.clamp((now - born) / life, 0, 1)
+					local pos = origin:Lerp(dest, alpha)
+					local look = dest
+					if (dest - origin).Magnitude < 0.4 then
+						look = origin + Vector3.new(1, 0, 0)
+					end
+					bolt.CFrame = CFrame.lookAt(pos + Vector3.new(0, 0.55, 0), look + Vector3.new(0, 0.55, 0))
+				end
+				continue
+			end
 			local root = rootOf(follow.userId)
 			if not root then
 				clearFollow(key)
@@ -346,6 +367,34 @@ local function followStun(userId: number, duration: number)
 	ensureLoop()
 end
 
+local function followProjectile(event: Types.CombatFxEvent)
+	local dest = event.dest or event.origin
+	local duration = math.max(event.duration or 0.2, 0.08)
+	local key = `bolt:{event.id or event.userId or 0}:{math.floor(event.origin.X)}:{math.floor(event.origin.Z)}`
+	clearFollow(key)
+	local color = abilityColor(event.abilityKind)
+	local bolt = takePart("BoltShot")
+	local width = math.max((event.radius or 6) * 0.45, 0.9)
+	bolt.Shape = Enum.PartType.Ball
+	bolt.Size = Vector3.new(width, width, width * 1.6)
+	bolt.Material = Enum.Material.Neon
+	bolt.Color = color
+	bolt.Transparency = 0.08
+	bolt.CFrame = CFrame.new(event.origin + Vector3.new(0, 0.55, 0))
+	follows[key] = {
+		kind = "projectile",
+		userId = event.userId or 0,
+		parts = { bolt },
+		expiresAt = os.clock() + duration,
+		offset = 0,
+		origin = event.origin,
+		dest = dest,
+		bornAt = os.clock(),
+		width = width,
+	}
+	ensureLoop()
+end
+
 local function playAbility(event: Types.CombatFxEvent)
 	local color = abilityColor(event.abilityKind)
 	local origin = event.origin
@@ -353,7 +402,7 @@ local function playAbility(event: Types.CombatFxEvent)
 	local radius = event.radius or 10
 	local mode = event.mode
 	if mode == "line" then
-		placeBeam(origin, dest, color, math.max((event.radius or 6) * 1.4, 2), 0.28)
+		placeBeam(origin, dest, color, math.max((event.radius or 6) * 1.4, 2), 0.18)
 		placeBurst(dest, color, 1.6, 0.22)
 	elseif mode == "dash" then
 		placeBeam(origin, dest, color, 2.1, 0.22)
@@ -427,6 +476,10 @@ end
 function CombatFx.play(event: Types.CombatFxEvent)
 	if event.kind == "ability" then
 		playAbility(event)
+	elseif event.kind == "projectile" then
+		followProjectile(event)
+	elseif event.kind == "projectileHit" then
+		placeBurst(event.origin, abilityColor(event.abilityKind), 1.7, 0.2)
 	elseif event.kind == "aa" then
 		playAa(event)
 	elseif event.kind == "towerShot" then
