@@ -17,8 +17,11 @@ local ModeService = {}
 
 local modes: { [number]: Types.GameMode } = {}
 local yarnBest: { [number]: YarnRunCatalog.YarnBest } = {}
+local yarnMeters: { [number]: number } = {}
 local koiBest: { [number]: number } = {}
 local arcadeBest: { [number]: { day: string, profit: number } } = {}
+local koiLegendary: { [number]: boolean } = {}
+local partyWins: { [number]: number } = {}
 local matchBusy: (() -> boolean)? = nil
 local riftPlaying: (() -> number)? = nil
 local yarnPlaying: (() -> number)? = nil
@@ -93,6 +96,19 @@ function ModeService.yarnRecord(userId: number): YarnRunCatalog.YarnBest?
 	return yarnBest[userId]
 end
 
+function ModeService.noteYarnMeters(userId: number, meters: number)
+	local prev = yarnMeters[userId] or 0
+	if meters > prev then
+		yarnMeters[userId] = meters
+	end
+end
+
+function ModeService.yarnMetersOf(userId: number): number
+	local rec = yarnBest[userId]
+	local fromBest = if rec then rec.meters else 0
+	return math.max(yarnMeters[userId] or 0, fromBest)
+end
+
 function ModeService.noteKoiBest(userId: number, score: number)
 	local prev = koiBest[userId] or 0
 	if score > prev then
@@ -123,6 +139,22 @@ function ModeService.arcadeBestOf(userId: number): number
 		return 0
 	end
 	return rec.profit
+end
+
+function ModeService.noteKoiLegendary(userId: number)
+	koiLegendary[userId] = true
+end
+
+function ModeService.koiLegendaryOf(userId: number): boolean
+	return koiLegendary[userId] == true
+end
+
+function ModeService.notePartyWin(userId: number)
+	partyWins[userId] = (partyWins[userId] or 0) + 1
+end
+
+function ModeService.partyWinsOf(userId: number): number
+	return partyWins[userId] or 0
 end
 
 function ModeService.status(player: Player): Types.HubStatus

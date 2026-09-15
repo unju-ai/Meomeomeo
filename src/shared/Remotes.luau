@@ -58,6 +58,9 @@ export type RemoteName =
 	| "MemeArcadeInput"
 	| "LeaveMemeArcade"
 	| "RetryMemeArcade"
+	| "GetCloset"
+	| "EquipCosmetic"
+	| "BuyCosmetic"
 	| "MatchStateChanged"
 	| "ModeChanged"
 	| "YarnRunUpdated"
@@ -77,6 +80,7 @@ export type RemoteName =
 	| "KillFeed"
 	| "CombatFx"
 	| "EmotePlayed"
+	| "ClosetUpdated"
 
 local FUNCTION_NAMES = {
 	"QueueMatch",
@@ -131,6 +135,9 @@ local FUNCTION_NAMES = {
 	"MemeArcadeInput",
 	"LeaveMemeArcade",
 	"RetryMemeArcade",
+	"GetCloset",
+	"EquipCosmetic",
+	"BuyCosmetic",
 }
 
 local EVENT_NAMES = {
@@ -153,6 +160,7 @@ local EVENT_NAMES = {
 	"KoiPondUpdated",
 	"YarnPartyUpdated",
 	"MemeArcadeUpdated",
+	"ClosetUpdated",
 }
 
 local function getFolder(): Folder

@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
+local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local SoundIds = require(script.Audio.SoundIds)
 
@@ -515,7 +516,59 @@ hud.hub.onPlayArcade(function()
 end)
 
 hud.hub.onMint(function()
+	hud.closet.setVisible(false)
 	hud.mint.toggle()
+end)
+
+local function refreshCloset()
+	local nextStatus = Remotes.function_("GetCloset"):InvokeServer()
+	if typeof(nextStatus) == "table" then
+		hud.closet.update(nextStatus :: Types.ClosetStatus)
+	end
+end
+
+local function applyClosetToast(status: Types.ClosetStatus)
+	local line = status.toast
+	if typeof(line) ~= "string" or line == "" then
+		return
+	end
+	hud.ticker(line)
+	toast(line)
+	if string.find(line, "UNLOCKED", 1, true) then
+		ScreenJuice.banner(line, Color3.fromRGB(255, 196, 74))
+		Sfx.play("LevelUp")
+	elseif string.find(line, "EQUIPPED", 1, true) or string.find(line, "BOUGHT", 1, true) then
+		Sfx.play("ShopBuy")
+	end
+end
+
+hud.hub.onCloset(function()
+	hud.mint.setVisible(false)
+	hud.closet.toggle()
+	if hud.closet.root.Visible then
+		refreshCloset()
+	end
+end)
+
+hud.closet.onEquip(function(id, slot)
+	local result = Remotes.function_("EquipCosmetic"):InvokeServer({ id = id, slot = slot })
+	if result and result.ok == false then
+		toast(result.error or "Could not equip")
+	end
+end)
+
+hud.closet.onUnequip(function(slot)
+	local result = Remotes.function_("EquipCosmetic"):InvokeServer({ id = "", slot = slot })
+	if result and result.ok == false then
+		toast(result.error or "Could not unequip")
+	end
+end)
+
+hud.closet.onBuy(function(id)
+	local result = Remotes.function_("BuyCosmetic"):InvokeServer(id)
+	if result and result.ok == false then
+		toast(result.error or "Could not buy")
+	end
 end)
 
 local function refreshYarnBoard()
@@ -644,7 +697,16 @@ hud.endScreen.onPractice(function()
 end)
 
 hud.lobby.onMint(function()
+	hud.closet.setVisible(false)
 	hud.mint.toggle()
+end)
+
+hud.lobby.onCloset(function()
+	hud.mint.setVisible(false)
+	hud.closet.toggle()
+	if hud.closet.root.Visible then
+		refreshCloset()
+	end
 end)
 
 local function refreshMint()
@@ -1039,7 +1101,15 @@ Remotes.event("EmotePlayed").OnClientEvent:Connect(function(payload)
 		return
 	end
 	local muteSfx = muteOthersEmotes and event.userId ~= player.UserId
-	EmoteFx.play(event, { muteSfx = muteSfx })
+	local tint = nil
+	local who = if event.userId == player.UserId then player else Players:GetPlayerByUserId(event.userId)
+	if who then
+		tint = CosmeticCatalog.emoteTint(
+			who:GetAttribute(Constants.Attributes.CosmeticHat) :: any,
+			who:GetAttribute(Constants.Attributes.CosmeticTrail) :: any
+		)
+	end
+	EmoteFx.play(event, { muteSfx = muteSfx, tint = tint })
 end)
 
 Remotes.event("VoiceStatusChanged").OnClientEvent:Connect(function(status)
@@ -1088,6 +1158,14 @@ end)
 Remotes.event("MintStatusChanged").OnClientEvent:Connect(function(status)
 	if typeof(status) == "table" then
 		hud.mint.update(status :: Types.MintStatus)
+	end
+end)
+
+Remotes.event("ClosetUpdated").OnClientEvent:Connect(function(status)
+	if typeof(status) == "table" then
+		local row = status :: Types.ClosetStatus
+		hud.closet.update(row)
+		applyClosetToast(row)
 	end
 end)
 
@@ -1836,6 +1914,10 @@ task.spawn(function()
 	local mint = Remotes.function_("GetMintStatus"):InvokeServer()
 	if typeof(mint) == "table" then
 		hud.mint.update(mint :: Types.MintStatus)
+	end
+	local closet = Remotes.function_("GetCloset"):InvokeServer()
+	if typeof(closet) == "table" then
+		hud.closet.update(closet :: Types.ClosetStatus)
 	end
 	local market = Remotes.function_("GetMemeMarket"):InvokeServer()
 	if typeof(market) == "table" and typeof((market :: any).tickers) == "table" then

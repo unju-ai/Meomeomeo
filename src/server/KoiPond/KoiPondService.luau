@@ -12,6 +12,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local KoiPondBuilder = require(script.Parent.KoiPondBuilder)
 
 type Session = {
@@ -123,6 +124,7 @@ local function place(session: Session)
 			root.CFrame = cf
 		end
 	end
+	CosmeticService.dress(session.player)
 end
 
 local function sendHome(player: Player)
@@ -183,7 +185,11 @@ local function catch(session: Session)
 		session.bestCatchName = fish.name
 		session.bestCatchRarity = fish.rarity
 	end
+	if fish.rarity == "Legendary" then
+		ModeService.noteKoiLegendary(session.player.UserId)
+	end
 	remember(session)
+	CosmeticService.refresh(session.player)
 	session.phase = "Reveal"
 	session.missReason = nil
 	session.lastCatchName = fish.name

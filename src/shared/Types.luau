@@ -316,6 +316,8 @@ export type Entitlement = {
 }
 
 export type PersistMode = "DataStore" | "Memory"
+export type CosmeticSlot = "hat" | "trail"
+export type CosmeticRarity = "Common" | "Uncommon" | "Rare" | "Epic"
 
 export type TutorialStatus = {
 	done: boolean,
@@ -333,6 +335,34 @@ export type HubStatus = {
 	yarnBest: number,
 	koiBest: number,
 	arcadeBest: number,
+}
+
+export type CosmeticRow = {
+	id: string,
+	name: string,
+	slot: CosmeticSlot,
+	rarity: string,
+	blurb: string,
+	hint: string,
+	owned: boolean,
+	equipped: boolean,
+	locked: boolean,
+	cost: number,
+}
+
+export type ClosetStatus = {
+	yarn: number,
+	persistMode: PersistMode,
+	hat: string?,
+	trail: string?,
+	items: { CosmeticRow },
+	toast: string?,
+	disclaimer: string,
+}
+
+export type CosmeticEquip = {
+	id: string?,
+	slot: string?,
 }
 
 export type YarnBoardEntry = {

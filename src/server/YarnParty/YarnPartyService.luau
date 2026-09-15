@@ -13,6 +13,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local YarnPartyBuilder = require(script.Parent.YarnPartyBuilder)
 
 type Contestant = {
@@ -159,10 +160,11 @@ local function partyWalk(con: Contestant)
 end
 
 local function placeHuman(con: Contestant, index: number)
-	if not con.player then
+	local player = con.player
+	if not player then
 		return
 	end
-	local character = con.player.Character
+	local character = player.Character
 	if not character then
 		return
 	end
@@ -171,6 +173,7 @@ local function placeHuman(con: Contestant, index: number)
 		character:PivotTo(cf)
 	end)
 	partyWalk(con)
+	CosmeticService.dress(player)
 end
 
 local function rootOf(con: Contestant): BasePart?
@@ -266,6 +269,10 @@ local function crown(state: Party)
 	state.phase = "Podium"
 	state.phaseEnds = clockNow() + 12
 	shout(state, `{state.winnerName}  CROWNED`, 2.4)
+	if winner and winner.player and not winner.isBot then
+		ModeService.notePartyWin(winner.player.UserId)
+		CosmeticService.refresh(winner.player)
+	end
 	fire(state)
 end
 
