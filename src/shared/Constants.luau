@@ -9,6 +9,8 @@ local Constants = {
 	KoiPondOrigin = Vector3.new(900, 2, 0),
 	YarnPartyFolderName = "MeoYarnParty",
 	YarnPartyOrigin = Vector3.new(0, 2, -4200),
+	MemeArcadeFolderName = "MeoMemeArcade",
+	MemeArcadeOrigin = Vector3.new(-900, 2, 0),
 
 	Teams = {
 		Blue = "Blue" :: "Blue",

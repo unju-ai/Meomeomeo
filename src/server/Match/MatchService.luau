@@ -260,6 +260,7 @@ function MatchService.returnToLobby(formQueue: boolean)
 			not ModeService.is(player, "YarnRun")
 			and not ModeService.is(player, "KoiPond")
 			and not ModeService.is(player, "YarnParty")
+			and not ModeService.is(player, "MemeArcade")
 		then
 			assignRobloxTeam(player, nil)
 			teleport(player, nil)

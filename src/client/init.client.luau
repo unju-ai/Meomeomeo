@@ -13,6 +13,7 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
+local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local SoundIds = require(script.Audio.SoundIds)
 
@@ -29,6 +30,7 @@ local YarnCamera = require(script.YarnRun.YarnCamera)
 local YarnGhost = require(script.YarnRun.YarnGhost)
 local KoiCamera = require(script.KoiPond.KoiCamera)
 local YarnPartyCamera = require(script.YarnParty.YarnPartyCamera)
+local ArcadeCamera = require(script.Arcade.ArcadeCamera)
 
 local player = Players.LocalPlayer
 
@@ -190,6 +192,7 @@ local hubPage: "grid" | "moba" = "grid"
 local latestYarn: Types.YarnRunSnapshot? = nil
 local latestKoi: Types.KoiPondSnapshot? = nil
 local latestParty: Types.YarnPartySnapshot? = nil
+local latestArcade: Types.ArcadeSnapshot? = nil
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
@@ -210,6 +213,10 @@ local SLOT_KEYS: { [Enum.KeyCode]: Types.AbilitySlot } = {
 	[Enum.KeyCode.E] = "E",
 	[Enum.KeyCode.R] = "R",
 }
+
+local function inMini(): boolean
+	return gameMode == "YarnRun" or gameMode == "KoiPond" or gameMode == "YarnParty" or gameMode == "MemeArcade"
+end
 
 local function toast(text: string)
 	hud.banner(text)
@@ -236,6 +243,7 @@ local function applyShellView()
 		hud.help.setContext("runner")
 		KoiCamera.setEnabled(false)
 		YarnPartyCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 		local character = player.Character
@@ -254,6 +262,7 @@ local function applyShellView()
 		YarnCamera.setEnabled(false)
 		YarnGhost.setVisible(false)
 		YarnPartyCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 		local character = player.Character
@@ -268,6 +277,7 @@ local function applyShellView()
 		YarnCamera.setEnabled(false)
 		YarnGhost.setVisible(false)
 		KoiCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 		local character = player.Character
@@ -276,6 +286,22 @@ local function applyShellView()
 			YarnPartyCamera.setSubject(root)
 		end
 		YarnPartyCamera.setEnabled(true)
+	elseif gameMode == "MemeArcade" then
+		Music.setPhase("MemeArcade")
+		hud.help.setContext("arcade")
+		YarnCamera.setEnabled(false)
+		YarnGhost.setVisible(false)
+		KoiCamera.setEnabled(false)
+		YarnPartyCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
+		CameraFollow.setEnabled(false)
+		cameraArmed = false
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			ArcadeCamera.setSubject(root)
+		end
+		ArcadeCamera.setEnabled(true)
 	elseif gameMode == "Hub" and hubPage == "grid" and (latestMatch == nil or latestMatch.phase == "Lobby") then
 		Music.setPhase("Hub")
 		hud.help.setContext("hub")
@@ -283,6 +309,7 @@ local function applyShellView()
 		YarnGhost.setVisible(false)
 		KoiCamera.setEnabled(false)
 		YarnPartyCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
 		CameraFollow.setEnabled(false)
 		cameraArmed = false
 	else
@@ -290,6 +317,7 @@ local function applyShellView()
 		YarnGhost.setVisible(false)
 		KoiCamera.setEnabled(false)
 		YarnPartyCamera.setEnabled(false)
+		ArcadeCamera.setEnabled(false)
 		hud.help.setContext("moba")
 		if latestMatch then
 			Music.setPhase(latestMatch.phase)
@@ -305,7 +333,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		return
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
-	if gameMode ~= "YarnRun" and gameMode ~= "KoiPond" and gameMode ~= "YarnParty" then
+	if not inMini() then
 		if latestMatch.phase ~= "Lobby" then
 			gameMode = "Moba"
 			hubPage = "moba"
@@ -315,11 +343,11 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		end
 	end
 	applyShellView()
-	if gameMode ~= "YarnRun" and gameMode ~= "KoiPond" and gameMode ~= "YarnParty" and latestMatch.phase ~= "Lobby" then
+	if not inMini() and latestMatch.phase ~= "Lobby" then
 		hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
 	end
 	refreshBars()
-	if gameMode == "YarnRun" or gameMode == "KoiPond" or gameMode == "YarnParty" then
+	if inMini() then
 		return
 	end
 	if latestMatch.phase == "InProgress" then
@@ -472,6 +500,16 @@ hud.hub.onPlayParty(function()
 	applyShellView()
 end)
 
+hud.hub.onPlayArcade(function()
+	local result = Remotes.function_("StartMemeArcade"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Arcade failed")
+		return
+	end
+	gameMode = "MemeArcade"
+	applyShellView()
+end)
+
 hud.hub.onMint(function()
 	hud.mint.toggle()
 end)
@@ -542,6 +580,36 @@ hud.party.onRetry(function()
 	if result and result.ok == false then
 		toast(result.error or "Party retry failed")
 	end
+end)
+
+hud.arcade.onHub(function()
+	local result = Remotes.function_("LeaveMemeArcade"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not leave the arcade")
+	end
+	gameMode = "Hub"
+	hubPage = "grid"
+	latestArcade = nil
+	applyShellView()
+end)
+
+hud.arcade.onRetry(function()
+	local result = Remotes.function_("RetryMemeArcade"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Arcade retry failed")
+	end
+end)
+
+hud.arcade.onTrade(function(tickerId, action)
+	task.spawn(function()
+		local result = Remotes.function_("MemeArcadeInput"):InvokeServer({
+			tickerId = tickerId,
+			action = action,
+		})
+		if result and result.ok == false and typeof(result.error) == "string" then
+			toast(result.error)
+		end
+	end)
 end)
 
 hud.tips.onDismissed(function(permanent: boolean)
@@ -693,7 +761,7 @@ Remotes.event("ModeChanged").OnClientEvent:Connect(function(status)
 		return
 	end
 	local hub = status :: Types.HubStatus
-	if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" or hub.mode == "YarnParty" then
+	if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" or hub.mode == "YarnParty" or hub.mode == "MemeArcade" then
 		gameMode = hub.mode
 	end
 	if gameMode == "Hub" and hubPage == "moba" then
@@ -877,6 +945,58 @@ Remotes.event("YarnPartyUpdated").OnClientEvent:Connect(function(payload)
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if root and root:IsA("BasePart") then
 		YarnPartyCamera.setSubject(root)
+	end
+end)
+
+local lastArcadeEvent: string? = nil
+local lastArcadePhase: Types.ArcadePhase? = nil
+local lastArcadeProfit: number? = nil
+
+Remotes.event("MemeArcadeUpdated").OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local snap = payload :: Types.ArcadeSnapshot
+	latestArcade = snap
+	gameMode = "MemeArcade"
+	hud.arcade.update(snap)
+	if lastArcadePhase ~= snap.phase then
+		applyShellView()
+	end
+	if snap.eventBanner ~= "" and snap.eventBanner ~= lastArcadeEvent then
+		if snap.eventKind == "rug" or string.find(snap.eventBanner, "RUG", 1, true) then
+			Sfx.play("Kill")
+			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(255, 122, 98))
+			ScreenJuice.damageFlash()
+			hud.ticker(snap.eventBanner)
+		elseif snap.eventKind == "moon" or string.find(snap.eventBanner, "MOON", 1, true) then
+			Sfx.play("MatchFound")
+			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(120, 196, 150))
+			ScreenJuice.powerFlash(Color3.fromRGB(96, 196, 120))
+			hud.ticker(snap.eventBanner)
+		elseif snap.eventKind == "sneeze" or string.find(snap.eventBanner, "WHALE", 1, true) then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(255, 196, 74))
+			hud.ticker(snap.eventBanner)
+		elseif snap.phase == "Settled" then
+			Sfx.play("MatchFound")
+			ScreenJuice.banner(snap.eventBanner, if snap.profit >= 0 then Color3.fromRGB(96, 196, 120) else Color3.fromRGB(255, 122, 98))
+		end
+	end
+	if lastArcadeProfit ~= nil and snap.profit ~= lastArcadeProfit then
+		if snap.profit > lastArcadeProfit then
+			ScreenJuice.healFlash()
+		elseif snap.profit < lastArcadeProfit then
+			ScreenJuice.damageFlash()
+		end
+	end
+	lastArcadeEvent = snap.eventBanner
+	lastArcadePhase = snap.phase
+	lastArcadeProfit = snap.profit
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if root and root:IsA("BasePart") then
+		ArcadeCamera.setSubject(root)
 	end
 end)
 
@@ -1403,6 +1523,7 @@ player.CharacterAdded:Connect(function(character)
 			YarnCamera.setSubject(root)
 			KoiCamera.setSubject(root)
 			YarnPartyCamera.setSubject(root)
+			ArcadeCamera.setSubject(root)
 		end
 	end)
 end)
@@ -1505,6 +1626,46 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			toast("Pings are for the Rift")
 			return
 		end
+		return
+	end
+	if gameMode == "MemeArcade" then
+		if input.KeyCode == Enum.KeyCode.T then
+			if not canEmoteNow() then
+				toast("Can't emote while down")
+				return
+			end
+			emoteHeld = true
+			emoteConsumed = false
+			hud.emotes.open()
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.G then
+			toast("Pings are for the Rift")
+			return
+		end
+		local index = if input.KeyCode == Enum.KeyCode.One
+			then 1
+			elseif input.KeyCode == Enum.KeyCode.Two then 2
+			elseif input.KeyCode == Enum.KeyCode.Three then 3
+			elseif input.KeyCode == Enum.KeyCode.Four then 4
+			elseif input.KeyCode == Enum.KeyCode.Five then 5
+			else 0
+		if index <= 0 then
+			return
+		end
+		local ids = ArcadeCatalog.ids()
+		local tickerId = ids[index]
+		if not tickerId then
+			return
+		end
+		local shift = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+		local action: Types.ArcadeInput = {
+			tickerId = tickerId,
+			action = if shift then "sell" else "buy",
+		}
+		task.spawn(function()
+			Remotes.function_("MemeArcadeInput"):InvokeServer(action)
+		end)
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.T then
@@ -1638,7 +1799,7 @@ task.spawn(function()
 	end)
 	if hubOk and typeof(hubStatus) == "table" then
 		local hub = hubStatus :: Types.HubStatus
-		if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" or hub.mode == "YarnParty" then
+		if hub.mode == "Hub" or hub.mode == "Moba" or hub.mode == "YarnRun" or hub.mode == "KoiPond" or hub.mode == "YarnParty" or hub.mode == "MemeArcade" then
 			gameMode = hub.mode
 		end
 		hud.hub.update(hub)

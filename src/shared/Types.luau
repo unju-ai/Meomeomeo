@@ -12,13 +12,14 @@ export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" |
 export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
 export type QueueMode = "InPlace" | "Reserved"
-export type GameMode = "Hub" | "Moba" | "YarnRun" | "KoiPond" | "YarnParty"
+export type GameMode = "Hub" | "Moba" | "YarnRun" | "KoiPond" | "YarnParty" | "MemeArcade"
 export type YarnRunPhase = "Idle" | "Running" | "Dead"
 export type YarnRunnerId = "NyanRocket" | "Shadowpounce" | "ChairmanMeow"
 export type KoiPondPhase = "Idle" | "Waiting" | "Bite" | "Reveal"
 export type KoiRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
 export type YarnPartyPhase = "Lobby" | "Intro" | "Playing" | "Recap" | "Podium"
 export type YarnPartyRoundKind = "Dodge" | "Pillows"
+export type ArcadePhase = "Playing" | "Settled"
 
 export type AbilityDef = {
 	slot: AbilitySlot,
@@ -331,6 +332,7 @@ export type HubStatus = {
 	tiles: { ModeTileStatus },
 	yarnBest: number,
 	koiBest: number,
+	arcadeBest: number,
 }
 
 export type YarnBoardEntry = {
@@ -455,6 +457,40 @@ export type YarnPartySnapshot = {
 	winnerName: string?,
 	winnerId: number?,
 	roundCount: number,
+}
+
+export type ArcadeTickerView = {
+	id: string,
+	name: string,
+	ticker: string,
+	price: number,
+	last: number,
+	change: number,
+	shares: number,
+	candles: { number },
+	eventKind: string,
+}
+
+export type ArcadeSnapshot = {
+	phase: ArcadePhase,
+	round: number,
+	remaining: number,
+	startYarn: number,
+	cash: number,
+	equity: number,
+	profit: number,
+	bestProfit: number,
+	tickers: { ArcadeTickerView },
+	eventBanner: string,
+	eventKind: string,
+	toast: string,
+	disclaimer: string,
+	dayKey: string,
+}
+
+export type ArcadeInput = {
+	tickerId: string,
+	action: "buy" | "sell",
 }
 
 export type PlayerPrefs = {

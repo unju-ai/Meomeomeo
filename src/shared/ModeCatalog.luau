@@ -60,9 +60,9 @@ local TILES: { ModeTile } = {
 	{
 		id = "MemeArcade",
 		title = "Meme Arcade",
-		blurb = "Yarn tickers, tap trades, very illegal vibes.",
-		tag = "SOON",
-		playable = false,
+		blurb = "Buy low, sell high, scream at candles.",
+		tag = "TAPE",
+		playable = true,
 		swatch = Color3.fromRGB(90, 140, 80),
 		accent = Color3.fromRGB(255, 220, 70),
 		art = "arcade",

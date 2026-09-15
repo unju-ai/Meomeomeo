@@ -29,6 +29,7 @@ local YarnRunService = require(script.YarnRun.YarnRunService)
 local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
 local KoiPondService = require(script.KoiPond.KoiPondService)
 local YarnPartyService = require(script.YarnParty.YarnPartyService)
+local ArcadeService = require(script.Arcade.ArcadeService)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -78,6 +79,9 @@ ModeService.init({
 	partyPlaying = function()
 		return YarnPartyService.playingCount()
 	end,
+	arcadePlaying = function()
+		return ArcadeService.playingCount()
+	end,
 })
 
 local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
@@ -113,6 +117,9 @@ local function miniBusy(player: Player): string?
 	end
 	if YarnPartyService.isPlaying(player) then
 		return "Leave Yarn Party first."
+	end
+	if ArcadeService.isPlaying(player) then
+		return "Leave the arcade first."
 	end
 	return nil
 end
@@ -336,6 +343,25 @@ Remotes.function_("RetryYarnParty").OnServerInvoke = function(player: Player)
 	return YarnPartyService.retry(player)
 end
 
+Remotes.function_("StartMemeArcade").OnServerInvoke = function(player: Player)
+	if MatchmakingService.statusFor(player).inQueue then
+		MatchmakingService.leave(player)
+	end
+	return ArcadeService.start(player)
+end
+
+Remotes.function_("MemeArcadeInput").OnServerInvoke = function(player: Player, payload: unknown)
+	return ArcadeService.input(player, payload)
+end
+
+Remotes.function_("LeaveMemeArcade").OnServerInvoke = function(player: Player)
+	return ArcadeService.leave(player)
+end
+
+Remotes.function_("RetryMemeArcade").OnServerInvoke = function(player: Player)
+	return ArcadeService.retry(player)
+end
+
 Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)
 	if typeof(patch) ~= "table" then
 		return SettingsStore.get(player.UserId)
@@ -355,6 +381,7 @@ local function sendLobby(player: Player)
 			not ModeService.is(player, "YarnRun")
 			and not ModeService.is(player, "KoiPond")
 			and not ModeService.is(player, "YarnParty")
+			and not ModeService.is(player, "MemeArcade")
 			and not ModeService.is(player, "Moba")
 		then
 			ModeService.set(player, "Hub")
@@ -373,6 +400,7 @@ Players.PlayerRemoving:Connect(function(player)
 	YarnRunService.clear(player.UserId)
 	KoiPondService.clear(player.UserId)
 	YarnPartyService.clear(player.UserId)
+	ArcadeService.clear(player.UserId)
 	ModeService.clear(player.UserId)
 end)
 for _, player in Players:GetPlayers() do
