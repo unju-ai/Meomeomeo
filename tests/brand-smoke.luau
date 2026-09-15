@@ -56,6 +56,13 @@ assert(koiCard:FindFirstChild("Tag") and koiCard:FindFirstChild("Tag").Text == "
 assert(hub.onPlayPond ~= nil, "Hub must start Koi Pond")
 local pond = ModeCatalog.get("KoiPond")
 assert(pond and pond.playable == true and pond.tag == "POND")
+local partyCard = hub.root:FindFirstChild("Grid") and hub.root:FindFirstChild("Grid"):FindFirstChild("YarnParty")
+assert(partyCard, "Yarn Party tile must exist")
+assert(partyCard:FindFirstChild("Play") and partyCard:FindFirstChild("Play").Text == "Play", "Yarn Party must be playable")
+assert(partyCard:FindFirstChild("Tag") and partyCard:FindFirstChild("Tag").Text == "PARTY")
+assert(hub.onPlayParty ~= nil, "Hub must start Yarn Party")
+local bash = ModeCatalog.get("YarnParty")
+assert(bash and bash.playable == true and bash.tag == "PARTY")
 
 local lobby = LobbyPanel.create(parent)
 assert(lobby.root:FindFirstChild("Title").Text == "CAT RIFT")

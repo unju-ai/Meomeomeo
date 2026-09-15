@@ -6,7 +6,7 @@ local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
 
-export type HelpContext = "hub" | "moba" | "runner" | "koi"
+export type HelpContext = "hub" | "moba" | "runner" | "koi" | "party"
 
 export type HelpApi = {
 	root: Frame,
@@ -40,13 +40,13 @@ local LINES_MOBA: { { string } } = {
 }
 
 local LINES_HUB: { { string } } = {
-	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond" },
+	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party" },
 	{ "Board", "Daily Yarn leaderboard (UTC day)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
-	{ "Soon", "Yarn Party, Meme Arcade" },
+	{ "Soon", "Meme Arcade" },
 }
 
 local LINES_RUNNER: { { string } } = {
@@ -68,6 +68,18 @@ local LINES_KOI: { { string } } = {
 	{ "Rarities", "Cream · Peach · Mint · Cobalt · Amber · Coral Crown" },
 	{ "Stall log", "Session collection + best catch / PB" },
 	{ "T", "Emote on the dock" },
+	{ "Audio", "SFX + Music sliders · mute" },
+	{ "H / ?", "This help" },
+	{ "Hub", "Back to hub (clean exit)" },
+}
+
+local LINES_PARTY: { { string } } = {
+	{ "WASD", "Run around the night-market courtyard" },
+	{ "Space", "Hop the coral yarn (Yarn Dodge)" },
+	{ "Pillows", "When lanterns blink, stand on a lit stall pillow" },
+	{ "Rounds", "3 micro-rounds: Dodge · Stall Freeze · Dodge" },
+	{ "Bots", "Empty seats fill with Loaf / Nib / Purr" },
+	{ "T", "Emote mid-party" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
 	{ "Hub", "Back to hub (clean exit)" },
@@ -191,6 +203,10 @@ function HelpPanel.create(parent: Instance): HelpApi
 				title.Text = "Koi Pond"
 				sub.Text = "Cast · cream window · cat-koi"
 				paintLines(LINES_KOI)
+			elseif ctx == "party" then
+				title.Text = "Yarn Party"
+				sub.Text = "Three rounds · four cats · yarn chaos"
+				paintLines(LINES_PARTY)
 			elseif ctx == "moba" then
 				title.Text = "Cat Rift"
 				sub.Text = "Hold H or click ?  ·  PLAYTEST.md"

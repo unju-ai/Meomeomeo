@@ -50,9 +50,9 @@ local TILES: { ModeTile } = {
 	{
 		id = "YarnParty",
 		title = "Yarn Party",
-		blurb = "Couch chaos. Four cats, one ball of yarn.",
-		tag = "SOON",
-		playable = false,
+		blurb = "Three micro-rounds. Four cats. Yarn chaos.",
+		tag = "PARTY",
+		playable = true,
 		swatch = Color3.fromRGB(180, 90, 140),
 		accent = Color3.fromRGB(255, 160, 200),
 		art = "party",

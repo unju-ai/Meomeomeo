@@ -13,6 +13,7 @@ local HubPanel = require(script.Parent.HubPanel)
 local LobbyPanel = require(script.Parent.LobbyPanel)
 local YarnRunHud = require(script.Parent.YarnRunHud)
 local KoiPondHud = require(script.Parent.KoiPondHud)
+local YarnPartyHud = require(script.Parent.YarnPartyHud)
 local YarnBoardPanel = require(script.Parent.YarnBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
@@ -36,6 +37,7 @@ export type HudApi = {
 	lobby: LobbyPanel.LobbyApi,
 	yarn: YarnRunHud.YarnHudApi,
 	koi: KoiPondHud.KoiHudApi,
+	party: YarnPartyHud.PartyHudApi,
 	board: YarnBoardPanel.BoardApi,
 	mint: MintPanel.MintApi,
 	select: ChampionSelect.SelectApi,
@@ -88,12 +90,14 @@ function Hud.create(): HudApi
 	local hub = HubPanel.create(gui)
 	local yarn = YarnRunHud.create(gui)
 	local koi = KoiPondHud.create(gui)
+	local party = YarnPartyHud.create(gui)
 	local board = YarnBoardPanel.create(gui)
 	local lobby = LobbyPanel.create(gui)
 	hub.setVisible(true)
 	lobby.setVisible(false)
 	yarn.setVisible(false)
 	koi.setVisible(false)
+	party.setVisible(false)
 	board.setVisible(false)
 	local mint = MintPanel.create(gui)
 	local select = ChampionSelect.create(gui)
@@ -138,6 +142,7 @@ function Hud.create(): HudApi
 		hub.setVisible(false)
 		yarn.setVisible(false)
 		koi.setVisible(false)
+		party.setVisible(false)
 		if phase ~= "Lobby" then
 			mint.setVisible(false)
 		end
@@ -177,6 +182,7 @@ function Hud.create(): HudApi
 			lobby.setVisible(false)
 			yarn.setVisible(true)
 			koi.setVisible(false)
+			party.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			banner.Text = "Yarn Run · chase the ghost · SPD MAG SHD 2X"
@@ -187,13 +193,26 @@ function Hud.create(): HudApi
 			lobby.setVisible(false)
 			yarn.setVisible(false)
 			koi.setVisible(true)
+			party.setVisible(false)
 			hideMobaPlay()
 			mint.setVisible(false)
 			banner.Text = "Koi Pond · Space cast · reel in the cream window"
 			return
 		end
+		if mode == "YarnParty" then
+			hub.setVisible(false)
+			lobby.setVisible(false)
+			yarn.setVisible(false)
+			koi.setVisible(false)
+			party.setVisible(true)
+			hideMobaPlay()
+			mint.setVisible(false)
+			banner.Text = "Yarn Party · WASD · Space hop · lit pillows"
+			return
+		end
 		yarn.setVisible(false)
 		koi.setVisible(false)
+		party.setVisible(false)
 		if mode == "Hub" and hubPage == "grid" and (snapshot == nil or snapshot.phase == "Lobby") then
 			hub.setVisible(true)
 			lobby.setVisible(false)
@@ -216,6 +235,7 @@ function Hud.create(): HudApi
 		hub = hub,
 		yarn = yarn,
 		koi = koi,
+		party = party,
 		board = board,
 		lobby = lobby,
 		mint = mint,
