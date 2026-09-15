@@ -49,6 +49,13 @@ assert(string.find(hub.root:FindFirstChild("Sub").Text, BrandCatalog.Tagline, 1,
 local yarnCard = hub.root:FindFirstChild("Grid") and hub.root:FindFirstChild("Grid"):FindFirstChild("YarnRun")
 assert(yarnCard and yarnCard:FindFirstChild("Board") ~= nil, "Yarn Run tile must expose the daily board")
 assert(hub.onBoard ~= nil and hub.updateBoard ~= nil)
+local koiCard = hub.root:FindFirstChild("Grid") and hub.root:FindFirstChild("Grid"):FindFirstChild("KoiPond")
+assert(koiCard, "Koi Pond tile must exist")
+assert(koiCard:FindFirstChild("Play") and koiCard:FindFirstChild("Play").Text == "Play", "Koi Pond must be playable")
+assert(koiCard:FindFirstChild("Tag") and koiCard:FindFirstChild("Tag").Text == "POND")
+assert(hub.onPlayPond ~= nil, "Hub must start Koi Pond")
+local pond = ModeCatalog.get("KoiPond")
+assert(pond and pond.playable == true and pond.tag == "POND")
 
 local lobby = LobbyPanel.create(parent)
 assert(lobby.root:FindFirstChild("Title").Text == "CAT RIFT")

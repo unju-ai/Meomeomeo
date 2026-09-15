@@ -27,6 +27,7 @@ local VoiceService = require(script.Voice.VoiceService)
 local ModeService = require(script.Mode.ModeService)
 local YarnRunService = require(script.YarnRun.YarnRunService)
 local YarnBoardStore = require(script.YarnRun.YarnBoardStore)
+local KoiPondService = require(script.KoiPond.KoiPondService)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -70,6 +71,9 @@ ModeService.init({
 	yarnPlaying = function()
 		return YarnRunService.playingCount()
 	end,
+	koiPlaying = function()
+		return KoiPondService.playingCount()
+	end,
 })
 
 local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types.MatchSnapshot?
@@ -96,9 +100,20 @@ local function withQueue(snapshot: Types.MatchSnapshot?, player: Player?): Types
 	}
 end
 
-Remotes.function_("QueueMatch").OnServerInvoke = function(player: Player)
+local function miniBusy(player: Player): string?
 	if YarnRunService.isPlaying(player) then
-		return { ok = false, error = "Leave Yarn Run before queueing the Rift." }
+		return "Leave Yarn Run first."
+	end
+	if KoiPondService.isPlaying(player) then
+		return "Leave the pond first."
+	end
+	return nil
+end
+
+Remotes.function_("QueueMatch").OnServerInvoke = function(player: Player)
+	local busy = miniBusy(player)
+	if busy then
+		return { ok = false, error = busy }
 	end
 	local result = MatchmakingService.queue(player)
 	Remotes.event("MatchStateChanged"):FireClient(player, withQueue(MatchService.snapshot(), player))
@@ -118,8 +133,9 @@ Remotes.function_("InviteParty").OnServerInvoke = function(player: Player, targe
 end
 
 Remotes.function_("StartPractice").OnServerInvoke = function(player: Player, difficulty: unknown)
-	if YarnRunService.isPlaying(player) then
-		return { ok = false, error = "Leave Yarn Run before Practice." }
+	local busy = miniBusy(player)
+	if busy then
+		return { ok = false, error = busy }
 	end
 	return MatchmakingService.practice(player, difficulty)
 end
@@ -283,6 +299,21 @@ Remotes.function_("GetYarnBoard").OnServerInvoke = function(player: Player)
 	return YarnBoardStore.get(Workspace:GetServerTimeNow(), player.UserId)
 end
 
+Remotes.function_("StartKoiPond").OnServerInvoke = function(player: Player)
+	if MatchmakingService.statusFor(player).inQueue then
+		MatchmakingService.leave(player)
+	end
+	return KoiPondService.start(player)
+end
+
+Remotes.function_("KoiPondInput").OnServerInvoke = function(player: Player, payload: unknown)
+	return KoiPondService.input(player, payload)
+end
+
+Remotes.function_("LeaveKoiPond").OnServerInvoke = function(player: Player)
+	return KoiPondService.leave(player)
+end
+
 Remotes.function_("SaveSettings").OnServerInvoke = function(player: Player, patch: unknown)
 	if typeof(patch) ~= "table" then
 		return SettingsStore.get(player.UserId)
@@ -298,7 +329,11 @@ local function sendLobby(player: Player)
 		SettingsStore.applyAttributes(player, prefs)
 		local done = TutorialStore.isDone(player.UserId)
 		player:SetAttribute(Constants.Attributes.TutorialDone, done)
-		if not ModeService.is(player, "YarnRun") and not ModeService.is(player, "Moba") then
+		if
+			not ModeService.is(player, "YarnRun")
+			and not ModeService.is(player, "KoiPond")
+			and not ModeService.is(player, "Moba")
+		then
 			ModeService.set(player, "Hub")
 		else
 			ModeService.fire(player)
@@ -313,6 +348,7 @@ Players.PlayerAdded:Connect(sendLobby)
 Players.PlayerRemoving:Connect(function(player)
 	SettingsStore.clear(player.UserId)
 	YarnRunService.clear(player.UserId)
+	KoiPondService.clear(player.UserId)
 	ModeService.clear(player.UserId)
 end)
 for _, player in Players:GetPlayers() do

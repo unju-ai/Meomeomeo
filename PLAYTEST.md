@@ -6,7 +6,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 ## 0. What you have
 
-Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Soon) → Cat Rift practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → hub.
+Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Soon) → Cat Rift practice or queue → 14-cat draft → 3-lane fight (AA, abilities, minions, towers, gated nexus, jungle, wards, lens, recall, Pawmart) → end screen → hub. **Yarn Run** dash + daily board. **Koi Pond** fishing (cast / cream-window reel / cat-koi rarities).
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, client SFX + juice, distinct champion silhouettes, combat VFX stubs, map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
@@ -70,7 +70,7 @@ rojo serve
 1. Studio → **New place** (or an existing unpublished place).
 2. Rojo plugin → **Connect** to `localhost` (default port 34872).
 3. Confirm `ReplicatedStorage.Shared`, `ServerScriptService.Server`, and `StarterPlayer.StarterPlayerScripts.Client` appeared.
-4. **Play** (F5). Character loads on the night-market pad with the **hub grid** (Cat Rift / Yarn Run / Soon tiles).
+4. **Play** (F5). Character loads on the night-market pad with the **hub grid** (Cat Rift / Yarn Run / Koi Pond / Soon tiles).
 
 `*.rbxl` is gitignored. Do not treat a Studio file as source of truth.
 
@@ -109,6 +109,17 @@ Practice **never** teleports. `MatchPlaceId` can stay `0`.
 
 Score / hits / pickups / board writes are server-authoritative. Personal best + ghost samples stay session memory (`MeoYarnBest`). Daily ranks persist when DataStore is available.
 
+## 3c. Koi Pond (solo fishing)
+
+1. Hub → **Koi Pond → Play**. You teleport to a lantern canal far from the rift (`MeoKoiPond`, east of the map). Cozy 3/4 dock cam. **Back to hub** returns like Yarn Run.
+2. **Space** or **Click** **casts** a yarn bobber. Wait for a nibble (do not mash — an extra press spooked the canal).
+3. When the lantern rail appears, **Space / Click** again to **reel**. Hit the **cream window** (middle glow) to land the cat-koi. Miss / timeout: *The loaf swam off* / *Slipped the cream window*.
+4. Rarities (Meo canal, not a generic fish UI): cream loaf → peach koi → mint whisker / cobalt braincell → amber lantern → **coral crown**. Tighter window = rarer. Big pops on the HUD; **LEGENDARY KOI** ticker + coral flash for the crown.
+5. **Stall log** (right) is a session collection. HUD **best catch** + tile **PB catch** are personal (session memory, no DataStore board this slice). Canal day chip is UTC like Yarn Run's daily seed.
+6. Help overlay (**?** / **H**) swaps to pond binds (cast / reel). **T** emotes still work. **G** pings do not.
+
+Cast / reel / catch / score are server-authoritative. Yarn Run board, power-ups, and Cat Rift are unchanged. Exclusive with Hub / Moba / Yarn Run (`ModeService`).
+
 ## 4. Queue (2+ clients)
 
 Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this server**), `PadQueueWithBots = true` (fill to 3 per side).
@@ -145,8 +156,9 @@ Same list as the in-game **?** / hold **H** panel.
 | **A / D** (Yarn Run) | Switch lane (also arrows). In the Rift, **A** is still engine strafe |
 | **Space** (Yarn Run) | Jump a dog or the Roomba gap |
 | **C / Ctrl** (Yarn Run) | Slide under a laundry sign / tunnel |
+| **Space / Click** (Koi Pond) | Cast the yarn bobber; reel when the loaf hits the cream window |
 
-Hub: **Cat Rift** / **Yarn Run** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
+Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** tiles, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **← Hub**.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -195,7 +207,7 @@ Also for a live place:
 
 `src/client/Audio/SoundIds.luau` (SFX) and `src/client/Audio/MusicIds.luau` (phase beds) use engine `rbxasset://sounds/…` so git stays binary-free. Swap any `id` to `rbxassetid://YOUR_ID` after a Creator Store upload.
 
-**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
+**SFX** and **Music** have separate sliders / mute on the **Audio** panel (top-right). Music defaults quieter (35% vs SFX 80%) and lives on `SoundService.MeoMusic`. Phase beds crossfade ~1s (Hub / YarnRun / KoiPond / Lobby / ChampionSelect / InProgress / Ended). MatchFound and nexus stingers duck the bed briefly.
 
 Audio sliders / mutes, mute-others-emotes, and last Practice difficulty persist in DataStore `MeoSettings_v1` when Studio API Services are on (same memory fallback as tutorial / Meo404).
 
