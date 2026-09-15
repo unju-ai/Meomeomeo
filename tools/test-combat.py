@@ -17,8 +17,10 @@ def wrap(name: str, rel: str) -> str:
 
 prelude = r"""
 local Vector3 = {}
-local mt
-mt = {
+local function dot(self, other)
+    return self.X * other.X + self.Y * other.Y + self.Z * other.Z
+end
+local mt = {
     __index = function(self, key)
         if key == "Magnitude" then
             return math.sqrt(self.X * self.X + self.Y * self.Y + self.Z * self.Z)
@@ -28,6 +30,8 @@ mt = {
                 return Vector3.new(0, 0, 0)
             end
             return Vector3.new(self.X / m, self.Y / m, self.Z / m)
+        elseif key == "Dot" then
+            return dot
         end
         return nil
     end,
@@ -42,12 +46,6 @@ mt = {
 }
 function Vector3.new(x, y, z)
     return setmetatable({ X = x or 0, Y = y or 0, Z = z or 0 }, mt)
-end
-function Vector3:Dot(other)
-    return self.X * other.X + self.Y * other.Y + self.Z * other.Z
-end
-mt.__index.Dot = function(self, other)
-    return self.X * other.X + self.Y * other.Y + self.Z * other.Z
 end
 """
 

@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-15: Luau compiled 105 sources; brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
+Build verification on 2026-09-15: Luau compiled 106 sources; combat projectile + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -209,6 +209,7 @@ Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade
 - **Ground confirm:** first Q/W/E/R on a ground AoE shows the ring; **click or press again** casts at the cursor. **Esc / right-click / S** cancels. Lines and dashes stay **hold-to-aim, release-to-fire**.
 - **Bots:** Normal/Hard lead with the same projectile speed (0.7s cap) and sidestep for `travel + 0.12s` so they still dodge the bolt instead of the old instant ray.
 - **Pink vs trinket:** player **4** is a team-tinted pillar. Hard jungle bots drop a magenta ball labeled `pink`. Same vision rules.
+- Smoke: `python3 tools/test-combat.py /path/to/luau` (Targeting + ProjectileLogic). Studio Play is still the real feel check.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -309,4 +310,4 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 105 Luau sources compile; brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 106 Luau sources compile; combat projectile, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
