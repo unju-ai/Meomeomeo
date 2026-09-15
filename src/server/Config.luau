@@ -145,6 +145,14 @@ local Config = {
 		LensRadius = 32,
 		LensDamage = 80,
 		RevealSeconds = 5,
+		-- Control Yarn (pink): buyable, 2 charges, key 6. Visible totem; grants team vision.
+		ControlDuration = 90,
+		ControlHealth = 90,
+		ControlRadius = 48,
+		ControlSlowRadius = 22,
+		ControlSlowMul = 0.7,
+		ControlTrueSight = 36,
+		ControlRevealSeconds = 8,
 	},
 
 	Shop = {

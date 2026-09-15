@@ -88,7 +88,7 @@ rojo serve
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early **magenta control (pink)** ward, kill-dives, uses Whisker Lens on revealed enemy wards.
 2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`). The rift should read as a night-market: gold lane dots, indigo river, fountain lanterns, tower ears / yarn, jungle camp pedestals.
 3. Walk a lane. **LMB** a bot or minion — claw flash + hit spark. Hold **Q** if the kit is a line skillshot (aim indicator), **release** to fire a **traveling bolt** (hits on contact, server-authoritative; client VFX follows). Ground AoEs (Paw Slam etc.): **first press** shows the ring, **click or press again** to confirm at the cursor; **Esc / right-click** cancels. Instant heals still fire on press. Dashes stay hold-to-aim + streak.
-4. **4** drop a team-tinted trinket. On **Hard**, the Red mid jungler may plant **magenta control (pink)** yarn — distinct from trinkets. **B** at fountain → buy **Whisker Lens** → **5** if you see an enemy ward.
+4. **4** drop a stealthed team-tinted trinket. **B** at fountain → buy **Control Yarn** (up to 2) → **6** plants a magenta pink ball (visible, slows, reveals nearby enemy trinkets). Buy **Whisker Lens** → **5** if you see an enemy ward. On **Hard**, the Red mid jungler may also plant a free pink.
 5. **F** recall (7s) — mint circle under your feet. **Tab** scoreboard (bots tagged).
 6. Kill all **3 Red towers** until the nexus billboard says `(OPEN)` (tower bolts + death puff), then scratch the nexus.
 7. End screen → **Back to lobby** or **Practice again**.
@@ -179,8 +179,9 @@ Same list as the in-game **?** / hold **H** panel.
 | **S** | Stop attack / cancel channel orders |
 | **Q W E R** | Abilities. **Hold** line/dash, **release** to fire a traveling bolt (or dash). **Ground:** first press arms the ring; **LMB or same key** confirms at cursor; **Esc / RMB** cancels. Instant kits fire on press |
 | **Esc / RMB** | Cancel armed line or ground aim (RMB still works if the camera ate the click) |
-| **4** | Trinket ward (free, 70s CD, 60s duration, one live) |
+| **4** | Trinket ward (free, stealthed, 70s CD, 60s duration, one live) |
 | **5** | Whisker Lens (buy at Pawmart first) |
+| **6** | Control Yarn / pink ward (buy, 2 charges). Visible magenta ball; slows; reveals enemy trinkets |
 | **B** | Pawmart — **fountain only**. Not recall |
 | **F** | Recall 7s → fountain. Damage, move, AA, abilities, **S**, or **F** again cancel |
 | **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
@@ -208,8 +209,8 @@ Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade
 - **Traveling skillshots:** Whiskers / Bytekit / Nyan Q (and other `targeting = "line"` kits) spawn a pooled neon bolt at **72 studs/s**. Damage ticks on the server as the bolt sweeps (~0.05s); the client only follows. Not hitscan.
 - **Ground confirm:** first Q/W/E/R on a ground AoE shows the ring; **click or press again** casts at the cursor. **Esc / right-click / S** cancels. Lines and dashes stay **hold-to-aim, release-to-fire**.
 - **Bots:** Normal/Hard lead with the same projectile speed (0.7s cap) and sidestep for `travel + 0.12s` so they still dodge the bolt instead of the old instant ray.
-- **Pink vs trinket:** player **4** is a team-tinted pillar. Hard jungle bots drop a magenta ball labeled `pink`. Same vision rules.
-- Smoke: `python3 tools/test-combat.py /path/to/luau` (Targeting + ProjectileLogic). Studio Play is still the real feel check.
+- **Pink vs trinket:** **4** is a stealthed team-tinted pillar. **6** (after Pawmart **Control Yarn**, 2 charges) is a magenta ball enemies can see. Pinks grant a bit more team vision, slow foes in 22 studs, and keep nearby enemy trinkets revealed. Hard jungle bots still drop one free pink.
+- Smoke: `python3 tools/test-combat.py /path/to/luau` (Targeting + ProjectileLogic). `python3 tools/test-items.py /path/to/luau` (Control Yarn stacks). Studio Play is still the real feel check.
 
 ## 6. Meo404 in Studio (no live Robux)
 
@@ -304,7 +305,7 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 
 ## 10. Still stubbed (do not expect)
 
-Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, player-placed control/pink ward shop bind, original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.
+Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), fog-of-war beyond `LocalTransparency`, original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces.
 
 ## Hub cast integration (2026-09-15)
 

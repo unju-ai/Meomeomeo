@@ -98,13 +98,37 @@ function ShopService.applyMovement(player: Player)
 	ShopService.applyMovementToModel(player.Character, player.UserId)
 end
 
+function ShopService.count(userId: number, itemId: string): number
+	return ItemCatalog.count(listOf(userId), itemId)
+end
+
+function ShopService.consume(userId: number, itemId: string): boolean
+	local bag = listOf(userId)
+	local index = table.find(bag, itemId)
+	if not index then
+		return false
+	end
+	table.remove(bag, index)
+	if api then
+		api.onLoadoutChanged(userId)
+	end
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		Remotes.event("ShopUpdated"):FireClient(player, ShopService.status(player))
+	end
+	return true
+end
+
 function ShopService.grant(userId: number, itemId: string): Types.TradeResult
 	local item = ItemCatalog.get(itemId)
 	if not item then
 		return { ok = false, error = "Unknown item." }
 	end
 	local bag = listOf(userId)
-	if table.find(bag, item.id) then
+	if not ItemCatalog.canBuy(bag, item.id) then
+		if ItemCatalog.maxStack(item.id) > 1 then
+			return { ok = false, error = `Already carrying {ItemCatalog.maxStack(item.id)}.` }
+		end
 		return { ok = false, error = "Already own that." }
 	end
 	if not api or not api.spendGold(userId, item.cost) then

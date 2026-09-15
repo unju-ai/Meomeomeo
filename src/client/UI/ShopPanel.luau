@@ -19,7 +19,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	root.Name = "ShopPanel"
 	root.AnchorPoint = Vector2.new(0, 1)
 	root.Position = UDim2.new(0, 16, 1, -150)
-	root.Size = UDim2.fromOffset(320, 380)
+	root.Size = UDim2.fromOffset(320, 430)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -40,7 +40,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	gold.Position = UDim2.fromOffset(0, 28)
 	gold.Size = UDim2.new(1, 0, 0, 18)
 
-	local hint = Theme.text(root, "Hint", "Buy with match gold. B toggles. Fountain only. Whisker Lens = key 5.", 12, Theme.peach)
+	local hint = Theme.text(root, "Hint", "4 trinket · 5 lens · 6 Control Yarn (2 charges). Fountain gold only.", 12, Theme.peach)
 	hint.Position = UDim2.fromOffset(0, 48)
 	hint.Size = UDim2.new(1, 0, 0, 28)
 
@@ -99,17 +99,24 @@ function ShopPanel.create(parent: Instance): ShopApi
 		end,
 		update = function(status: Types.ShopStatus)
 			gold.Text = `{status.gold}g · {if status.atFountain then "at fountain" else "leave fountain to close the register"}`
-			local owned = {}
+			local ownedCount: { [string]: number } = {}
 			for _, id in status.owned do
-				owned[id] = true
+				ownedCount[id] = (ownedCount[id] or 0) + 1
 			end
 			for id, card in cards do
-				card.BackgroundColor3 = if owned[id] then Theme.panelAlt else Theme.ink
+				local n = ownedCount[id] or 0
+				local item = ItemCatalog.get(id)
+				local maxStack = if item then ItemCatalog.maxStack(id) else 1
+				local full = n >= maxStack and n > 0
+				card.BackgroundColor3 = if n > 0 then Theme.panelAlt else Theme.ink
 				local name = card:FindFirstChild("N")
-				if name and name:IsA("TextLabel") then
-					local item = ItemCatalog.get(id)
-					if item then
-						name.Text = if owned[id] then `{item.name}  ·  owned` else `{item.name}  ·  {item.cost}g`
+				if name and name:IsA("TextLabel") and item then
+					if maxStack > 1 then
+						name.Text = `{item.name}  ·  {n}/{maxStack}  ·  {item.cost}g`
+					elseif full then
+						name.Text = `{item.name}  ·  owned`
+					else
+						name.Text = `{item.name}  ·  {item.cost}g`
 					end
 				end
 			end

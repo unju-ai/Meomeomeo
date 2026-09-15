@@ -565,6 +565,16 @@ function CombatService.init(api: MatchApi)
 						interruptRecall(player)
 					end
 				end
+				if state.alive and not state.recalling then
+					local root = rootOf(userId)
+					local matchPlayer = snapshot.players[tostring(userId)]
+					local model = modelOf(userId)
+					local humanoid = if model then model:FindFirstChildOfClass("Humanoid") else nil
+					if root and matchPlayer and humanoid and humanoid.JumpPower > 0 then
+						local base = 16 + ShopService.bonuses(userId).walkSpeed
+						humanoid.WalkSpeed = base * WardService.slowMul(matchPlayer.team, root.Position)
+					end
+				end
 				if locks[userId] then
 					tickAutoAttack(userId)
 				end
@@ -1722,6 +1732,28 @@ function CombatService.placeWard(player: Player, position: unknown): Types.Abili
 	end
 	interruptRecall(player)
 	local result = WardService.placeTrinket(player, matchPlayer.team, position :: Vector3)
+	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
+	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
+	result.combat = state
+	Remotes.event("CombatUpdated"):FireClient(player, state)
+	return result
+end
+
+function CombatService.placeControl(player: Player, position: unknown): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local matchPlayer = snapshot.players[tostring(player.UserId)]
+	local state = combat[player.UserId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if typeof(position) ~= "Vector3" then
+		return { ok = false, error = "Need a ground point." }
+	end
+	interruptRecall(player)
+	local result = WardService.placeControl(player, matchPlayer.team, position :: Vector3)
 	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
 	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
 	result.combat = state

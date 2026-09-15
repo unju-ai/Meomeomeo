@@ -278,7 +278,11 @@ function Minimap.create(parent: Instance): MinimapApi
 				for _, child in wards:GetChildren() do
 					if child:IsA("BasePart") and visibleWards[child.Name] then
 						local team = child:GetAttribute(Constants.Attributes.Team)
-						local color = if team == "Blue" then Color3.fromRGB(140, 210, 255) else Color3.fromRGB(255, 150, 170)
+						local kind = child:GetAttribute(Constants.Attributes.WardKind)
+						local color = if kind == "control"
+							then Theme.pink
+							elseif team == "Blue" then Color3.fromRGB(140, 210, 255)
+							else Color3.fromRGB(255, 150, 170)
 						place(`w-{child.Name}`, child.Position, 4, color, true)
 						seen[`w-{child.Name}`] = true
 					end

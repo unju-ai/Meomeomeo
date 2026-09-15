@@ -21,7 +21,7 @@ local VisionService = {}
 local api: Api? = nil
 local running = false
 
-type VisionSource = { position: Vector3, kind: "unit" | "tower" | "ward" }
+type VisionSource = { position: Vector3, kind: "unit" | "tower" | "ward" | "control" }
 
 local function sources(team: Types.TeamId): { VisionSource }
 	local points: { VisionSource } = {}
@@ -51,8 +51,8 @@ local function sources(team: Types.TeamId): { VisionSource }
 			end
 		end
 	end
-	for _, pos in WardService.sources(team) do
-		table.insert(points, { position = pos, kind = "ward" })
+	for _, src in WardService.sources(team) do
+		table.insert(points, { position = src.position, kind = if src.control then "control" else "ward" })
 	end
 	return points
 end
@@ -62,6 +62,7 @@ local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "m
 	for _, source in sources(team) do
 		local limit = if source.kind == "tower"
 			then Config.Vision.TowerRadius
+			elseif source.kind == "control" then Config.Vision.ControlRadius
 			elseif source.kind == "ward" then Config.Vision.WardRadius
 			else unitRadius
 		if (source.position - position).Magnitude <= limit then

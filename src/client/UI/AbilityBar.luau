@@ -19,7 +19,7 @@ function AbilityBar.create(parent: Instance): BarApi
 	root.Name = "AbilityBar"
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.new(0.5, 0, 1, -16)
-	root.Size = UDim2.fromOffset(600, 168)
+	root.Size = UDim2.fromOffset(640, 168)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -100,15 +100,20 @@ function AbilityBar.create(parent: Instance): BarApi
 	tools.Parent = root
 	Theme.list(tools, 8, Enum.FillDirection.Horizontal)
 	local trinket = Theme.text(tools, "T4", "4  Ward", 12, Theme.cream, Theme.fontTitle)
-	trinket.Size = UDim2.new(0.5, -4, 1, 0)
+	trinket.Size = UDim2.new(0.34, -4, 1, 0)
 	trinket.BackgroundColor3 = Theme.panelAlt
 	trinket.BackgroundTransparency = 0.15
 	Theme.corner(trinket, 8)
 	local lens = Theme.text(tools, "T5", "5  Lens", 12, Theme.cream, Theme.fontTitle)
-	lens.Size = UDim2.new(0.5, -4, 1, 0)
+	lens.Size = UDim2.new(0.33, -4, 1, 0)
 	lens.BackgroundColor3 = Theme.panelAlt
 	lens.BackgroundTransparency = 0.15
 	Theme.corner(lens, 8)
+	local pink = Theme.text(tools, "T6", "6  Pink", 12, Theme.pink, Theme.fontTitle)
+	pink.Size = UDim2.new(0.33, -4, 1, 0)
+	pink.BackgroundColor3 = Theme.panelAlt
+	pink.BackgroundTransparency = 0.15
+	Theme.corner(pink, 8)
 
 	local recallBar = Instance.new("Frame")
 	recallBar.Name = "Recall"
@@ -230,6 +235,17 @@ function AbilityBar.create(parent: Instance): BarApi
 					lens.Text = `5  Lens  {string.format("%.0f", lensCd)}s`
 				else
 					lens.Text = "5  Lens  ready"
+				end
+				local pinkCount = 0
+				for _, id in matchPlayer.items do
+					if id == "ControlYarn" then
+						pinkCount += 1
+					end
+				end
+				if pinkCount <= 0 then
+					pink.Text = "6  Pink  (buy)"
+				else
+					pink.Text = `6  Pink  ×{pinkCount}`
 				end
 			else
 				death.Visible = false

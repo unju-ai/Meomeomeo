@@ -4,6 +4,7 @@ local Theme = {
 	cream = Color3.fromRGB(255, 243, 224),
 	foam = Color3.fromRGB(255, 252, 246),
 	coral = Color3.fromRGB(255, 122, 98),
+	pink = Color3.fromRGB(255, 92, 196),
 	peach = Color3.fromRGB(255, 184, 140),
 	amber = Color3.fromRGB(255, 196, 74),
 	ink = Color3.fromRGB(52, 36, 32),

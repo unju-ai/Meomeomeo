@@ -159,7 +159,10 @@ local function stepToward(userId: number, dest: Vector3, dt: number)
 	if not root then
 		return
 	end
-	local speed = 16 + ShopService.bonuses(userId).walkSpeed
+	local snapshot = matchSnapshot()
+	local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
+	local team: Types.TeamId = if matchPlayer then matchPlayer.team else "Red"
+	local speed = (16 + ShopService.bonuses(userId).walkSpeed) * WardService.slowMul(team, root.Position)
 	local delta = Vector3.new(dest.X - root.Position.X, 0, dest.Z - root.Position.Z)
 	if delta.Magnitude <= 0.4 then
 		return

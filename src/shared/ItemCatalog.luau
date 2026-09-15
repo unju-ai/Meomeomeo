@@ -58,11 +58,25 @@ local ITEMS: { [string]: Types.ItemDef } = {
 		maxMana = 0,
 		walkSpeed = 0,
 	},
+	ControlYarn = {
+		id = "ControlYarn",
+		name = "Control Yarn",
+		blurb = "Press 6: magenta pink ward. Vision + slow. Reveals enemy trinkets nearby. 2 charges.",
+		cost = 75,
+		bonusDamage = 0,
+		armor = 0,
+		maxHealth = 0,
+		maxMana = 0,
+		walkSpeed = 0,
+		stackMax = 2,
+	},
 }
 
-local ORDER = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots", "WhiskerLens" }
+local ORDER = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots", "WhiskerLens", "ControlYarn" }
 
 local ItemCatalog = {}
+
+ItemCatalog.ControlYarnId = "ControlYarn"
 
 function ItemCatalog.get(id: string): Types.ItemDef?
 	return ITEMS[id]
@@ -74,6 +88,28 @@ function ItemCatalog.all(): { Types.ItemDef }
 		table.insert(list, ITEMS[id])
 	end
 	return list
+end
+
+function ItemCatalog.maxStack(id: string): number
+	local item = ITEMS[id]
+	if item and typeof(item.stackMax) == "number" and item.stackMax > 1 then
+		return item.stackMax
+	end
+	return 1
+end
+
+function ItemCatalog.count(owned: { string }, id: string): number
+	local n = 0
+	for _, itemId in owned do
+		if itemId == id then
+			n += 1
+		end
+	end
+	return n
+end
+
+function ItemCatalog.canBuy(owned: { string }, id: string): boolean
+	return ItemCatalog.count(owned, id) < ItemCatalog.maxStack(id)
 end
 
 function ItemCatalog.bonuses(owned: { string }): Types.ItemBonuses

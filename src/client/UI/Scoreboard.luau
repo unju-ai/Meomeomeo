@@ -17,10 +17,21 @@ local function itemsText(ids: { string }): string
 	if #ids == 0 then
 		return "—"
 	end
-	local names = {}
+	local counts: { [string]: number } = {}
+	local order: { string } = {}
 	for _, id in ids do
+		if not counts[id] then
+			table.insert(order, id)
+			counts[id] = 0
+		end
+		counts[id] += 1
+	end
+	local names = {}
+	for _, id in order do
 		local item = ItemCatalog.get(id)
-		table.insert(names, if item then item.name else id)
+		local label = if item then item.name else id
+		local n = counts[id]
+		table.insert(names, if n > 1 then `{label} ×{n}` else label)
 	end
 	return table.concat(names, ", ")
 end
