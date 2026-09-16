@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared:WaitForChild("Constants"))
 local Types = require(Shared:WaitForChild("Types"))
 local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
+local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
 
 local MapBuilder = {}
 
@@ -429,12 +430,10 @@ function MapBuilder.build(): Folder
 	end
 
 	-- Brush sits in jungle pockets only — off the 16-stud lane corridors.
-	brushPocket(decorFolder, "BrushNW", Vector3.new(-88, 3.2, -108), Vector3.new(22, 7, 16))
-	brushPocket(decorFolder, "BrushNE", Vector3.new(-48, 3.2, -78), Vector3.new(16, 6, 14))
-	brushPocket(decorFolder, "BrushSE", Vector3.new(88, 3.2, 108), Vector3.new(22, 7, 16))
-	brushPocket(decorFolder, "BrushSW", Vector3.new(48, 3.2, 78), Vector3.new(16, 6, 14))
-	brushPocket(decorFolder, "BrushCrabN", Vector3.new(-22, 2.8, -48), Vector3.new(12, 5, 10))
-	brushPocket(decorFolder, "BrushCrabS", Vector3.new(22, 2.8, 48), Vector3.new(12, 5, 10))
+	-- Volumes match Shared.VisionLogic so FoW occlusion and art stay aligned.
+	for _, spec in VisionLogic.Brushes do
+		brushPocket(decorFolder, spec.name, Vector3.new(spec.x, spec.y, spec.z), Vector3.new(spec.sx, spec.sy, spec.sz))
+	end
 
 	-- Camp pedestals match JungleService spawn XZ (Decor folder, not Jungle).
 	campPedestal(decorFolder, "YarnGolemNW", Vector3.new(-70, 0, -100), Color3.fromRGB(230, 190, 110), "Yarn Golem")

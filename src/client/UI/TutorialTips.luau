@@ -56,6 +56,11 @@ local SEQUENCE: { Tip } = {
 		body = "4 drops a free team-tinted trinket (stealthed, one live, 70s cooldown). Buy Control Yarn at Pawmart and press 6 for a magenta pink ward (2 charges, visible, slows enemies, reveals nearby trinkets). 5 is Whisker Lens after you buy it.",
 	},
 	{
+		id = "fog",
+		title = "Fog of war",
+		body = "The rift stays dark until an ally cat, kitten, living tower/nexus, or ward lights it. Jungle brush hides cats until someone steps in. Minimap hides unseen enemies. Pinks (6) stay visible to everyone.",
+	},
+	{
 		id = "tab",
 		title = "Scoreboard (Tab)",
 		body = "Hold Tab for KDA, CS, gold, and items. Bots are tagged (Bot).",

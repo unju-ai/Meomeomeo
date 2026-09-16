@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 
 local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
@@ -20,11 +21,10 @@ local VisionService = {}
 
 local api: Api? = nil
 local running = false
+local frameCache: { [number]: { at: number, frame: Types.VisionFrame } } = {}
 
-type VisionSource = { position: Vector3, kind: "unit" | "tower" | "ward" | "control" }
-
-local function sources(team: Types.TeamId): { VisionSource }
-	local points: { VisionSource } = {}
+local function sources(team: Types.TeamId): { VisionLogic.Source }
+	local points: { VisionLogic.Source } = {}
 	if not api then
 		return points
 	end
@@ -33,64 +33,78 @@ local function sources(team: Types.TeamId): { VisionSource }
 		return points
 	end
 	for _, matchPlayer in snapshot.players do
-		local root = api.rootOf(matchPlayer.userId)
-		if matchPlayer.team == team and root then
-			table.insert(points, { position = root.Position, kind = "unit" })
+		if matchPlayer.team == team and matchPlayer.respawnAt == nil then
+			local root = api.rootOf(matchPlayer.userId)
+			if root then
+				table.insert(points, {
+					x = root.Position.X,
+					z = root.Position.Z,
+					radius = Config.Vision.ChampionRadius,
+				})
+			end
 		end
 	end
 	for _, minion in MinionService.list() do
 		if minion.team == team then
-			table.insert(points, { position = minion.part.Position, kind = "unit" })
+			table.insert(points, {
+				x = minion.part.Position.X,
+				z = minion.part.Position.Z,
+				radius = Config.Vision.MinionRadius,
+			})
 		end
 	end
 	for _, objective in MapBuilder.objectiveStates() do
-		if objective.team == team and objective.alive and objective.kind == "Tower" then
+		if objective.team == team and objective.alive and (objective.kind == "Tower" or objective.kind == "Nexus") then
 			local part = MapBuilder.getObjectivePart(objective.id)
 			if part then
-				table.insert(points, { position = part.Position, kind = "tower" })
+				table.insert(points, {
+					x = part.Position.X,
+					z = part.Position.Z,
+					radius = Config.Vision.TowerRadius,
+				})
 			end
 		end
 	end
 	for _, src in WardService.sources(team) do
-		table.insert(points, { position = src.position, kind = if src.control then "control" else "ward" })
+		table.insert(points, {
+			x = src.position.X,
+			z = src.position.Z,
+			radius = if src.control then Config.Vision.ControlRadius else Config.Vision.WardRadius,
+		})
 	end
 	return points
 end
 
-local function seen(position: Vector3, team: Types.TeamId, kind: "champion" | "minion"): boolean
-	local unitRadius = if kind == "champion" then Config.Vision.ChampionRadius else Config.Vision.MinionRadius
-	for _, source in sources(team) do
-		local limit = if source.kind == "tower"
-			then Config.Vision.TowerRadius
-			elseif source.kind == "control" then Config.Vision.ControlRadius
-			elseif source.kind == "ward" then Config.Vision.WardRadius
-			else unitRadius
-		if (source.position - position).Magnitude <= limit then
-			return true
-		end
-	end
-	return false
+local function emptyFrame(): Types.VisionFrame
+	return {
+		players = {},
+		minions = {},
+		jungle = {},
+		wards = {},
+		fogBits = VisionLogic.emptyMask(),
+	}
 end
 
-function VisionService.frameForUser(userId: number): Types.VisionFrame
-	local empty: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
+local function computeFrame(userId: number): Types.VisionFrame
 	if not api then
-		return empty
+		return emptyFrame()
 	end
 	local snapshot = api.getSnapshot()
 	if not snapshot or snapshot.phase ~= "InProgress" then
-		return empty
+		return emptyFrame()
 	end
 	local mine = snapshot.players[tostring(userId)]
 	if not mine then
-		return empty
+		return emptyFrame()
 	end
+
+	local allySources = sources(mine.team)
 
 	local visiblePlayers = {}
 	for _, otherMatch in snapshot.players do
 		local root = api.rootOf(otherMatch.userId)
 		if root then
-			if otherMatch.team == mine.team or seen(root.Position, mine.team, "champion") then
+			if otherMatch.team == mine.team or VisionLogic.covered(allySources, root.Position.X, root.Position.Z) then
 				table.insert(visiblePlayers, otherMatch.userId)
 			end
 		end
@@ -98,14 +112,14 @@ function VisionService.frameForUser(userId: number): Types.VisionFrame
 
 	local visibleMinions = {}
 	for _, minion in MinionService.list() do
-		if minion.team == mine.team or seen(minion.part.Position, mine.team, "minion") then
+		if minion.team == mine.team or VisionLogic.covered(allySources, minion.part.Position.X, minion.part.Position.Z) then
 			table.insert(visibleMinions, minion.id)
 		end
 	end
 
 	local visibleJungle = {}
 	for _, monster in JungleService.list() do
-		if seen(monster.part.Position, mine.team, "minion") then
+		if VisionLogic.covered(allySources, monster.part.Position.X, monster.part.Position.Z) then
 			table.insert(visibleJungle, monster.id)
 		end
 	end
@@ -113,7 +127,24 @@ function VisionService.frameForUser(userId: number): Types.VisionFrame
 	local root = api.rootOf(userId)
 	local visibleWards = WardService.visibleToTeam(mine.team, if root then root.Position else nil)
 
-	return { players = visiblePlayers, minions = visibleMinions, jungle = visibleJungle, wards = visibleWards }
+	return {
+		players = visiblePlayers,
+		minions = visibleMinions,
+		jungle = visibleJungle,
+		wards = visibleWards,
+		fogBits = VisionLogic.mask(allySources),
+	}
+end
+
+function VisionService.frameForUser(userId: number): Types.VisionFrame
+	local now = os.clock()
+	local hit = frameCache[userId]
+	if hit and now - hit.at < 0.08 then
+		return hit.frame
+	end
+	local frame = computeFrame(userId)
+	frameCache[userId] = { at = now, frame = frame }
+	return frame
 end
 
 function VisionService.frameFor(player: Player): Types.VisionFrame
@@ -163,24 +194,33 @@ function VisionService.canSeeWard(viewerUserId: number, wardId: string): boolean
 	return false
 end
 
+local function broadcast()
+	if not api then
+		return
+	end
+	table.clear(frameCache)
+	local snapshot = api.getSnapshot()
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return
+	end
+	for _, player in Players:GetPlayers() do
+		Remotes.event("VisionUpdated"):FireClient(player, VisionService.frameFor(player))
+	end
+end
+
 function VisionService.stop()
 	running = false
+	table.clear(frameCache)
 end
 
 function VisionService.start()
 	running = true
 	task.spawn(function()
+		broadcast()
 		while running do
 			task.wait(0.25)
-			if not api then
-				continue
-			end
-			local snapshot = api.getSnapshot()
-			if not snapshot or snapshot.phase ~= "InProgress" then
-				continue
-			end
-			for _, player in Players:GetPlayers() do
-				Remotes.event("VisionUpdated"):FireClient(player, VisionService.frameFor(player))
+			if running then
+				broadcast()
 			end
 		end
 	end)

@@ -21,7 +21,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
-- Lane minion waves, tower/nexus aggro, nexus gating, stub vision, Pawmart item shop
+- Lane minion waves, tower/nexus aggro, nexus gating, **fog of war**, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
@@ -85,7 +85,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
-- **Minimap** (bottom-right) — lanes, towers, nexuses, allies, visible enemies/minions, and visible jungle camps (amber). Click it to ping teammates.
+- **Minimap** (bottom-right) — lanes, towers, nexuses, allies, **fog overlay**, visible enemies/minions, and visible jungle camps (amber). Unseen enemies stay off the map. Click it to ping teammates.
 - **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
@@ -117,7 +117,8 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Minion waves:** every ~22s both teams spawn 3 kittens per lane. They walk toward the enemy nexus, fight, and grant last-hit gold.
 - **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
 - **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
-- **Vision:** stub fog — enemy champs/minions/jungle are hidden unless an ally champ, minion, tower, or **ward** is in radius (`VisionUpdated`).
+- **Vision / fog of war:** server builds a visibility set every ~0.25s (`VisionUpdated` + packed `fogBits`). Living **ally champions**, **minions**, **towers/nexus**, **trinkets**, and **pink wards** each grant a radius bubble (`Config.Vision`). The client darkens ground outside that mask and hides unseen enemies (not just `LocalTransparency` on units). Dead cats do not grant vision. You cannot AA a fogged target.
+- **Brush:** six jungle pockets (`Shared.VisionLogic`) block vision of occupants until an ally source **enters that pocket**. You can still see out. Lanes stay open. Pink true-sight on trinkets is unchanged.
 - **Trinket ward (4):** free. Server places a stealthed team-colored pillar (`WardService`) that feeds `VisionService` for 60s. One trinket per player; 70s cooldown. Not shop — **B stays Pawmart**.
 - **Control Yarn / pink (6):** Pawmart consumable, 75g, max **2** charges. Magenta ball (visible, not stealthed), 90s / 90 HP, one live per owner. Team vision uses `ControlRadius` (48). Enemies in `ControlSlowRadius` walk at `ControlSlowMul`. Nearby enemy trinkets get `revealedUntil` refreshed (`ControlTrueSight` / `ControlRevealSeconds`). **Hard** jungle bots still call `placeControlFor` once (no charge). Destroyable like trinkets (AA / lens / skillshots).
 - **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (trinkets 60 HP, pinks 90 HP). Enemy **trinkets** are stealthed unless revealed, you stand within 14 studs, or a pink is nearby. Pinks are always on the map.
@@ -127,7 +128,7 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
 - **Scoreboard:** hold Tab. Client overlay on the match snapshot (includes `cs`).
 - **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP. **Ended counts as busy** so queue/practice cannot start underneath the screen. **Back to lobby** (`LeaveMatch`) or **Practice again** (`PlayAgain`) skip the 45s timer; the timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat).
-- **Minimap:** client reads match + vision frames; click-to-ping is team-only (`PingReceived`).
+- **Minimap:** client paints the server fog mask (unexplored vs currently seen); click-to-ping is team-only (`PingReceived`). Unseen enemies never get a dot.
 - **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
 Tune timers and team size in `src/server/Config.luau`.
@@ -396,7 +397,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, emote catalog, ping catalog
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **vision/fog grid**, emote catalog, ping catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -415,7 +416,7 @@ src/server/
   Tutorial/          First-Practice tip dismiss flag (DataStore + memory fallback)
   Settings/          Audio + Hide my name + Practice-difficulty prefs (DataStore `MeoSettings_v1` + memory fallback)
   Social/            Emote cooldown + nearby replicate
-src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily+weekly board, Koi Pond HUD/camera/daily board, Yarn Party HUD/camera, Meme Arcade HUD/camera/daily board, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + emote billboards)
+src/client/          HUD, hub grid, lobby, Closet wardrobe, Yarn Run HUD/camera/ghost/daily+weekly board, Koi Pond HUD/camera/daily board, Yarn Party HUD/camera, Meme Arcade HUD/camera/daily board, draft, abilities, kill feed, scoreboard, end screen, minimap, targeting indicator, camera, voice, NPC chat, Audio/, Juice/ (screen + world CombatFx + **fog overlay** + emote billboards)
 contracts/           Meo404.sol + Foundry tests
 bridge/              Hosted claim-handler + SIWE challenge/verify stub (viem)
 ```
@@ -426,7 +427,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
 2. Smarter bots: dive / dodge / lens / projectile lead are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
-3. Brush / true fog of war (server-authoritative visibility, not just LocalTransparency). Pink true-sight on trinkets is in; FoW still uses LocalTransparency.
+3. Fog of war is in (server mask + client overlay + brush). Next: terrain LoS / walls, reconnect fog memory, brush attack-move, skillshot VFX only while the bolt is in vision.
 4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).

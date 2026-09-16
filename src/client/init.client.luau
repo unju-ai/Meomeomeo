@@ -23,6 +23,7 @@ local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
 local CombatFx = require(script.Juice.CombatFx)
 local EmoteFx = require(script.Juice.EmoteFx)
+local FogOfWar = require(script.Juice.FogOfWar)
 local PingFx = require(script.Juice.PingFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
@@ -212,7 +213,8 @@ local function tutorialIsDone(): boolean
 	return tutorialDone or player:GetAttribute(Constants.Attributes.TutorialDone) == true
 end
 
-local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {} }
+local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {}, fogBits = {} }
+local applyVision: () -> () = function() end
 local armedSlot: Types.AbilitySlot? = nil
 local armedKind: "hold" | "ground" | nil = nil
 local lastErrorAt = 0
@@ -359,6 +361,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	end
 	refreshBars()
 	if inMini() then
+		applyVision()
 		return
 	end
 	if latestMatch.phase == "InProgress" then
@@ -380,6 +383,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		TargetingIndicator.hide()
 		Sfx.stopLoop("RecallLoop")
 	end
+	applyVision()
 end
 
 local function applyCombatJuice(state: Types.CombatState)
@@ -1279,11 +1283,62 @@ Remotes.event("ShopUpdated").OnClientEvent:Connect(function(status)
 	end
 end)
 
-local function applyVision()
-	if not latestMatch or latestMatch.phase ~= "InProgress" then
+local visionArmed = false
+
+local function setHidden(inst: Instance, hidden: boolean)
+	if inst:IsA("BasePart") then
+		inst.LocalTransparencyModifier = if hidden then 1 else 0
+	elseif inst:IsA("BillboardGui") or inst:IsA("Highlight") then
+		inst.Enabled = not hidden
+	end
+end
+
+local function hideTree(root: Instance, hidden: boolean)
+	if root:IsA("BasePart") or root:IsA("BillboardGui") or root:IsA("Highlight") then
+		setHidden(root, hidden)
+	end
+	for _, inst in root:GetDescendants() do
+		setHidden(inst, hidden)
+	end
+end
+
+local function restoreAllVision()
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			hideTree(other.Character, false)
+		end
+	end
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	if not map then
 		return
 	end
-	local mine = latestMatch.players[tostring(player.UserId)]
+	for _, folderName in { "Bots", "Minions", "Jungle", "Wards" } do
+		local folder = map:FindFirstChild(folderName)
+		if folder then
+			for _, child in folder:GetChildren() do
+				hideTree(child, false)
+			end
+		end
+	end
+end
+
+applyVision = function()
+	local snapshot = latestMatch
+	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
+	if not active then
+		if visionArmed then
+			FogOfWar.setEnabled(false)
+			FogOfWar.resetExplored()
+			restoreAllVision()
+			visionArmed = false
+		end
+		return
+	end
+	visionArmed = true
+	FogOfWar.setEnabled(true)
+	FogOfWar.apply(lastVision.fogBits)
+
+	local mine = snapshot.players[tostring(player.UserId)]
 	local visiblePlayers: { [number]: boolean } = { [player.UserId] = true }
 	for _, userId in lastVision.players do
 		visiblePlayers[userId] = true
@@ -1291,11 +1346,7 @@ local function applyVision()
 	for _, other in Players:GetPlayers() do
 		if other ~= player and other.Character then
 			local show = visiblePlayers[other.UserId] == true
-			for _, inst in other.Character:GetDescendants() do
-				if inst:IsA("BasePart") then
-					inst.LocalTransparencyModifier = if show then 0 else 1
-				end
-			end
+			hideTree(other.Character, not show)
 		end
 	end
 
@@ -1306,16 +1357,10 @@ local function applyVision()
 		for _, child in botsFolder:GetChildren() do
 			if child:IsA("Model") then
 				local userId = child:GetAttribute(Constants.Attributes.UserId)
-				local otherMatch = if typeof(userId) == "number" then latestMatch.players[tostring(userId)] else nil
+				local otherMatch = if typeof(userId) == "number" then snapshot.players[tostring(userId)] else nil
 				local ally = mine ~= nil and otherMatch ~= nil and otherMatch.team == mine.team
 				local show = ally or (typeof(userId) == "number" and visiblePlayers[userId] == true)
-				for _, inst in child:GetDescendants() do
-					if inst:IsA("BasePart") then
-						inst.LocalTransparencyModifier = if show then 0 else 1
-					elseif inst:IsA("BillboardGui") then
-						inst.Enabled = show
-					end
-				end
+				hideTree(child, not show)
 			end
 		end
 	end
@@ -1331,11 +1376,7 @@ local function applyVision()
 				local team = child:GetAttribute(Constants.Attributes.Team)
 				local ally = mine ~= nil and team == mine.team
 				local show = ally or visibleMinions[child.Name] == true
-				child.LocalTransparencyModifier = if show then 0 else 1
-				local label = child:FindFirstChild("Label")
-				if label and label:IsA("BillboardGui") then
-					label.Enabled = show
-				end
+				hideTree(child, not show)
 			end
 		end
 	end
@@ -1349,11 +1390,7 @@ local function applyVision()
 		for _, child in jungle:GetChildren() do
 			if child:IsA("BasePart") then
 				local show = visibleJungle[child.Name] == true
-				child.LocalTransparencyModifier = if show then 0 else 1
-				local label = child:FindFirstChild("Label")
-				if label and label:IsA("BillboardGui") then
-					label.Enabled = show
-				end
+				hideTree(child, not show)
 			end
 		end
 	end
@@ -1369,11 +1406,7 @@ local function applyVision()
 				local team = child:GetAttribute(Constants.Attributes.Team)
 				local ally = mine ~= nil and team == mine.team
 				local show = ally or visibleWards[child.Name] == true
-				child.LocalTransparencyModifier = if show then 0 else 1
-				local label = child:FindFirstChild("Label")
-				if label and label:IsA("BillboardGui") then
-					label.Enabled = show
-				end
+				hideTree(child, not show)
 			end
 		end
 	end
@@ -1387,6 +1420,9 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 		end
 		if incoming.wards == nil then
 			incoming.wards = {}
+		end
+		if incoming.fogBits == nil then
+			incoming.fogBits = {}
 		end
 		lastVision = incoming
 		applyVision()
@@ -2095,9 +2131,10 @@ task.spawn(function()
 				end
 			end
 		elseif latestMatch and latestMatch.phase == "Ended" then
+			applyVision()
 			hud.endScreen.update(latestMatch, player.UserId)
 		end
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
+print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
