@@ -132,6 +132,7 @@ local Config = {
 	},
 
 	Vision = {
+		-- Source radii (studs). Grid / brush live in Shared.VisionLogic.
 		ChampionRadius = 54,
 		TowerRadius = 46,
 		MinionRadius = 28,

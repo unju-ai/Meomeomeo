@@ -61,6 +61,7 @@ local Constants = {
 	},
 
 	-- Matches MapBuilder ground (420 x 280 centered at origin).
+	-- Shared.VisionLogic.MinX/MaxX/MinZ/MaxZ must stay in sync (14-stud fog grid).
 	MapBounds = {
 		MinX = -210,
 		MaxX = 210,

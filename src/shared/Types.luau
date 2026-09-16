@@ -306,6 +306,8 @@ export type VisionFrame = {
 	minions: { string },
 	jungle: { string },
 	wards: { string },
+	-- Packed bitset of currently visible fog cells (VisionLogic). Server-authored.
+	fogBits: { number }?,
 }
 
 export type TickerState = {

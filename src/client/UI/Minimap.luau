@@ -5,8 +5,9 @@ local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
-local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
+local Theme = require(script.Parent.Parent.Theme)
 
 local Minimap = {}
 
@@ -105,10 +106,78 @@ function Minimap.create(parent: Instance): MinimapApi
 		Theme.corner(patch, 6)
 	end
 
-	local title = Theme.text(root, "Title", "Rift  ·  click Attention · G wheel", 11, Theme.cream, Theme.fontMono)
+	local title = Theme.text(root, "Title", "Rift  ·  fog  ·  G wheel", 11, Theme.cream, Theme.fontMono)
 	title.Position = UDim2.fromOffset(8, 4)
 	title.Size = UDim2.new(1, -16, 0, 14)
 	title.ZIndex = 4
+
+	local fogFolder = Instance.new("Folder")
+	fogFolder.Name = "Fog"
+	fogFolder.Parent = root
+	local fogCells: { Frame } = {}
+	local explored = table.create(VisionLogic.CellCount, false)
+	local fogBuilt = false
+
+	local function resetExplored()
+		for i = 1, VisionLogic.CellCount do
+			explored[i] = false
+		end
+	end
+
+	local function buildFog()
+		if fogBuilt then
+			return
+		end
+		local w = 1 / VisionLogic.Cols
+		local h = 1 / VisionLogic.Rows
+		for index = 1, VisionLogic.CellCount do
+			local i = index - 1
+			local col = i % VisionLogic.Cols
+			local row = math.floor(i / VisionLogic.Cols)
+			local cell = Instance.new("Frame")
+			cell.Name = `f{index}`
+			cell.BorderSizePixel = 0
+			cell.BackgroundColor3 = Color3.fromRGB(8, 10, 16)
+			cell.BackgroundTransparency = 0.12
+			cell.Position = UDim2.fromScale(col * w, row * h)
+			cell.Size = UDim2.fromScale(w + 0.002, h + 0.002)
+			cell.ZIndex = 2
+			cell.Visible = false
+			cell.Parent = fogFolder
+			fogCells[index] = cell
+		end
+		fogBuilt = true
+	end
+
+	local function paintFog(vision: Types.VisionFrame)
+		local bits = vision.fogBits
+		if typeof(bits) ~= "table" or #bits < 1 then
+			for _, cell in fogCells do
+				cell.Visible = false
+			end
+			return
+		end
+		buildFog()
+		for index = 1, VisionLogic.CellCount do
+			local cell = fogCells[index]
+			if cell then
+				local lit = VisionLogic.bitOn(bits, index)
+				if lit then
+					explored[index] = true
+					cell.Visible = false
+				else
+					cell.Visible = true
+					if explored[index] then
+						cell.BackgroundColor3 = Color3.fromRGB(22, 34, 42)
+						cell.BackgroundTransparency = 0.38
+					else
+						cell.BackgroundColor3 = Color3.fromRGB(8, 10, 16)
+						cell.BackgroundTransparency = 0.08
+					end
+				end
+			end
+		end
+	end
 
 	local dots = Instance.new("Folder")
 	dots.Name = "Dots"
@@ -162,9 +231,14 @@ function Minimap.create(parent: Instance): MinimapApi
 			root.Visible = visible
 			if not visible then
 				pingDot.Visible = false
+				resetExplored()
+				for _, cell in fogCells do
+					cell.Visible = false
+				end
 			end
 		end,
 		update = function(snapshot: Types.MatchSnapshot, vision: Types.VisionFrame, localUserId: number)
+			paintFog(vision)
 			local seen: { [string]: boolean } = {}
 			local visiblePlayers: { [number]: boolean } = {}
 			for _, userId in vision.players do
