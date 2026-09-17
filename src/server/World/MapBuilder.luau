@@ -446,14 +446,24 @@ function MapBuilder.build(): Folder
 	local blueTeam = Teams:FindFirstChild(Constants.Teams.BlueInstance) :: Team?
 	local redTeam = Teams:FindFirstChild(Constants.Teams.RedInstance) :: Team?
 
-	part(bases, "BlueKeep", Vector3.new(48, 8, 48), CFrame.new(-170, 4, 0), Color3.fromRGB(60, 100, 170), {
-		Transparency = 0.45,
+	part(bases, "BlueKeepFloor", Vector3.new(48, 0.4, 48), CFrame.new(-170, 0.2, 0), Color3.fromRGB(60, 100, 170), {
+		Transparency = 0.55,
 		CanCollide = false,
+		CanQuery = false,
 	})
-	part(bases, "RedKeep", Vector3.new(48, 8, 48), CFrame.new(170, 4, 0), Color3.fromRGB(170, 70, 70), {
-		Transparency = 0.45,
+	part(bases, "RedKeepFloor", Vector3.new(48, 0.4, 48), CFrame.new(170, 0.2, 0), Color3.fromRGB(170, 70, 70), {
+		Transparency = 0.55,
 		CanCollide = false,
+		CanQuery = false,
 	})
+	for _, spec in VisionLogic.Walls do
+		local blue = string.sub(spec.name, 1, 4) == "Blue"
+		part(bases, spec.name, Vector3.new(spec.sx, 10, spec.sz), CFrame.new(spec.x, 5, spec.z), if blue then Color3.fromRGB(60, 100, 170) else Color3.fromRGB(170, 70, 70), {
+			Transparency = 0.22,
+			CanCollide = false,
+			Material = Enum.Material.Concrete,
+		})
+	end
 	fountainKit(bases, "Blue", Vector3.new(-176, 0, 0))
 	fountainKit(bases, "Red", Vector3.new(176, 0, 0))
 

@@ -4,25 +4,28 @@ assert(VisionLogic.Cols * VisionLogic.CellSize == VisionLogic.MaxX - VisionLogic
 assert(VisionLogic.Rows * VisionLogic.CellSize == VisionLogic.MaxZ - VisionLogic.MinZ)
 assert(VisionLogic.CellCount == VisionLogic.Cols * VisionLogic.Rows)
 assert(#VisionLogic.Brushes == 6)
+assert(#VisionLogic.Walls == 10)
+assert(VisionLogic.CellSize == 10)
 
 local mid = VisionLogic.indexOf(0, 0)
 local cx, cz = VisionLogic.center(mid)
 assert(math.abs(cx) < VisionLogic.CellSize)
 assert(math.abs(cz) < VisionLogic.CellSize)
 
-local flags = table.create(VisionLogic.CellCount, false)
+local last = VisionLogic.CellCount
+local flags = table.create(last, false)
 flags[1] = true
 flags[32] = true
 flags[33] = true
-flags[600] = true
+flags[last] = true
 local packed = VisionLogic.pack(flags)
 assert(#packed == VisionLogic.WordCount)
 assert(VisionLogic.bitOn(packed, 1) == true)
 assert(VisionLogic.bitOn(packed, 2) == false)
 assert(VisionLogic.bitOn(packed, 32) == true)
 assert(VisionLogic.bitOn(packed, 33) == true)
-assert(VisionLogic.bitOn(packed, 600) == true)
-assert(VisionLogic.bitOn(packed, 599) == false)
+assert(VisionLogic.bitOn(packed, last) == true)
+assert(VisionLogic.bitOn(packed, last - 1) == false)
 assert(VisionLogic.bitOn({}, 1) == false)
 
 -- Source-based radius: a champion bubble sees a far target a minion bubble cannot.
@@ -59,4 +62,18 @@ local wardInBrush = { x = -88, z = -108, radius = 40 }
 local wardMask = VisionLogic.mask({ wardInBrush })
 assert(VisionLogic.bitOn(wardMask, VisionLogic.indexOf(-88, -108)) == true, "ward in brush lights that pocket")
 
-print("PASS: fog grid, packed mask, source radii, brush occludes until entered")
+-- Base walls block LoS; the mid-lane gate stays open. Brush is not a wall.
+assert(VisionLogic.clearLine(-176, 0, -120, 0) == true, "mid gate is open")
+assert(VisionLogic.canSeeFrom(-176, 0, 54, -130, 0) == true, "fountain sees through the gate")
+assert(VisionLogic.clearLine(-176, 0, -90, -80) == false, "cannot see top lane through keep wall")
+assert(VisionLogic.canSeeFrom(-176, 0, 120, -90, -80) == false, "radius is not enough to pierce walls")
+assert(VisionLogic.clearLine(-130, -30, -176, 0) == false, "angled look into fountain hits the east wall")
+assert(VisionLogic.clearLine(-88, -90, -88, -108) == true, "brush is not a solid wall")
+
+local fountain = { x = -176, z = 0, radius = 54 }
+local fountainMask = VisionLogic.mask({ fountain })
+assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, 0)) == true)
+assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, -40)) == false, "keep north wall hides cells behind it")
+assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-130, 0)) == true, "mid gate cells stay lit")
+
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS")

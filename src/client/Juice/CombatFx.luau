@@ -10,6 +10,7 @@ local Workspace = game:GetService("Workspace")
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
+local FogOfWar = require(script.Parent.FogOfWar)
 
 local CombatFx = {}
 
@@ -275,6 +276,10 @@ local function ensureLoop()
 						look = origin + Vector3.new(1, 0, 0)
 					end
 					bolt.CFrame = CFrame.lookAt(pos + Vector3.new(0, 0.55, 0), look + Vector3.new(0, 0.55, 0))
+					local localId = Players.LocalPlayer and Players.LocalPlayer.UserId
+					local own = localId ~= nil and follow.userId == localId
+					local show = own or FogOfWar.isLit(pos.X, pos.Z)
+					bolt.LocalTransparencyModifier = if show then 0 else 1
 				end
 				continue
 			end
@@ -479,7 +484,11 @@ function CombatFx.play(event: Types.CombatFxEvent)
 	elseif event.kind == "projectile" then
 		followProjectile(event)
 	elseif event.kind == "projectileHit" then
-		placeBurst(event.origin, abilityColor(event.abilityKind), 1.7, 0.2)
+		local localId = Players.LocalPlayer and Players.LocalPlayer.UserId
+		local own = localId ~= nil and event.userId == localId
+		if own or FogOfWar.isLit(event.origin.X, event.origin.Z) then
+			placeBurst(event.origin, abilityColor(event.abilityKind), 1.7, 0.2)
+		end
 	elseif event.kind == "aa" then
 		playAa(event)
 	elseif event.kind == "towerShot" then

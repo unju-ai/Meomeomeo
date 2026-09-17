@@ -1535,6 +1535,37 @@ local function aimPoint(): Vector3
 	return ray.Origin + ray.Direction * 80
 end
 
+local function listHas(list: { any }, value: any): boolean
+	for _, item in list do
+		if item == value then
+			return true
+		end
+	end
+	return false
+end
+
+local function visibleAttack(req: Types.AttackRequest): boolean
+	if req.kind == "objective" then
+		return true
+	end
+	if req.kind == "player" and req.userId then
+		if req.userId == player.UserId then
+			return true
+		end
+		return listHas(lastVision.players, req.userId)
+	end
+	if req.kind == "minion" and req.minionId then
+		return listHas(lastVision.minions, req.minionId)
+	end
+	if req.kind == "jungle" and req.jungleId then
+		return listHas(lastVision.jungle, req.jungleId)
+	end
+	if req.kind == "ward" and req.wardId then
+		return listHas(lastVision.wards, req.wardId)
+	end
+	return false
+end
+
 local function pickAttack(): Types.AttackRequest?
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -1553,39 +1584,53 @@ local function pickAttack(): Types.AttackRequest?
 	end
 	local inst = hit.Instance
 	local model = inst:FindFirstAncestorOfClass("Model")
+	local req: Types.AttackRequest? = nil
 	if model then
 		local humanoid = model:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			local other = Players:GetPlayerFromCharacter(model)
 			if other and other ~= player then
-				return { kind = "player", userId = other.UserId }
+				req = { kind = "player", userId = other.UserId }
 			end
-			local botId = model:GetAttribute(Constants.Attributes.UserId)
-			if typeof(botId) ~= "number" then
-				botId = inst:GetAttribute(Constants.Attributes.UserId)
-			end
-			if typeof(botId) == "number" and botId ~= player.UserId then
-				return { kind = "player", userId = botId }
+			if not req then
+				local botId = model:GetAttribute(Constants.Attributes.UserId)
+				if typeof(botId) ~= "number" then
+					botId = inst:GetAttribute(Constants.Attributes.UserId)
+				end
+				if typeof(botId) == "number" and botId ~= player.UserId then
+					req = { kind = "player", userId = botId }
+				end
 			end
 		end
 	end
-	local minionId = inst:GetAttribute(Constants.Attributes.MinionId)
-	if typeof(minionId) == "string" then
-		return { kind = "minion", minionId = minionId }
+	if not req then
+		local minionId = inst:GetAttribute(Constants.Attributes.MinionId)
+		if typeof(minionId) == "string" then
+			req = { kind = "minion", minionId = minionId }
+		end
 	end
-	local objectiveId = inst:GetAttribute(Constants.Attributes.ObjectiveId)
-	if typeof(objectiveId) == "string" then
-		return { kind = "objective", objectiveId = objectiveId }
+	if not req then
+		local objectiveId = inst:GetAttribute(Constants.Attributes.ObjectiveId)
+		if typeof(objectiveId) == "string" then
+			req = { kind = "objective", objectiveId = objectiveId }
+		end
 	end
-	local jungleId = inst:GetAttribute(Constants.Attributes.JungleId)
-	if typeof(jungleId) == "string" then
-		return { kind = "jungle", jungleId = jungleId }
+	if not req then
+		local jungleId = inst:GetAttribute(Constants.Attributes.JungleId)
+		if typeof(jungleId) == "string" then
+			req = { kind = "jungle", jungleId = jungleId }
+		end
 	end
-	local wardId = inst:GetAttribute(Constants.Attributes.WardId)
-	if typeof(wardId) == "string" then
-		return { kind = "ward", wardId = wardId }
+	if not req then
+		local wardId = inst:GetAttribute(Constants.Attributes.WardId)
+		if typeof(wardId) == "string" then
+			req = { kind = "ward", wardId = wardId }
+		end
 	end
-	return nil
+	if req and lastVision.fogBits and #lastVision.fogBits > 0 and not visibleAttack(req) then
+		return nil
+	end
+	return req
 end
 
 local function reportAttack(result: any, cue: string?)
