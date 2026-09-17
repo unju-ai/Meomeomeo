@@ -16,6 +16,7 @@ local THICKNESS = 0.22
 local folder: Folder? = nil
 local cells: { BasePart } = {}
 local explored: { boolean } = table.create(VisionLogic.CellCount, false)
+local lastMask: { number }? = nil
 local enabled = false
 local built = false
 
@@ -93,6 +94,7 @@ function FogOfWar.resetExplored()
 	for i = 1, VisionLogic.CellCount do
 		flags[i] = false
 	end
+	lastMask = nil
 end
 
 function FogOfWar.isExplored(index: number): boolean
@@ -121,6 +123,7 @@ function FogOfWar.apply(words: { number }?)
 	build()
 	local flags = ensureExplored()
 	local mask = words
+	lastMask = mask
 	for index = 1, VisionLogic.CellCount do
 		local part = cells[index]
 		if part then
@@ -135,6 +138,17 @@ function FogOfWar.apply(words: { number }?)
 			end
 		end
 	end
+end
+
+function FogOfWar.isLit(x: number, z: number): boolean
+	if not enabled then
+		return true
+	end
+	local mask = lastMask
+	if typeof(mask) ~= "table" then
+		return true
+	end
+	return VisionLogic.bitOn(mask, VisionLogic.indexOf(x, z))
 end
 
 return FogOfWar

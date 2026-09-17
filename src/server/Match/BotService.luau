@@ -16,6 +16,7 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
 local ShopService = require(script.Parent.ShopService)
 local TowerService = require(script.Parent.TowerService)
+local VisionService = require(script.Parent.VisionService)
 local WardService = require(script.Parent.WardService)
 
 type Tune = {
@@ -253,7 +254,7 @@ local function aaGuess(userId: number): number
 	return base * CombatService.getOutgoingAmp(userId)
 end
 
-local function nearestChampion(team: Types.TeamId, origin: Vector3, radius: number): Hunt?
+local function nearestChampion(team: Types.TeamId, origin: Vector3, radius: number, viewerUserId: number?): Hunt?
 	local snapshot = matchSnapshot()
 	if not snapshot then
 		return nil
@@ -266,7 +267,8 @@ local function nearestChampion(team: Types.TeamId, origin: Vector3, radius: numb
 			local root = CombatService.rootOf(other.userId)
 			if combat and combat.alive and root then
 				local d = (root.Position - origin).Magnitude
-				if d <= bestDist then
+				local seen = if viewerUserId then VisionService.canSeeChampion(viewerUserId, other.userId) else true
+				if d <= bestDist and seen then
 					bestDist = d
 					best = { kind = "player", userId = other.userId, position = root.Position, isChampion = true }
 					recordSeen(other.userId, root.Position)
@@ -285,14 +287,16 @@ local function lastHitMinion(team: Types.TeamId, origin: Vector3, userId: number
 		if minion.team ~= team then
 			local d = (minion.part.Position - origin).Magnitude
 			if d <= 42 and minion.health <= threshold and minion.health < bestHp then
-				bestHp = minion.health
-				best = {
-					kind = "minion",
-					minionId = minion.id,
-					position = minion.part.Position,
-					isChampion = false,
-					health = minion.health,
-				}
+				if VisionService.canSeeMinion(userId, minion.id) then
+					bestHp = minion.health
+					best = {
+						kind = "minion",
+						minionId = minion.id,
+						position = minion.part.Position,
+						isChampion = false,
+						health = minion.health,
+					}
+				end
 			end
 		end
 	end
@@ -300,7 +304,7 @@ local function lastHitMinion(team: Types.TeamId, origin: Vector3, userId: number
 end
 
 local function nearestHunt(team: Types.TeamId, origin: Vector3, userId: number, tune: Tune): Hunt?
-	local champ = nearestChampion(team, origin, Config.AutoAttack.AcquireRange + 8)
+	local champ = nearestChampion(team, origin, Config.AutoAttack.AcquireRange + 8, userId)
 	if champ then
 		return champ
 	end
@@ -316,7 +320,7 @@ local function nearestHunt(team: Types.TeamId, origin: Vector3, userId: number, 
 		for _, minion in MinionService.list() do
 			if minion.team ~= team then
 				local d = (minion.part.Position - origin).Magnitude
-				if d <= bestDist then
+				if d <= bestDist and VisionService.canSeeMinion(userId, minion.id) then
 					bestDist = d
 					best = { kind = "minion", minionId = minion.id, position = minion.part.Position, isChampion = false }
 				end
@@ -574,7 +578,7 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
-	local threat = nearestChampion(team, root.Position, Config.AutoAttack.AcquireRange + 8)
+	local threat = nearestChampion(team, root.Position, Config.AutoAttack.AcquireRange + 8, brain.userId)
 	if not threat and tune.Jungle and brain.jungler and lanePushed(team, brain.lane) then
 		local camp = nearbyCamp(team, root.Position)
 		if camp then

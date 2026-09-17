@@ -58,7 +58,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "fog",
 		title = "Fog of war",
-		body = "The rift stays dark until an ally cat, kitten, living tower/nexus, or ward lights it. Jungle brush hides cats until someone steps in. Minimap hides unseen enemies. Pinks (6) stay visible to everyone.",
+		body = "The rift stays dark until an ally cat, kitten, living tower/nexus, or ward lights it. Base walls block sight (mid gate stays open). Jungle brush hides cats until someone steps in — you cannot AA or attack-move onto an unseen brush target. Enemy traveling bolts hide in fog; yours stay visible. Minimap hides unseen enemies. Pinks (6) stay visible to everyone.",
 	},
 	{
 		id = "tab",
