@@ -26,7 +26,7 @@ local Enum = setmetatable({}, { __index = function(_, category)
 end })
 local UDim = { new = function(...) return {...} end }
 local UDim2 = { new = function(...) return {...} end, fromOffset = function(...) return {...} end, fromScale = function(...) return {...} end }
-local Vector2 = { new = function(...) return {...} end }
+local Vector2 = { new = function(x, y) return {X = x, Y = y} end }
 local function signal()
     local callbacks = {}
     return {

@@ -174,3 +174,45 @@ assert(castHub.root:FindFirstChild("Closet").Position[4] == 76)
 assert(castHub.root:FindFirstChild("Title").Size[2] == 0)
 assert(cast.LayoutOrder == 6, "Trio must stay after the game tiles")
 print("PASS: hub columns, narrow header and scrollable cast access")
+
+chat.open("HostMe", "ME")
+local sends = 0
+chat.onSend(function(_, text, reply)
+	sends += 1
+	assert(text == "hello", "Input should be trimmed")
+	pending = reply
+end)
+local input = chat.root:FindFirstChild("Input")
+local send = chat.root:FindFirstChild("Send")
+input.Text = "   "
+send.MouseButton1Click:Fire()
+assert(sends == 0 and input.Text == "   ")
+input.Text = "  hello  "
+send.MouseButton1Click:Fire()
+assert(sends == 1 and send.Text == "…" and not send.Active)
+input.Text = "hello"
+send.MouseButton1Click:Fire()
+assert(sends == 1 and input.Text == "hello", "Keep draft while request is pending")
+pending("ME", "received")
+assert(send.Active and send.Text == "Send")
+local layout = log:FindFirstChildWhichIsA("UIListLayout")
+log.AbsoluteCanvasSize = {Y = 600}
+log.AbsoluteWindowSize = {Y = 150}
+layout.AbsoluteContentSize = {Y = 584}
+layout.Changed:Fire()
+assert(log.CanvasPosition.Y == 450, "Follow new messages at bottom")
+log.CanvasPosition = Vector2.new(0, 30)
+log.Changed:Fire()
+layout.AbsoluteContentSize = {Y = 684}
+layout.Changed:Fire()
+assert(log.CanvasPosition.Y == 30, "Do not interrupt reading older messages")
+local previous = 0
+for _, row in log.children do
+	if row.Name == "Line" then
+		assert(row.LayoutOrder > previous)
+		previous = row.LayoutOrder
+	end
+end
+assert(chat.root.Size[1] == 1 and chat.root.Size[2] == -32)
+assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.X == 340)
+print("PASS: chat sizing, pending requests, whitespace, transcript order and scroll follow")

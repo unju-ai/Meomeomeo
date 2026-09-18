@@ -18,7 +18,11 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	root.Name = "NpcChat"
 	root.AnchorPoint = Vector2.new(0, 1)
 	root.Position = UDim2.new(0, 16, 1, -16)
-	root.Size = UDim2.fromOffset(340, 280)
+	root.Size = UDim2.new(1, -32, 1, -32)
+	root.ZIndex = 20
+	local bounds = Instance.new("UISizeConstraint")
+	bounds.MaxSize = Vector2.new(340, 280)
+	bounds.Parent = root
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -46,7 +50,17 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	log.Parent = root
 	Theme.corner(log, 10)
 	Theme.pad(log, 8)
-	Theme.list(log, 6)
+	local layout = Theme.list(log, 6)
+	local followLatest = true
+	log:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		local bottom = math.max(0, log.AbsoluteCanvasSize.Y - log.AbsoluteWindowSize.Y)
+		followLatest = log.CanvasPosition.Y >= bottom - 24
+	end)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		if followLatest then
+			log.CanvasPosition = Vector2.new(0, math.max(0, layout.AbsoluteContentSize.Y + 16 - log.AbsoluteWindowSize.Y))
+		end
+	end)
 
 	local box = Instance.new("TextBox")
 	box.Name = "Input"
@@ -71,11 +85,22 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	local session = 0
 	local sendHandler: ((string, string, (string, string) -> ()) -> ())? = nil
 	local lines: { TextLabel } = {}
+	local lineOrder = 0
+	local pending = false
+
+	local function setPending(value: boolean)
+		pending = value
+		send.Text = if value then "…" else "Send"
+		send.Active = not value
+		send.AutoButtonColor = not value
+	end
 
 	local function append(who: string, text: string)
+		lineOrder += 1
 		local line = Theme.text(log, "Line", `{who}: {text}`, 13, Theme.cream)
 		line.Size = UDim2.new(1, -8, 0, 0)
 		line.AutomaticSize = Enum.AutomaticSize.Y
+		line.LayoutOrder = lineOrder
 		table.insert(lines, line)
 		if #lines > 60 then
 			table.remove(lines, 1):Destroy()
@@ -83,16 +108,19 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	end
 
 	local function submit()
-		local text = box.Text
-		if text == "" or activeId == "" then
+		local text = box.Text:match("^%s*(.-)%s*$") or ""
+		if text == "" or activeId == "" or pending or not sendHandler or not root.Visible then
 			return
 		end
 		box.Text = ""
+		followLatest = true
+		setPending(true)
 		append("You", text)
 		if sendHandler then
 			local requestSession = session
 			sendHandler(activeId, text, function(who: string, reply: string)
 				if session == requestSession and root.Visible then
+					setPending(false)
 					append(who, reply)
 				end
 			end)
@@ -108,6 +136,7 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	local function closeChat()
 		session += 1
 		root.Visible = false
+		setPending(false)
 	end
 	close.MouseButton1Click:Connect(closeChat)
 
@@ -117,6 +146,9 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			session += 1
 			for _, line in lines do line:Destroy() end
 			table.clear(lines)
+			lineOrder = 0
+			followLatest = true
+			setPending(false)
 			box.Text = ""
 			log.CanvasPosition = Vector2.new(0, 0)
 			activeId = npcId
