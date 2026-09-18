@@ -329,3 +329,11 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
 Verified locally: all 108 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+
+## Responsive hub (2026-09-18)
+
+The hub fits inside the viewport with a 780 × 560 maximum. Its six cards reflow to three, two or one column, with vertical scrolling when needed. On narrow screens, Closet and Mint move below the title and tagline. Text and portraits keep their normal size.
+
+In Studio's device emulator, check 375 × 812 portrait, 812 × 375 landscape and a desktop window. Scroll to **Meet the cats**, open each host, and verify the five Play buttons, Closet, Mint and leaderboard controls remain reachable. Rotate the device while the hub is open and check the column count changes without resetting the selected runner. Actual device rendering and touch behavior remain unverified.
+
+Automated verification: 108 Luau sources compile and all nine repository smoke suites pass, including one/two/three-column hub layout and narrow-header checks.

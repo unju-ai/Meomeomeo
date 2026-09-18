@@ -78,7 +78,10 @@ function HubPanel.create(parent: Instance): HubApi
 	root.Name = "Hub"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.5)
-	root.Size = UDim2.fromOffset(780, 560)
+	root.Size = UDim2.new(1, -24, 1, -96)
+	local bounds = Instance.new("UISizeConstraint")
+	bounds.MaxSize = Vector2.new(780, 560)
+	bounds.Parent = root
 	root.BackgroundColor3 = Theme.panel
 	root.Parent = parent
 	Theme.corner(root, 24)
@@ -108,12 +111,41 @@ function HubPanel.create(parent: Instance): HubApi
 	hint.Position = UDim2.fromOffset(0, 56)
 	hint.Size = UDim2.new(1, 0, 0, 16)
 
-	local grid = Instance.new("Frame")
+	local grid = Instance.new("ScrollingFrame")
 	grid.Name = "Grid"
 	grid.BackgroundTransparency = 1
+	grid.BorderSizePixel = 0
+	grid.ScrollBarThickness = 4
+	grid.ScrollingDirection = Enum.ScrollingDirection.Y
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	grid.CanvasSize = UDim2.fromOffset(0, 0)
 	grid.Position = UDim2.fromOffset(0, 80)
 	grid.Size = UDim2.new(1, 0, 1, -88)
 	grid.Parent = root
+
+	local layout = Instance.new("UIGridLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.CellPadding = UDim2.fromOffset(12, 12)
+	layout.Parent = grid
+
+	local function resize()
+		local width = root.AbsoluteSize.X - 36
+		local compact = width < 640
+		local columns = if width >= 700 then 3 elseif width >= 460 then 2 else 1
+		-- Leave room for the scrollbar; preserve readable cards instead of shrinking text.
+		layout.CellSize = UDim2.new(1 / columns, -(12 * (columns - 1) + 8) / columns, 0, 208)
+		title.Size = UDim2.new(1, if compact then 0 else -270, 0, 36)
+		title.TextSize = if compact then 28 else 34
+		closetBtn.Position = UDim2.new(1, -136, 0, if compact then 76 else 2)
+		mintBtn.Position = UDim2.new(1, 0, 0, if compact then 76 else 2)
+		sub.Size = UDim2.new(1, 0, 0, if compact then 36 else 20)
+		hint.Visible = not compact
+		local top = if compact then 120 else 80
+		grid.Position = UDim2.fromOffset(0, top)
+		grid.Size = UDim2.new(1, 0, 1, -top)
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	resize()
 
 	local playRift: (() -> ())? = nil
 	local playRun: ((string) -> ())? = nil
@@ -191,12 +223,10 @@ function HubPanel.create(parent: Instance): HubApi
 
 	local tiles = ModeCatalog.all()
 	for i, def in tiles do
-		local col = (i - 1) % 3
-		local row = math.floor((i - 1) / 3)
 		local card = Instance.new("Frame")
 		card.Name = def.id
 		card.BackgroundColor3 = Theme.panelAlt
-		card.Position = UDim2.new(col * 0.34, 0, 0, row * 220)
+		card.LayoutOrder = i
 		card.Size = UDim2.new(0.32, 0, 0, 208)
 		card.Parent = grid
 		Theme.corner(card, 16)
@@ -316,7 +346,7 @@ function HubPanel.create(parent: Instance): HubApi
 	local cast = Instance.new("Frame")
 	cast.Name = "MeetTheCats"
 	cast.BackgroundColor3 = BrandCatalog.InkColor
-	cast.Position = UDim2.new(0.68, 0, 0, 220)
+	cast.LayoutOrder = #tiles + 1
 	cast.Size = UDim2.new(0.32, 0, 0, 208)
 	cast.Parent = grid
 	Theme.corner(cast, 16)

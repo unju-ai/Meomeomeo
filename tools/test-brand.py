@@ -37,11 +37,14 @@ end
 local Instance = {}
 function Instance.new(class)
     local values = { ClassName = class, Name = class, children = {},
+        AbsoluteSize = { X = 780, Y = 560 }, Changed = signal(),
         MouseButton1Click = signal(), FocusLost = signal() }
     local object
     object = setmetatable({}, {
         __index = function(_, key)
-            if key == "Destroy" then
+            if key == "GetPropertyChangedSignal" then
+                return function() return values.Changed end
+            elseif key == "Destroy" then
                 return function()
                     if values.Parent then
                         local index = table.find(values.Parent.children, object)

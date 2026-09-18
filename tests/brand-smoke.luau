@@ -158,3 +158,19 @@ for _, host in BrandCatalog.hosts() do
 end
 assert(#ModeCatalog.all() == 5, "Hosts are not an extra game mode")
 print("PASS: hub host entry points and shared portrait identity")
+
+local responsiveGrid = castHub.root:FindFirstChild("Grid")
+local gridLayout = responsiveGrid:FindFirstChildWhichIsA("UIGridLayout")
+assert(responsiveGrid.ClassName == "ScrollingFrame")
+assert(responsiveGrid.AutomaticCanvasSize == Enum.AutomaticSize.Y)
+for _, example in {{780, 3}, {600, 2}, {351, 1}} do
+	castHub.root.AbsoluteSize = {X = example[1], Y = 560}
+	castHub.root.Changed:Fire()
+	assert(gridLayout.CellSize[1] == 1 / example[2], "Wrong responsive column count")
+	local cellWidth = (example[1] - 36) * gridLayout.CellSize[1] + gridLayout.CellSize[2]
+	assert(cellWidth >= 200, "Cards became too narrow to read")
+end
+assert(castHub.root:FindFirstChild("Closet").Position[4] == 76)
+assert(castHub.root:FindFirstChild("Title").Size[2] == 0)
+assert(cast.LayoutOrder == 6, "Trio must stay after the game tiles")
+print("PASS: hub columns, narrow header and scrollable cast access")
