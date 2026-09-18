@@ -343,3 +343,11 @@ Automated verification: 108 Luau sources compile and all nine repository smoke s
 The chat panel fits the viewport up to 340 × 280 and appears above the hub. Send a message and check the waiting indicator; clicking Send or pressing Enter again should preserve the next draft without sending a duplicate. A reply restores Send. Blank messages do nothing.
 
 Build a longer conversation: messages should stay in order and follow the latest reply when already at the bottom. Scroll up and confirm an incoming reply leaves your reading position alone. Sending a new message resumes following. Reopening a host clears the old conversation and waiting state. Validate these behaviors in Studio, including touch keyboard open/close; keyboard occlusion has not been verified.
+
+## Talking-cat hub guide (2026-09-19)
+
+Ask each host about Cat Rift, Yarn Run, Koi Pond, Yarn Party and Meme Arcade. The reply should describe the selected game, point to its hub Play button, and end with a host-specific aside. Try “help”, uppercase names, “YARN-RUN”, “fishing”, and “rift or koi?”; help and multiple-game questions should list the open stalls. Unrelated conversation should retain the existing authored lines. Ordinary NPC behavior is unchanged.
+
+These authored guide answers run before either mock or HTTP AI completion. They do not need API keys. Meme Arcade is described as simulated play-yarn trading. The chat placeholder tells players how to discover the guide.
+
+Verified: all 109 Luau sources compile; brand/chat regression checks cover all 15 host/game pairs, aliases, word boundaries, menu replies and ordinary NPC fallback. Studio interaction testing remains pending.

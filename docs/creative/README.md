@@ -122,3 +122,7 @@ The integration also fixes two startup blockers found during validation: `Theme.
 Studio checklist: verify three hosts at the lobby, read each Talk prompt, confirm the authored voices differ, ensure all 14 draft entries remain, start practice, verify hosts do not obstruct movement, and complete the existing nexus loop. Check phone and desktop UI layouts. This pass has not been playtested in Roblox Studio.
 
 Next: replace host primitives with approved meshes; capture a real match for visual alignment; make a champion model sheet from `ChampionLooks`; record the Options cast; decide the exact external financial product before implementing its integration. Existing NPC/HTTP text moderation and production validation of receipt persistence/SIWE are separate work, not solved by this concept merge.
+
+### The trio as hub guides
+
+`src/shared/HostGuide.luau` connects all three hosts to the five game stalls. Game descriptions come from `ModeCatalog`; each host adds a distinct authored aside. MEO overestimates himself, ME gives practical deadpan guidance, and MO reaches an absurd conclusion. “Help” lists playable stalls. Recognized game questions use these authored replies with both mock and HTTP providers, so switching providers preserves the core onboarding dialogue.

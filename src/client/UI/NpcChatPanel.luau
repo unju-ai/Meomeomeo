@@ -155,6 +155,7 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			title.Text = `Talk · {npcName}`
 			root.Visible = true
 			local host = BrandCatalog.host(npcId)
+			box.PlaceholderText = if host then "Ask about a game, or say help" else "mrrp?"
 			append(npcName, if host then host.greeting else "Mrrp. What is on your mind?")
 		end,
 		close = closeChat,

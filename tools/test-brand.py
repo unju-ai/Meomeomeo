@@ -80,6 +80,7 @@ modules = [
     ("ChampionCatalog", "src/shared/ChampionCatalog.luau"),
     ("ModeCatalog", "src/shared/ModeCatalog.luau"),
     ("YarnRunCatalog", "src/shared/YarnRunCatalog.luau"),
+    ("HostGuide", "src/shared/HostGuide.luau"),
     ("NpcCatalog", "src/server/Npcs/NpcCatalog.luau"),
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),

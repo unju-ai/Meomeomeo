@@ -216,3 +216,23 @@ end
 assert(chat.root.Size[1] == 1 and chat.root.Size[2] == -32)
 assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.X == 340)
 print("PASS: chat sizing, pending requests, whitespace, transcript order and scroll follow")
+
+for _, host in BrandCatalog.hosts() do
+	for _, mode in ModeCatalog.all() do
+		local reply = HostGuide.reply(host.id, "Tell me about " .. string.upper(mode.title) .. "?")
+		assert(reply and string.find(reply, mode.title, 1, true))
+		assert(string.find(reply, "Play button", 1, true))
+		local context = {npc = NpcCatalog.get(host.id), playerName = "Cat", phase = "Lobby", scoreline = ""}
+		assert(MockAiProvider.complete(mode.title, context) == reply)
+	end
+	local help = HostGuide.reply(host.id, "help")
+	for _, mode in ModeCatalog.all() do assert(string.find(help, mode.title, 1, true)) end
+	assert(HostGuide.reply(host.id, "rift or koi?") == help)
+	assert(HostGuide.reply(host.id, "party") ~= HostGuide.reply(host.id, "koi"))
+	assert(HostGuide.reply(host.id, "YARN-RUN") == HostGuide.reply(host.id, "yarn run"))
+	assert(HostGuide.reply(host.id, "drifting apart yearly") == nil)
+	assert(string.find(HostGuide.reply(host.id, "arcade"), "play yarn, not real money", 1, true))
+end
+assert(HostGuide.reply("OldTom", "help") == nil)
+assert(HostGuide.reply("HostMo", "hello") == nil)
+print("PASS: all host/game answers, menu, aliases, word boundaries and ordinary NPC fallback")

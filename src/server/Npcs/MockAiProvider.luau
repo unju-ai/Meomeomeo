@@ -1,5 +1,7 @@
 --!strict
 
+local HostGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HostGuide"))
+
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 
@@ -43,6 +45,8 @@ local FALLBACK = {
 local MockAiProvider = {}
 
 function MockAiProvider.complete(message: string, context: ChatContext): string
+	local guidance = HostGuide.reply(context.npc.id, message)
+	if guidance then return guidance end
 	local host = BrandCatalog.host(context.npc.id)
 	local pool = if host then host.lines else LINES[context.npc.id] or FALLBACK
 	local template = pool[(string.len(message) % #pool) + 1] or FALLBACK[1]
