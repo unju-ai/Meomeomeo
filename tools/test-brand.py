@@ -38,7 +38,7 @@ local Instance = {}
 function Instance.new(class)
     local values = { ClassName = class, Name = class, children = {},
         AbsoluteSize = { X = 780, Y = 560 }, Changed = signal(),
-        MouseButton1Click = signal(), FocusLost = signal() }
+        MouseButton1Click = signal(), Activated = signal(), FocusLost = signal() }
     local object
     object = setmetatable({}, {
         __index = function(_, key)

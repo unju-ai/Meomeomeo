@@ -351,3 +351,9 @@ Ask each host about Cat Rift, Yarn Run, Koi Pond, Yarn Party and Meme Arcade. Th
 These authored guide answers run before either mock or HTTP AI completion. They do not need API keys. Meme Arcade is described as simulated play-yarn trading. The chat placeholder tells players how to discover the guide.
 
 Verified: all 109 Luau sources compile; brand/chat regression checks cover all 15 host/game pairs, aliases, word boundaries, menu replies and ordinary NPC fallback. Studio interaction testing remains pending.
+
+## Tappable host questions (2026-09-19)
+
+Open MEO, ME or MO. The topic row contains **All games** followed by each playable game from `ModeCatalog`. Swipe horizontally to reach the later questions. Tapping a topic sends it through the same chat request path; it does not launch a game or erase the text input draft. While a reply is pending, additional topic taps should do nothing. Switching hosts resets the topic scroll. Ordinary NPCs hide this row and keep the compact chat size.
+
+The host panel can grow to 340 × 332 while remaining bounded by its parent viewport. Verify topic scrolling, 44-pixel-high buttons, transcript space and text entry with Studio's phone emulator. Automated checks cover all six questions, pending-request suppression, preserved drafts, ordinary NPC behavior and the existing host guide; 109 sources compile and the Rojo place builds. Touch rendering remains unverified.

@@ -1,6 +1,7 @@
 --!strict
 
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
+local ModeCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ModeCatalog"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local NpcChatPanel = {}
@@ -81,6 +82,21 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	send.Size = UDim2.fromOffset(76, 36)
 	send.TextSize = 14
 
+	local topics = Instance.new("ScrollingFrame")
+	topics.Name = "Topics"
+	topics.Position = UDim2.fromOffset(0, 36)
+	topics.Size = UDim2.new(1, 0, 0, 48)
+	topics.BackgroundTransparency = 1
+	topics.BorderSizePixel = 0
+	topics.ScrollBarThickness = 3
+	topics.ScrollingDirection = Enum.ScrollingDirection.X
+	topics.AutomaticCanvasSize = Enum.AutomaticSize.X
+	topics.CanvasSize = UDim2.fromOffset(0, 0)
+	topics.Visible = false
+	topics.Parent = root
+	Theme.list(topics, 6, Enum.FillDirection.Horizontal)
+	local topicButtons: { TextButton } = {}
+
 	local activeId = ""
 	local session = 0
 	local sendHandler: ((string, string, (string, string) -> ()) -> ())? = nil
@@ -93,6 +109,10 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		send.Text = if value then "…" else "Send"
 		send.Active = not value
 		send.AutoButtonColor = not value
+		for _, button in topicButtons do
+			button.Active = not value
+			button.AutoButtonColor = not value
+		end
 	end
 
 	local function append(who: string, text: string)
@@ -107,12 +127,12 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		end
 	end
 
-	local function submit()
-		local text = box.Text:match("^%s*(.-)%s*$") or ""
+	local function submit(question: string?)
+		local text = (question or box.Text):match("^%s*(.-)%s*$") or ""
 		if text == "" or activeId == "" or pending or not sendHandler or not root.Visible then
 			return
 		end
-		box.Text = ""
+		if not question then box.Text = "" end
 		followLatest = true
 		setPending(true)
 		append("You", text)
@@ -127,7 +147,22 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		end
 	end
 
-	send.MouseButton1Click:Connect(submit)
+	local function addTopic(id: string, label: string, question: string)
+		local button = Theme.button(topics, id, label, Theme.peach)
+		button.Size = UDim2.fromOffset(112, 44)
+		button.TextSize = 13
+		button.LayoutOrder = #topicButtons + 1
+		table.insert(topicButtons, button)
+		button.Activated:Connect(function()
+			if topics.Visible then submit(question) end
+		end)
+	end
+	addTopic("Help", "All games", "help")
+	for _, mode in ModeCatalog.all() do
+		if mode.playable then addTopic(mode.id, mode.title, mode.title) end
+	end
+
+	send.MouseButton1Click:Connect(function() submit() end)
 	box.FocusLost:Connect(function(enter)
 		if enter then
 			submit()
@@ -155,6 +190,11 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			title.Text = `Talk · {npcName}`
 			root.Visible = true
 			local host = BrandCatalog.host(npcId)
+			topics.Visible = host ~= nil
+			topics.CanvasPosition = Vector2.new(0, 0)
+			bounds.MaxSize = Vector2.new(340, if host then 332 else 280)
+			log.Position = UDim2.fromOffset(0, if host then 88 else 36)
+			log.Size = UDim2.new(1, 0, 1, if host then -136 else -84)
 			box.PlaceholderText = if host then "Ask about a game, or say help" else "mrrp?"
 			append(npcName, if host then host.greeting else "Mrrp. What is on your mind?")
 		end,

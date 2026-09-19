@@ -236,3 +236,31 @@ end
 assert(HostGuide.reply("OldTom", "help") == nil)
 assert(HostGuide.reply("HostMo", "hello") == nil)
 print("PASS: all host/game answers, menu, aliases, word boundaries and ordinary NPC fallback")
+
+chat.open("HostMeo", "MEO")
+local topics = chat.root:FindFirstChild("Topics")
+assert(topics.Visible and topics.AutomaticCanvasSize == Enum.AutomaticSize.X)
+local questions = {}
+chat.onSend(function(id, question, reply)
+	assert(id == "HostMeo")
+	table.insert(questions, question)
+	pending = reply
+end)
+input.Text = "my unfinished thought"
+topics:FindFirstChild("Help").Activated:Fire()
+assert(questions[1] == "help" and input.Text == "my unfinished thought")
+topics:FindFirstChild("CatRift").Activated:Fire()
+assert(#questions == 1, "Quick topics must respect pending requests")
+pending("MEO", "Ready")
+for _, mode in ModeCatalog.all() do
+	topics:FindFirstChild(mode.id).Activated:Fire()
+	assert(questions[#questions] == mode.title)
+	pending("MEO", "Ready")
+end
+assert(#questions == 6 and input.Text == "my unfinished thought")
+chat.open("OldTom", "Old Tom")
+assert(not topics.Visible)
+topics:FindFirstChild("Help").Activated:Fire()
+assert(#questions == 6, "Ordinary NPCs should not send host topics")
+assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 280)
+print("PASS: tappable host topics, all game questions, draft preservation and pending guard")
