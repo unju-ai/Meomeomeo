@@ -2,9 +2,10 @@
 
 local Workspace = game:GetService("Workspace")
 
+local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
-local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local JungleBotLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("JungleBotLogic"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -37,14 +38,12 @@ type Tune = {
 	AvoidAoe: boolean,
 	DiveIq: boolean,
 	UseLens: boolean,
-	ShopItems: { string },
 }
 
 type BotBrain = {
 	userId: number,
 	lane: string,
 	visitedLane: boolean,
-	bought: number,
 	nextThink: number,
 	nextAbility: number,
 	jungler: boolean,
@@ -574,6 +573,36 @@ local function laneViews(team: Types.TeamId, viewerUserId: number): { JungleBotL
 	return lanes
 end
 
+local function visibleCleaveTargets(team: Types.TeamId, origin: Vector3, userId: number): number
+	local snapshot = matchSnapshot()
+	if not snapshot then
+		return 0
+	end
+	local count = 0
+	for _, other in snapshot.players do
+		if other.team ~= team and other.userId ~= userId then
+			local combat = CombatService.get(other.userId)
+			local otherRoot = CombatService.rootOf(other.userId)
+			if combat and combat.alive and otherRoot and ItemKits.inCleave(origin, otherRoot.Position) then
+				if VisionService.canSeeChampion(userId, other.userId) then
+					count += 1
+				end
+			end
+		end
+	end
+	return count
+end
+
+local function enemyWardInLens(team: Types.TeamId, origin: Vector3): boolean
+	local radius = Config.Vision.LensRadius
+	for _, ward in WardService.list() do
+		if ward.team ~= team and (ward.part.Position - origin).Magnitude <= radius then
+			return true
+		end
+	end
+	return false
+end
+
 local function visibleEnemy(team: Types.TeamId, origin: Vector3, userId: number): JungleBotLogic.EnemyView?
 	local champ = nearestChampion(team, origin, Config.AutoAttack.AcquireRange + 8, userId)
 	if not champ then
@@ -701,30 +730,48 @@ local function think(brain: BotBrain, dt: number)
 		return
 	end
 
-	if atFountain and brain.visitedLane and brain.bought < #tune.ShopItems then
-		local nextItem = tune.ShopItems[brain.bought + 1]
-		local def = if nextItem then ItemCatalog.get(nextItem) else nil
-		if nextItem and def and matchPlayer.gold >= def.cost then
-			local result = ShopService.grant(brain.userId, nextItem)
-			if result.ok then
-				brain.bought += 1
+	local role = "Mage"
+	local champDef = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
+	if champDef then
+		role = champDef.role
+	end
+	if BotShopLogic.shouldShop(currentDifficulty, atFountain, brain.visitedLane) then
+		-- One visit finishes whatever the purse allows. The plan is finite,
+		-- and buyAt refuses a second copy or a purchase off the fountain.
+		-- Stay to heal only when this visit actually spent gold. A finished
+		-- plan (or a core they cannot afford yet) does not pin them here.
+		local spent = false
+		for _ = 1, BotShopLogic.MaxBuysPerVisit do
+			local itemId = BotShopLogic.nextItem(currentDifficulty, role, matchPlayer.gold, ShopService.owned(brain.userId))
+			if not itemId then
+				break
 			end
+			local result = ShopService.buyAt(brain.userId, itemId, root.Position)
+			if not result.ok then
+				break
+			end
+			spent = true
 		end
-		if hpRatio < 0.92 then
+		if spent and hpRatio < 0.92 then
 			releaseCamp(brain)
 			return
 		end
 	end
 
-	if tune.UseLens and ShopService.has(brain.userId, "WhiskerLens") and now >= WardService.lensReadyAt(brain.userId) then
-		for _, ward in WardService.list() do
-			if ward.team ~= team and WardService.canSee(team, ward.id, root.Position) then
-				if (ward.part.Position - root.Position).Magnitude <= Config.Vision.LensRadius then
-					CombatService.useLensFor(brain.userId)
-					break
-				end
-			end
-		end
+	if BotShopLogic.shouldCleave(
+		visibleCleaveTargets(team, root.Position, brain.userId),
+		ShopService.has(brain.userId, ItemKits.CleaveId),
+		ItemKits.cleaveReady(now, combat.cleaveReadyAt)
+	) then
+		CombatService.useCleaveFor(brain.userId)
+	end
+
+	if tune.UseLens and BotShopLogic.shouldLens(
+		ShopService.has(brain.userId, "WhiskerLens"),
+		now >= WardService.lensReadyAt(brain.userId),
+		enemyWardInLens(team, root.Position)
+	) then
+		CombatService.useLensFor(brain.userId)
 	end
 
 	if tune.Ward and brain.jungler and not brain.warded and brain.visitedLane then
@@ -853,7 +900,6 @@ function BotService.start()
 				userId = matchPlayer.userId,
 				lane = lane,
 				visitedLane = false,
-				bought = 0,
 				nextThink = 0,
 				nextAbility = 0,
 				jungler = jungler,
