@@ -1,8 +1,9 @@
 --!strict
 
 -- Cat Rift ability bar. QWER + item actives (4/5/6/7) share cooldown sweep,
--- ready flash, and mana-gate tint. Numbers still come from combat.cooldowns /
--- readyAt — this only paints.
+-- ready flash, and mana-gate tint. HP / mana / XP fills read combat + XP from
+-- the match snapshot (current/max + level label). Numbers still come from
+-- combat.cooldowns / readyAt — this only paints.
 
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -12,6 +13,7 @@ local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
+local ResourceBars = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ResourceBars"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -34,6 +36,22 @@ local MANA_BG = Color3.fromRGB(92, 48, 44)
 local UNLEARNED_BG = Color3.fromRGB(52, 38, 36)
 local RANK_FLASH = Theme.amber
 local READY_FLASH = Theme.mint
+
+local HP_FILL = Color3.fromRGB(ResourceBars.HpFill[1], ResourceBars.HpFill[2], ResourceBars.HpFill[3])
+local HP_TRACK = Color3.fromRGB(ResourceBars.HpTrack[1], ResourceBars.HpTrack[2], ResourceBars.HpTrack[3])
+local MANA_FILL = Color3.fromRGB(ResourceBars.ManaFill[1], ResourceBars.ManaFill[2], ResourceBars.ManaFill[3])
+local MANA_TRACK = Color3.fromRGB(ResourceBars.ManaTrack[1], ResourceBars.ManaTrack[2], ResourceBars.ManaTrack[3])
+local MANA_OK_STROKE = Color3.fromRGB(ResourceBars.ManaOkStroke[1], ResourceBars.ManaOkStroke[2], ResourceBars.ManaOkStroke[3])
+local XP_FILL = Color3.fromRGB(ResourceBars.XpFill[1], ResourceBars.XpFill[2], ResourceBars.XpFill[3])
+local XP_TRACK = Color3.fromRGB(ResourceBars.XpTrack[1], ResourceBars.XpTrack[2], ResourceBars.XpTrack[3])
+
+type ResourcePaint = {
+	track: Frame,
+	fill: Frame,
+	label: TextLabel,
+	stroke: UIStroke,
+	warn: boolean,
+}
 
 type SlotPaint = {
 	cell: Frame,
@@ -196,12 +214,52 @@ local function paintSlotFrame(slot: SlotPaint, now: number)
 	end
 end
 
+local function makeResource(parent: Instance, name: string, y: number, height: number, trackColor: Color3, fillColor: Color3, strokeColor: Color3): ResourcePaint
+	local track = Instance.new("Frame")
+	track.Name = name
+	track.BackgroundColor3 = trackColor
+	track.Position = UDim2.fromOffset(0, y)
+	track.Size = UDim2.new(1, 0, 0, height)
+	track.ClipsDescendants = true
+	track.Active = false
+	track.Parent = parent
+	Theme.corner(track, 7)
+	local stroke = Theme.stroke(track, strokeColor, 1.25, 0.35)
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = fillColor
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.Active = false
+	fill.ZIndex = 2
+	fill.Parent = track
+	Theme.corner(fill, 7)
+
+	local label = Theme.text(track, "Value", "", if height >= 14 then 12 else 11, Theme.cream, Theme.fontMono)
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextStrokeTransparency = 0.45
+	label.TextStrokeColor3 = Theme.ink
+	label.ZIndex = 3
+	label.Active = false
+
+	return {
+		track = track,
+		fill = fill,
+		label = label,
+		stroke = stroke,
+		warn = false,
+	}
+end
+
 function AbilityBar.create(parent: Instance): BarApi
 	local root = Instance.new("Frame")
 	root.Name = "AbilityBar"
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.new(0.5, 0, 1, -16)
-	root.Size = UDim2.fromOffset(640, 168)
+	-- Tall enough for labeled HP / mana / XP without covering the purse chip above.
+	root.Size = UDim2.fromOffset(640, 188)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Active = false
@@ -210,51 +268,19 @@ function AbilityBar.create(parent: Instance): BarApi
 	Theme.stroke(root, Theme.peach, 2, 0.2)
 	Theme.pad(root, 10)
 
-	local meta = Theme.text(root, "Meta", "Champion · Lv 1 · 0 / 0 / 0 · 0g", 14, Theme.cream, Theme.fontTitle)
+	local meta = Theme.text(root, "Meta", "Champion · 0 / 0 / 0 · 0g", 14, Theme.cream, Theme.fontTitle)
 	meta.Size = UDim2.new(1, 0, 0, 18)
 
-	local hp = Instance.new("Frame")
-	hp.Name = "HP"
-	hp.BackgroundColor3 = Theme.panelAlt
-	hp.Position = UDim2.fromOffset(0, 22)
-	hp.Size = UDim2.new(1, 0, 0, 10)
-	hp.Parent = root
-	Theme.corner(hp, 6)
-	local hpFill = Instance.new("Frame")
-	hpFill.BackgroundColor3 = Theme.good
-	hpFill.Size = UDim2.fromScale(1, 1)
-	hpFill.Parent = hp
-	Theme.corner(hpFill, 6)
-
-	local mp = Instance.new("Frame")
-	mp.Name = "MP"
-	mp.BackgroundColor3 = Theme.panelAlt
-	mp.Position = UDim2.fromOffset(0, 36)
-	mp.Size = UDim2.new(1, 0, 0, 8)
-	mp.Parent = root
-	Theme.corner(mp, 6)
-	local mpFill = Instance.new("Frame")
-	mpFill.BackgroundColor3 = Theme.blue
-	mpFill.Size = UDim2.fromScale(1, 1)
-	mpFill.Parent = mp
-	Theme.corner(mpFill, 6)
-
-	local xp = Instance.new("Frame")
-	xp.Name = "XP"
-	xp.BackgroundColor3 = Theme.panelAlt
-	xp.Position = UDim2.fromOffset(0, 48)
-	xp.Size = UDim2.new(1, 0, 0, 6)
-	xp.Parent = root
-	Theme.corner(xp, 6)
-	local xpFill = Instance.new("Frame")
-	xpFill.BackgroundColor3 = Theme.amber
-	xpFill.Size = UDim2.fromScale(0, 1)
-	xpFill.Parent = xp
-	Theme.corner(xpFill, 6)
+	local hp = makeResource(root, "HP", 22, 16, HP_TRACK, HP_FILL, Theme.cream)
+	local mp = makeResource(root, "MP", 42, 14, MANA_TRACK, MANA_FILL, MANA_OK_STROKE)
+	local xp = makeResource(root, "XP", 60, 10, XP_TRACK, XP_FILL, Theme.amber)
+	xp.label.TextSize = 11
+	xp.label.TextColor3 = Theme.ink
+	xp.label.TextStrokeTransparency = 0.7
 
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
-	row.Position = UDim2.fromOffset(0, 60)
+	row.Position = UDim2.fromOffset(0, 76)
 	row.Size = UDim2.new(1, 0, 0, 56)
 	row.Parent = root
 	Theme.list(row, 8, Enum.FillDirection.Horizontal)
@@ -266,7 +292,7 @@ function AbilityBar.create(parent: Instance): BarApi
 
 	local tools = Instance.new("Frame")
 	tools.BackgroundTransparency = 1
-	tools.Position = UDim2.fromOffset(0, 120)
+	tools.Position = UDim2.fromOffset(0, 140)
 	tools.Size = UDim2.new(1, 0, 0, 28)
 	tools.Parent = root
 	Theme.list(tools, 8, Enum.FillDirection.Horizontal)
@@ -317,6 +343,17 @@ function AbilityBar.create(parent: Instance): BarApi
 	death.ZIndex = 5
 	Theme.corner(death, 10)
 
+	local function paintWarnStroke(paint: ResourcePaint, now: number, warnColor: Color3, calmColor: Color3, calmTransparency: number)
+		local pulse = ResourceBars.warnPulse(now, paint.warn)
+		if pulse > 0 then
+			paint.stroke.Color = warnColor
+			paint.stroke.Transparency = math.clamp(0.55 - 0.4 * pulse, 0.08, 0.55)
+		else
+			paint.stroke.Color = calmColor
+			paint.stroke.Transparency = calmTransparency
+		end
+	end
+
 	local function tickFrames()
 		if not root.Visible then
 			return
@@ -328,6 +365,8 @@ function AbilityBar.create(parent: Instance): BarApi
 		for _, slot in itemSlots do
 			paintSlotFrame(slot, now)
 		end
+		paintWarnStroke(hp, now, Theme.coral, Theme.cream, 0.35)
+		paintWarnStroke(mp, now, Theme.coral, MANA_OK_STROKE, 0.32)
 	end
 
 	RunService.RenderStepped:Connect(tickFrames)
@@ -435,14 +474,21 @@ function AbilityBar.create(parent: Instance): BarApi
 				.. psiBit
 				.. charmBit
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
-				.. ` · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
+				.. ` · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. aaBit
-			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
+			xp.fill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
+			xp.label.Text = ResourceBars.xpLabel(level, into, need)
 			if combat then
-				hpFill.Size = UDim2.fromScale(if combat.maxHealth > 0 then combat.health / combat.maxHealth else 0, 1)
-				mpFill.Size = UDim2.fromScale(if combat.maxMana > 0 then combat.mana / combat.maxMana else 0, 1)
+				local hpRatio = ResourceBars.ratio(combat.health, combat.maxHealth)
+				local mpRatio = ResourceBars.ratio(combat.mana, combat.maxMana)
+				hp.fill.Size = UDim2.fromScale(hpRatio, 1)
+				mp.fill.Size = UDim2.fromScale(mpRatio, 1)
+				hp.label.Text = ResourceBars.formatPair(combat.health, combat.maxHealth)
+				mp.label.Text = ResourceBars.formatPair(combat.mana, combat.maxMana)
+				hp.warn = ResourceBars.isLowHp(combat.health, combat.maxHealth)
 				local t = Workspace:GetServerTimeNow()
 				local ranks = combat.ranks or matchPlayer.ranks or Progression.emptyRanks()
+				local manaCosts: { number } = {}
 				if champ then
 					for _, slotName in Constants.Slots do
 						local ability = champ.abilities[slotName]
@@ -456,6 +502,9 @@ function AbilityBar.create(parent: Instance): BarApi
 						noteReadyAt(paint, readyAt, t, fallback)
 						paint.usable = rank > 0
 						paint.manaLow = paint.usable and manaCost > 0 and combat.mana < manaCost
+						if paint.usable and manaCost > 0 then
+							table.insert(manaCosts, manaCost)
+						end
 						if rank <= 0 then
 							paint.label.Text = `{slotName}{rankBit}\n{if slotName == "R" then "Lv 6" else "soon"}`
 						elseif ability and cd > COOLING_EPS then
@@ -467,6 +516,7 @@ function AbilityBar.create(parent: Instance): BarApi
 						end
 					end
 				end
+				mp.warn = ResourceBars.isManaGated(combat.mana, manaCosts)
 				if not combat.alive then
 					local left = math.max(0, (combat.respawnAt or matchPlayer.respawnAt or t) - t)
 					death.Visible = true
@@ -573,6 +623,12 @@ function AbilityBar.create(parent: Instance): BarApi
 				death.Visible = false
 				recallBar.Visible = false
 				recallLabel.Visible = false
+				hp.fill.Size = UDim2.fromScale(0, 1)
+				mp.fill.Size = UDim2.fromScale(0, 1)
+				hp.label.Text = ""
+				mp.label.Text = ""
+				hp.warn = false
+				mp.warn = false
 				for _, slotName in Constants.Slots do
 					local paint = abilitySlots[slotName]
 					paint.usable = false
