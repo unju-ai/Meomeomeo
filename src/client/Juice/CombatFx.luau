@@ -14,6 +14,7 @@ local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FountainRegenJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
+local RespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RespawnJuice"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
@@ -1649,6 +1650,116 @@ end
 
 function CombatFx.clearFountainRegen(userId: number)
 	clearFollow(`fountain:{userId}`)
+end
+
+-- One calm mint puff per return. No sparks, no heal SFX — fountain regen
+-- keeps the sustained ring for actual pad ticks.
+local respawnArrivalAt: { [number]: number } = {}
+
+local function respawnPuff(at: Vector3, cue: string)
+	local mint = rgbOf(RespawnJuice.Mint)
+	local scale = RespawnJuice.puffScale(cue)
+	local ball = takePart("RespawnPuff")
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.new(scale, scale * 0.7, scale)
+	ball.CFrame = CFrame.new(at + Vector3.new(0, 0.85, 0))
+	ball.Material = Enum.Material.ForceField
+	ball.Color = mint
+	ball.Transparency = RespawnJuice.puffTransparency(cue)
+	release(ball, RespawnJuice.PuffSeconds)
+
+	local ring = takePart("RespawnRing")
+	ring.Shape = Enum.PartType.Cylinder
+	local span = RespawnJuice.ringSpan(cue)
+	ring.Size = Vector3.new(0.1, span, span)
+	ring.CFrame = CFrame.new(at.X, at.Y + 0.16, at.Z) * CFrame.Angles(0, 0, math.rad(90))
+	flashPart(ring, mint, RespawnJuice.ringTransparency(cue))
+	release(ring, RespawnJuice.PuffSeconds + 0.05)
+end
+
+local function spawnRespawnBack(at: Vector3)
+	local part = Instance.new("Part")
+	part.Name = "RespawnBack"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(at)
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoRespawnBack"
+	gui.Size = UDim2.fromOffset(72, 22)
+	gui.StudsOffset = Vector3.new(0, 1.1, 0)
+	gui.AlwaysOnTop = false
+	gui.MaxDistance = 52
+	gui.Adornee = part
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Theme.fontTitle
+	label.TextSize = 14
+	label.TextColor3 = rgbOf(RespawnJuice.Mint)
+	label.TextStrokeColor3 = rgbOf(RespawnJuice.Ink)
+	label.TextStrokeTransparency = 0.62
+	label.TextTransparency = 0.38
+	label.Text = RespawnJuice.backLabel()
+	label.Parent = gui
+
+	local born = os.clock()
+	local life = RespawnJuice.BackSeconds
+	local conn: RBXScriptConnection? = nil
+	conn = RunService.Heartbeat:Connect(function()
+		local age = os.clock() - born
+		if age >= life or not part.Parent then
+			if conn then
+				conn:Disconnect()
+			end
+			part:Destroy()
+			return
+		end
+		local fade = if age < life * 0.4 then 0.38 else 0.38 + ((age / life) - 0.4) * 1.05
+		label.TextTransparency = math.clamp(fade, 0, 1)
+	end)
+end
+
+-- Local: mint pad puff + delayed silhouette wash.
+-- Ally: smaller puff and a faint "back". Enemy: fog-gated faint ring, no label.
+function CombatFx.respawnArrive(userId: number, cue: string, team: string?)
+	if not RespawnJuice.shouldPaint(cue) then
+		return
+	end
+	local nowClock = os.clock()
+	local last = respawnArrivalAt[userId]
+	if last ~= nil and not RespawnJuice.arrivalDue(last, nowClock) then
+		return
+	end
+	respawnArrivalAt[userId] = nowClock
+	local root = rootOf(userId)
+	local x, z = RespawnJuice.arrivalXZ(team, if root then root.Position.X else nil, if root then root.Position.Z else nil)
+	if typeof(x) ~= "number" or typeof(z) ~= "number" then
+		return
+	end
+	local y = 3
+	if root and x == root.Position.X and z == root.Position.Z then
+		y = root.Position.Y
+	end
+	local at = Vector3.new(x, y, z)
+	respawnPuff(at, cue)
+	if RespawnJuice.wantsBackLabel(cue) then
+		spawnRespawnBack(at + Vector3.new(0, 2.2, 0))
+	end
+	if RespawnJuice.wantsWash(cue) then
+		local amount = RespawnJuice.washAmount(cue)
+		task.delay(RespawnJuice.WashDelay, function()
+			washModel(userId, RespawnJuice.Mint, RespawnJuice.WashSeconds, amount)
+		end)
+	end
 end
 
 return CombatFx

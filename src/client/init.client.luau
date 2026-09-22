@@ -29,6 +29,7 @@ local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
 local LevelUpJuice = require(Shared:WaitForChild("LevelUpJuice"))
 local FountainRegenJuice = require(Shared:WaitForChild("FountainRegenJuice"))
 local RecallJuice = require(Shared:WaitForChild("RecallJuice"))
+local RespawnJuice = require(Shared:WaitForChild("RespawnJuice"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
@@ -228,6 +229,7 @@ local latestArcade: Types.ArcadeSnapshot? = nil
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
+local peerDown: { [number]: boolean } = {}
 local fountainFloatAt = -FountainRegenJuice.FloatGap
 local lastFountainRegen = false
 local lastRecallTick = 0
@@ -541,6 +543,42 @@ local function applyShellView()
 	paintMemeTape(nil)
 end
 
+-- Ally return from the roster respawnAt edge. Local countdown uses combat.
+-- Enemies only if their fountain pad is already lit.
+local function notePeerRespawns(snapshot: Types.MatchSnapshot)
+	if not RespawnJuice.modeAllows(gameMode, snapshot.phase) then
+		table.clear(peerDown)
+		hud.respawn.hide()
+		return
+	end
+	local nowS = Workspace:GetServerTimeNow()
+	local mine = snapshot.players[tostring(player.UserId)]
+	local nextDown: { [number]: boolean } = {}
+	for _, matchPlayer in snapshot.players do
+		local down = RespawnJuice.downFromStamp(matchPlayer.respawnAt, nowS)
+		nextDown[matchPlayer.userId] = down
+		if matchPlayer.userId == player.UserId then
+			if down then
+				hud.respawn.show(matchPlayer.respawnAt)
+			end
+			continue
+		end
+		local was = peerDown[matchPlayer.userId] == true
+		if RespawnJuice.stampReturned(was, matchPlayer.respawnAt, nowS) then
+			local sameTeam = mine ~= nil and matchPlayer.team == mine.team
+			local lit = false
+			if matchPlayer.team == "Blue" or matchPlayer.team == "Red" then
+				lit = FogOfWar.isLit(FountainRegenJuice.padX(matchPlayer.team), FountainRegenJuice.PadZ)
+			end
+			local cue = RespawnJuice.cueKind(player.UserId, matchPlayer.userId, sameTeam, lit)
+			if RespawnJuice.shouldPaint(cue) then
+				CombatFx.respawnArrive(matchPlayer.userId, cue, matchPlayer.team)
+			end
+		end
+	end
+	peerDown = nextDown
+end
+
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	if snapshot == nil then
 		snapshot = Remotes.function_("GetMatchSnapshot"):InvokeServer()
@@ -562,6 +600,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		end
 	end
 	applyShellView()
+	notePeerRespawns(latestMatch)
 	if not inMini() and latestMatch.phase ~= "Lobby" then
 		hud.tips.sync(latestMatch, player.UserId, tutorialIsDone())
 	end
@@ -729,6 +768,27 @@ local function paintLocalRecall(state: Types.CombatState, fresh: boolean)
 	CombatFx.localRecall(player.UserId, true, remain, startedAt, endsAt, fresh)
 end
 
+local function syncRespawnChip(state: Types.CombatState)
+	local phase = if latestMatch then latestMatch.phase else nil
+	if not RespawnJuice.modeAllows(gameMode, phase) then
+		hud.respawn.hide()
+		return
+	end
+	local nowS = Workspace:GetServerTimeNow()
+	if RespawnJuice.localDown(state.alive, state.respawnAt, nowS) then
+		local stamp = state.respawnAt
+		if stamp == nil and latestMatch then
+			local row = latestMatch.players[tostring(player.UserId)]
+			if row then
+				stamp = row.respawnAt
+			end
+		end
+		hud.respawn.show(stamp)
+	else
+		hud.respawn.hide()
+	end
+end
+
 local function applyCombatJuice(state: Types.CombatState)
 	noteRecallChannel(rootedChannel(state))
 	local prev = juiceCombat
@@ -750,6 +810,7 @@ local function applyCombatJuice(state: Types.CombatState)
 	hud.abilities.setFountainRegen(needHp, needMp)
 	CombatFx.fountainRegen(player.UserId, "local", regenerating)
 	lastFountainRegen = regenerating
+	syncRespawnChip(state)
 
 	if not prev then
 		if state.recalling and RecallJuice.modeAllows(gameMode, recallPhase()) then
@@ -761,13 +822,15 @@ local function applyCombatJuice(state: Types.CombatState)
 		end
 		return
 	end
+	local returned = RespawnJuice.justReturned(prev.alive, state.alive)
 	local hpGain = FountainRegenJuice.hpGain(prev.health, state.health)
 	local manaGain = FountainRegenJuice.manaGain(prev.mana, state.mana)
 	if state.health + 0.5 < prev.health then
 		ScreenJuice.damageFlash()
 	elseif state.health > prev.health + 4 then
-		-- Fountain pad ticks stay calm (soft float/ring); kit heals still flash.
-		if not FountainRegenJuice.suppressHealFlash(atFountain, hpGain) then
+		-- Fountain pad ticks stay calm. A respawn fill is not a kit heal,
+		-- even when the body has not replicated onto the pad yet.
+		if not RespawnJuice.skipLoudHeal(returned) and not FountainRegenJuice.suppressHealFlash(atFountain, hpGain) then
 			ScreenJuice.healFlash()
 			Sfx.play("Heal")
 		end
@@ -787,6 +850,9 @@ local function applyCombatJuice(state: Types.CombatState)
 		if popped then
 			fountainFloatAt = os.clock()
 		end
+	end
+	if returned and RespawnJuice.modeAllows(gameMode, recallPhase()) then
+		CombatFx.respawnArrive(player.UserId, "local", team)
 	end
 	if state.level > prev.level then
 		ScreenJuice.levelUp(state.level)
@@ -3313,6 +3379,7 @@ task.spawn(function()
 	while true do
 		task.wait(0.4)
 		if latestMatch and latestMatch.phase == "ChampionSelect" then
+			hud.respawn.hide()
 			hud.select.update(latestMatch, player.UserId)
 		elseif latestMatch and latestMatch.phase == "InProgress" then
 			refreshBars()
@@ -3360,6 +3427,11 @@ task.spawn(function()
 			else
 				recallProgressSeen = 0
 			end
+			if latestCombat and RespawnJuice.modeAllows(gameMode, latestMatch.phase) and RespawnJuice.localDown(latestCombat.alive, latestCombat.respawnAt, Workspace:GetServerTimeNow()) then
+				hud.respawn.show(latestCombat.respawnAt)
+			else
+				hud.respawn.hide()
+			end
 			if latestMatch.practice then
 				local mine = latestMatch.players[tostring(player.UserId)]
 				local character = player.Character
@@ -3371,6 +3443,7 @@ task.spawn(function()
 				hud.tips.tickContextual(atFountain, if mine then mine.gold else 0, hud.shop.root.Visible)
 			end
 		elseif latestMatch and latestMatch.phase == "Ended" then
+			hud.respawn.hide()
 			if lastFountainRegen then
 				clearFountainJuice()
 			end

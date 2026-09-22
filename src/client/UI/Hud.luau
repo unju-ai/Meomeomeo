@@ -26,6 +26,7 @@ local MemeTape = require(script.Parent.MemeTape)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local DeathRecap = require(script.Parent.DeathRecap)
+local RespawnCountdown = require(script.Parent.RespawnCountdown)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
 local HelpPanel = require(script.Parent.HelpPanel)
@@ -62,6 +63,7 @@ export type HudApi = {
 	tape: MemeTape.TapeApi,
 	feed: KillFeed.FeedApi,
 	recap: DeathRecap.RecapApi,
+	respawn: RespawnCountdown.CountdownApi,
 	endScreen: EndScreen.EndApi,
 	settings: SettingsPanel.SettingsApi,
 	help: HelpPanel.HelpApi,
@@ -155,6 +157,7 @@ function Hud.create(): HudApi
 	local minimap = Minimap.create(gui)
 	local feed = KillFeed.create(gui)
 	local recap = DeathRecap.create(gui)
+	local respawn = RespawnCountdown.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local economy = EconomyChip.create(gui)
 	local clock = MatchClock.create(gui)
@@ -185,6 +188,7 @@ function Hud.create(): HudApi
 		minimap.setVisible(false)
 		feed.setVisible(false)
 		recap.hide()
+		respawn.hide()
 		endScreen.setVisible(false)
 		shop.setVisible(false)
 		scoreboard.setVisible(false)
@@ -224,6 +228,7 @@ function Hud.create(): HudApi
 		feed.setVisible(phase == "InProgress" or phase == "Ended")
 		if phase ~= "InProgress" then
 			recap.hide()
+			respawn.hide()
 		end
 		endScreen.setVisible(phase == "Ended")
 		if phase ~= "InProgress" then
@@ -360,6 +365,7 @@ function Hud.create(): HudApi
 		tape = tape,
 		feed = feed,
 		recap = recap,
+		respawn = respawn,
 		endScreen = endScreen,
 		settings = settings,
 		help = help,
