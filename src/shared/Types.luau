@@ -206,6 +206,15 @@ export type QueueStatus = {
 	notice: string?,
 }
 
+export type RiverEpicPhase = "waiting" | "alive" | "returning" | "spent"
+
+-- Canal Levi. The body is still a jungle camp under fog. This is the pit clock and the team buff.
+export type RiverEpicView = {
+	phase: RiverEpicPhase,
+	blueBuff: boolean,
+	redBuff: boolean,
+}
+
 export type MatchSnapshot = {
 	id: string,
 	phase: MatchPhase,
@@ -219,6 +228,7 @@ export type MatchSnapshot = {
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
 	structureFalls: { StructureFall }?,
+	riverEpic: RiverEpicView?,
 	queueCount: number,
 	queue: QueueStatus?,
 	lobbyPlaceId: number?,

@@ -37,6 +37,7 @@ local LINES_MOBA: { { string } } = {
 	{ "G", "Ping wheel · names a visible cat, post, stall, ward, or camp" },
 	{ "G fog", "Attention refuses a hidden cat" },
 	{ "Purse", "Gold, CS, level, and Yarn Cleave cost sit above the ability bar" },
+	{ "Canal Levi", "River epic ~3:00. Last hit's team keeps +8% damage. One respawn" },
 	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
 	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
 	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },

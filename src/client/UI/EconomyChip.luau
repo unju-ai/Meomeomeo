@@ -6,6 +6,7 @@
 
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -14,7 +15,7 @@ local EconomyChip = {}
 export type ChipApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
-	update: (matchPlayer: Types.MatchPlayer) -> (),
+	update: (matchPlayer: Types.MatchPlayer, epic: Types.RiverEpicView?) -> (),
 }
 
 local TONE_COLOR: { [FarmCredit.CleaveTone]: Color3 } = {
@@ -60,12 +61,19 @@ function EconomyChip.create(parent: Instance): ChipApi
 	cleave.TextWrapped = false
 	cleave.ZIndex = 13
 
+	local buff = Theme.text(root, "EpicBuff", "", 12, Theme.amber, Theme.fontTitle)
+	buff.Position = UDim2.fromOffset(0, 42)
+	buff.Size = UDim2.new(1, 0, 0, 16)
+	buff.TextWrapped = false
+	buff.Visible = false
+	buff.ZIndex = 13
+
 	return {
 		root = root,
 		setVisible = function(visible: boolean)
 			root.Visible = visible
 		end,
-		update = function(matchPlayer: Types.MatchPlayer)
+		update = function(matchPlayer: Types.MatchPlayer, epic: Types.RiverEpicView?)
 			local purseGold = matchPlayer.gold or 0
 			local purseCs = matchPlayer.cs or 0
 			gold.Text = `{purseGold}g`
@@ -78,6 +86,11 @@ function EconomyChip.create(parent: Instance): ChipApi
 			)
 			cleave.Text = read.text
 			cleave.TextColor3 = TONE_COLOR[read.tone]
+			local on = epic ~= nil
+				and ((matchPlayer.team == "Blue" and epic.blueBuff) or (matchPlayer.team == "Red" and epic.redBuff))
+			buff.Visible = on
+			buff.Text = if on then RiverEpic.BuffChip else ""
+			root.Size = if on then UDim2.fromOffset(248, 76) else UDim2.fromOffset(248, 56)
 		end,
 	}
 end

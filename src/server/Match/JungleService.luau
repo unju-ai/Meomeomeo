@@ -3,6 +3,7 @@
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -22,14 +23,20 @@ export type Monster = {
 	part: BasePart,
 	nextAttack: number,
 	aggroUserId: number?,
+	leash: number,
+	speed: number,
+	epic: boolean,
 }
 
 type Api = {
 	getPhase: () -> string?,
+	matchElapsed: () -> number,
 	damageUser: (userId: number, amount: number, note: Types.DamageNote?) -> (),
 	rootOf: (userId: number) -> BasePart?,
 	onClear: (userId: number, gold: number, xp: number) -> (),
 	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
+	onEpicPhase: (phase: string) -> (),
+	onEpicTaken: (userId: number) -> (),
 }
 
 type CampDef = {
@@ -44,6 +51,9 @@ type CampDef = {
 	respawn: number,
 	size: Vector3,
 	color: Color3,
+	leash: number?,
+	speed: number?,
+	epic: boolean?,
 }
 
 local CAMPS: { CampDef } = {
@@ -127,12 +137,31 @@ local CAMPS: { CampDef } = {
 	},
 }
 
+-- Not in CAMPS. Those six wake with FirstSpawnDelay. Levi waits on the match clock.
+local EPIC: CampDef = {
+	id = RiverEpic.Id,
+	name = RiverEpic.Name,
+	kind = "levi",
+	position = Vector3.new(RiverEpic.X, RiverEpic.Y, RiverEpic.Z),
+	health = RiverEpic.Health,
+	damage = RiverEpic.Damage,
+	gold = RiverEpic.Gold,
+	xp = RiverEpic.Xp,
+	respawn = RiverEpic.RespawnSeconds,
+	size = Vector3.new(7.4, 7.2, 7.4),
+	color = Color3.fromRGB(196, 112, 48),
+	leash = RiverEpic.Leash,
+	speed = RiverEpic.Speed,
+	epic = true,
+}
+
 local JungleService = {}
 
 local api: Api? = nil
 local running = false
 local monsters: { [string]: Monster } = {}
 local pending: { [string]: number } = {}
+local epicClock = RiverEpic.blank()
 
 local function folder(): Folder
 	return MapBuilder.jungleFolder()
@@ -163,7 +192,7 @@ local function spawnCamp(def: CampDef)
 	part.CFrame = CFrame.new(def.position)
 	part.Color = def.color
 	part.Material = Enum.Material.SmoothPlastic
-	if def.kind == "golem" then
+	if def.kind == "golem" or def.kind == "levi" then
 		part.Shape = Enum.PartType.Ball
 	elseif def.kind == "crab" then
 		part.Shape = Enum.PartType.Cylinder
@@ -173,7 +202,7 @@ local function spawnCamp(def: CampDef)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Label"
-	gui.Size = UDim2.fromOffset(120, 20)
+	gui.Size = if def.epic then UDim2.fromOffset(168, 22) else UDim2.fromOffset(120, 20)
 	gui.StudsOffset = Vector3.new(0, def.size.Y / 2 + 1.4, 0)
 	gui.AlwaysOnTop = true
 	gui.Parent = part
@@ -199,6 +228,9 @@ local function spawnCamp(def: CampDef)
 		part = part,
 		nextAttack = 0,
 		aggroUserId = nil,
+		leash = def.leash or Config.Jungle.Leash,
+		speed = def.speed or Config.Jungle.Speed,
+		epic = def.epic == true,
 	}
 	monsters[def.id] = monster
 	stamp(monster)
@@ -239,7 +271,7 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 			return
 		end
 		local leash = (monster.part.Position - monster.spawn).Magnitude
-		if leash > Config.Jungle.Leash then
+		if leash > monster.leash then
 			resetCamp(monster)
 			return
 		end
@@ -247,7 +279,7 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 		local delta = dest - monster.part.Position
 		local dist = delta.Magnitude
 		if dist > Config.Jungle.AttackRange and dist > 0.5 then
-			local step = math.min(Config.Jungle.Speed * dt, dist)
+			local step = math.min(monster.speed * dt, dist)
 			monster.part.CFrame = CFrame.new(monster.part.Position + delta.Unit * step)
 		elseif now >= monster.nextAttack then
 			monster.nextAttack = now + Config.Jungle.AttackInterval
@@ -263,7 +295,7 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 
 	local home = monster.spawn - monster.part.Position
 	if home.Magnitude > 1 then
-		local step = math.min(Config.Jungle.Speed * dt, home.Magnitude)
+		local step = math.min(monster.speed * dt, home.Magnitude)
 		monster.part.CFrame = CFrame.new(monster.part.Position + home.Unit * step)
 	end
 end
@@ -294,15 +326,28 @@ function JungleService.applyDamage(attackerUserId: number?, jungleId: string, am
 	stamp(monster)
 	if monster.health <= 0 then
 		local pos = monster.part.Position
-		local def = findDef(monster.id)
+		local takenEpic = monster.epic
+		local def = if takenEpic then nil else findDef(monster.id)
 		monster.part:Destroy()
 		monsters[jungleId] = nil
 		if def then
 			scheduleRespawn(def)
 		end
+		if takenEpic and api then
+			local elapsed = api.matchElapsed()
+			local nextClock = RiverEpic.killed(epicClock, elapsed)
+			local changed = nextClock.phase ~= epicClock.phase
+			epicClock = nextClock
+			if changed then
+				api.onEpicPhase(epicClock.phase)
+			end
+		end
 		if api then
 			if attackerUserId then
 				api.onClear(attackerUserId, monster.gold, monster.xp)
+				if takenEpic then
+					api.onEpicTaken(attackerUserId)
+				end
 			end
 			api.onDied(pos, attackerUserId)
 		end
@@ -327,6 +372,7 @@ function JungleService.clear()
 		monsters[id] = nil
 	end
 	table.clear(pending)
+	epicClock = RiverEpic.blank()
 end
 
 function JungleService.stop()
@@ -355,6 +401,17 @@ function JungleService.start()
 			last = clock
 			local now = Workspace:GetServerTimeNow()
 			if api and api.getPhase() == "InProgress" then
+				local elapsed = api.matchElapsed()
+				local nextClock, shouldSpawn = RiverEpic.step(epicClock, elapsed, monsters[RiverEpic.Id] ~= nil)
+				if shouldSpawn then
+					spawnCamp(EPIC)
+				end
+				if nextClock.phase ~= epicClock.phase then
+					epicClock = nextClock
+					api.onEpicPhase(epicClock.phase)
+				else
+					epicClock = nextClock
+				end
 				for id, readyAt in pending do
 					if now >= readyAt then
 						pending[id] = nil

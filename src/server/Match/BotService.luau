@@ -7,6 +7,7 @@ local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChil
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local JungleBotLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("JungleBotLogic"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
@@ -519,6 +520,7 @@ local function aliveCamps(): { JungleBotLogic.CampView }
 			z = monster.spawn.Z,
 			health = monster.health,
 			maxHealth = monster.maxHealth,
+			epic = monster.id == RiverEpic.Id,
 		})
 	end
 	return list
