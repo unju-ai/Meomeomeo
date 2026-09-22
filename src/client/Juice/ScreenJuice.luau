@@ -196,4 +196,16 @@ function ScreenJuice.shakeNexus()
 	CameraFollow.shake(0.28, 0.38)
 end
 
+-- Soft end-screen sting. Victory = mint/amber wash; defeat = coral. One flash, no banner fight with EndScreen.
+function ScreenJuice.matchEnd(won: boolean)
+	if won then
+		pulse(Theme.mint, 0.7)
+		task.delay(0.12, function()
+			pulse(Theme.amber, 0.82)
+		end)
+	else
+		pulse(Theme.coral, 0.72)
+	end
+end
+
 return ScreenJuice
