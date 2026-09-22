@@ -67,6 +67,7 @@ script = (
     + wrap("RespawnJuice", "src/shared/RespawnJuice.luau")
     + wrap("ActiveJuice", "src/shared/ActiveJuice.luau")
     + wrap("ScratchJuice", "src/shared/ScratchJuice.luau")
+    + wrap("AbilityRefuseJuice", "src/shared/AbilityRefuseJuice.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("VisionLogic", "src/shared/VisionLogic.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
@@ -108,6 +109,7 @@ named = (
     "RespawnJuice",
     "ActiveJuice",
     "ScratchJuice",
+    "AbilityRefuseJuice",
     "draft teasers",
     "wall clip",
 )

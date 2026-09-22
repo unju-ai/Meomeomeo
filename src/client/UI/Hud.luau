@@ -71,7 +71,7 @@ export type HudApi = {
 	tips: TutorialTips.TipsApi,
 	emotes: EmoteWheel.WheelApi,
 	pings: PingWheel.WheelApi,
-	banner: (text: string) -> (),
+	banner: (text: string, color: Color3?) -> (),
 	callout: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
@@ -109,16 +109,21 @@ function Hud.create(): HudApi
 	banner.ZIndex = 10
 	local bannerHoldUntil = 0
 
+	local function paintBanner(text: string, color: Color3?)
+		banner.Text = text
+		banner.TextColor3 = color or Theme.cream
+	end
+
 	local function forceBanner(text: string)
 		bannerHoldUntil = 0
-		banner.Text = text
+		paintBanner(text)
 	end
 
 	local function writeBanner(text: string)
 		if os.clock() < bannerHoldUntil then
 			return
 		end
-		banner.Text = text
+		paintBanner(text)
 	end
 
 	local hub = HubPanel.create(gui)
@@ -386,11 +391,11 @@ function Hud.create(): HudApi
 		tips = tips,
 		emotes = emotes,
 		pings = pings,
-		banner = function(text: string)
-			banner.Text = text
+		banner = function(text: string, color: Color3?)
+			paintBanner(text, color)
 		end,
 		callout = function(text: string)
-			banner.Text = text
+			paintBanner(text)
 			bannerHoldUntil = os.clock() + 5
 		end,
 		aside = function(text: string)
