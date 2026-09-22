@@ -21,6 +21,13 @@ def wrap(name: str, rel: str) -> str:
     return f"local {name} = (function()\n{source}\nend)()\n"
 
 
+def wrap_deps(name: str, rel: str, deps: list[str]) -> str:
+    source = (root / rel).read_text()
+    source = re.sub(r"^local \w+ = require\([^\n]+\)\n", "", source, flags=re.MULTILINE)
+    inject = "\n".join(f"local {dep} = {dep}" for dep in deps)
+    return f"local {name} = (function()\n{inject}\n{source}\nend)()\n"
+
+
 prelude = r"""
 local Vector3 = {}
 local mt = {
@@ -40,6 +47,7 @@ script = (
     prelude
     + wrap("ItemKits", "src/shared/ItemKits.luau")
     + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
+    + wrap_deps("BotShopLogic", "src/shared/BotShopLogic.luau", ["ItemCatalog"])
     + wrap("ShopPaint", "src/shared/ShopPaint.luau")
     + (root / "tests/item-smoke.luau").read_text()
 )
@@ -47,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix="meo-item-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
     result = subprocess.run([str(luau), str(entry)], check=True, capture_output=True, text=True)
-named = ("Yarn Cleave", "Stall Fang", "Paper Charm", "Control Yarn", "ShopPaint")
+named = ("Yarn Cleave", "Stall Fang", "Paper Charm", "Control Yarn", "ShopPaint", "Hard plan buys Control Yarn")
 missing = [name for name in named if name not in result.stdout]
 if missing:
     sys.stderr.write(result.stdout)

@@ -5,6 +5,8 @@ local Workspace = game:GetService("Workspace")
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local JungleBotLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("JungleBotLogic"))
 local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
@@ -383,6 +385,34 @@ local function lanePushed(team: Types.TeamId, lane: string): boolean
 		return follow.X > 18
 	end
 	return follow.X < -18
+end
+
+local function enemyPosts(team: Types.TeamId): { BotShopLogic.Post }
+	local posts: { BotShopLogic.Post } = {}
+	local states = MapBuilder.objectiveStates()
+	for _, def in StructureLogic.defs() do
+		if def.team ~= team then
+			local state = states[def.id]
+			local alive = if state then state.alive else true
+			if alive then
+				table.insert(posts, {
+					x = def.x,
+					z = def.z,
+					range = StructureLogic.rangeFor(def.kind, def.tier),
+				})
+			end
+		end
+	end
+	return posts
+end
+
+local function ownControlLive(userId: number): boolean
+	for _, ward in WardService.list() do
+		if ward.ownerUserId == userId and ward.kind == "control" then
+			return true
+		end
+	end
+	return false
 end
 
 local function enemyTowerAt(team: Types.TeamId, position: Vector3): (Vector3?, number?, Types.TeamId?)
@@ -776,10 +806,40 @@ local function think(brain: BotBrain, dt: number)
 		CombatService.useLensFor(brain.userId)
 	end
 
+	local started = snapshot.startedAt
+	local earlyWindow = typeof(started) == "number" and (now - started) <= 80
+	if BotShopLogic.releaseWardLatch(brain.warded, ownControlLive(brain.userId), earlyWindow) then
+		brain.warded = false
+	end
+
+	-- Bought Control Yarn: one plant per open charge, on the same warded latch
+	-- and trinket ready stamp as the free drop. Does not pop a pink that is still up.
+	local posts = enemyPosts(team)
+	local destX, destZ = BotShopLogic.controlDestination(
+		root.Position.X,
+		root.Position.Z,
+		Config.Vision.WardPlaceRange,
+		BotShopLogic.visionSpots(),
+		posts
+	)
+	local ready = BotShopLogic.chargeReady(brain.warded, WardService.trinketReadyAt(brain.userId), now)
+		and brain.visitedLane
+	if BotShopLogic.shouldPlaceControl(
+		currentDifficulty,
+		ShopService.count(brain.userId, ItemCatalog.ControlYarnId) >= 1,
+		ready,
+		destX ~= nil
+	) then
+		local dest = Vector3.new(destX :: number, root.Position.Y, destZ :: number)
+		local placed = WardService.placeControlFor(brain.userId, team, dest, root)
+		if placed.ok then
+			ShopService.consume(brain.userId, ItemCatalog.ControlYarnId)
+			brain.warded = true
+		end
+	end
+
 	if tune.Ward and brain.jungler and not brain.warded and brain.visitedLane then
-		local started = snapshot.startedAt
-		local early = typeof(started) == "number" and (now - started) <= 80
-		if early and now >= WardService.trinketReadyAt(brain.userId) then
+		if earlyWindow and now >= WardService.trinketReadyAt(brain.userId) then
 			local towardRiver = Vector3.new(if team == "Blue" then 18 else -18, 0, 0)
 			local dest = root.Position + towardRiver
 			local placed = if currentDifficulty == "Hard"

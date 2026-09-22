@@ -588,4 +588,43 @@ assert(#CampRespawnJuice.puffIds(pigeonPainted, {}, 120) == 0, "dropping a still
 assert(CampRespawnJuice.modeAllows("Moba", "InProgress") == true)
 assert(CampRespawnJuice.modeAllows("Hub", "InProgress") == false)
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, camp respawn chip")
+-- Bought Control Yarn plants beside these map spots. It does not add a jungle goal.
+local yarnSpots = BotShopLogic.visionSpots()
+local function hasSpot(kind: string, x: number, z: number): boolean
+	for _, spot in yarnSpots do
+		if spot.kind == kind and spot.x == x and spot.z == z then
+			return true
+		end
+	end
+	return false
+end
+local brushN: VisionLogic.BrushSpec? = nil
+local brushS: VisionLogic.BrushSpec? = nil
+for _, spec in VisionLogic.Brushes do
+	if spec.name == "BrushCrabN" then
+		brushN = spec
+	elseif spec.name == "BrushCrabS" then
+		brushS = spec
+	end
+end
+assert(brushN ~= nil and brushS ~= nil)
+assert(hasSpot("river-brush", (brushN :: any).x, (brushN :: any).z))
+assert(hasSpot("river-brush", (brushS :: any).x, (brushS :: any).z))
+assert(hasSpot("canal", RiverEpic.X, RiverEpic.Z))
+assert(hasSpot("objective", 0, -48) and hasSpot("objective", 0, 48))
+
+local placeRange = 28
+local openPosts: { BotShopLogic.Post } = {}
+local northX, northZ, northKind = BotShopLogic.controlDestination(0, -48, placeRange, yarnSpots, openPosts)
+assert(northKind == "river-brush" and northX == (brushN :: any).x and northZ == (brushN :: any).z)
+local leviX, leviZ, leviKind = BotShopLogic.controlDestination(RiverEpic.X, RiverEpic.Z, placeRange, yarnSpots, openPosts)
+assert(leviKind == "canal" and leviX == RiverEpic.X and leviZ == RiverEpic.Z)
+local underPost = BotShopLogic.controlDestination(70, 0, placeRange, yarnSpots, { { x = 90, z = 0, range = 44 } })
+assert(underPost == nil)
+assert(BotShopLogic.shouldPlaceControl("Hard", true, true, northX ~= nil) == true)
+assert(BotShopLogic.shouldPlaceControl("Easy", true, true, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Normal", true, true, true) == false)
+assert(BotShopLogic.chargeReady(true, 0, 5) == false)
+assert(BotShopLogic.releaseWardLatch(true, true, false) == false)
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, camp respawn chip, control yarn plant")

@@ -190,6 +190,30 @@ assert(ShopPaint.nameLine("Control Yarn", 75, 1, 2, "buyable") == "Control Yarn 
 assert(ShopPaint.nameLine("Longclaw", 250, 1, 1, "owned") == "Longclaw  ·  owned")
 assert(ShopPaint.nameLine("Yarn Cleave", 280, 0, 1, "buyable") == "Yarn Cleave  ·  280g")
 
+-- Hard buys Control Yarn after Cleave and before Lens. Cost and stack stay put.
+-- Easy and Normal do not. A short purse cannot skip Fang or Cleave for the ward.
+local function indexOf(list: { string }, id: string): number?
+	return table.find(list, id)
+end
+for _, role in { "Tank", "Assassin", "Mage" } do
+	local hard = BotShopLogic.plan("Hard", role)
+	local yarnAt = indexOf(hard, "ControlYarn")
+	local cleaveAt = indexOf(hard, "YarnCleave")
+	local lensAt = indexOf(hard, "WhiskerLens")
+	assert(yarnAt ~= nil and cleaveAt ~= nil and lensAt ~= nil)
+	assert((yarnAt :: number) > (cleaveAt :: number))
+	assert((yarnAt :: number) < (lensAt :: number))
+	assert(indexOf(BotShopLogic.plan("Easy", role), "ControlYarn") == nil)
+	assert(indexOf(BotShopLogic.plan("Normal", role), "ControlYarn") == nil)
+end
+assert(BotShopLogic.nextItem("Hard", "Assassin", 75 + 180, { "Longclaw", "PounceBoots" }) == nil)
+assert(BotShopLogic.nextItem("Hard", "Tank", 75, { "Yarnplate", "PaperCharm", "YarnCleave" }) == "ControlYarn")
+assert(BotShopLogic.shouldPlaceControl("Hard", true, true, true) == true)
+assert(BotShopLogic.shouldPlaceControl("Normal", true, true, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Easy", true, true, true) == false)
+assert(BotShopLogic.chargeReady(false, 0, 1) == true)
+assert(BotShopLogic.chargeReady(true, 0, 1) == false)
+
 -- Every catalog row maps to a section (nine items stay buyable at the register).
 local mapped = 0
 for _, item in ItemCatalog.all() do
@@ -199,4 +223,4 @@ for _, item in ItemCatalog.all() do
 end
 assert(mapped == 9)
 
-print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm, ShopPaint")
+print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm, ShopPaint, Hard plan buys Control Yarn")
