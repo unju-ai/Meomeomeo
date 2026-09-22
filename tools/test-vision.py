@@ -28,6 +28,7 @@ script = (
     + wrap("MinimapPaint", "src/shared/MinimapPaint.luau")
     + wrap("BillboardHp", "src/shared/BillboardHp.luau")
     + wrap_deps("ChampionPlate", "src/shared/ChampionPlate.luau", ["BillboardHp"])
+    + wrap_deps("BrushJuice", "src/shared/BrushJuice.luau", ["VisionLogic"])
     + (root / "tests/vision-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-vision-test-") as folder:
