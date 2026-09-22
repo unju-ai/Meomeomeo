@@ -15,6 +15,7 @@ local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
+local XpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("XpJuice"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
@@ -630,7 +631,9 @@ function MatchService.init(cleared: () -> ())
 		end
 	end
 
-	local function grantXp(userId: number, amount: number)
+	-- Same XP tables as before. The paint cue uses the delta just added and
+	-- does not grant extra XP. Level-up juice stays on the client level edge.
+	local function grantXp(userId: number, amount: number, position: Vector3?)
 		if not current or amount <= 0 then
 			return
 		end
@@ -645,6 +648,14 @@ function MatchService.init(cleared: () -> ())
 			matchPlayer.ranks = Progression.autoRanks(after)
 			CombatService.applyLevelFor(userId, after)
 			feed("level", `{matchPlayer.displayName} grew another life — level {after}`)
+		end
+		local at = position
+		if not at then
+			local root = CombatService.rootOf(userId)
+			at = if root then root.Position else nil
+		end
+		if at and XpJuice.wantsFloat(amount) then
+			FxRelay.xp(at, userId, amount)
 		end
 	end
 
@@ -677,7 +688,7 @@ function MatchService.init(cleared: () -> ())
 				if k then
 					k.kills += 1
 					creditBounty(k, Config.Match.KillGold, bountyAt)
-					grantXp(killerUserId, Config.Match.KillXp)
+					grantXp(killerUserId, Config.Match.KillXp, bountyAt)
 					local killer = riftHuman(killerUserId)
 					if killer then
 						CosmeticService.noteRiftKill(killer)
@@ -689,7 +700,7 @@ function MatchService.init(cleared: () -> ())
 					if helperMatch then
 						helperMatch.assists += 1
 						creditBounty(helperMatch, Config.Match.AssistGold, bountyAt)
-						grantXp(helperId, Config.Match.AssistXp)
+						grantXp(helperId, Config.Match.AssistXp, bountyAt)
 						table.insert(assistNames, helperMatch.displayName)
 					end
 				end
@@ -797,7 +808,7 @@ function MatchService.init(cleared: () -> ())
 		-- Lane kitten last hits pay CS and gold only. They do not move meme tickers.
 		onLastHit = function(userId: number, gold: number, position: Vector3)
 			local credited = creditLastHit(userId, gold, position)
-			grantXp(userId, Config.Match.MinionXp)
+			grantXp(userId, Config.Match.MinionXp, position)
 			if credited then
 				broadcast()
 			end
@@ -817,7 +828,7 @@ function MatchService.init(cleared: () -> ())
 				if root and combat and combat.alive and matchPlayer.team ~= minionTeam then
 					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
 						local before = matchPlayer.level
-						grantXp(matchPlayer.userId, Config.Match.NearbyMinionXp)
+						grantXp(matchPlayer.userId, Config.Match.NearbyMinionXp, position)
 						if matchPlayer.level > before then
 							leveled = true
 						end
@@ -845,7 +856,7 @@ function MatchService.init(cleared: () -> ())
 		-- Camp last hits stay off the meme tape. Canal Levi uses the same CS rule.
 		onClear = function(userId: number, gold: number, xp: number, position: Vector3)
 			local credited = creditLastHit(userId, gold, position)
-			grantXp(userId, xp)
+			grantXp(userId, xp, position)
 			if credited then
 				broadcast()
 			end
@@ -862,7 +873,7 @@ function MatchService.init(cleared: () -> ())
 				local combat = CombatService.get(matchPlayer.userId)
 				if root and combat and combat.alive then
 					if (root.Position - position).Magnitude <= Config.Match.NearbyXpRadius then
-						grantXp(matchPlayer.userId, Config.Jungle.NearbyXp)
+						grantXp(matchPlayer.userId, Config.Jungle.NearbyXp, position)
 					end
 				end
 			end

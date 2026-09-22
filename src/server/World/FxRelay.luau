@@ -65,4 +65,18 @@ function FxRelay.bounty(origin: Vector3, userId: number, gold: number)
 	})
 end
 
+-- Local XP paint. Same delta MatchService just added to the purse. Not gold.
+-- Client keeps it on the credited cat and merges with CombatFloat.
+function FxRelay.xp(origin: Vector3, userId: number, xp: number)
+	if xp <= 0 then
+		return
+	end
+	FxRelay.emit({
+		kind = "xp",
+		origin = origin,
+		amount = xp,
+		userId = userId,
+	})
+end
+
 return FxRelay

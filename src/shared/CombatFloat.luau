@@ -21,8 +21,10 @@ CombatFloat.Ink = { 52, 36, 32 }
 CombatFloat.GoldAmber = { 255, 196, 74 }
 -- Bounty gold only (kill / assist / structure). Peach, not amber, not execute coral.
 CombatFloat.BountyPeach = { 255, 164, 120 }
+-- XP ticks only. Cream pulled into lavender. Not amber last-hit gold, not peach bounty.
+CombatFloat.XpLavender = { 226, 210, 248 }
 
-export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute" | "gold" | "bounty"
+export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute" | "gold" | "bounty" | "xp"
 
 function CombatFloat.format(amount: number): string
 	if amount <= 0 then
@@ -61,6 +63,9 @@ function CombatFloat.textSize(kind: FloatKind): number
 	if kind == "bounty" then
 		return 22
 	end
+	if kind == "xp" then
+		return 18
+	end
 	if kind == "heal" or kind == "shield" or kind == "gold" then
 		return 20
 	end
@@ -83,11 +88,14 @@ function CombatFloat.rgb(kind: FloatKind): { number }
 	if kind == "bounty" then
 		return CombatFloat.BountyPeach
 	end
+	if kind == "xp" then
+		return CombatFloat.XpLavender
+	end
 	return CombatFloat.DamageCream
 end
 
 function CombatFloat.prefix(kind: FloatKind): string
-	if kind == "heal" or kind == "shield" or kind == "gold" or kind == "bounty" then
+	if kind == "heal" or kind == "shield" or kind == "gold" or kind == "bounty" or kind == "xp" then
 		return "+"
 	end
 	return ""
@@ -97,6 +105,9 @@ function CombatFloat.label(kind: FloatKind, amount: number): string
 	local body = `{CombatFloat.prefix(kind)}{CombatFloat.format(amount)}`
 	if kind == "gold" or kind == "bounty" then
 		return `{body}g`
+	end
+	if kind == "xp" then
+		return `{body} XP`
 	end
 	return body
 end

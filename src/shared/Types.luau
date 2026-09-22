@@ -377,6 +377,7 @@ export type CombatFxKind =
 	| "float"
 	| "lastHit"
 	| "bounty"
+	| "xp"
 
 export type CombatFxEvent = {
 	kind: CombatFxKind,

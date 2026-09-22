@@ -5,6 +5,7 @@
 -- Clients only read gold, cs, and level off the snapshot.
 -- LastHitJuice may paint a local amber +Ng when a lastHit credit lands. It does not grant gold.
 -- BountyJuice may paint a local peach +Ng when a bounty credit lands. It does not grant gold.
+-- XpJuice may paint a local lavender +N XP when MatchService grants XP. It does not grant XP.
 --
 -- CS counts a champion's last hit:
 --   lane kitten (MinionGold)
