@@ -8,7 +8,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily/weekly board + persisted PB ghost. **Koi Pond** fishing + UTC daily catch board. **Yarn Party** 4-cat micro-rounds (lobby seats, bots hold empties, friends take a seat before GO). **Meme Arcade** timed yarn-tape stall + UTC daily profit board (play yarn only). **Audio → Hide my name** lists you as **Anonymous Cat** on those boards.
 
-Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens / Pawmart; leads traveling skillshots), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, **traveling line bolts** + click-to-confirm ground AoE, **true fog of war** (server mask + ground overlay + brush + fading last-seen ghosts), map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
+Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens / Pawmart; leads traveling skillshots), **team voice pill** (allow-lists refreshed across draft / fight / end, **Mute me**, Studio stays honest), Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, **traveling line bolts** + click-to-confirm ground AoE, **true fog of war** (server mask + ground overlay + brush + fading last-seen ghosts), map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
 This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
 
@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-22: Luau compiled 123 sources; farm credit (kitten and camp last hits add CS, kill/assist/tower gold does not) + combat projectile + kit hooks (Meow guard/pull, Nyan reset/channel, Whiskers refund/zone, Chonk Settled Loaf/Charge Knock, Scammy Open Wick/Hype Candle, Grandma Second Helping/Sweater Aura, Bytekit Packet Buffer/Overclock, Sir Scratchalot Honor Bleed/Shield Fortify, Shadowpounce Alley Mark/Smoke Vanish, Chromeclaw Chrome Plate/Lunge Reload, Oracle Paws Ward Omen/Foresight Veil, Archmeow Spell Charge/Charged Meteor, Hexkit Curse Stacks/Hex Zone, Mindwhisker Psi Mark/Mind Nudge) + recall cancel-on-order + Control Yarn stacks + Pawmart Yarn Cleave / Stall Fang / Paper Charm + practice-bot Pawmart plans (Hard fountain build, cleave at two visible enemies, lens only when owned) + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + jungle-bot route/commit/rotate + brand/lobby + cosmetics/arcade/koi/yarn/party (lobby seat takeover) smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 125 sources; team voice allow-lists and HUD copy (teammates only, bots silent, Studio / live / muted / not eligible, mic armed without a fake speaking pulse) + farm credit (kitten and camp last hits add CS, kill/assist/tower gold does not) + combat projectile + kit hooks (Meow guard/pull, Nyan reset/channel, Whiskers refund/zone, Chonk Settled Loaf/Charge Knock, Scammy Open Wick/Hype Candle, Grandma Second Helping/Sweater Aura, Bytekit Packet Buffer/Overclock, Sir Scratchalot Honor Bleed/Shield Fortify, Shadowpounce Alley Mark/Smoke Vanish, Chromeclaw Chrome Plate/Lunge Reload, Oracle Paws Ward Omen/Foresight Veil, Archmeow Spell Charge/Charged Meteor, Hexkit Curse Stacks/Hex Zone, Mindwhisker Psi Mark/Mind Nudge) + recall cancel-on-order + Control Yarn stacks + Pawmart Yarn Cleave / Stall Fang / Paper Charm + practice-bot Pawmart plans (Hard fountain build, cleave at two visible enemies, lens only when owned) + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + jungle-bot route/commit/rotate + brand/lobby + cosmetics/arcade/koi/yarn/party (lobby seat takeover) smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio voice or playtest.
 
 ### Lobby host acceptance check
 
@@ -309,6 +309,22 @@ Smoke for the decision layer (not a Studio substitute): `python3 tools/test-rift
 
 Reserved teleports need a **published** experience and a real `MatchPlaceId` — see §7. Studio `ReserveServer` fails closed and starts in-place.
 
+## 4b. Team voice
+
+Real microphones need a **published** experience. Studio Solo Play stays **Voice · Studio** / **You: not eligible**. This repo's Luau smoke does not open a mic, and a cloud run cannot claim Studio voice was verified.
+
+`Config.Voice.Mode = "Team"` (default) writes an allow-list of **human teammates only**. Bots are not peers. Enemies are never on the list. The list is rewritten when sides form or change (lobby → draft → live → end screen → back to lobby) and again for a couple of seconds after death or respawn, because a new `AudioDeviceInput` would otherwise be heard by every cat.
+
+`Config.Voice.OutsideMatch = "Off"` (default) keeps the hub, the pre-queue lobby, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade quiet (empty allow list). Set it to `"Proximity"` if those stalls should use normal spatial voice instead. `Mode = "Proximity"` never writes a team list.
+
+1. Publish. **Experience Settings → Communication → Enable Voice Chat**. Two age-verified 13+ accounts with voice opted in. Use **two published clients**. Team Test is not this pass. Solo Play is not this pass.
+2. Hub: the pill reads **Voice · Off** (or **Proximity** if you changed `OutsideMatch`). **You:** is **live**, **muted**, or **not eligible** — not a blank. **Mute me** / **Unmute** sets the local mic only. **No mic** means there is no device yet. Open **Audio** and confirm SFX and Music still have their own sliders; the hint says the mic lives on the voice pill.
+3. Practice vs 3 bots: you are Blue, Red is bots. If voice is actually up, the pill stays Ready and says bots are silent / no voice teammates. It should not look like a broken error. There is nobody on the other side to hear you.
+4. With two humans, talk in draft, in the fight, and on the end screen. Same side hears you. The other side does not. Die and respawn: teammates still hear you; enemies still do not. Leave the match: the hub goes quiet again (or proximity, if that is the config).
+5. A small pulse on your pill (and a dot on a teammate nameplate) appears only when the client Audio API reports amplitude. If this engine build has no analyzer, the pill says **Mic armed** and nameplates stay quiet. That is not a fake enemy indicator. The server meter is always silent, so speaking is never replicated.
+
+Smoke (lists and copy only): `python3 tools/test-voice.py /path/to/luau`.
+
 ## 5. Keybinds (after PRs 1–12)
 
 Same list as the in-game **?** / hold **H** panel.
@@ -338,7 +354,8 @@ Same list as the in-game **?** / hold **H** panel.
 | **Tab** (hold) | Scoreboard: KDA, CS, gold, level, items. Humans and bots |
 | **Death** | Recap of recent scratches (cat / post / kitten / camp / item). **✕** dismisses, or it hides ~2.5s before the fountain. **Recap** reopens while you are down |
 | **V** | Toggle locked follow camera |
-| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes, **Hide my name** (boards show **Anonymous Cat**). Mix + hide-name + last Practice difficulty persist (`MeoSettings_v1`) |
+| **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes, **Hide my name** (boards show **Anonymous Cat**). Mix + hide-name + last Practice difficulty persist (`MeoSettings_v1`). This is not the mic |
+| **Voice** (top-right pill) | **Mute me** / **Unmute** sets the local mic. **You: live / muted / not eligible**. Team matches: teammates only, bots silent. Hub and other stalls follow `Config.Voice.OutsideMatch` (default **Off**). Studio Solo Play stays **Voice · Studio** |
 | **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
 | **Invite** (Cat Rift) | Same server. They **Accept** within 20s. Leader **Queue party** or **Practice with party**. **Decline**, **Leave party**, or expiry returns the line to solo |
 | **?** or hold **H** | This help overlay |
@@ -409,7 +426,7 @@ Fill these in `src/server/Config.luau` **locally** (do not commit secrets). `0` 
 Also for a live place:
 
 1. Publish the experience (reserved servers and voice need this).
-2. **Experience Settings → Communication → Enable Voice Chat**. Testers: age-verified 13+, voice opted in. Team Test or two live clients.
+2. **Experience Settings → Communication → Enable Voice Chat**. Testers: age-verified 13+, voice opted in. The live voice pass is **two published clients** (§4b). Studio Solo Play stays **Voice · Studio** / **You: not eligible** — that is expected, not a failed publish. Team Test is not a substitute for the two-client pass. `Config.Voice.OutsideMatch` is `Off` (hub and stalls quiet) or `Proximity` (spatial until a side is assigned).
 3. **Allow HTTP Requests** only if you switch AI or ClaimApi to `http`.
 4. Rojo-sync (or `rojo build`) the **same** tree into lobby and match places if they are separate.
 5. Queue with 2+ live clients. Expect **MATCH FOUND** then a teleport when `MatchPlaceId ~= 0`.
@@ -480,7 +497,8 @@ These are not covered by the Luau smoke:
 - Yarn ghost / board says Memory: same toggle (`MeoYarnGhost_v1`, `MeoYarnDaily_v1`, `MeoYarnWeekly_v1`, `MeoKoiDaily_v1`, `MeoArcadeDaily_v1`). Ghost still works for the current Studio session.
 - Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
 - Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
-- Voice pill is not Ready: unpublished Solo Play cannot enable experience voice.
+- Voice pill says **Studio** / **You: not eligible**: unpublished Solo Play cannot enable experience voice. Publish, enable Voice Chat, then use two eligible clients (§4b). **No mic** means the device is not parented yet. **Mute me** does not change SFX or Music.
+- Voice pill says **Off** in the hub: default `OutsideMatch`. Team voice starts when a match assigns your side. Practice against only bots should say they are silent, not that voice crashed.
 - Bots idle: you are still in **Champion select** — lock a cat and wait for the timer.
 - Bots look like the same box: Rojo-sync `Shared.ChampionLooks` + `Server.World.ChampionAppearance`, then start a new Practice.
 - No cast/hit VFX: Rojo-sync so `MeoRemotes.CombatFx` exists, then start a new Practice (FX are server-confirmed, not the hold-to-aim indicator).
@@ -495,7 +513,7 @@ These are not covered by the Luau smoke:
 
 ## 10. Still stubbed (do not expect)
 
-Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces. Fog is a 10-stud cell mask + eye-height mesh LoS (walls, thick cover, raycast for non-box parts) + unit hide + client last-seen ghosts — not per-pixel shaders.
+Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces, **Studio or published voice** (the voice smoke checks allow-lists and pill copy only; it does not open a microphone). Fog is a 10-stud cell mask + eye-height mesh LoS (walls, thick cover, raycast for non-box parts) + unit hide + client last-seen ghosts — not per-pixel shaders.
 
 ## Hub cast integration (2026-09-15)
 

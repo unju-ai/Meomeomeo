@@ -8,6 +8,7 @@ export type AbilityTargeting = "instant" | "ground" | "line" | "dash"
 export type AbilityRanks = { Q: number, W: number, E: number, R: number }
 export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
 export type VoiceMode = "Team" | "Proximity"
+export type VoiceOutsideMatch = "Off" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
 export type BotDifficulty = "Easy" | "Normal" | "Hard"
 export type QueuePhase = "Idle" | "Queued" | "Found" | "Teleporting"
@@ -230,6 +231,7 @@ export type VoiceStatus = {
 	availability: VoiceAvailability,
 	detail: string,
 	localEnabled: boolean?,
+	outsideMatch: VoiceOutsideMatch?,
 }
 
 export type AbilityRequest = {

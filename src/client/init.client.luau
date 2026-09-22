@@ -279,6 +279,32 @@ local function refreshBars()
 	end
 end
 
+local function refreshVoiceContext()
+	local place: "Match" | "Hub" | "Stall" = "Hub"
+	local selfTeam: string? = nil
+	local seats: { { userId: number, team: string, isBot: boolean } } = {}
+	if inMini() then
+		place = "Stall"
+	elseif gameMode == "Moba" and latestMatch and latestMatch.phase ~= "Lobby" then
+		place = "Match"
+		for _, matchPlayer in latestMatch.players do
+			table.insert(seats, {
+				userId = matchPlayer.userId,
+				team = matchPlayer.team,
+				isBot = matchPlayer.isBot == true,
+			})
+			if matchPlayer.userId == player.UserId then
+				selfTeam = matchPlayer.team
+			end
+		end
+	end
+	hud.voice.setContext({
+		place = place,
+		selfTeam = selfTeam,
+		seats = seats,
+	})
+end
+
 local function applyShellView()
 	hud.applyShell(gameMode, hubPage, latestMatch, player.UserId)
 	if gameMode == "YarnRun" then
@@ -366,6 +392,7 @@ local function applyShellView()
 			Music.setPhase(latestMatch.phase)
 		end
 	end
+	refreshVoiceContext()
 end
 
 local function applySnapshot(snapshot: Types.MatchSnapshot?)

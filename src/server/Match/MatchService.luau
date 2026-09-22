@@ -370,6 +370,9 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	end
 	feed("announce", `{winner} destroyed the enemy nexus!`)
 	AiChatService.announce(`{winner} wins! {reason}`)
+	-- Sides stay assigned through the end screen. Rewrite lists in case a
+	-- death at the nexus swapped the mic device.
+	VoiceService.onTeamsChanged()
 	broadcast()
 
 	local token = phaseToken
