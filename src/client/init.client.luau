@@ -9,8 +9,10 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
 local ChampionCatalog = require(Shared:WaitForChild("ChampionCatalog"))
 local Constants = require(Shared:WaitForChild("Constants"))
+local HostGuide = require(Shared:WaitForChild("HostGuide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -1930,6 +1932,61 @@ Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
 	end
 end)
 
+local mutterAt = -HostGuide.AmbientGap
+local function showHostMutter(part: Instance, line: string)
+	local previous = part:FindFirstChild("HostMutter")
+	if previous then
+		previous:Destroy()
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "HostMutter"
+	gui.AlwaysOnTop = false
+	gui.MaxDistance = 22
+	gui.Size = UDim2.fromOffset(200, 72)
+	gui.StudsOffset = Vector3.new(0, 2.8, 0)
+	gui.Parent = part
+	local label = Instance.new("TextLabel")
+	label.Name = "Line"
+	label.BackgroundColor3 = Color3.fromRGB(44, 30, 28)
+	label.BackgroundTransparency = 0.12
+	label.TextColor3 = Color3.fromRGB(255, 243, 224)
+	label.Font = Enum.Font.GothamMedium
+	label.TextSize = 14
+	label.TextWrapped = true
+	label.Text = line
+	label.Size = UDim2.fromScale(1, 1)
+	label.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = label
+	task.delay(4, function()
+		if gui.Parent then
+			gui:Destroy()
+		end
+	end)
+end
+
+-- Rare lobby line while the Talk prompt is up. Does not open the panel or move the host.
+ProximityPromptService.PromptShown:Connect(function(prompt)
+	if gameMode ~= "Hub" or hud.chat.root.Visible then
+		return
+	end
+	local part = prompt.Parent
+	if not part then
+		return
+	end
+	local npcId = part:GetAttribute(Constants.Attributes.NpcId)
+	if typeof(npcId) ~= "string" or not BrandCatalog.host(npcId) then
+		return
+	end
+	local now = os.clock()
+	local line, nextAt = HostGuide.ambient(npcId, now, mutterAt, math.floor(now * 10))
+	mutterAt = nextAt
+	if line then
+		showHostMutter(part, line)
+	end
+end)
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 	if who ~= player then
 		return
@@ -1940,6 +1997,10 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 	end
 	local npcId = part:GetAttribute(Constants.Attributes.NpcId)
 	if typeof(npcId) == "string" then
+		local mutter = part:FindFirstChild("HostMutter")
+		if mutter then
+			mutter:Destroy()
+		end
 		if latestMatch and latestMatch.phase == "InProgress" and string.find(npcId, "Pawmart") then
 			local status = Remotes.function_("GetShopStatus"):InvokeServer()
 			if typeof(status) == "table" then

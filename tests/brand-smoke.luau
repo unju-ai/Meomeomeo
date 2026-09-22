@@ -267,7 +267,78 @@ for _, host in BrandCatalog.hosts() do
 end
 assert(HostGuide.reply("OldTom", "help") == nil)
 assert(HostGuide.reply("HostMo", "hello") == nil)
+local phrases = {
+	{ "closet", "Lantern Cap" },
+	{ "lantern cap", "outer post" },
+	{ "stall spark", "win a Cat Rift" },
+	{ "drip", "not Robux" },
+	{ "fog", "last-seen ghost" },
+	{ "last seen", "not vision" },
+	{ "ghosts", "Yarn Run personal-best" },
+	{ "invite", "Accept" },
+	{ "party queue", "Queue party" },
+	{ "queue party", "same server" },
+	{ "pawmart", "280 gold" },
+	{ "yarn cleave", "press 7" },
+	{ "stall fang", "20% HP" },
+	{ "paper charm", "2.4 seconds" },
+	{ "kitty caster", "first blood" },
+	{ "first blood", "no API key" },
+	{ "smart ping", "Hold G" },
+	{ "ping", "refuses a hidden cat" },
+	{ "death recap", "2.5 seconds" },
+	{ "killing blow", "Recap brings it back" },
+	{ "purse", "does not add CS" },
+	{ "cs", "purse chip" },
+	{ "mute me", "not SFX" },
+	{ "voice", "Bots are silent" },
+	{ "meme tape", "not the Meme Arcade" },
+	{ "fight tape", "spends Robux" },
+}
+local meoCloset = HostGuide.reply("HostMeo", "closet")
+local meCloset = HostGuide.reply("HostMe", "closet")
+local moCloset = HostGuide.reply("HostMo", "closet")
+assert(meoCloset ~= meCloset and meCloset ~= moCloset and moCloset ~= meoCloset, "Host asides should stay distinct")
+for _, host in BrandCatalog.hosts() do
+	local help = HostGuide.reply(host.id, "help")
+	for _, phrase in phrases do
+		local reply = HostGuide.reply(host.id, phrase[1])
+		assert(reply and string.find(reply, phrase[2], 1, true), phrase[1] .. " missing " .. phrase[2])
+		assert(not string.find(reply, "nil", 1, true), "Missing aside")
+		assert(not string.find(reply, "PlaceId", 1, true), "Hosts must not invent a PlaceId")
+		assert(not string.find(string.lower(reply), "invest", 1, true), "Hosts must not give investment advice")
+		local context = { npc = NpcCatalog.get(host.id), playerName = "Cat", phase = "Lobby", scoreline = "" }
+		assert(MockAiProvider.complete(phrase[1], context) == reply)
+	end
+	assert(string.find(HostGuide.reply(host.id, "party"), "Play button", 1, true))
+	assert(not string.find(HostGuide.reply(host.id, "party queue"), "Play button", 1, true), "Party queue is not the Yarn Party stall")
+	assert(HostGuide.reply(host.id, "yarn run ghost") == help, "Name one ghost at a time")
+	assert(HostGuide.reply(host.id, "closet and fog") == help)
+	assert(not string.find(HostGuide.reply(host.id, "arcade"), "kill feed", 1, true))
+	assert(not string.find(HostGuide.reply(host.id, "meme tape"), "Play button", 1, true))
+	for _, chip in HostGuide.chips() do
+		assert(HostGuide.reply(host.id, chip.question) == HostGuide.reply(host.id, chip.label))
+	end
+end
+local spoken, spokenAt = HostGuide.ambient("HostMeo", 100, 0, 0)
+assert(spoken and spokenAt == 100, "A rare approach can mutter")
+assert(not string.find(spoken, "PlaceId", 1, true))
+local blocked, blockedAt = HostGuide.ambient("HostMe", 120, spokenAt, 0)
+assert(blocked == nil and blockedAt == spokenAt, "Nearby hosts share one gap")
+local missed, missedAt = HostGuide.ambient("HostMo", 200, 100, 1)
+assert(missed == nil and missedAt == 200, "A failed roll still spends the gap")
+local heard, heardAt = HostGuide.ambient("HostMo", 300, 200, 3)
+assert(heard and heardAt == 300 and heard ~= spoken)
+local quiet, quietAt = HostGuide.ambient("OldTom", 300, 0, 0)
+assert(quiet == nil and quietAt == 0, "Ordinary NPCs do not mutter")
+local meoLine = HostGuide.ambient("HostMeo", 0, -100, 0)
+local meLine = HostGuide.ambient("HostMe", 0, -100, 0)
+local moLine = HostGuide.ambient("HostMo", 0, -100, 0)
+assert(meoLine ~= meLine and meLine ~= moLine)
+local meoOther = HostGuide.ambient("HostMeo", 0, -100, 3)
+assert(meoOther ~= meoLine, "The same host has more than one idle line")
 print("PASS: all host/game answers, menu, aliases, word boundaries and ordinary NPC fallback")
+print("PASS: closet, fog, invite, shop, caster, ping, recap, purse, voice, tape, and idle lines")
 
 chat.open("HostMeo", "MEO")
 local topics = chat.root:FindFirstChild("Topics")
@@ -279,15 +350,22 @@ chat.onSend(function(id, question, reply)
 	pending = reply
 end)
 input.Text = "my unfinished thought"
+local chips = HostGuide.chips()
+assert(#chips == 6, "Host talk keeps a short chip row")
 topics:FindFirstChild("Help").Activated:Fire()
 assert(questions[1] == "help" and input.Text == "my unfinished thought")
 topics:FindFirstChild("CatRift").Activated:Fire()
 assert(#questions == 1, "Quick topics must respect pending requests")
 pending("MEO", "Ready")
-for _, mode in ModeCatalog.all() do
-	topics:FindFirstChild(mode.id).Activated:Fire()
-	assert(questions[#questions] == mode.title)
-	pending("MEO", "Ready")
+for _, chip in chips do
+	local button = topics:FindFirstChild(chip.id)
+	assert(button and button.Text == chip.label)
+	if chip.id ~= "Help" then
+		button.Activated:Fire()
+		assert(questions[#questions] == chip.question)
+		assert(HostGuide.reply("HostMeo", chip.question) ~= nil)
+		pending("MEO", "Ready")
+	end
 end
 assert(#questions == 6 and input.Text == "my unfinished thought")
 chat.open("OldTom", "Old Tom")

@@ -95,6 +95,28 @@ for name, path in modules:
     source = re.sub(r"^local \w+ = require\([^\n]+\)\n", "", source, flags=re.MULTILINE)
     chunks.append(f"local {name} = (function()\n{source}\nend)()\n")
 chunks.append((root / "tests/brand-smoke.luau").read_text())
+# Aliases the smoke asks out loud. Fail here if a phrase disappears from the authored gate.
+guide = (root / "src/shared/HostGuide.luau").read_text().lower()
+for phrase in (
+    "lantern cap",
+    "stall spark",
+    "last seen",
+    "party queue",
+    "yarn cleave",
+    "stall fang",
+    "paper charm",
+    "kitty caster",
+    "smart ping",
+    "death recap",
+    "purse chip",
+    "mute me",
+    "meme tape",
+    "not robux",
+    "press 7",
+    "hold g",
+):
+    if phrase not in guide:
+        raise SystemExit(f"HostGuide missing authored phrase: {phrase}")
 with tempfile.TemporaryDirectory(prefix="meo-brand-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text("\n".join(chunks))
