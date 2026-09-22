@@ -126,7 +126,7 @@ function DeathRecap.create(parent: Instance): RecapApi
 
 	local chipButton = Theme.button(parent, "DeathRecapChip", "Recap", Theme.peach)
 	chipButton.AnchorPoint = Vector2.new(0.5, 1)
-	chipButton.Position = UDim2.new(0.5, 0, 1, -196)
+	chipButton.Position = UDim2.new(0.5, 0, 1, -218)
 	chipButton.Size = UDim2.fromOffset(88, 28)
 	chipButton.TextSize = 14
 	chipButton.Visible = false

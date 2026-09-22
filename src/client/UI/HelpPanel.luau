@@ -27,6 +27,7 @@ local LINES_MOBA: { { string } } = {
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
 	{ "Q W E R", "Hold line/dash (mint/coral aim), release bolt · ground: click or 2nd press · bar: CD sweep / mint ready / coral mana" },
+	{ "Resources", "Ability bar HP (coral) / mana (cobalt) / XP (amber) with current/max · low HP and mana-gate pulse" },
 	{ "Esc / RMB", "Cancel armed ground or held aim" },
 	{ "4", "Trinket ward (team tint, stealthed)" },
 	{ "5", "Whisker Lens (buy at Pawmart first)" },

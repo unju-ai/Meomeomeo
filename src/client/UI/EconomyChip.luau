@@ -28,7 +28,7 @@ function EconomyChip.create(parent: Instance): ChipApi
 	local root = Instance.new("Frame")
 	root.Name = "EconomyChip"
 	root.AnchorPoint = Vector2.new(0.5, 1)
-	root.Position = UDim2.new(0.5, 0, 1, -232)
+	root.Position = UDim2.new(0.5, 0, 1, -252)
 	root.Size = UDim2.fromOffset(248, 56)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
