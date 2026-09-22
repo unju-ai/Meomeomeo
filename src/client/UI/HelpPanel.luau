@@ -22,7 +22,7 @@ export type HelpApi = {
 
 local LINES_MOBA: { { string } } = {
 	{ "LMB", "Lock auto-attack on an enemy / minion / tower" },
-	{ "Towers", "Outer post, then lantern stall, then yarn core. Stalls gate per lane" },
+	{ "Towers", "Outer post, then lantern stall, then yarn core. Stalls gate per lane · HP bar when damaged or aimed" },
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
 	{ "Q W E R", "Hold line/dash (mint/coral aim), release bolt · ground: click or 2nd press" },
@@ -38,7 +38,7 @@ local LINES_MOBA: { { string } } = {
 	{ "G fog", "Attention refuses a hidden cat" },
 	{ "Purse", "Gold, CS, level, and Yarn Cleave cost sit above the ability bar" },
 	{ "Clock", "Top-left match time. Levi counts down, then UP, then the respawn, then taken" },
-	{ "Canal Levi", "Clock line tracks the river epic. Last hit's team keeps +8% damage" },
+	{ "Canal Levi", "Clock line tracks the river epic. Epic HP bar while UP in vision. Last hit's team keeps +8% damage" },
 	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
 	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
 	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },
