@@ -147,6 +147,7 @@ local clerk = MockAiProvider.complete("camps", {
 })
 assert(contains(clerk, "(re:"))
 assert(not contains(clerk, "32-second appointment"))
+assert(not contains(clerk, "B opens Pawmart"))
 local caster = MockAiProvider.complete("camps", {
 	npc = NpcCatalog.get("KittyCaster"),
 	playerName = "Cat",
@@ -237,8 +238,18 @@ chat.open("KittyCaster", "Kitty Caster")
 assert(not topics.Visible and not coachTopics.Visible)
 assert(lines()[1] == "Kitty Caster: Mrrp. What is on your mind?")
 assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 280)
+local shopTopics = chat.root:FindFirstChild("ShopTopics")
+assert(shopTopics and not shopTopics.Visible)
 chat.open("PawmartRed", "Pawmart Clerk")
 assert(not topics.Visible and not coachTopics.Visible)
-assert(lines()[1] == "Pawmart Clerk: Mrrp. What is on your mind?")
+assert(shopTopics.Visible, "Clerks keep their own shop chips")
+assert(lines()[1] == "Pawmart Clerk: " .. (PawmartGuide.greeting("PawmartRed") :: string))
+assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 332)
+local shopSent = 0
+chat.onSend(function()
+	shopSent += 1
+end)
+coachTopics:FindFirstChild("Help").Activated:Fire()
+assert(shopSent == 0, "Jungle chips stay quiet on a clerk")
 
 print("PASS: Old Tom camps, wards, fog, route, chips, ambient gap, and unchanged hosts")

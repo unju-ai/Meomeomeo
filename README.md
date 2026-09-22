@@ -28,7 +28,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Hold **G** smart pings (team-only wheel + minimap Attention). A visible cat, post, lantern stall, yarn core, ward, or camp is named in the line. Attention refuses a fogged enemy body; ground and minimap pings into fog still land
 - 3-lane map placeholder: bases, outer scratching posts, inner lantern stalls, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
-- AI NPC talk (Pawmart clerks and Kitty Caster on mock lines; Old Tom on authored jungle coaching; HTTP hook if you add a key)
+- AI NPC talk (Pawmart clerks on authored shop tips; Old Tom on authored jungle coaching; Kitty Caster on mock lines; HTTP hook if you add a key)
 - Three channel hosts (MEO / ME / MO) with shared identities, authored dialogue and non-colliding lobby stand-ins
 - Optional yarn / meme-stock ticker on champions
 - Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **death recap**, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
@@ -225,7 +225,7 @@ player message → AiChatService → Provider.complete(message, context) → rep
 ```
 
 - **`mock` (default):** personality lines that mention the player, champion, and score. Lobby hosts and Old Tom answer authored questions first (Old Tom: camps, wards, fog, and the Hard jungle route). No network, no key.
-- **`http`:** `src/server/Npcs/HttpAiProvider.luau` POSTs a Chat Completions-shaped body to `Config.Ai.Endpoint` with `Authorization: Bearer <ApiKey>`. An authored host or Old Tom answer returns before that request. Empty key or failed HTTP **falls back to mock**.
+- **`http`:** `src/server/Npcs/HttpAiProvider.luau` POSTs a Chat Completions-shaped body to `Config.Ai.Endpoint` with `Authorization: Bearer <ApiKey>`. An authored host, Old Tom, or Pawmart clerk answer returns before that request. Empty key or failed HTTP **falls back to mock**.
 
 Set placeholders only in `src/server/Config.luau`:
 

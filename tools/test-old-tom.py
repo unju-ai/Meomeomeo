@@ -89,6 +89,7 @@ modules = [
     ("ModeCatalog", "src/shared/ModeCatalog.luau"),
     ("HostGuide", "src/shared/HostGuide.luau"),
     ("OldTomGuide", "src/shared/OldTomGuide.luau"),
+    ("PawmartGuide", "src/shared/PawmartGuide.luau"),
     ("NpcCatalog", "src/server/Npcs/NpcCatalog.luau"),
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),
@@ -112,12 +113,14 @@ def assert_before(source: str, earlier: str, later: str, label: str) -> None:
 http = (root / "src/server/Npcs/HttpAiProvider.luau").read_text()
 http_fn = http.split("function HttpAiProvider.complete", 1)[1]
 assert_before(http_fn, "HostGuide.reply", "OldTomGuide.reply", "http")
-assert_before(http_fn, "OldTomGuide.reply", "HttpService:RequestAsync", "http")
+assert_before(http_fn, "OldTomGuide.reply", "PawmartGuide.reply", "http")
+assert_before(http_fn, "PawmartGuide.reply", "HttpService:RequestAsync", "http")
 
 mock = (root / "src/server/Npcs/MockAiProvider.luau").read_text()
 mock_fn = mock.split("function MockAiProvider.complete", 1)[1]
 assert_before(mock_fn, "HostGuide.reply", "OldTomGuide.reply", "mock")
-assert_before(mock_fn, "OldTomGuide.reply", "LINES[context.npc.id]", "mock")
+assert_before(mock_fn, "OldTomGuide.reply", "PawmartGuide.reply", "mock")
+assert_before(mock_fn, "PawmartGuide.reply", "LINES[context.npc.id]", "mock")
 
 client = (root / "src/client/init.client.luau").read_text()
 gate_start = client.find("local function oldTomAmbientOk")
