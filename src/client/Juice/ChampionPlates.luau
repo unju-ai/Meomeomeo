@@ -125,11 +125,10 @@ local function paint(
 	refs.fill.BackgroundColor3 = rgb(ChampionPlate.teamFillRgb(tone, team))
 	refs.champ.Text = nameText
 	refs.role.Text = tagText
-	-- hideTree also toggles Enabled for fog; force-off when the plate rule says hide.
+	-- Force-off when fogged / dead. When shown, leave Enabled to applyVision/hideTree
+	-- so we never resurrect a plate on a fog-hidden body.
 	if not show then
 		refs.gui.Enabled = false
-	elseif refs.gui.Enabled == false then
-		refs.gui.Enabled = true
 	end
 end
 
