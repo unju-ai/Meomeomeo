@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix="meo-bot-shop-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
     result = subprocess.run([str(luau), str(entry)], check=True, capture_output=True, text=True)
-named = ("Yarnplate", "Paper Charm", "Longclaw", "Stall Fang", "Mana Treat", "Yarn Cleave", "Whisker Lens")
+named = ("Yarnplate", "Paper Charm", "Longclaw", "Stall Fang", "Mana Treat", "Yarn Cleave", "Control Yarn", "Whisker Lens")
 missing = [name for name in named if name not in result.stdout]
 if missing:
     sys.stderr.write(result.stdout)

@@ -222,7 +222,8 @@ local Config = {
 			UseLens = false,
 		},
 		-- Hard: faster, stingier retreat, last-hits, leads skillshots, mid runs a camp route, early ward.
-		-- Pawmart plan is Shared.BotShopLogic (role build at the opening fountain, then Cleave / Fang / lens).
+		-- Pawmart plan is Shared.BotShopLogic (role build at the opening fountain, then Cleave / Fang,
+		-- Control Yarn, then lens). Bought pinks plant toward river brush / canal / crab approaches.
 		Hard = {
 			ThinkInterval = 0.16,
 			RetreatHp = 0.16,

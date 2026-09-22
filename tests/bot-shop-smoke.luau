@@ -57,7 +57,15 @@ end
 for _, difficulty in { "Easy", "Normal", "Hard" } do
 	for _, role in { "Tank", "Assassin", "Mage", "Bruiser", "Marksman", "Support" } do
 		local plan = BotShopLogic.plan(difficulty :: BotShopLogic.Difficulty, role)
-		assert(not contains(plan, "ControlYarn"), `{difficulty} {role} must not buy Control Yarn`)
+		local yarnAt = table.find(plan, "ControlYarn")
+		if difficulty == "Hard" then
+			local cleaveAt = table.find(plan, "YarnCleave")
+			local lensAt = table.find(plan, "WhiskerLens")
+			assert(yarnAt ~= nil and cleaveAt ~= nil and lensAt ~= nil, `{role} Hard plan`)
+			assert(yarnAt > cleaveAt and yarnAt < lensAt, `{role} Control Yarn sits after Cleave and before Lens`)
+		else
+			assert(yarnAt == nil, `{difficulty} {role} must not buy Control Yarn`)
+		end
 		assert(#plan <= BotShopLogic.MaxBuysPerVisit)
 	end
 	assert(BotShopLogic.shouldShop(difficulty :: BotShopLogic.Difficulty, false, true) == false)
@@ -92,9 +100,21 @@ assert(hardTankGold == START - 250 - 220)
 assert(BotShopLogic.nextItem("Hard", "Tank", hardTankGold, hardTank) == nil)
 assert(BotShopLogic.nextItem("Hard", "Bruiser", cost("YarnCleave"), hardTank) == "YarnCleave")
 local afterCleave = { "Yarnplate", "PaperCharm", "YarnCleave" }
-assert(BotShopLogic.nextItem("Hard", "Tank", cost("WhiskerLens"), afterCleave) == "WhiskerLens")
-assert(BotShopLogic.nextItem("Hard", "Tank", 99999, { "Yarnplate", "PaperCharm", "YarnCleave", "WhiskerLens" }) == nil)
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("ControlYarn") - 1, afterCleave) == nil)
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("WhiskerLens"), afterCleave) == "ControlYarn")
+local oneYarn = { "Yarnplate", "PaperCharm", "YarnCleave", "ControlYarn" }
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("ControlYarn") - 1, oneYarn) == nil)
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("WhiskerLens"), oneYarn) == "ControlYarn")
+local twoYarn = { "Yarnplate", "PaperCharm", "YarnCleave", "ControlYarn", "ControlYarn" }
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("WhiskerLens") - 1, twoYarn) == nil)
+assert(BotShopLogic.nextItem("Hard", "Tank", cost("WhiskerLens"), twoYarn) == "WhiskerLens")
+assert(BotShopLogic.nextItem("Hard", "Tank", 99999, twoYarn) == "WhiskerLens")
+assert(BotShopLogic.nextItem("Hard", "Tank", 99999, { "Yarnplate", "PaperCharm", "YarnCleave", "ControlYarn", "ControlYarn", "WhiskerLens" }) == nil)
 assert(BotShopLogic.nextItem("Hard", "Tank", cost("PaperCharm") - 1, { "Yarnplate" }) == nil)
+local richTank = buyAll("Hard", "Tank", 5000, {})
+assert(richTank[1] == "Yarnplate" and richTank[2] == "PaperCharm" and richTank[3] == "YarnCleave")
+assert(richTank[4] == "ControlYarn" and richTank[5] == "ControlYarn" and richTank[6] == "WhiskerLens")
+assert(#richTank == 6)
 
 local hardAssassin, hardAssassinGold = buyAll("Hard", "Assassin", START, {})
 assert(hardAssassin[1] == "Longclaw" and hardAssassin[2] == "PounceBoots" and #hardAssassin == 2)
@@ -102,6 +122,7 @@ assert(hardAssassinGold == START - 250 - 200)
 assert(not contains(hardAssassin, "StallFang"))
 assert(BotShopLogic.nextItem("Hard", "Marksman", cost("StallFang"), hardAssassin) == "StallFang")
 assert(BotShopLogic.nextItem("Hard", "Assassin", cost("StallFang") - 1, hardAssassin) == nil)
+assert(BotShopLogic.nextItem("Hard", "Assassin", cost("ControlYarn") + cost("WhiskerLens"), hardAssassin) == nil)
 local afterFang = { "Longclaw", "PounceBoots", "StallFang" }
 assert(BotShopLogic.nextItem("Hard", "Assassin", cost("YarnCleave"), afterFang) == "YarnCleave")
 
@@ -110,12 +131,21 @@ assert(hardMage[1] == "ManaTreat" and hardMage[2] == "Longclaw" and #hardMage ==
 assert(hardMageGold == START - 200 - 250)
 assert(BotShopLogic.nextItem("Hard", "Support", cost("YarnCleave"), hardMage) == "YarnCleave")
 assert(BotShopLogic.nextItem("Hard", "Mage", cost("YarnCleave") - 1, hardMage) == nil)
+local afterMageCleave = { "ManaTreat", "Longclaw", "YarnCleave" }
+assert(BotShopLogic.nextItem("Hard", "Mage", cost("ControlYarn"), afterMageCleave) == "ControlYarn")
+assert(BotShopLogic.nextItem("Hard", "Support", cost("ControlYarn") - 1, afterMageCleave) == nil)
+local richAssassin = buyAll("Hard", "Assassin", 5000, {})
+assert(richAssassin[3] == "StallFang" and richAssassin[4] == "YarnCleave")
+assert(richAssassin[5] == "ControlYarn" and richAssassin[6] == "ControlYarn" and richAssassin[7] == "WhiskerLens")
+assert(#richAssassin == 7)
 
 assert(cost("YarnCleave") == 280)
 assert(cost("StallFang") == 300)
 assert(cost("PaperCharm") == 220)
 assert(cost("WhiskerLens") == 180)
 assert(cost("ManaTreat") == 200)
+assert(cost("ControlYarn") == 75)
+assert(ItemCatalog.maxStack("ControlYarn") == 2)
 
 assert(BotShopLogic.shouldCleave(2, true, true) == true)
 assert(BotShopLogic.shouldCleave(3, true, true) == true)
@@ -129,4 +159,67 @@ assert(BotShopLogic.shouldLens(false, true, true) == false)
 assert(BotShopLogic.shouldLens(true, false, true) == false)
 assert(BotShopLogic.shouldLens(true, true, false) == false)
 
-print("bot shop ok: Yarnplate, Paper Charm, Longclaw, Pounce Boots, Stall Fang, Mana Treat, Yarn Cleave, Whisker Lens")
+assert(BotShopLogic.chargeReady(false, 0, 10) == true)
+assert(BotShopLogic.chargeReady(true, 0, 10) == false)
+assert(BotShopLogic.chargeReady(false, 12, 10) == false)
+assert(BotShopLogic.chargeReady(false, 10, 10) == true)
+assert(BotShopLogic.releaseWardLatch(true, false, false) == true)
+assert(BotShopLogic.releaseWardLatch(true, true, false) == false)
+assert(BotShopLogic.releaseWardLatch(true, false, true) == false)
+assert(BotShopLogic.releaseWardLatch(false, false, false) == false)
+
+assert(BotShopLogic.shouldPlaceControl("Hard", true, true, true) == true)
+assert(BotShopLogic.shouldPlaceControl("Easy", true, true, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Normal", true, true, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Hard", false, true, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Hard", true, false, true) == false)
+assert(BotShopLogic.shouldPlaceControl("Hard", true, true, false) == false)
+
+local PLACE = 28
+local spots = BotShopLogic.visionSpots()
+local none: { BotShopLogic.Post } = {}
+
+local function plant(x: number, z: number, posts: { BotShopLogic.Post }?): (number?, number?, string?)
+	return BotShopLogic.controlDestination(x, z, PLACE, spots, posts or none)
+end
+
+local brushX, brushZ, brushKind = plant(-22, -48)
+assert(brushX == -22 and brushZ == -48 and brushKind == "river-brush")
+
+local crabX, crabZ, crabKind = plant(0, -48)
+assert(crabX == -22 and crabZ == -48 and crabKind == "river-brush")
+
+local canalX, canalZ, canalKind = plant(0, 24)
+assert(canalX == 0 and canalZ == 24 and canalKind == "canal")
+
+local midX, midZ, midKind = plant(0, 0)
+assert(midX == 0 and midZ == 24 and midKind == "canal")
+
+local homeX, homeZ, homeKind = plant(176, 0)
+assert(homeX == nil and homeZ == nil and homeKind == nil)
+
+local diveX = plant(70, 0, { { x = 90, z = 0, range = 44 } })
+assert(diveX == nil)
+
+local onlyCanal = { { x = 0, z = 24, kind = "canal" :: BotShopLogic.SpotKind } }
+local blockedCanal = BotShopLogic.controlDestination(0, 0, PLACE, onlyCanal, { { x = 0, z = 24, range = 10 } })
+assert(blockedCanal == nil)
+
+local aroundX, aroundZ, aroundKind = plant(0, 0, { { x = 0, z = 24, range = 10 } })
+assert(aroundKind == "river-brush")
+assert(aroundX ~= nil and aroundZ ~= nil)
+assert(not (aroundX == 0 and aroundZ == 24))
+
+local stepX, stepZ, stepKind = plant(10, -80)
+assert(stepKind == "river-brush")
+assert(stepX ~= nil and stepZ ~= nil)
+local stepDist = math.sqrt((stepX :: number - 10) ^ 2 + (stepZ :: number - (-80)) ^ 2)
+assert(math.abs(stepDist - PLACE) < 0.001)
+local brushDist = math.sqrt((stepX :: number - (-22)) ^ 2 + (stepZ :: number - (-48)) ^ 2)
+local fromLane = math.sqrt((10 - (-22)) ^ 2 + (-80 - (-48)) ^ 2)
+assert(brushDist < fromLane)
+
+local clamped = BotShopLogic.controlDestination(40, 24, PLACE, onlyCanal, { { x = 0, z = 24, range = 20 } })
+assert(clamped == nil)
+
+print("bot shop ok: Yarnplate, Paper Charm, Longclaw, Pounce Boots, Stall Fang, Mana Treat, Yarn Cleave, Control Yarn, Whisker Lens")

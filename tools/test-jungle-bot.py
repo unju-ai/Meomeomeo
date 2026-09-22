@@ -35,6 +35,8 @@ script = (
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
     + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")
+    + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
+    + wrap_deps("BotShopLogic", "src/shared/BotShopLogic.luau", ["ItemCatalog"])
     + (root / "tests/jungle-bot-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-jungle-bot-test-") as folder:

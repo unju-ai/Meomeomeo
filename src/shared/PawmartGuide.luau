@@ -87,7 +87,7 @@ local GUIDE: { GuideTopic } = {
 			"trinket",
 			"charm",
 		},
-		fact = "4 plants a free stealthed trinket, one live, about 70 seconds before the next, lasting about 60. Control Yarn pinks last about 90 seconds, slow enemies inside about 22 studs, and reveal nearby enemy trinkets. Your own pink slows enemies, not you. Paper Charm is 220 gold: an enemy pink opens about 2.4 seconds of slow immunity, then the charm waits about 20. Hard bots drop one free pink and do not buy Control Yarn.",
+		fact = "4 plants a free stealthed trinket, one live, about 70 seconds before the next, lasting about 60. Control Yarn pinks last about 90 seconds, slow enemies inside about 22 studs, and reveal nearby enemy trinkets. Your own pink slows enemies, not you. Paper Charm is 220 gold: an enemy pink opens about 2.4 seconds of slow immunity, then the charm waits about 20. Hard bots drop one free pink, then buy Control Yarn and plant it toward the river.",
 	},
 	{
 		id = "Builds",
@@ -107,7 +107,7 @@ local GUIDE: { GuideTopic } = {
 			"purse",
 			"cs",
 		},
-		fact = "Longclaw is 250 gold and adds 18 ability damage. Yarnplate is 250 gold: +90 HP and 12% armor. Mana Treat is 200 gold and adds 90 mana. Pounce Boots are 200 gold and add 6 walk speed. Stall Fang is 300 gold and adds 36 raw damage to champion hits at or below 20% HP. On Hard, bots buy a short role plan at the opening fountain (bruiser Yarnplate + Paper Charm, assassin Longclaw + boots, mage Mana Treat + Longclaw), then finish Fang, Cleave, and Lens on later visits. They still do not buy Control Yarn.",
+		fact = "Longclaw is 250 gold and adds 18 ability damage. Yarnplate is 250 gold: +90 HP and 12% armor. Mana Treat is 200 gold and adds 90 mana. Pounce Boots are 200 gold and add 6 walk speed. Stall Fang is 300 gold and adds 36 raw damage to champion hits at or below 20% HP. On Hard, bots buy a short role plan at the opening fountain (bruiser Yarnplate + Paper Charm, assassin Longclaw + boots, mage Mana Treat + Longclaw), then finish Fang or Cleave, then Control Yarn, then Lens on later visits. They plant that yarn toward the river.",
 	},
 }
 
