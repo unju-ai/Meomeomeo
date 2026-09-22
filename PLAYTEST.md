@@ -105,6 +105,8 @@ Tab scoreboard polish (same day, later slice): hold-**Tab** mid-fight board read
 
 Pawmart shop panel polish (same day, later slice): **B** register (`ShopPanel`) lists all nine `ItemCatalog` rows under **Stats / Vision / Actives** section headers with tag chips. Lens / Control Yarn / Yarn Cleave show keybind chips (**5** / **6** / **7**). Cards tint buyable (amber) vs unaffordable (coral) vs owned / full stack (mint) vs away-from-fountain (muted + warn line). Gold line matches the purse chip (`{n}g`); fountain status sits beside it. Buy toast names the item (`Bought … · Pawmart`). `ShopService` prices, stack caps, and clerk / tip copy are unchanged — UI only reads the catalog via `Shared.ShopPaint`. Verified locally: Luau compiled 148 sources; `tools/test-items.py` passed (ShopPaint sections / keybinds / card kinds); full smoke suite passed (29). Rojo 7.4.4 built the place. Studio live-pass under Pawmart shop panel.
 
+Help overlay refresh (same day, later slice): **?** / hold **H** sheets restructured into scannable sections (Cat Rift: Movement · Combat · Vision · Shop · Social · Objectives). Cat Rift rows cover move/AA/QWER/B/F/4/5/6/7/G/T/Tab/V/Mute, fog + ghosts, death recap, purse/CS, Canal Levi, posts → stalls → core, Invite / party, Kitty Caster, and Hub **Live** (Tips row — not a tip card). Hub / Yarn Run / Koi / Party / Arcade sheets keep juice-accurate binds and one Closet unlock line each. Tip cards / Show tips stay separate. Gameplay systems unchanged (copy only). Verified locally: Luau compiled N sources; `tools/test-tutorial.py` + `tools/test-brand.py` passed; full smoke suite. Rojo 7.4.4 built the place. Studio live-pass under §5 Help overlay.
+
 Pawmart clerk shop tips (same day, later slice): `Shared.PawmartGuide` teaches both fountain clerks (`PawmartBlue` / `PawmartRed`) with authored facts and Blue tired-retail / Red upseller asides. Chips: **Shop**, **Actives**, **Wards**, **Builds**, **Help**. Covers **B** fountain-only, start gold 500 / purse CS, Longclaw / Yarnplate / Mana Treat / Pounce Boots, Lens **5** / Control Yarn **6** / Cleave **7**, Stall Fang, Paper Charm, and a Hard bot buy one-liner. Rare Cat Rift ambient on the Talk prompt. Old Tom, hosts, and Kitty Caster unchanged. Mock / HTTP both gate on the guide before generic lines. No API key. Verified locally: Luau compiled 139 sources; `tools/test-pawmart-guide.py` passed; `tools/test-brand.py` and `tools/test-old-tom.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart clerks.
 
 Match clock (same day, later slice): Cat Rift InProgress shows a top-left **mm:ss** clock and a Canal Levi line. The server publishes `startedAt` and `riverEpic.nextAt` on the match snapshot. The client only paints: a countdown from **Levi 3:00** (`Levi 1:24` on the way), **Levi UP** while it is alive, **Levi 0:47** for the one return, **Levi taken** after the second death. The purse chip still uses **Canal Levi · +8% damage**, and names the other side on that same line when they hold the buff. The minimap pit marker stays. Kitty Caster's take line stays. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the clock. Verified locally: Luau compiled 136 sources; `tools/test-combat.py` and `tools/test-jungle-bot.py` passed (mm:ss, countdown, UP, respawn, taken, purse holder line). `tools/test-announcer.py` still passed with the take line unchanged. The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to watch the countdown, the wake, the take, and the respawn timer (the live-pass below).
@@ -608,7 +610,7 @@ The cosmetics smoke checks the gates and the yarn tip. It does not walk a lane. 
 
 Smoke (not a Studio substitute): `python3 tools/test-cosmetics.py /path/to/luau`.
 
-Help overlay lists Closet on the hub sheet. ModeService gates are unchanged.
+Help overlay lists Closet on the hub sheet plus one unlock line per stall sheet (Run / Koi / Party / Arcade / Rift). ModeService gates are unchanged.
 
 ## 4. Queue and same-server party (2+ clients)
 
@@ -650,7 +652,7 @@ Smoke (lists and copy only): `python3 tools/test-voice.py /path/to/luau`.
 
 ## 5. Keybinds (after PRs 1–12)
 
-Same list as the in-game **?** / hold **H** panel.
+Same list as the in-game **?** / hold **H** panel. The overlay is a **reference card** (not tip cards / Show tips). Cat Rift groups rows under **Movement · Combat · Vision · Shop · Social · Objectives**. Hub and other stalls use shorter sectioned sheets with one **Closet** unlock line each.
 
 | Input | Action |
 | --- | --- |
@@ -669,20 +671,24 @@ Same list as the in-game **?** / hold **H** panel.
 | **5** | Whisker Lens (buy at Pawmart first) |
 | **6** | Control Yarn / pink ward (buy, 2 charges). Visible magenta ball; slows; reveals enemy trinkets |
 | **7** | Yarn Cleave (buy at Pawmart). Circle slash, 12s cooldown. Stall Fang and Paper Charm are passives |
-| **B** | Pawmart — **fountain only**. Not recall |
+| **B** | Pawmart — **fountain only**. Not recall. Panel sections: Stats / Vision / Actives |
 | **F** | Recall 7s → fountain. A new move, ground click, AA, attack-move, or cast cancels immediately. Damage still cancels. Camera, help, emote, ping, and **B** do not |
 | **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Aim a wedge, **release to cast**, or click. **Esc** cancels. Server cooldown (~2.6s); no emote while down. Closet **emoteFlair** (Moon Dust, Canal Crown, …) tints + sparkles the FX |
 | **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only. ~2s cooldown. A visible cat, post, stall, yarn core, ward, or camp is named (`⚠ Caution · Nyan Rocket`). Ground stays generic |
+| **Fog** | Unseen ground dark; explored dim; walls/cover block; brush hides; last-seen ghost fades (~1.8s); enemy bolts vanish in fog |
 | **Clock** | Top-left during a Cat Rift fight only: match `mm:ss`, then the Canal Levi line (`Levi 1:24`, `Levi UP`, `Levi 0:47`, `Levi taken`). Hidden on the hub and the other stalls |
 | **Purse** | Above the ability bar during a Cat Rift match: your gold, CS, level, and whether Yarn Cleave (280g) fits. Same numbers as Tab. Hidden on the hub and the other stalls. After your side takes **Canal Levi**, the chip adds **+8% damage**. If the other side holds it, that same line names them |
 | **Canal Levi** | One river epic. Wakes about 3:00 in the canal between mid and the south crab. The clock counts down, shows UP, counts the one ~90s return, then **Levi taken**. Last hit's team keeps +8% auto and ability damage for the match |
+| **Posts** | Outer scratching post → lantern stall → yarn core. Stalls gate per lane |
 | **Tab** (hold) | Scoreboard: Blue/Red sections, YOU highlight, KDA / CS / gold / level / short items. Dead dimmed. Bots tagged. Non-modal |
 | **Death** | Recap of recent scratches (cat / post / kitten / camp / item). **✕** dismisses, or it hides ~2.5s before the fountain. **Recap** reopens while you are down |
+| **Kitty Caster** | First blood, streaks, posts, stalls, yarn core, Canal Levi, victory/defeat. Mock Talk lines stay separate from callouts |
 | **V** | Toggle locked follow camera |
 | **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes, **Hide my name** (boards show **Anonymous Cat**). Mix + hide-name + last Practice difficulty persist (`MeoSettings_v1`). This is not the mic |
-| **Voice** (top-right pill) | **Mute me** / **Unmute** sets the local mic. **You: live / muted / not eligible**. Team matches: teammates only, bots silent. Hub and other stalls follow `Config.Voice.OutsideMatch` (default **Off**). Studio Solo Play stays **Voice · Studio** |
-| **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
+| **Voice** / **Mute me** (top-right pill) | **Mute me** / **Unmute** sets the local mic. **You: live / muted / not eligible**. Team matches: teammates only, bots silent. Hub and other stalls follow `Config.Voice.OutsideMatch` (default **Off**). Studio Solo Play stays **Voice · Studio** |
+| **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux). Stall sheets name mode unlocks (Run 200m/400m, legendary koi, party win, arcade daily profit, Rift post/win/kills) |
 | **Invite** (Cat Rift) | Same server. They **Accept** within 20s. Leader **Queue party** or **Practice with party**. **Decline**, **Leave party**, or expiry returns the line to solo |
+| **Live** (hub) | Publish checklist on the help sheet Tips row — not a tip card. See §7 |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** into fog is fine (team-only). History keeps post squares and lantern stalls, not only dots |
 | Talk prompt | Fountain / jungle NPC chat. Kitty Caster stays on mock lines (her callouts are separate). Fountain clerks answer shop / actives / wards / builds from authored tips (Blue receipt voice, Red upseller). Old Tom answers camps, wards, fog, and the Hard route from authored lines. Still no API key |
@@ -697,6 +703,17 @@ Same list as the in-game **?** / hold **H** panel.
 | **Shift+1–5** (Meme Arcade) | Sell 1 bag at the listed yarn price |
 
 Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Closet**, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue** / **Queue party**, **Leave queue**, **Practice**, **Invite**, **Accept** / **Decline**, **Leave party**, **Closet**, **← Hub**. Party line shows the leader and members, or **solo**.
+
+### Studio live-pass (Help overlay)
+
+Copy-only. Tip cards and Show tips stay on their own deck. Open **?** (or hold **H**) in each place below — do not treat this as a combat or unlock pass.
+
+1. **Hub.** Sheet title **Hub**. Sections include Stalls / Closet / Social. **Live** points at the publish checklist. Closet unlocks are one short line. Tip cards do not open from this sheet.
+2. **Cat Rift Practice.** After draft, open **?**. Title **Cat Rift**. Scan **Movement · Combat · Vision · Shop · Social · Objectives**. Confirm rows for move / AA / QWER / B / F / 4 / 5 / 6 / 7 (via item rows) / G / T / Tab / V / Mute, fog + ghosts, death recap, purse/CS, Levi, posts → stalls → core, Invite, Kitty Caster, and Tips → Live (not a card). Kit shorthand still sits under QWER.
+3. **Yarn Run / Koi / Party / Arcade.** Open **?** in each stall. Each sheet stays short, juice-accurate, and names that mode's Closet unlock in one line.
+4. Close help. Lobby **Show tips** still replays tip cards only — it does not replace this reference sheet.
+
+Smoke (not a Studio substitute): `python3 tools/test-tutorial.py /path/to/luau` (Tips / Live row). Brand smoke still covers Closet / Live chrome: `python3 tools/test-brand.py /path/to/luau`.
 
 ### Combat notes (Cat Rift)
 
