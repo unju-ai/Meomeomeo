@@ -29,10 +29,15 @@ assert(KoiCatalog.inWindow(0.9, legend) == false, "Legendary cream window is tig
 assert(KoiCatalog.inWindow(0.9, common) == false)
 assert(KoiCatalog.parseRarity("Legendary") == "Legendary")
 assert(KoiCatalog.parseRarity("nope") == "Common")
+assert(KoiCatalog.rarityTag("Legendary") == "CROWN")
+assert(KoiCatalog.rarityTag("Common") == "CREAM")
+assert(KoiCatalog.catchTint("Mint Whisker", "Rare").g > KoiCatalog.catchTint("Cobalt Braincell", "Rare").g, "Mint is greener than cobalt")
+assert(KoiCatalog.catchTint("Coral Crown", "Legendary").r == 255)
+assert(KoiCatalog.catchTint(nil, "Epic").r == 255 and KoiCatalog.catchTint(nil, "Epic").g == 196)
 
 local rows = KoiCatalog.logRows({ CreamLoaf = 3, CoralCrown = 1, PeachKoi = 0 })
 assert(#rows == 2)
 assert(rows[1].id == "CreamLoaf" and rows[1].count == 3)
 assert(rows[2].id == "CoralCrown")
 
-print("PASS: koi catalog rarities, windows, daily seed, stall log")
+print("PASS: koi catalog rarities, windows, daily seed, stall log, catch tints")

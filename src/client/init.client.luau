@@ -23,6 +23,7 @@ local RecallLogic = require(Shared:WaitForChild("RecallLogic"))
 local ChampionKits = require(Shared:WaitForChild("ChampionKits"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
+local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
 local SoundIds = require(script.Audio.SoundIds)
@@ -1390,18 +1391,26 @@ Remotes.event("KoiPondUpdated").OnClientEvent:Connect(function(payload)
 			Sfx.play("MatchFound")
 			ScreenJuice.banner("LEGENDARY KOI", Color3.fromRGB(255, 122, 98))
 			ScreenJuice.powerFlash(Color3.fromRGB(255, 122, 98))
+			KoiCamera.kick(0.55, 0.28)
 			hud.ticker("LEGENDARY KOI · coral crown loaf")
-		elseif snap.lastCatchRarity == "Epic" then
-			Sfx.play("LevelUp")
-			ScreenJuice.banner(snap.lastCatchName or "Amber Lantern", Color3.fromRGB(255, 196, 74))
-			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
-		elseif snap.lastCatchName then
-			Sfx.play("ShopBuy")
-			ScreenJuice.banner(snap.lastCatchName, Color3.fromRGB(255, 184, 140))
+		elseif snap.lastCatchName and snap.lastCatchRarity then
+			local rarity = KoiCatalog.parseRarity(snap.lastCatchRarity)
+			local tint = KoiCatalog.catchTint(snap.lastCatchName, rarity)
+			if rarity == "Epic" then
+				Sfx.play("LevelUp")
+			else
+				Sfx.play("ShopBuy")
+			end
+			ScreenJuice.banner(snap.lastCatchName, tint)
+			ScreenJuice.powerFlash(tint)
 		elseif snap.missReason then
 			Sfx.play("Kill")
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 184, 140))
 		elseif snap.event == "Nibble — reel the cream window" then
 			Sfx.play("WardPlace")
+			-- Soft cream telegraph so the lantern rail is hard to miss.
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 243, 224))
+			ScreenJuice.banner("REEL THE CREAM", Color3.fromRGB(255, 243, 224))
 		elseif snap.event == "Yarn's in the drink" then
 			Sfx.play("AbilityCast")
 		end

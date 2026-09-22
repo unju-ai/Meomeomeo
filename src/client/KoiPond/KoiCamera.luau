@@ -16,6 +16,9 @@ local subject: BasePart? = nil
 
 local OFFSET = Vector3.new(10, 13, -16)
 
+local kickUntil = 0
+local kickAmp = 0
+
 local function lookAt(): Vector3
 	return Constants.KoiPondOrigin + Vector3.new(0, 1.4, 4)
 end
@@ -30,8 +33,22 @@ local function step()
 		return
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.lookAt(root.Position + OFFSET, lookAt())
+	local kick = Vector3.zero
+	if os.clock() < kickUntil and kickAmp > 0 then
+		kick = Vector3.new(
+			(math.random() - 0.5) * 2 * kickAmp,
+			(math.random() - 0.5) * 0.8 * kickAmp,
+			(math.random() - 0.5) * 1.2 * kickAmp
+		)
+	end
+	camera.CFrame = CFrame.lookAt(root.Position + OFFSET + kick, lookAt())
 	camera.FieldOfView = 62
+end
+
+-- Cheap legendary punch; pond owns the cam so CameraFollow.shake would no-op.
+function KoiCamera.kick(amplitude: number, duration: number)
+	kickAmp = math.max(0, amplitude)
+	kickUntil = os.clock() + math.max(0, duration)
 end
 
 function KoiCamera.setEnabled(on: boolean)
@@ -51,6 +68,8 @@ function KoiCamera.setEnabled(on: boolean)
 			camera.CameraType = Enum.CameraType.Custom
 			camera.FieldOfView = 70
 		end
+		kickUntil = 0
+		kickAmp = 0
 	end
 end
 

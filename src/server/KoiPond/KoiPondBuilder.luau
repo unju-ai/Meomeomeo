@@ -202,21 +202,32 @@ function KoiPondBuilder.setBobber(userId: number, mode: "none" | "waiting" | "bi
 	bag.Parent = sessions
 	local o = origin()
 	local tint = color or CREAM
-	local bob = part(bag, "Bobber", Vector3.new(0.9, 0.9, 0.9), CFrame.new(o + Vector3.new(2.4, 1.35, 6)), tint, {
+	local bobSize = if mode == "bite" then Vector3.new(1.35, 1.35, 1.35) elseif mode == "catch" then Vector3.new(1.15, 1.15, 1.15) else Vector3.new(0.9, 0.9, 0.9)
+	local bobY = if mode == "bite" then 1.7 else 1.35
+	local bob = part(bag, "Bobber", bobSize, CFrame.new(o + Vector3.new(2.4, bobY, 6)), tint, {
 		Material = Enum.Material.Neon,
 	})
 	part(bag, "Line", Vector3.new(0.12, 4.2, 0.12), CFrame.new(o + Vector3.new(1.2, 3.4, -6)), CREAM)
+	if mode == "bite" then
+		-- Soft splash ring so the nibble reads on stream without changing timing.
+		part(bag, "Splash", Vector3.new(3.6, 0.18, 3.6), CFrame.new(o + Vector3.new(2.4, 0.95, 6)), CREAM, {
+			Material = Enum.Material.Neon,
+			Transparency = 0.45,
+		})
+		labelOn(bob, "NIBBLE!", CORAL, Vector3.new(0, 1.7, 0))
+	end
 	if mode == "bite" or mode == "catch" then
+		local legendary = mode == "catch" and tint == CORAL
 		local fish = part(
 			bag,
 			"Fish",
-			Vector3.new(if mode == "catch" then 4.2 else 2.8, 0.85, 1.2),
+			Vector3.new(if mode == "catch" then (if legendary then 5.2 else 4.2) else 2.8, if legendary then 1.15 else 0.85, if legendary then 1.5 else 1.2),
 			CFrame.new(o + Vector3.new(4.2, if mode == "catch" then 3.4 else 1.2, 7)) * CFrame.Angles(0, math.rad(-25), if mode == "catch" then 0.4 else 0),
 			tint,
-			{ Material = Enum.Material.SmoothPlastic }
+			{ Material = if legendary then Enum.Material.Neon else Enum.Material.SmoothPlastic }
 		)
 		if mode == "catch" then
-			labelOn(fish, "!", tint, Vector3.new(0, 1.6, 0))
+			labelOn(fish, if legendary then "CROWN!" else "!", tint, Vector3.new(0, if legendary then 2.0 else 1.6, 0))
 		end
 	end
 	if mode == "waiting" then
