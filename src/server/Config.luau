@@ -189,6 +189,7 @@ local Config = {
 			LastHitMul = 2,
 			LeadShots = false,
 			SkillshotSpeed = 72,
+			-- Easy never takes camps. Lane bots stay lane bots.
 			Jungle = false,
 			Ward = false,
 			Dodge = false,
@@ -207,6 +208,7 @@ local Config = {
 			LastHitMul = 1.4,
 			LeadShots = true,
 			SkillshotSpeed = 72,
+			-- Normal mid clears the nearest own-side camp once the wave is pushed, then finishes it.
 			Jungle = true,
 			Ward = false,
 			Dodge = true,
@@ -215,7 +217,7 @@ local Config = {
 			UseLens = false,
 			ShopItems = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots" },
 		},
-		-- Hard: faster, stingier retreat, last-hits, leads skillshots, mid can jungle, early ward.
+		-- Hard: faster, stingier retreat, last-hits, leads skillshots, mid runs a camp route, early ward.
 		Hard = {
 			ThinkInterval = 0.16,
 			RetreatHp = 0.16,
