@@ -35,7 +35,7 @@ Optional lint (this repo has `selene.toml`):
 selene src
 ```
 
-`selene 0.31.0` against this tree: no parse errors. Three pre-existing `if_same_then_else` hits remain in `KillFeed.luau` and `MatchService.luau` (same-color / same-assignment branches). This slice does not refactor those.
+`selene 0.31.0` against this tree: no parse errors. Pre-existing `if_same_then_else` hits may remain in `MatchService.luau` (same-assignment branches). This slice does not refactor those.
 
 ## 2. Sync into Studio
 
@@ -98,6 +98,8 @@ Match end screen polish (same day, later slice): punchier **VICTORY** (mint/ambe
 Cat Rift resource bars (same day, later slice): AbilityBar HP / mana / XP paints stay on the existing combat + XP snapshot fields (no regen or max changes). Coral HP and cobalt mana fills show **current / max**; amber XP keeps a **Lv n · into / need** label. HP under 30% warn-pulses; mana-gate on QWER mirrors a coral pulse on the mana track (slot coral tint unchanged). Purse chip and Levi clock stay clear; Hub / Yarn Run / Koi / Party / Arcade have no Cat Rift resource bars. End screen / level-up juice unchanged aside from shared bottom layout spacing. Verified locally: Luau compiled 144 sources; `tools/test-resource-bars.py` passed; full smoke suite passed (26). Rojo 7.4.4 built the place. Studio live-pass under resource bars.
 
 Minimap clarity (same day, later slice): client-only `Shared.MinimapPaint` restyles Cat Rift minimap dots — cream **you** pip with ink ring, ally cream stroke vs enemy coral stroke, posts / open stalls / yarn core match smart-ping shapes, gated stalls read as dim wood lanterns, Canal Levi **UP pit** / **respawn** / **taken** / in-vision **body** are distinct, click Attention flash on the map. Fog mask stays server-authoritative; explored tint stays lighter than unexplored. Resource bars / end screen / hub unchanged. VisionService mask math untouched. Verified locally: Luau compiled 145 sources; `tools/test-minimap.py` passed; `tools/test-vision.py` + `tools/test-ping.py` extended; full smoke suite passed (27). Rojo 7.4.4 built the place. Studio live-pass under minimap clarity.
+
+Kill feed polish (same day, later slice): `KillFeed` rows become night-market chips via `Shared.KillFeedPaint` — peach kills, lantern posts, wood/lantern stalls, pink yarn core, quiet amber Kitty Caster announces, cobalt pings, mint level-ups. Max four rows with age fade; announce chips expire sooner so they do not fight her banner. Your kills / deaths / structure takes get a light cream or coral ring from existing cat copy (no new combat remotes; `stall` FeedKind tags lantern stalls). Meme tape sits just under the stack. Combat scoring and announcer text unchanged aside from presentation. Verified locally: Luau compiled 146 sources; `tools/test-kill-feed.py` passed; full smoke suite passed (28). Rojo 7.4.4 built the place. Studio live-pass under kill feed.
 
 Pawmart clerk shop tips (same day, later slice): `Shared.PawmartGuide` teaches both fountain clerks (`PawmartBlue` / `PawmartRed`) with authored facts and Blue tired-retail / Red upseller asides. Chips: **Shop**, **Actives**, **Wards**, **Builds**, **Help**. Covers **B** fountain-only, start gold 500 / purse CS, Longclaw / Yarnplate / Mana Treat / Pounce Boots, Lens **5** / Control Yarn **6** / Cleave **7**, Stall Fang, Paper Charm, and a Hard bot buy one-liner. Rare Cat Rift ambient on the Talk prompt. Old Tom, hosts, and Kitty Caster unchanged. Mock / HTTP both gate on the guide before generic lines. No API key. Verified locally: Luau compiled 139 sources; `tools/test-pawmart-guide.py` passed; `tools/test-brand.py` and `tools/test-old-tom.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart clerks.
 
@@ -281,6 +283,18 @@ The Luau smoke checks bump rules only: a champion kill moves that cat up, a deat
 5. Die to a bot or a post. Your chip flashes red and dips. There is no yarn button on the tape (`CheerTicker` stays a remote). Prices are fiction. Nothing here spends Robux or touches Meo404.
 
 Smoke (not a Studio substitute): `python3 tools/test-meme-stock.py /path/to/luau`.
+
+### Studio live-pass (kill feed)
+
+UI only. Combat scoring, Kitty Caster line choice, and ping text stay as they were. The Luau smoke checks plate kinds, age fade, announce hold, and your-kill / your-death rings. It does not move a character. Do this in Practice.
+
+1. Lock in. The feed is a short stack of tinted chips under her banner (not bare mono lines). **WE ARE LIVE** reads as a quiet amber announce chip. The meme tape stays just under the stack with a clear gap — no overlap.
+2. Scratch a Red bot. A peach **scratch** chip appears. If that was you, the chip gets a light cream ring. Her **FIRST BLOOD** / streak line still hits the banner and a quieter announce chip; the announce fades sooner so it does not fight the banner.
+3. Die to a bot or a post. Your death chip picks up a light coral ring. Older chips fade; the stack caps at four.
+4. Knock an outer post (lantern stroke) then a lantern stall (wood / lantern). Unplug the yarn core (pink). Hold **G** for a cobalt ping chip. A teammate level-up stays mint on the feed only.
+5. Hub / Yarn Run / Koi / Party / Arcade never show the rift feed.
+
+Smoke (not a Studio substitute): `python3 tools/test-kill-feed.py /path/to/luau`.
 
 ### Studio live-pass (Kitty Caster callouts)
 

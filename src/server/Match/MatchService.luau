@@ -733,6 +733,8 @@ function MatchService.init(cleared: () -> ())
 			MemeStockService.reactStructure(if attacker then attacker.championId else nil, objective.tier, allies)
 			if objective.kind == "Nexus" then
 				feed("nexus", line)
+			elseif objective.tier == "Inner" then
+				feed("stall", line)
 			else
 				feed("tower", line)
 			end
