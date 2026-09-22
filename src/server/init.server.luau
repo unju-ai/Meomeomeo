@@ -268,6 +268,10 @@ Remotes.function_("StartRecall").OnServerInvoke = function(player: Player)
 	return CombatService.startRecall(player)
 end
 
+Remotes.function_("SurrenderVote").OnServerInvoke = function(player: Player, action: unknown)
+	return MatchService.surrender(player, action)
+end
+
 Remotes.function_("LeaveMatch").OnServerInvoke = function(player: Player)
 	return MatchmakingService.leaveMatch(player)
 end

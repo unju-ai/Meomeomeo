@@ -251,7 +251,7 @@ function EndScreen.create(parent: Instance): EndApi
 			local color = toneColor(tone)
 			banner.Text = EndScreenCopy.outcomeTitle(won)
 			banner.TextColor3 = if tone == "win" then Theme.cream else color
-			sub.Text = EndScreenCopy.subLine(won, winner)
+			sub.Text = EndScreenCopy.subLine(won, winner, snapshot.endReason)
 			bannerPlate.BackgroundColor3 = color
 			bannerPlate.BackgroundTransparency = if tone == "win" then 0.55 else 0.62
 			bannerStroke.Color = accent

@@ -268,6 +268,8 @@ local function toast(text: string, color: Color3?)
 	hud.banner(text, color)
 end
 
+hud.surrender.onToast(hud.callout)
+
 local recentCallouts: { string } = {}
 
 local function riftCalloutsOn(): boolean
@@ -297,6 +299,7 @@ local function seedCasterChat(npcId: string)
 end
 
 local lastPartyNotice = 0
+
 local function noteParty(queue: Types.QueueStatus)
 	if typeof(queue.noticeId) == "number" and typeof(queue.notice) == "string" and queue.notice ~= "" and queue.noticeId ~= lastPartyNotice then
 		lastPartyNotice = queue.noticeId
@@ -590,6 +593,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	if latestMatch.queue then
 		noteParty(latestMatch.queue)
 	end
+	hud.surrender.note(latestMatch, player.UserId)
 	if not inMini() then
 		if latestMatch.phase ~= "Lobby" then
 			gameMode = "Moba"
@@ -3220,6 +3224,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		pendingPingPos = aimPoint()
 		pendingPingTarget = pickPingTarget()
 		hud.pings.open()
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.F8 then
+		-- Hub, Yarn Run, Koi, Party, and Arcade stay quiet. Server still refuses a bad vote.
+		if gameMode == "Moba" and latestMatch and latestMatch.phase == "InProgress" then
+			hud.surrender.press("start")
+		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.V then

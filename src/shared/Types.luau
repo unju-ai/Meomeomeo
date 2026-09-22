@@ -219,6 +219,24 @@ export type RiverEpicView = {
 	nextAt: number?,
 }
 
+-- One team's open surrender ballot. Counts are living humans only.
+export type SurrenderBallot = {
+	team: TeamId,
+	endsAt: number,
+	yesUserIds: { number },
+	noUserIds: { number },
+}
+
+-- Server-owned. The client paints the local team's ballot and toasts noticeTeam.
+export type SurrenderView = {
+	ballots: { SurrenderBallot },
+	blueCooldownUntil: number?,
+	redCooldownUntil: number?,
+	noticeId: number?,
+	notice: string?,
+	noticeTeam: TeamId?,
+}
+
 export type MatchSnapshot = {
 	id: string,
 	phase: MatchPhase,
@@ -228,12 +246,15 @@ export type MatchSnapshot = {
 	startedAt: number?,
 	endedAt: number?,
 	winner: TeamId?,
+	-- "nexus" when the yarn core fell. "surrender" when a team folded.
+	endReason: string?,
 	mvpUserId: number?,
 	botDifficulty: BotDifficulty?,
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
 	structureFalls: { StructureFall }?,
 	riverEpic: RiverEpicView?,
+	surrender: SurrenderView?,
 	queueCount: number,
 	queue: QueueStatus?,
 	lobbyPlaceId: number?,

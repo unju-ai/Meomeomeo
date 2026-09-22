@@ -86,6 +86,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Match clock** (top-left, Cat Rift fight only) — server match time as `mm:ss`, plus Canal Levi: `Levi 1:24` until the 3:00 wake, `Levi UP` while it is alive, `Levi 0:47` for the one respawn, `Levi taken` after the second death. Hidden in the hub and the other stalls. The minimap pit marker is unchanged.
 - **Purse chip** (above the ability bar, match only) — your gold, CS, and level, plus whether **Yarn Cleave** (280g) fits. Hidden in the hub and the other stalls. After your side takes **Canal Levi**, it adds **+8% damage** for the rest of the match. If the other side holds that buff, the same line names them.
 - **Tab** (hold) — scoreboard: Blue/Red sections, YOU highlight, dead dimmed, KDA / CS / gold / level / short items, team totals. Same server purse as the chip, including bots. Non-modal.
+- **F8** or the **Fold** chip (beside **?**) — Cat Rift surrender after **8:00**. Majority of living human teammates (one human can pass alone). Bots never vote. 30s window, then a **90s** cooldown. Practice included. Other stalls stay quiet.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
 - **B** — Pawmart (fountain only). **Not recall.**
 - **F** — recall: 7s channel, server teleports you to your fountain. **A new move (WASD / stick or a ground click), attack, attack-move, ability cast, Yarn Cleave, or damage cancels it.** Camera, help, emotes, pings, and opening Pawmart do not.

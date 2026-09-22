@@ -169,7 +169,7 @@ function AnnouncerService.onEpic(team: string, who: string?)
 	deliver(AnnouncerLines.epic(team, who, roll))
 end
 
-function AnnouncerService.onMatchEnd(winner: Types.TeamId)
+function AnnouncerService.onMatchEnd(winner: Types.TeamId, reason: string?)
 	local snapshot = getSnapshot()
 	if not snapshot then
 		return
@@ -177,7 +177,7 @@ function AnnouncerService.onMatchEnd(winner: Types.TeamId)
 	for _, player in listeners() do
 		local row = snapshot.players[tostring(player.UserId)]
 		if row then
-			deliverTo(player, AnnouncerLines.matchEnd(row.team == winner, winner, roll))
+			deliverTo(player, AnnouncerLines.matchEnd(row.team == winner, winner, roll, reason))
 		end
 	end
 end

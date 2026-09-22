@@ -115,6 +115,14 @@ local LINES: { [string]: { string } } = {
 		"DEFEAT — your yarn core rug-pulled. GG.",
 		"DEFEAT — the chart closed red. Fountain's that way.",
 	},
+	SurrenderWin = {
+		"VICTORY — {winner} takes the tape. The other side folded.",
+		"VICTORY — {winner} wins. They surrendered. I still need espresso.",
+	},
+	SurrenderLoss = {
+		"DEFEAT — your team folded the night market. GG.",
+		"DEFEAT — surrender signed. Fountain's that way.",
+	},
 	DraftPractice = {
 		"Practice draft is open. Red is 3 bots ({difficulty}). Lock a cat.",
 		"Practice draft. Red bots are on {difficulty}. I already locked caffeine.",
@@ -161,11 +169,12 @@ local function render(beat: string, vars: { [string]: string }, roll: number?): 
 end
 
 function AnnouncerLines.cueFor(beat: string): string?
-	if beat == "Victory" then
+	if beat == "Victory" or beat == "SurrenderWin" then
 		return "MatchFound"
 	end
 	if
 		beat == "Defeat"
+		or beat == "SurrenderLoss"
 		or beat == "MatchLive"
 		or beat == "Draft"
 		or beat == "DraftPractice"
@@ -403,8 +412,11 @@ function AnnouncerLines.epic(team: string, who: string?, roll: number?): Callout
 	return spoken("CanalLevi", { team = side, who = taker }, roll)
 end
 
-function AnnouncerLines.matchEnd(won: boolean, winner: string, roll: number?): Callout
+function AnnouncerLines.matchEnd(won: boolean, winner: string, roll: number?, reason: string?): Callout
 	local beat = if won then "Victory" else "Defeat"
+	if reason == "surrender" then
+		beat = if won then "SurrenderWin" else "SurrenderLoss"
+	end
 	return spoken(beat, { winner = winner }, roll)
 end
 

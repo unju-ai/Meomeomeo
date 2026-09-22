@@ -55,6 +55,7 @@ local LINES_MOBA: { { string } } = {
 	{ SEC, "Social" },
 	{ "T", "Hold emote wheel · release to cast · Esc cancel" },
 	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
+	{ "F8", "Surrender after 8:00. Living humans, majority. Bots never vote" },
 	{ "Mute", "Voice pill · Mute me (mic only) · teammates, not bots" },
 	{ "Caster", "Kitty Caster: first blood, streaks, posts, stalls, core, Levi, win/lose" },
 	{ "Invite", "Same-server Accept · leader queues" },
@@ -269,21 +270,23 @@ function HelpPanel.create(parent: Instance): HelpApi
 				label.Size = UDim2.new(1, -12, 1, 0)
 				label.TextWrapped = false
 			else
+				local tall = pair[1] == "F8"
+				local rowH = if tall then 36 else 22
 				local row = Instance.new("Frame")
 				row.Name = `Bind{i}`
 				row.BackgroundTransparency = 1
-				row.Size = UDim2.new(1, -4, 0, 22)
+				row.Size = UDim2.new(1, -4, 0, rowH)
 				row.LayoutOrder = i
 				row.Parent = list
 
 				local key = Theme.text(row, "K", pair[1], 12, Theme.amber, Theme.fontMono)
-				key.Size = UDim2.fromOffset(88, 22)
+				key.Size = UDim2.fromOffset(88, rowH)
 				key.TextWrapped = false
 
 				local desc = Theme.text(row, "D", pair[2], 12, Theme.cream)
 				desc.Position = UDim2.fromOffset(92, 0)
-				desc.Size = UDim2.new(1, -92, 0, 22)
-				desc.TextWrapped = false
+				desc.Size = UDim2.new(1, -92, 0, rowH)
+				desc.TextWrapped = tall
 				desc.TextTruncate = Enum.TextTruncate.AtEnd
 			end
 		end
