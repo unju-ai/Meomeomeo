@@ -452,7 +452,7 @@ end
 
 local function playTowerShot(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
-	local color = teamColor(event.team)
+	local color = if event.tier == "Inner" then Color3.fromRGB(255, 186, 96) else teamColor(event.team)
 	placeBeam(event.origin, dest, color, 1.4, 0.16)
 	local bolt = takePart("Bolt")
 	bolt.Shape = Enum.PartType.Ball
@@ -465,15 +465,16 @@ local function playTowerShot(event: Types.CombatFxEvent)
 end
 
 local function playStructureDeath(event: Types.CombatFxEvent)
-	local scale = if event.structureKind == "Nexus" then 1.5 else 1
-	placeBurst(event.origin, Theme.peach, 3.2 * scale, 0.4)
+	local scale = if event.structureKind == "Nexus" then 1.5 elseif event.tier == "Inner" then 1.2 else 1
+	local puffColor = if event.tier == "Inner" then Color3.fromRGB(255, 176, 72) else Theme.peach
+	placeBurst(event.origin, puffColor, 3.2 * scale, 0.4)
 	for i = 1, 6 do
 		local puff = takePart(`Puff{i}`)
 		local angle = (i / 6) * math.pi * 2
 		puff.Shape = Enum.PartType.Ball
 		puff.Size = Vector3.new(1.1, 1.1, 1.1) * scale
 		puff.CFrame = CFrame.new(event.origin + Vector3.new(math.cos(angle) * 3 * scale, 2, math.sin(angle) * 3 * scale))
-		flashPart(puff, Theme.amber, 0.25)
+		flashPart(puff, puffColor, 0.25)
 		release(puff, 0.42)
 	end
 end

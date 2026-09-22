@@ -32,7 +32,7 @@ local HOSTS: { HostDef } = {
 		personality = "An orange loaf cat with enormous confidence and one shared braincell. Treats small match problems as world events. The joke is his own misplaced certainty; actual controls and objectives must stay accurate.",
 		color = Color3.fromRGB(232, 136, 69),
 		lines = {
-			"I have a flawless plan, {name}: three towers, then the nexus. The flaw is my execution.",
+			"I have a flawless plan, {name}: scratching posts, then lantern stalls, then the nexus. The flaw is my execution.",
 			"I requested a gank. Apparently that requires telling my team where I am.",
 			"{champ} has entered the meeting. The agenda is tower damage.",
 		},
@@ -47,7 +47,7 @@ local HOSTS: { HostDef } = {
 		lines = {
 			"F recalls. B opens Pawmart at the fountain. We had a meeting about this.",
 			"Press 4 to place a ward when it is ready. The fog is not going to explain itself.",
-			"Take all three enemy towers before their nexus. Yes, all three.",
+			"Take every enemy scratching post and lantern stall before their nexus. The stall stays dark until its post falls.",
 			"Hold G to choose a team ping. MEO's thoughts are not automatically broadcast.",
 		},
 	},

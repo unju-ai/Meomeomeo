@@ -67,8 +67,8 @@ local SEQUENCE: { Tip } = {
 	},
 	{
 		id = "nexus",
-		title = "Towers, then nexus",
-		body = "Scratch all 3 enemy towers until the nexus billboard says (OPEN). A gated nexus will not take damage.",
+		title = "Posts, stalls, then nexus",
+		body = "Each lane has a scratching post, then a lantern stall. The stall stays (gated) until that lane's post falls. The nexus stays (gated) until all 3 posts and all 3 stalls are down.",
 	},
 }
 
@@ -81,7 +81,7 @@ local SHOP_TIP: Tip = {
 local GATE_TIP: Tip = {
 	id = "gateNow",
 	title = "Nexus still gated",
-	body = "A tower is down. The nexus stays invulnerable until all 3 towers on that side fall. Keep pushing the other lanes.",
+	body = "A structure fell. A lantern stall opens only after its own lane's scratching post. The nexus stays invulnerable until every post and stall on that side is down.",
 }
 
 function TutorialTips.create(parent: Instance): TipsApi

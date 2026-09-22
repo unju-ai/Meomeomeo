@@ -10,6 +10,7 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Types = require(Shared:WaitForChild("Types"))
 local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
 local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
+local StructureLogic = require(Shared:WaitForChild("StructureLogic"))
 
 local MapBuilder = {}
 
@@ -165,6 +166,37 @@ local function dressTower(objective: Part, team: Types.TeamId, position: Vector3
 	lamp(collar, accent, 0.35, 14)
 end
 
+-- Night-market stall between the scratching post and the keep. Same cylinder prefab, warmer kit.
+local function dressInner(objective: Part, team: Types.TeamId, position: Vector3)
+	local accent = if team == "Blue" then Color3.fromRGB(186, 214, 255) else Color3.fromRGB(255, 198, 176)
+	local wood = Color3.fromRGB(122, 74, 46)
+	local lantern = Color3.fromRGB(255, 176, 72)
+	decor(objective, "EarL", Vector3.new(1.5, 2.2, 1), CFrame.new(position + Vector3.new(-2.2, 12.6, 0)), accent)
+	decor(objective, "EarR", Vector3.new(1.5, 2.2, 1), CFrame.new(position + Vector3.new(2.2, 12.6, 0)), accent)
+	decor(objective, "Awning", Vector3.new(11.5, 0.45, 7.2), CFrame.new(position + Vector3.new(0, 8.4, 0)), wood, {
+		Material = Enum.Material.Wood,
+	})
+	local left = decor(objective, "LanternL", Vector3.new(1.7, 1.7, 1.7), CFrame.new(position + Vector3.new(-3.4, 7.2, 2.4)), lantern, {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+	})
+	local right = decor(objective, "LanternR", Vector3.new(1.7, 1.7, 1.7), CFrame.new(position + Vector3.new(3.4, 7.2, -2.4)), lantern, {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+	})
+	lamp(left, lantern, 0.7, 16)
+	lamp(right, lantern, 0.7, 16)
+	decor(objective, "Yarn", Vector3.new(1.8, 1.8, 1.8), CFrame.new(position + Vector3.new(0, 10.6, 0)), Color3.fromRGB(255, 196, 90), {
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+	})
+	local collar = decor(objective, "Collar", Vector3.new(9.2, 0.7, 9.2), CFrame.new(position + Vector3.new(0, 5.2, 0)), lantern, {
+		Material = Enum.Material.Neon,
+		Transparency = 0.28,
+	})
+	lamp(collar, lantern, 0.3, 12)
+end
+
 local function dressNexus(objective: Part, team: Types.TeamId, position: Vector3)
 	local accent = if team == "Blue" then Color3.fromRGB(160, 200, 255) else Color3.fromRGB(255, 170, 160)
 	decor(objective, "EarL", Vector3.new(2.4, 3.2, 1.6), CFrame.new(position + Vector3.new(-3.2, 8.2, 0)), accent)
@@ -177,20 +209,18 @@ local function dressNexus(objective: Part, team: Types.TeamId, position: Vector3
 	end
 end
 
-local function makeObjective(
-	parent: Instance,
-	id: string,
-	team: Types.TeamId,
-	kind: Types.ObjectiveKind,
-	lane: string,
-	position: Vector3,
-	maxHealth: number
-): Part
+local function makeObjective(parent: Instance, def: StructureLogic.Def): Part
+	local team = def.team
+	local kind = def.kind
+	local position = Vector3.new(def.x, def.y, def.z)
 	local color = if team == "Blue" then Color3.fromRGB(80, 150, 230) else Color3.fromRGB(230, 90, 90)
+	if def.tier == "Inner" then
+		color = if team == "Blue" then Color3.fromRGB(96, 138, 214) else Color3.fromRGB(214, 104, 78)
+	end
 	local size = if kind == "Nexus" then Vector3.new(14, 18, 14) else Vector3.new(8, 22, 8)
 	local shape = if kind == "Nexus" then Enum.PartType.Ball else Enum.PartType.Cylinder
 
-	local objective = part(parent, id, size, CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90)), color, {
+	local objective = part(parent, def.id, size, CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90)), color, {
 		Material = Enum.Material.Neon,
 		Shape = shape,
 	})
@@ -199,17 +229,30 @@ local function makeObjective(
 		objective.Shape = Enum.PartType.Ball
 	end
 
-	objective:SetAttribute(Constants.Attributes.ObjectiveId, id)
+	local open = def.tier == "Outer"
+	objective:SetAttribute(Constants.Attributes.ObjectiveId, def.id)
 	objective:SetAttribute(Constants.Attributes.Team, team)
 	objective:SetAttribute("Kind", kind)
-	objective:SetAttribute("Lane", lane)
-	objective:SetAttribute("MaxHealth", maxHealth)
-	objective:SetAttribute("Health", maxHealth)
+	objective:SetAttribute("Tier", def.tier)
+	objective:SetAttribute("Lane", def.lane)
+	objective:SetAttribute("MaxHealth", def.maxHealth)
+	objective:SetAttribute("Health", def.maxHealth)
+	objective:SetAttribute("Vulnerable", open)
+	if def.tier == "Inner" then
+		objective.Transparency = 0.22
+	elseif kind == "Nexus" then
+		objective.Transparency = 0.35
+	end
 
-	local suffix = if lane ~= "Base" then ` ({lane})` else ""
-	billboard(objective, `{team} {kind}{suffix}`, Color3.new(1, 1, 1))
+	billboard(objective, StructureLogic.billboard(def, open), Color3.new(1, 1, 1))
+	local label = objective:FindFirstChild("Label")
+	if label and label:IsA("BillboardGui") then
+		label.Size = UDim2.fromOffset(240, 48)
+	end
 	if kind == "Nexus" then
 		dressNexus(objective, team, position)
+	elseif def.tier == "Inner" then
+		dressInner(objective, team, position)
 	else
 		dressTower(objective, team, position)
 	end
@@ -508,30 +551,9 @@ function MapBuilder.build(): Folder
 	local blueSpawn = spawnLocation(spawns, "BlueFountain", Vector3.new(-176, 1.4, 0), blueTeam, Color3.fromRGB(90, 160, 255))
 	local redSpawn = spawnLocation(spawns, "RedFountain", Vector3.new(176, 1.4, 0), redTeam, Color3.fromRGB(255, 110, 110))
 
-	-- Towers + nexuses (outer → inner → nexus). Positions unchanged.
-	local defs: {
-		{
-			id: string,
-			team: Types.TeamId,
-			kind: Types.ObjectiveKind,
-			lane: string,
-			position: Vector3,
-			maxHealth: number,
-		}
-	} =
-		{
-			{ id = "BlueTopOuter", team = "Blue", kind = "Tower", lane = "Top", position = Vector3.new(-90, 11, -80), maxHealth = 1400 },
-			{ id = "BlueMidOuter", team = "Blue", kind = "Tower", lane = "Mid", position = Vector3.new(-90, 11, 0), maxHealth = 1400 },
-			{ id = "BlueBotOuter", team = "Blue", kind = "Tower", lane = "Bot", position = Vector3.new(-90, 11, 80), maxHealth = 1400 },
-			{ id = "BlueNexus", team = "Blue", kind = "Nexus", lane = "Base", position = Vector3.new(-168, 10, 0), maxHealth = 2200 },
-			{ id = "RedTopOuter", team = "Red", kind = "Tower", lane = "Top", position = Vector3.new(90, 11, -80), maxHealth = 1400 },
-			{ id = "RedMidOuter", team = "Red", kind = "Tower", lane = "Mid", position = Vector3.new(90, 11, 0), maxHealth = 1400 },
-			{ id = "RedBotOuter", team = "Red", kind = "Tower", lane = "Bot", position = Vector3.new(90, 11, 80), maxHealth = 1400 },
-			{ id = "RedNexus", team = "Red", kind = "Nexus", lane = "Base", position = Vector3.new(168, 10, 0), maxHealth = 2200 },
-		}
-
-	for _, def in defs do
-		makeObjective(objectives, def.id, def.team, def.kind, def.lane, def.position, def.maxHealth)
+	-- Scratching posts, then lantern stalls, then the yarn core. Layout lives in StructureLogic.
+	for _, def in StructureLogic.defs() do
+		makeObjective(objectives, def)
 	end
 
 	makeCatNpc(npcs, "PawmartBlue", "Pawmart Clerk", Vector3.new(-160, 0, 18), Color3.fromRGB(240, 200, 120))
@@ -599,56 +621,58 @@ local function readObjectives(): { [string]: Types.ObjectiveState }
 				local maxHealth = child:GetAttribute("MaxHealth")
 				local health = child:GetAttribute("Health")
 				local hp = if typeof(health) == "number" then health else 1000
+				local def = StructureLogic.get(id)
+				local tierAttr = child:GetAttribute("Tier")
+				local tier: Types.StructureTier = "Outer"
+				if def then
+					tier = def.tier
+				elseif tierAttr == "Inner" or tierAttr == "Core" then
+					tier = tierAttr
+				end
+				local lane = if def then def.lane else (child:GetAttribute("Lane") :: string?) or "Mid"
 				states[id] = {
 					id = id,
 					team = team,
 					kind = kind,
-					lane = (child:GetAttribute("Lane") :: string?) or "Mid",
+					tier = tier,
+					lane = lane,
 					maxHealth = if typeof(maxHealth) == "number" then maxHealth else 1000,
 					health = hp,
 					alive = hp > 0,
-					vulnerable = kind ~= "Nexus",
+					vulnerable = true,
 				}
 			end
 		end
 	end
+	local alive: { [string]: boolean } = {}
+	for id, state in states do
+		alive[id] = state.alive
+	end
+	for id, state in states do
+		local def = StructureLogic.get(id)
+		if def then
+			state.vulnerable = StructureLogic.isVulnerable(def, alive)
+		else
+			state.vulnerable = state.kind ~= "Nexus"
+		end
+	end
 	return states
 end
 
-function MapBuilder.livingTowerCount(team: Types.TeamId): number
-	local count = 0
-	for _, state in readObjectives() do
-		if state.team == team and state.kind == "Tower" and state.alive then
-			count += 1
-		end
+function MapBuilder.isObjectiveVulnerable(id: string): boolean
+	local state = readObjectives()[id]
+	if not state then
+		return false
 	end
-	return count
-end
-
-function MapBuilder.towerCount(team: Types.TeamId): number
-	local count = 0
-	for _, state in readObjectives() do
-		if state.team == team and state.kind == "Tower" then
-			count += 1
-		end
-	end
-	return count
+	return state.vulnerable
 end
 
 function MapBuilder.isNexusVulnerable(team: Types.TeamId): boolean
-	local Config = require(script.Parent.Parent.Config)
-	local down = MapBuilder.towerCount(team) - MapBuilder.livingTowerCount(team)
-	return down >= Config.Nexus.TowersRequiredDown
+	return MapBuilder.isObjectiveVulnerable(`{team}Nexus`)
 end
 
 function MapBuilder.objectiveStates(): { [string]: Types.ObjectiveState }
-	local states = readObjectives()
-	for _, state in states do
-		if state.kind == "Nexus" then
-			state.vulnerable = MapBuilder.isNexusVulnerable(state.team)
-		end
-	end
-	return states
+	return readObjectives()
 end
 
 function MapBuilder.refreshNexusGate()
@@ -657,22 +681,32 @@ function MapBuilder.refreshNexusGate()
 	if not objectives then
 		return
 	end
+	local states = readObjectives()
 	for _, child in objectives:GetChildren() do
-		if child:IsA("BasePart") and child:GetAttribute("Kind") == "Nexus" then
-			local team = child:GetAttribute(Constants.Attributes.Team)
-			if team == "Blue" or team == "Red" then
-				local open = MapBuilder.isNexusVulnerable(team)
-				child:SetAttribute("Vulnerable", open)
-				local label = child:FindFirstChild("Label")
-				if label and label:IsA("BillboardGui") then
-					local text = label:FindFirstChildWhichIsA("TextLabel")
-					if text then
-						text.Text = if open then `{team} Nexus (OPEN)` else `{team} Nexus (gated)`
-					end
+		if child:IsA("BasePart") then
+			local id = child:GetAttribute(Constants.Attributes.ObjectiveId)
+			if typeof(id) ~= "string" then
+				continue
+			end
+			local state = states[id]
+			local def = StructureLogic.get(id)
+			if not state or not def then
+				continue
+			end
+			child:SetAttribute("Vulnerable", state.vulnerable)
+			local label = child:FindFirstChild("Label")
+			if label and label:IsA("BillboardGui") then
+				local text = label:FindFirstChildWhichIsA("TextLabel")
+				if text then
+					text.Text = StructureLogic.billboard(def, state.vulnerable)
 				end
-				local hp = child:GetAttribute("Health")
-				if typeof(hp) ~= "number" or hp > 0 then
-					child.Transparency = if open then 0 else 0.35
+			end
+			local hp = child:GetAttribute("Health")
+			if typeof(hp) ~= "number" or hp > 0 then
+				if def.kind == "Nexus" then
+					child.Transparency = if state.vulnerable then 0 else 0.35
+				elseif def.tier == "Inner" then
+					child.Transparency = if state.vulnerable then 0 else 0.22
 				end
 			end
 		end

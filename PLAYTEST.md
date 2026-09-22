@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-22: Luau compiled 112 sources; combat projectile + recall cancel-on-order + Control Yarn stacks + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 113 sources; combat projectile + recall cancel-on-order + Control Yarn stacks + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -86,12 +86,23 @@ rojo serve
    - **Easy** — slow, panicky, sloppy CS, two items, 0.88× damage. No dodge; will not dive towers.
    - **Normal** — last-hits, leads traveling skillshots (72 studs/s), sidesteps incoming bolts/AoEs (hang uses travel time), dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early **magenta control (pink)** ward, kill-dives, uses Whisker Lens on revealed enemy wards.
-2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`). The rift should read as a night-market: gold lane dots, indigo river, fountain lanterns, tower ears / yarn, jungle camp pedestals. **Fog of war** darkens ground outside ally vision. Your fountain, nearby living towers, and ally minions light bubbles. Red bots in river/jungle stay hidden until they walk into a bubble. When one walks back out, a faint ghost lingers at the last spot, then fades.
+2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`). The rift should read as a night-market: gold lane dots, indigo river, fountain lanterns, tower ears / yarn, **lantern stalls** (awning + paper lanterns) between the posts and each keep, jungle camp pedestals. **Fog of war** darkens ground outside ally vision. Your fountain, nearby living towers, and ally minions light bubbles. Red bots in river/jungle stay hidden until they walk into a bubble. When one walks back out, a faint ghost lingers at the last spot, then fades.
 3. Walk a lane. Unseen ground stays dark; the minimap matches (no enemy dots in fog). Walk back: cells you already lit stay a lighter **explored-but-unseen** tint (not full black). **LMB** a bot or minion — claw flash + hit spark. You cannot AA a target you cannot see. Hold **Q** if the kit is a line skillshot (aim indicator), **release** to fire a **traveling bolt** (hits on contact, server-authoritative; client VFX follows — bolts are not clipped by the ground fog overlay). Ground AoEs (Paw Slam etc.): **first press** shows the ring, **click or press again** to confirm at the cursor; **Esc / right-click** cancels. Instant heals still fire on press. Dashes stay hold-to-aim + streak.
 4. **4** drop a stealthed team-tinted trinket — the pocket it covers should **light up** for your team (and stay dark for Red). Walk a jungle **brush** pocket (NW/NE/SE/SW or river-crab): you vanish from enemies until they enter. **B** at fountain → buy **Control Yarn** (up to 2) → **6** plants a magenta pink ball (visible to everyone, slows, reveals nearby enemy trinkets, grants team vision). Buy **Whisker Lens** → **5** if you see an enemy ward. On **Hard**, the Red mid jungler may also plant a free pink.
 5. **F** recall (7s) — mint circle under your feet. Stand still and it finishes. A **new** WASD press, a **ground click**, attack, attack-move, or a cast cancels immediately and the circle and channel bar disappear. A direction you were already holding does not cancel until you release and press again. Damage still cancels. **B**, **T**, **G**, **H**, and **V** do not. **Tab** scoreboard (bots tagged).
-6. Kill all **3 Red towers** until the nexus billboard says `(OPEN)` (tower bolts + death puff), then scratch the nexus.
-7. End screen → **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog.
+6. Push one lane **outer scratching post → inner lantern stall → yarn core**. The stall billboard stays `(gated)` and takes no damage until that lane's post falls (death puff + kill feed). Stall shots are warm lantern gold and use the same aggro as posts. The nexus stays `(gated)` until all **3 posts and 3 stalls** are down, then `(OPEN)`. Scratch the nexus.
+7. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog.
+
+### Studio live-pass (inner towers)
+
+Not covered by the Luau smoke. Walk it in Studio Play:
+
+1. Practice on mid. Red shows a scratching post, then a lantern stall closer to the keep, then a `(gated)` nexus. The stall has a wood awning and paper lanterns, not a second plain post.
+2. Auto-attack the post from the river side. The stall does not shoot you there, and its HP does not move while the post stands. Clicking the stall reports that it is still gated.
+3. Knock the post over. Kill feed says scratching post. The stall billboard drops `(gated)` and brightens. It now shoots minions and you (lantern-gold bolt, same aggro: recent attacker, else nearest champ, else kitten).
+4. Scratch the stall from the river side of it. The nexus should not be shooting you yet, and it stays `(gated)` until the other lanes' posts and stalls are down. Then the billboard reads `(OPEN)`.
+5. Scratch the nexus. End screen: winner banner, Blue/Red post and stall counts, timeline of what fell.
+6. Hub, Closet, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade are unchanged. Fog and recall behave as before.
 
 Practice **never** teleports. `MatchPlaceId` can stay `0`.
 
@@ -277,7 +288,7 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 ## 8d. Map art pass
 
-`MapBuilder` dresses the same 420×280 bounds (lane Z −80 / 0 / 80). Extra decor Parts are `CanCollide = false` and `CanQuery = false` so bots, tower ranges, and click-AA stay the same. The four market drums in `VisionCover` are the exception: `CanQuery = true` and `MeoBlocksVision` so fog can raycast them, still `CanCollide = false` (walk-through, same as keep walls). Client click rays exclude that folder. Lighting is a cozy night-market (`Atmosphere` + mild bloom), not a rave.
+`MapBuilder` dresses the same 420×280 bounds (lane Z −80 / 0 / 80). Each lane has an outer scratching post at `x = ±90` and an inner lantern stall at `x = ±132` (ears, yarn, wood awning, paper lanterns) before the yarn core at `x = ±168`. Stalls sit outside the keep gate and before minions cut inward (`|x| ≥ 145`). A stall is damage-gated on its own lane's post; the nexus opens only after all six structures on that side fall. Extra decor Parts are `CanCollide = false` and `CanQuery = false` so bots, tower ranges, and click-AA stay the same. The four market drums in `VisionCover` are the exception: `CanQuery = true` and `MeoBlocksVision` so fog can raycast them, still `CanCollide = false` (walk-through, same as keep walls). Client click rays exclude that folder. Lighting is a cozy night-market (`Atmosphere` + mild bloom), not a rave.
 
 ## 8e. Cat emotes
 
@@ -343,7 +354,7 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 112 Luau sources compile; combat projectile, **recall cancel-on-order**, Control Yarn stacks, **vision/fog + brush + mesh LoS (walls, drums, thin-prop reject, mesh ray probe) + match-lifetime exploredBits + last-seen ghost freeze/fade**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 113 Luau sources compile; combat projectile, **recall cancel-on-order**, Control Yarn stacks, **structure layout/gates (outer posts, inner lantern stalls, yarn-core gate)**, **vision/fog + brush + mesh LoS (walls, drums, thin-prop reject, mesh ray probe) + match-lifetime exploredBits + last-seen ghost freeze/fade**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
 
 ## Responsive hub (2026-09-18)
 

@@ -10,6 +10,7 @@ local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 
 local AiChatService = require(script.Parent.Parent.Npcs.AiChatService)
 local BotService = require(script.Parent.BotService)
@@ -316,6 +317,7 @@ local function beginFight()
 	current.phaseEndsAt = nil
 	MapBuilder.build()
 	current.objectives = MapBuilder.objectiveStates()
+	current.structureFalls = {}
 
 	ShopService.clearAll()
 	for _, player in Players:GetPlayers() do
@@ -335,7 +337,7 @@ local function beginFight()
 	VisionService.start()
 	WardService.start()
 	BotService.start()
-	AiChatService.announce("Cats out of the bag — match is LIVE. Smash three towers, then the nexus. Meow.")
+	AiChatService.announce("Cats out of the bag — match is LIVE. Scratching posts, then lantern stalls, then the yarn core. Meow.")
 	broadcast()
 end
 
@@ -444,6 +446,7 @@ function MatchService.start(
 		botDifficulty = difficulty or Config.Bots.DefaultDifficulty,
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
+		structureFalls = {},
 		queueCount = 0,
 		lobbyPlaceId = if options then options.lobbyPlaceId else nil,
 		reserved = if options then options.reserved else false,
@@ -610,20 +613,37 @@ function MatchService.init(cleared: () -> ())
 			if not current then
 				return
 			end
+			if not current.structureFalls then
+				current.structureFalls = {}
+			end
+			table.insert(current.structureFalls, {
+				team = objective.team,
+				lane = objective.lane,
+				tier = objective.tier,
+				kind = objective.kind,
+				at = Workspace:GetServerTimeNow(),
+			})
 			local attacker = if attackerUserId then current.players[tostring(attackerUserId)] else nil
 			local who = if attacker then attacker.displayName else "Lane kittens"
+			local def = StructureLogic.get(objective.id)
+			local line = if def
+				then StructureLogic.deathLine(who, def)
+				else `{who} knocked over the {objective.team} scratching post`
 			if objective.kind == "Nexus" then
-				feed("nexus", `{who} unplugged the {objective.team} yarn core`)
+				feed("nexus", line)
 			else
-				feed("tower", `{who} knocked over the {objective.team} scratching post`)
+				feed("tower", line)
 			end
-			AiChatService.announce(`{who} melted the {objective.team} {objective.kind}!`)
+			AiChatService.announce(`{line}!`)
 			if objective.kind == "Nexus" then
 				local winner: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
 				MatchService.endMatch(winner, `{objective.team} nexus is a scratch post.`)
 			else
+				if objective.tier == "Outer" then
+					AiChatService.announce(`{objective.team} {objective.lane} lantern stall is lit.`)
+				end
 				if MapBuilder.isNexusVulnerable(objective.team) then
-					AiChatService.announce(`{objective.team} nexus is exposed! All towers are down.`)
+					AiChatService.announce(`{objective.team} yarn core is exposed! Every post and lantern stall is down.`)
 				end
 				broadcast()
 			end
@@ -793,7 +813,8 @@ function MatchService.init(cleared: () -> ())
 		if objectiveId then
 			local objective = current.objectives[objectiveId]
 			if objective then
-				targetName = `{objective.team} {objective.lane} {objective.kind}`
+				local def = StructureLogic.get(objective.id)
+				targetName = if def then StructureLogic.pingName(def) else `{objective.team} {objective.lane} {objective.kind}`
 				local part = MapBuilder.getObjectivePart(objectiveId)
 				if part then
 					dest = part.Position

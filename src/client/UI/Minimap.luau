@@ -264,8 +264,15 @@ function Minimap.create(parent: Instance): MinimapApi
 						then Color3.fromRGB(50, 50, 50)
 						elseif objective.team == "Blue" then Theme.blue
 						else Theme.red
-					local size = if objective.kind == "Nexus" then 10 else 7
-					place(`obj-{id}`, pos, size, color, objective.kind == "Tower")
+					if objective.alive and objective.tier == "Inner" then
+						color = color:Lerp(Color3.fromRGB(255, 176, 72), if objective.vulnerable then 0.4 else 0.12)
+						if not objective.vulnerable then
+							color = color:Lerp(Color3.fromRGB(28, 28, 32), 0.45)
+						end
+					end
+					local size = if objective.kind == "Nexus" then 10 elseif objective.tier == "Inner" then 8 else 7
+					-- Posts are squares. Lantern stalls and the yarn core are round.
+					place(`obj-{id}`, pos, size, color, objective.kind == "Tower" and objective.tier ~= "Inner")
 					seen[`obj-{id}`] = true
 				end
 			end

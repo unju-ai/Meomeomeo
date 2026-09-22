@@ -46,7 +46,12 @@ local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (num
 		return nil, nil
 	end
 
-	local range = if objective.kind == "Nexus" then Config.Towers.NexusRange else Config.Towers.Range
+	local range = Config.Towers.Range
+	if objective.kind == "Nexus" then
+		range = Config.Towers.NexusRange
+	elseif objective.tier == "Inner" then
+		range = Config.Towers.InnerRange
+	end
 	local now = Workspace:GetServerTimeNow()
 	local aggro = threat[objective.team]
 	if aggro and aggro.untilTime > now then
@@ -120,7 +125,13 @@ function TowerService.start()
 					continue
 				end
 				local userTarget, minionId = pickTarget(state, part)
-				local dmg = if state.kind == "Nexus" then Config.Towers.NexusDamage else Config.Towers.Damage
+				local dmg = Config.Towers.Damage
+				if state.kind == "Nexus" then
+					dmg = Config.Towers.NexusDamage
+				elseif state.tier == "Inner" then
+					dmg = Config.Towers.InnerDamage
+				end
+				local structureKind: "Tower" | "Nexus" = if state.kind == "Nexus" then "Nexus" else "Tower"
 				if userTarget then
 					nextShot[state.id] = now + Config.Towers.Interval
 					local destRoot = api.rootOf(userTarget)
@@ -130,7 +141,8 @@ function TowerService.start()
 							origin = part.Position,
 							dest = destRoot.Position,
 							team = state.team,
-							structureKind = if state.kind == "Nexus" then "Nexus" else "Tower",
+							structureKind = structureKind,
+							tier = state.tier,
 						})
 					end
 					api.damageUser(userTarget, dmg)
@@ -143,7 +155,8 @@ function TowerService.start()
 							origin = part.Position,
 							dest = minion.part.Position,
 							team = state.team,
-							structureKind = if state.kind == "Nexus" then "Nexus" else "Tower",
+							structureKind = structureKind,
+							tier = state.tier,
 						})
 					end
 					MinionService.applyDamage(nil, minionId, dmg)
