@@ -15,7 +15,7 @@ ChampionPlate.RoleName = "Role"
 ChampionPlate.TrackName = BillboardHp.TrackName
 ChampionPlate.FillName = BillboardHp.FillName
 
--- Soft cap: Practice is 3v3 (1 human + 2 ally bots vs 3). Backstop for padded queues.
+-- Soft cap: Practice Blue stays at 3 (solo is 1 human + 2 allies) vs 3 Red. Backstop for padded queues.
 ChampionPlate.MaxPlates = 12
 
 export type ShowInfo = {

@@ -8,6 +8,7 @@ local MatchService = require(script.Parent.MatchService)
 local MatchTeleport = require(script.Parent.MatchTeleport)
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local CatRiftParty = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CatRiftParty"))
+local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -636,19 +637,22 @@ function MatchmakingService.practice(player: Player, difficulty: unknown, anyMem
 		return { ok = false, error = "Leave the other stall before Practice." }
 	end
 	lastDifficulty = parseDifficulty(difficulty)
-	-- In-place. Party humans share Blue. Practice adds PracticeAllies Blue bots
-	-- and PracticeEnemies Red bots, all on lastDifficulty. MatchPlaceId stays unused.
+	-- In-place. Party humans share Blue. Ally bots fill only the Blue seats
+	-- left under QueueFillTo (PracticeAllies is the solo cap). Red stays
+	-- PracticeEnemies. MatchPlaceId stays unused.
 	local ok, err = MatchService.start(humans, true, lastDifficulty)
 	if not ok then
 		return { ok = false, error = err }
 	end
 	if #humans > 1 then
 		local extra = if #skipped > 0 then ` {table.concat(skipped, ", ")} stayed in another stall.` else ""
+		local allies = PracticeRoster.allyCount(#humans, Config.Bots.PracticeAllies, Config.Bots.QueueFillTo)
+		local allyLabel = if allies == 1 then "1 ally bot" else `{allies} ally bots`
 		for _, member in humans do
 			partyState = CatRiftParty.tell(
 				partyState,
 				member.UserId,
-				`Practice with your party — Blue team, {Config.Bots.PracticeAllies} ally bots, {Config.Bots.PracticeEnemies} red bots.{extra}`,
+				`Practice with your party — Blue team, {allyLabel}, {Config.Bots.PracticeEnemies} red bots.{extra}`,
 				options.now
 			)
 		end

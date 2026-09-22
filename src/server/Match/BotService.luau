@@ -10,6 +10,7 @@ local BotSiegeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild(
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
 local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
@@ -1464,12 +1465,13 @@ function BotService.start()
 	local junglerAssigned: { [string]: boolean } = {}
 	local tune = tunables(currentDifficulty)
 
-	-- Round-robin per team, bots only. Two Blue allies land on Top then Mid
-	-- (Mid jungles when this difficulty jungles). Bot stays open for the human.
+	-- Round-robin per team, bots only. The first ally is Top, the second is Mid
+	-- (Mid jungles when this difficulty jungles). One ally stays on Top.
+	-- Bot stays open for the human.
 	for _, matchPlayer in snapshot.players do
 		if matchPlayer.isBot and matchPlayer.championId then
 			laneIndex[matchPlayer.team] = (laneIndex[matchPlayer.team] or 0) + 1
-			local lane = lanes[((laneIndex[matchPlayer.team] - 1) % #lanes) + 1]
+			local lane = PracticeRoster.botLane(laneIndex[matchPlayer.team] or 1, lanes)
 			local model = makeBotModel(matchPlayer)
 			CombatService.bindCharacter(matchPlayer.userId, model)
 			CombatService.resetBot(matchPlayer.userId, matchPlayer.championId)
