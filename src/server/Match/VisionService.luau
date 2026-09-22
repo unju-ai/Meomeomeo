@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local CampRespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CampRespawnJuice"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -241,6 +242,7 @@ local function emptyFrame(): Types.VisionFrame
 		wards = {},
 		fogBits = VisionLogic.emptyMask(),
 		exploredBits = VisionLogic.emptyMask(),
+		campDowns = {},
 	}
 end
 
@@ -301,6 +303,13 @@ local function computeFrame(userId: number): Types.VisionFrame
 	local visibleWards = WardService.visibleToTeam(mine.team, if root then root.Position else nil)
 
 	local memory = teamExplored[mine.team] or VisionLogic.emptyMask()
+	-- Only pits this team can already see or has explored. Levi is not pending.
+	local campDowns: { Types.CampDownView } = {}
+	for _, down in JungleService.downs() do
+		if CampRespawnJuice.pitKnown(fogBits, memory, down.x, down.z) and CampRespawnJuice.isSmallCamp(down.id) then
+			table.insert(campDowns, down)
+		end
+	end
 	return {
 		players = visiblePlayers,
 		minions = visibleMinions,
@@ -308,6 +317,7 @@ local function computeFrame(userId: number): Types.VisionFrame
 		wards = visibleWards,
 		fogBits = fogBits,
 		exploredBits = VisionLogic.cloneMask(memory),
+		campDowns = campDowns,
 	}
 end
 

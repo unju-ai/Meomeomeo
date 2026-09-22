@@ -339,4 +339,51 @@ assert(swappedEdge == "none" and swappedBrush.pocket == nil, "a new match does n
 assert(VisionLogic.canSeeFrom(-88, -90, 54, -88, -108) == false, "brush juice does not open the pocket")
 assert(VisionLogic.brushAt(-88, -108) == "BrushNW")
 
-print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts, minimap fog tint, champion plate fog, brush juice")
+-- Small-camp respawn chips use the same fog memory. Unexplored pits stay quiet.
+assert(CampRespawnJuice.modeAllows("Moba", "InProgress") == true)
+assert(CampRespawnJuice.modeAllows("Moba", "Ended") == false)
+assert(CampRespawnJuice.modeAllows("Moba", "ChampionSelect") == false)
+assert(CampRespawnJuice.modeAllows("Hub", "InProgress") == false)
+assert(CampRespawnJuice.modeAllows("YarnRun", "InProgress") == false)
+assert(CampRespawnJuice.modeAllows("KoiPond", "InProgress") == false)
+assert(CampRespawnJuice.modeAllows("YarnParty", "InProgress") == false)
+assert(CampRespawnJuice.modeAllows("MemeArcade", "InProgress") == false)
+assert(CampRespawnJuice.isSmallCamp("PigeonsNW") == true)
+assert(CampRespawnJuice.isSmallCamp("CanalLevi") == false)
+assert(CampRespawnJuice.isSmallCamp(RiverEpic.Id) == false)
+
+local function markCell(words, x, z)
+	local index = VisionLogic.indexOf(x, z)
+	local wordIndex = math.floor((index - 1) / 32) + 1
+	local bit = (index - 1) % 32
+	words[wordIndex] = bit32.bor(words[wordIndex], bit32.lshift(1, bit))
+end
+
+local pigeonDown = { id = "PigeonsNW", name = "Pigeon Pack", x = -100, y = 2.4, z = -88, respawnAt = 132 }
+local crabDown = { id = "RiverCrabN", name = "River Crab", x = 0, y = 2.3, z = -48, respawnAt = 150 }
+local leviDown = { id = "CanalLevi", name = "Canal Levi", x = RiverEpic.X, y = RiverEpic.Y, z = RiverEpic.Z, respawnAt = 290 }
+local darkFog = VisionLogic.emptyMask()
+local darkExplored = VisionLogic.emptyMask()
+local hidden = CampRespawnJuice.select({ pigeonDown, crabDown, leviDown }, darkFog, darkExplored, 100)
+assert(#hidden == 0, "an unexplored down camp does not paint")
+
+local exploredOnly = VisionLogic.emptyMask()
+markCell(exploredOnly, -100, -88)
+assert(VisionLogic.indexOf(-100, -88) ~= VisionLogic.indexOf(0, -48), "pigeon and crab are different cells")
+assert(CampRespawnJuice.pitKnown(darkFog, exploredOnly, -100, -88) == true)
+assert(CampRespawnJuice.pitKnown(darkFog, exploredOnly, 0, -48) == false)
+local remembered = CampRespawnJuice.select({ pigeonDown, crabDown, leviDown }, darkFog, exploredOnly, 100)
+assert(#remembered == 1 and remembered[1].id == "PigeonsNW", "explored pigeon keeps its countdown out of vision")
+assert(CampRespawnJuice.shouldPaint("CanalLevi", 290, 100, true) == false, "Levi never uses the camp chip")
+
+local visionOnly = VisionLogic.emptyMask()
+local freshExplored = VisionLogic.emptyMask()
+markCell(visionOnly, 0, -48)
+assert(CampRespawnJuice.pitKnown(visionOnly, freshExplored, 0, -48) == true)
+assert(CampRespawnJuice.pitKnown(visionOnly, freshExplored, -100, -88) == false)
+local seenCrab = CampRespawnJuice.select({ pigeonDown, crabDown }, visionOnly, freshExplored, 100)
+assert(#seenCrab == 1 and seenCrab[1].id == "RiverCrabN", "a lit pit shows the countdown even on first sight")
+local due = CampRespawnJuice.select({ pigeonDown }, darkFog, exploredOnly, 132)
+assert(#due == 0, "a reached stamp is no longer a countdown")
+
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts, minimap fog tint, champion plate fog, brush juice, camp respawn fog")

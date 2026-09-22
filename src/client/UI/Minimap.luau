@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
+local CampRespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CampRespawnJuice"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local MinimapPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MinimapPaint"))
 local WardJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WardJuice"))
@@ -10,6 +11,7 @@ local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
+local CampRespawnFx = require(script.Parent.Parent.Juice.CampRespawnFx)
 local Theme = require(script.Parent.Parent.Theme)
 
 local Minimap = {}
@@ -266,6 +268,28 @@ function Minimap.create(parent: Instance): MinimapApi
 		pingHandler(scaleToWorld(x, y))
 	end)
 
+	local function stampDown(dot: Frame, text: string)
+		local existing = dot:FindFirstChild("Timer")
+		local label = if existing and existing:IsA("TextLabel") then existing else nil
+		if not label then
+			local created = Instance.new("TextLabel")
+			created.Name = "Timer"
+			created.BackgroundTransparency = 1
+			created.AnchorPoint = Vector2.new(0.5, 1)
+			created.Position = UDim2.new(0.5, 0, 0, -1)
+			created.Size = UDim2.fromOffset(36, 12)
+			created.Font = Enum.Font.GothamBold
+			created.TextSize = 10
+			created.TextColor3 = Theme.cream
+			created.TextStrokeColor3 = Theme.ink
+			created.TextStrokeTransparency = 0.35
+			created.ZIndex = 4
+			created.Parent = dot
+			label = created
+		end
+		label.Text = text
+	end
+
 	local function placePaint(name: string, position: Vector3, paint: MinimapPaint.Paint, zIndex: number?)
 		local existing = dots:FindFirstChild(name)
 		local dot = if existing and existing:IsA("Frame") then existing else mark(dots, name, paint.size, MinimapPaint.rgb(paint.fill))
@@ -287,6 +311,7 @@ function Minimap.create(parent: Instance): MinimapApi
 				for _, cell in fogCells do
 					cell.Visible = false
 				end
+				CampRespawnFx.clear()
 			end
 		end,
 		update = function(snapshot: Types.MatchSnapshot, vision: Types.VisionFrame, localUserId: number)
@@ -387,6 +412,21 @@ function Minimap.create(parent: Instance): MinimapApi
 					end
 				end
 			end
+
+			-- Small camps waiting on the existing stamp. Same fog/explored gate as the world chip.
+			-- Canal Levi keeps the pit marker below.
+			local campNow = Workspace:GetServerTimeNow()
+			local campAllowed = CampRespawnJuice.modeAllows("Moba", snapshot.phase)
+			local campRows = if campAllowed
+				then CampRespawnJuice.select(vision.campDowns, vision.fogBits, vision.exploredBits, campNow)
+				else {}
+			for _, row in campRows do
+				local dot = placePaint(`j-down-{row.id}`, Vector3.new(row.x, 0, row.z), MinimapPaint.campDown(), 3)
+				local remain = CampRespawnJuice.remaining(row.respawnAt, campNow)
+				stampDown(dot, CampRespawnJuice.chipRead(remain))
+				seen[`j-down-{row.id}`] = true
+			end
+			CampRespawnFx.sync(campRows, campNow, campAllowed)
 
 			-- Pit is the known canal, not the leashed body. Fog still hides the living part.
 			local epicView = snapshot.riverEpic
