@@ -6,7 +6,9 @@ Levi gates live in tests/jungle-bot-smoke.luau: Hard mid beats leftover camps wh
 UP, finishes a hurt camp first, peels a visible enemy on the pit, resumes after
 death; Normal mid-river assist; Easy ignore. Hard ally peel (BotPeelLogic) beats
 leftover camps and lane shove, and interrupts Levi only when the ally is
-critically low and the fight is nearby.
+critically low and the fight is nearby. Hard siege (BotSiegeLogic) hits a
+vulnerable post the wave is already under. It loses to peel, Levi, a hurt
+camp, and a face-range fight, and beats a full-HP camp. Easy and Normal ignore it.
 """
 from pathlib import Path
 import re
@@ -37,6 +39,7 @@ script = (
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
     + wrap("BotPeelLogic", "src/shared/BotPeelLogic.luau")
+    + wrap("BotSiegeLogic", "src/shared/BotSiegeLogic.luau")
     + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")
     + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
     + wrap_deps("BotShopLogic", "src/shared/BotShopLogic.luau", ["ItemCatalog"])

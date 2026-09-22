@@ -78,6 +78,7 @@ local function ask(partial: {
 	enemy: JungleBotLogic.EnemyView?,
 	lanes: { JungleBotLogic.LaneView }?,
 	peel: JungleBotLogic.PeelHint?,
+	siege: JungleBotLogic.SiegeHint?,
 }): JungleBotLogic.JungleDecision
 	return JungleBotLogic.decide({
 		difficulty = partial.difficulty,
@@ -93,6 +94,7 @@ local function ask(partial: {
 		lanes = partial.lanes or OPEN_LANES,
 		brushes = BOXES,
 		peel = partial.peel,
+		siege = partial.siege,
 	})
 end
 
@@ -821,4 +823,219 @@ local peelRotate = ask({
 })
 assert(peelRotate.action == "peel", "peel beats an idle rotate")
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, camp respawn chip, control yarn plant")
+-- Hard siege. Callers already counted kittens under each post. Easy and Normal never siege.
+local function post(partial: {
+	id: string?,
+	x: number?,
+	z: number?,
+	health: number?,
+	maxHealth: number?,
+	vulnerable: boolean?,
+	kind: BotSiegeLogic.Kind?,
+	tier: BotSiegeLogic.Tier?,
+	allyKittens: number?,
+	enemyKittens: number?,
+	focused: boolean?,
+}): BotSiegeLogic.StructureView
+	return {
+		id = partial.id or "RedMidOuter",
+		x = if partial.x == nil then 90 else partial.x,
+		z = if partial.z == nil then 0 else partial.z,
+		health = partial.health or 1400,
+		maxHealth = partial.maxHealth or 1400,
+		vulnerable = if partial.vulnerable == nil then true else partial.vulnerable,
+		kind = partial.kind or "Tower",
+		tier = partial.tier or "Outer",
+		allyKittens = partial.allyKittens or 0,
+		enemyKittens = partial.enemyKittens or 0,
+		focused = partial.focused == true,
+	}
+end
+
+local function siegePick(partial: {
+	difficulty: BotSiegeLogic.Difficulty?,
+	x: number?,
+	z: number?,
+	selfHp: number?,
+	retreatHp: number?,
+	peelCritical: boolean?,
+	structures: { BotSiegeLogic.StructureView }?,
+}): BotSiegeLogic.SiegeGoal?
+	return BotSiegeLogic.pick({
+		difficulty = partial.difficulty or "Hard",
+		x = if partial.x == nil then 40 else partial.x,
+		z = if partial.z == nil then 0 else partial.z,
+		selfHp = if partial.selfHp == nil then 1 else partial.selfHp,
+		retreatHp = if partial.retreatHp == nil then 0.16 else partial.retreatHp,
+		peelCritical = partial.peelCritical == true,
+		structures = partial.structures or {},
+	})
+end
+
+assert(BotSiegeLogic.Range == 100 and BotSiegeLogic.MinKittens == 2 and BotSiegeLogic.LowRatio == 0.5)
+
+local wave = post({ allyKittens = 2 })
+assert(siegePick({ difficulty = "Easy", structures = { wave } }) == nil, "Easy does not siege")
+assert(siegePick({ difficulty = "Normal", structures = { wave } }) == nil, "Normal does not siege")
+local joined = siegePick({ structures = { wave } })
+assert(joined ~= nil and joined.id == "RedMidOuter" and joined.tier == "Outer", "two kittens on a healthy post")
+assert(siegePick({ structures = { post({ allyKittens = 2, enemyKittens = 2 }) } }) == nil, "a tied wave is not a crash")
+assert(siegePick({ structures = { post({ allyKittens = 1 }) } }) == nil, "one kitten on a full post stays back")
+assert(siegePick({ structures = { post({ allyKittens = 0, focused = true, health = 400 }) } }) == nil, "an empty post is not a walk")
+assert(siegePick({ structures = { post({ allyKittens = 1, focused = true }) } }) ~= nil, "one kitten on a focused post")
+assert(siegePick({ structures = { post({ allyKittens = 1, health = 700 }) } }) ~= nil, "one kitten on a low post")
+assert(siegePick({ structures = { post({ allyKittens = 1, health = 701 }) } }) == nil, "just above half still needs two kittens")
+assert(siegePick({ structures = { post({ allyKittens = 3, vulnerable = false }) } }) == nil, "a gated stall stays closed")
+assert(siegePick({ structures = { post({ allyKittens = 3, kind = "Nexus", tier = "Core", id = "RedNexus" }) } }) == nil, "the yarn core is not a siege")
+local stall = siegePick({ structures = { post({ id = "RedMidInner", tier = "Inner", x = 132, allyKittens = 2 }) } })
+assert(stall ~= nil and stall.id == "RedMidInner" and stall.tier == "Inner", "an open stall with a wave")
+assert(siegePick({ x = -20, structures = { wave } }) == nil, "too far to join")
+assert(siegePick({ selfHp = 0.16, structures = { wave } }) == nil, "fleeing bot does not siege")
+assert(siegePick({ peelCritical = true, structures = { wave } }) == nil, "a critical peel is not a siege")
+
+local nearer = siegePick({
+	x = 40,
+	z = 0,
+	structures = {
+		post({ id = "RedBotOuter", x = 90, z = 80, allyKittens = 2 }),
+		post({ id = "RedMidOuter", x = 90, z = 0, allyKittens = 2 }),
+	},
+})
+assert(nearer ~= nil and nearer.id == "RedMidOuter", "the nearer post wins")
+
+local lower = siegePick({
+	x = 0,
+	z = 0,
+	structures = {
+		post({ id = "RedTopOuter", x = 70, z = 0, health = 1400, allyKittens = 2 }),
+		post({ id = "RedBotOuter", x = -70, z = 0, health = 400, allyKittens = 1, focused = true }),
+	},
+})
+assert(lower ~= nil and lower.id == "RedBotOuter", "the same distance prefers the lower post")
+
+local siegeHint = { id = "RedMidOuter", x = 90, z = 0 }
+
+local dropFarm = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	siege = siegeHint,
+})
+assert(dropFarm.action == "siege" and dropFarm.objectiveId == "RedMidOuter", "siege beats a full-HP camp")
+assert(dropFarm.memory.campId == "PigeonsNW" and dropFarm.memory.routeIndex == 1, "the route waits")
+
+local hurtHolds = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	camps = without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220)),
+	siege = siegeHint,
+})
+assert(hurtHolds.action == "camp" and hurtHolds.campId == "YarnGolemNW", "a hurt camp still finishes before siege")
+
+local peelBeatsSiege = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	campId = "PigeonsNW",
+	peel = hint,
+	siege = siegeHint,
+})
+assert(peelBeatsSiege.action == "peel" and peelBeatsSiege.focusUserId == 9, "peel beats siege")
+
+local leviBeatsSiege = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(ALL),
+	siege = siegeHint,
+})
+assert(leviBeatsSiege.action == "camp" and leviBeatsSiege.campId == "CanalLevi", "Levi beats siege")
+
+local leviStillPeels = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 24,
+	campId = "CanalLevi",
+	routeIndex = 2,
+	camps = withEpic(ALL),
+	peel = { x = 12, z = 24, critical = true, nearby = true, enemyUserId = 8 },
+	siege = siegeHint,
+})
+assert(leviStillPeels.action == "peel" and leviStillPeels.focusUserId == 8, "critical nearby peel still interrupts Levi")
+
+local faceBeatsSiege = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	enemy = { x = 55, z = 0 },
+	camps = {},
+	siege = siegeHint,
+})
+assert(faceBeatsSiege.action == "fight", "a cat in face range beats siege")
+
+local siegeRotate = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 10,
+	z = 0,
+	camps = {},
+	lanes = OPEN_LANES,
+	siege = siegeHint,
+})
+assert(siegeRotate.action == "siege", "siege beats an idle rotate")
+
+local laneSiege = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 50,
+	z = 80,
+	jungler = false,
+	siege = { id = "RedBotOuter", x = 90, z = 80 },
+})
+assert(laneSiege.action == "siege" and laneSiege.objectiveId == "RedBotOuter", "a lane bot hits the post")
+
+local lanePeelSiege = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	peel = { x = 48, z = 80, critical = false, nearby = true, enemyUserId = 4 },
+	siege = siegeHint,
+})
+assert(lanePeelSiege.action == "peel", "a lane bot peels before sieging")
+
+local easySiege = ask({
+	difficulty = "Easy",
+	team = "Red",
+	x = 40,
+	z = 0,
+	jungler = true,
+	siege = siegeHint,
+})
+assert(easySiege.action == "lane", "Easy ignores a siege hint")
+
+local normalSiege = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	lanePushed = true,
+	siege = siegeHint,
+})
+assert(normalSiege.action ~= "siege", "Normal ignores a siege hint")
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, camp respawn chip, control yarn plant")
