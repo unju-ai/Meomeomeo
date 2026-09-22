@@ -59,6 +59,7 @@ script = (
     + wrap("CombatFloat", "src/shared/CombatFloat.luau")
     + wrap("LevelUpJuice", "src/shared/LevelUpJuice.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
+    + wrap("VisionLogic", "src/shared/VisionLogic.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
     + wrap("ChampionCatalog", "src/shared/ChampionCatalog.luau")
     + wrap("ChampionKits", "src/shared/ChampionKits.luau")
@@ -91,6 +92,7 @@ named = (
     "CombatFloat",
     "LevelUpJuice",
     "draft teasers",
+    "wall clip",
 )
 missing = [name for name in named if name not in result.stdout]
 if missing:

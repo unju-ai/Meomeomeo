@@ -421,6 +421,32 @@ function VisionLogic.clearLine(sx: number, sz: number, tx: number, tz: number): 
 	return true
 end
 
+-- Earliest parametric t in [0, 1] where the segment meets a vision wall / thick cover / mesh.
+-- nil means the segment is clear (same solids as clearLine). Used by traveling skillshots.
+function VisionLogic.wallHitT(sx: number, sz: number, tx: number, tz: number): number?
+	if VisionLogic.clearLine(sx, sz, tx, tz) then
+		return nil
+	end
+	local dx = tx - sx
+	local dz = tz - sz
+	if dx * dx + dz * dz < 1e-8 then
+		return 0
+	end
+	local lo = 0
+	local hi = 1
+	for _ = 1, 14 do
+		local mid = (lo + hi) * 0.5
+		local mx = sx + dx * mid
+		local mz = sz + dz * mid
+		if VisionLogic.clearLine(sx, sz, mx, mz) then
+			lo = mid
+		else
+			hi = mid
+		end
+	end
+	return hi
+end
+
 function VisionLogic.canSeeFrom(sx: number, sz: number, radius: number, tx: number, tz: number): boolean
 	local dx = tx - sx
 	local dz = tz - sz

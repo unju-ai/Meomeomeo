@@ -153,6 +153,25 @@ assert(ProjectileLogic.sweepHits(last, now, Vector3.new(4, 2, 3), 8) == true)
 assert(ProjectileLogic.sweepHits(last, now, Vector3.new(4, 2, 24), 8) == false)
 assert(ProjectileLogic.MaxLive >= 16)
 
+-- Wall clip: keep walls and thick cover stop the step; open ground and brush do not.
+local openA = Vector3.new(-10, 2, 20)
+local openB = Vector3.new(10, 2, 20)
+local clippedOpen, hitOpen = ProjectileLogic.clipAgainstWalls(openA, openB)
+assert(hitOpen == false and clippedOpen.X == openB.X, "open mid does not clip")
+local wallA = Vector3.new(-176, 2, 0)
+local wallB = Vector3.new(-90, 2, -80)
+local clippedWall, hitWall = ProjectileLogic.clipAgainstWalls(wallA, wallB)
+assert(hitWall == true, "keep wall stops a bolt step")
+assert(clippedWall.X < -100, "impact stays on the Blue keep side")
+local brushA = Vector3.new(-88, 2, -90)
+local brushB = Vector3.new(-88, 2, -108)
+local clippedBrush, hitBrush = ProjectileLogic.clipAgainstWalls(brushA, brushB)
+assert(hitBrush == false and clippedBrush.Z == brushB.Z, "brush is not a solid wall for bolts")
+local drumA = Vector3.new(-36, 2, -60)
+local drumB = Vector3.new(-36, 2, -36)
+local clippedDrum, hitDrum = ProjectileLogic.clipAgainstWalls(drumA, drumB)
+assert(hitDrum == true and clippedDrum.Z < -40, "market drum stops a bolt")
+
 assert(#ChampionCatalog.ids() == 14)
 local function planLive(id: string): boolean
 	if ChampionKits.healMultiplier(id) > 1 or ChampionKits.onTakedown(id) ~= nil then
@@ -822,4 +841,4 @@ local ult = LevelUpJuice.gainedSlots({ Q = 5, W = 5, E = 4, R = 0 }, { Q = 5, W 
 assert(#ult == 1 and ult[1] == "R")
 assert(LevelUpJuice.RingSeconds > 0 and LevelUpJuice.BannerHold > LevelUpJuice.RankFlashSeconds)
 
-print("PASS: targeting modes, aim preview clamp/warn, traveling projectile timing, sweep hits, flagship kit hooks, Golden Parachute, Encore, Office Hours, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi, CombatFloat, LevelUpJuice, draft teasers")
+print("PASS: targeting modes, aim preview clamp/warn, traveling projectile timing, sweep hits, wall clip, flagship kit hooks, Golden Parachute, Encore, Office Hours, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi, CombatFloat, LevelUpJuice, draft teasers")

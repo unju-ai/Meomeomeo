@@ -798,10 +798,17 @@ local function placeMeteor(at: Vector3, radius: number)
 	placeBurst(at, ink, 2.4, 0.26)
 end
 
+local function boltFollowKey(event: Types.CombatFxEvent): string
+	if typeof(event.id) == "number" then
+		return `bolt:{event.id}`
+	end
+	return `bolt:{event.userId or 0}:{math.floor(event.origin.X)}:{math.floor(event.origin.Z)}`
+end
+
 local function followProjectile(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local duration = math.max(event.duration or 0.2, 0.08)
-	local key = `bolt:{event.id or event.userId or 0}:{math.floor(event.origin.X)}:{math.floor(event.origin.Z)}`
+	local key = boltFollowKey(event)
 	clearFollow(key)
 	local look = kitLook(event)
 	local color = abilityColor(event.abilityKind)
@@ -1048,6 +1055,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 	elseif event.kind == "projectile" then
 		followProjectile(event)
 	elseif event.kind == "projectileHit" then
+		-- Stop the traveling bolt at impact (range end or wall). Fog show/hide stays on the follow path.
+		clearFollow(boltFollowKey(event))
 		local localId = Players.LocalPlayer and Players.LocalPlayer.UserId
 		local own = localId ~= nil and event.userId == localId
 		if own or FogOfWar.isLit(event.origin.X, event.origin.Z) then

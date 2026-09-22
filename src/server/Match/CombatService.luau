@@ -2686,6 +2686,8 @@ tickShots = function()
 	for _, shot in shots do
 		local elapsed = t - shot.born
 		local pos = ProjectileLogic.positionAt(shot.origin, shot.dest, elapsed, shot.duration)
+		local hitWall = false
+		pos, hitWall = ProjectileLogic.clipAgainstWalls(shot.lastPos, pos)
 		applyStrikes({
 			caster = shot.caster,
 			team = shot.team,
@@ -2705,15 +2707,17 @@ tickShots = function()
 			fromBrush = shot.fromBrush,
 		})
 		shot.lastPos = pos
-		if elapsed >= shot.duration then
+		if hitWall or elapsed >= shot.duration then
+			local impact = if hitWall then pos else shot.dest
 			FxRelay.emit({
 				kind = "projectileHit",
-				origin = shot.dest,
-				dest = shot.dest,
+				origin = impact,
+				dest = impact,
 				userId = shot.caster,
 				team = shot.team,
 				abilityKind = shot.kind,
 				radius = shot.radius,
+				id = shot.id,
 				championId = shot.championId,
 				slot = shot.slot,
 			})

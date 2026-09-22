@@ -158,6 +158,16 @@ VisionLogic.setBlockers(nil)
 assert(VisionLogic.clearLine(-176, 0, -90, -80) == false, "clearing the override restores keep walls")
 assert(VisionLogic.clearLine(-10, 20, 10, 20) == true, "open ground is clear again")
 
+-- Skillshot wall clips reuse the same solids as LoS (keep walls, drums; not brush / thin props).
+assert(VisionLogic.wallHitT(-176, 0, -120, 0) == nil, "mid gate stays open for bolts")
+assert(VisionLogic.wallHitT(-88, -90, -88, -108) == nil, "brush does not stop a bolt")
+local keepT = VisionLogic.wallHitT(-176, 0, -90, -80)
+assert(keepT ~= nil and keepT > 0.05 and keepT < 0.95, "a bolt into the keep finds the wall face")
+local drumT = VisionLogic.wallHitT(-36, -60, -36, -36)
+assert(drumT ~= nil and drumT > 0.1 and drumT < 0.9, "a bolt into a market drum stops on cover")
+assert(VisionLogic.wallHitT(-28, -48, -20, -48) == nil, "the gap beside a drum stays open for bolts")
+assert(VisionLogic.wallHitT(-8, 0, 8, 0) == nil, "open mid is clear for bolts")
+
 -- Match-lifetime fog memory: OR masks without wiping current vision.
 local first = VisionLogic.emptyMask()
 VisionLogic.orInto(first, mask)
