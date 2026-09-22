@@ -36,6 +36,10 @@ type Api = {
 
 local MinionService = {}
 
+-- Between-kitten pause inside one wave. WaveJuice.KittenStep must stay equal
+-- so the telegraph meets this gate. Do not change it to retune the wave.
+local KITTEN_STEP = 0.35
+
 local api: Api? = nil
 local running = false
 local wave = 0
@@ -43,6 +47,33 @@ local minions: { [string]: Minion } = {}
 
 local function folder(): Folder
 	return MapBuilder.minionFolder()
+end
+
+local function clearWaveClock()
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	if not map then
+		return
+	end
+	local bin = map:FindFirstChild("Minions")
+	if not bin then
+		return
+	end
+	bin:SetAttribute(Constants.Attributes.WaveAnchor, nil)
+	bin:SetAttribute(Constants.Attributes.WaveFirst, nil)
+	bin:SetAttribute(Constants.Attributes.WaveInterval, nil)
+	bin:SetAttribute(Constants.Attributes.WavePerLane, nil)
+	bin:SetAttribute(Constants.Attributes.WaveStep, nil)
+end
+
+-- Server time when this coroutine's existing waits begin, plus the numbers
+-- those waits use. The client paints from this. It does not choose the cadence.
+local function stampWaveClock(anchor: number)
+	local bin = folder()
+	bin:SetAttribute(Constants.Attributes.WaveAnchor, anchor)
+	bin:SetAttribute(Constants.Attributes.WaveFirst, Config.Minions.FirstWaveDelay)
+	bin:SetAttribute(Constants.Attributes.WaveInterval, Config.Minions.WaveInterval)
+	bin:SetAttribute(Constants.Attributes.WavePerLane, Config.Minions.PerLane)
+	bin:SetAttribute(Constants.Attributes.WaveStep, KITTEN_STEP)
 end
 
 local function stamp(part: BasePart, minion: Minion)
@@ -224,6 +255,7 @@ function MinionService.clear()
 		minions[id] = nil
 	end
 	wave = 0
+	clearWaveClock()
 end
 
 function MinionService.stop()
@@ -236,6 +268,7 @@ function MinionService.start()
 	running = true
 	wave = 0
 	task.spawn(function()
+		stampWaveClock(Workspace:GetServerTimeNow())
 		task.wait(Config.Minions.FirstWaveDelay)
 		while running do
 			if not api or api.getPhase() ~= "InProgress" then
@@ -246,7 +279,7 @@ function MinionService.start()
 				for i = 1, Config.Minions.PerLane do
 					spawnOne("Blue", lane, i)
 					spawnOne("Red", lane, i)
-					task.wait(0.35)
+					task.wait(KITTEN_STEP)
 					if not running then
 						return
 					end

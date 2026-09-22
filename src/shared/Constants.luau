@@ -43,6 +43,13 @@ local Constants = {
 		-- Display surface for ward juice. Place rules still live in WardService.
 		PlacedAt = "MeoPlacedAt",
 		ExpiresAt = "MeoExpiresAt",
+		-- Lane-wave clock. MinionService stamps these when its existing wait begins.
+		-- The waits themselves stay Config.Minions. Clients only paint them.
+		WaveAnchor = "MeoWaveAnchor",
+		WaveFirst = "MeoWaveFirst",
+		WaveInterval = "MeoWaveInterval",
+		WavePerLane = "MeoWavePerLane",
+		WaveStep = "MeoWaveStep",
 		Recalling = "MeoRecalling",
 		Channeling = "MeoChanneling",
 		UserId = "MeoUserId",

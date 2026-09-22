@@ -148,6 +148,11 @@ function MinimapPaint.campDown(): Paint
 	return paint({ 120, 92, 58 }, MinimapPaint.Amber, 1, 6, 2, "campDown", 0.4)
 end
 
+-- Lane mouth about to release a kitten wave. Tiny round cream pip, not a camp chip.
+function MinimapPaint.waveMouth(): Paint
+	return paint(MinimapPaint.Cream, MinimapPaint.Lantern, 1, 3, 99, "wave", 0.25)
+end
+
 -- Ping flash shapes share structure markers when a post / stall / core is named.
 function MinimapPaint.ping(marker: string?, team: string?, pingRgb: Rgb, size: number): Paint
 	local shape = marker or "dot"

@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local CampRespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CampRespawnJuice"))
+local WaveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WaveJuice"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local MinimapPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MinimapPaint"))
 local WardJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WardJuice"))
@@ -12,6 +13,7 @@ local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 local CampRespawnFx = require(script.Parent.Parent.Juice.CampRespawnFx)
+local WaveFx = require(script.Parent.Parent.Juice.WaveFx)
 local Theme = require(script.Parent.Parent.Theme)
 
 local Minimap = {}
@@ -312,6 +314,7 @@ function Minimap.create(parent: Instance): MinimapApi
 					cell.Visible = false
 				end
 				CampRespawnFx.clear()
+				WaveFx.clear()
 			end
 		end,
 		update = function(snapshot: Types.MatchSnapshot, vision: Types.VisionFrame, localUserId: number)
@@ -427,6 +430,18 @@ function Minimap.create(parent: Instance): MinimapApi
 				seen[`j-down-{row.id}`] = true
 			end
 			CampRespawnFx.sync(campRows, campNow, campAllowed)
+
+			-- Lane mouths the viewer can already see, for the same lead the world glow uses.
+			-- Camp chips above are unchanged. No seconds — a blink only.
+			local waveRows = WaveFx.sync(WaveJuice.modeAllows("Moba", snapshot.phase), vision.fogBits, vision.exploredBits)
+			for _, cue in waveRows do
+				if cue.kind == "telegraph" then
+					local wavePaint = MinimapPaint.waveMouth()
+					wavePaint.transparency = WaveJuice.blinkTransparency(cue.kind, cue.alpha)
+					placePaint(`wave-{cue.id}`, Vector3.new(cue.x, 0, cue.z), wavePaint, 4)
+					seen[`wave-{cue.id}`] = true
+				end
+			end
 
 			-- Pit is the known canal, not the leashed body. Fog still hides the living part.
 			local epicView = snapshot.riverEpic

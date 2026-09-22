@@ -119,6 +119,16 @@ local leviBodyMark = MinimapPaint.levi("body")
 assert(leviBodyMark ~= nil and leviBodyMark.size > campWaiting.size, "Levi's body stays larger than a camp pit")
 assert(campLiving.shape == "camp" and campLiving.corner == 99)
 
+-- A lane-wave mouth is a tiny round cream pip, not a camp chip and not a kitten.
+local waveDot = MinimapPaint.waveMouth()
+local kittenPip = MinimapPaint.minion("Blue")
+assert(waveDot.shape == "wave")
+assert(waveDot.corner == 99, "wave blink is round")
+assert(waveDot.size < kittenPip.size, "wave blink is smaller than a kitten pip")
+assert(waveDot.size < campWaiting.size, "wave blink is smaller than a camp chip")
+assert(rgbEq(waveDot.fill, MinimapPaint.Cream))
+assert(rgbEq(waveDot.stroke, MinimapPaint.Lantern))
+
 -- RiverEpic marker states the minimap consumes (no new vision protocol).
 assert(RiverEpic.marker("alive", false) == "pit")
 assert(RiverEpic.marker("alive", true) == "body")
