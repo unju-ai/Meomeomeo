@@ -13,6 +13,7 @@ local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FountainRegenJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
+local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
@@ -36,6 +37,9 @@ type Follow = {
 	width: number?,
 	cue: string?,
 	baseTransparency: number?,
+	startedAt: number?,
+	endsAt: number?,
+	locked: boolean?,
 }
 
 type FloatPop = {
@@ -57,6 +61,8 @@ local lastAaAt: { [string]: number } = {}
 local lastHealAt: { [string]: number } = {}
 local loopBound = false
 local floatsEnabled = false
+local recallAllowed = false
+local suppressRecallUntil: { [number]: number } = {}
 local floatPops: { FloatPop } = {}
 local floatMergeSlots: { CombatFloat.MergeSlot } = {}
 
@@ -476,10 +482,28 @@ ensureLoop = function()
 						* CFrame.Angles(0, now * 2.2, math.rad(90))
 				end
 			elseif follow.kind == "recall" then
-				local ring = follow.parts[1]
-				if ring then
-					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.15, root.Position.Z)
-						* CFrame.Angles(0, 0, math.rad(90))
+				local cue = follow.cue or "local"
+				local serverNow = Workspace:GetServerTimeNow()
+				local progress = RecallJuice.progress(follow.startedAt, follow.endsAt, serverNow)
+				local reveal = RecallJuice.shouldReveal(cue, FogOfWar.isLit(root.Position.X, root.Position.Z))
+				local hide = if reveal then 0 else 1
+				local spin = now * RecallJuice.SwirlSpeed
+				local ground = CFrame.new(root.Position.X, root.Position.Y - 2.15, root.Position.Z)
+				local fill = follow.parts[1]
+				if fill then
+					local span = RecallJuice.fillSpan(cue, progress)
+					fill.Size = Vector3.new(0.15, span, span)
+					fill.Transparency = RecallJuice.fillTransparency(cue, progress)
+					fill.CFrame = ground * CFrame.Angles(0, spin, math.rad(90))
+					fill.LocalTransparencyModifier = hide
+				end
+				local track = follow.parts[2]
+				if track then
+					local span = RecallJuice.trackSpan(cue)
+					track.Size = Vector3.new(0.1, span, span)
+					track.Transparency = RecallJuice.trackTransparency(cue)
+					track.CFrame = ground * CFrame.Angles(0, -spin * 0.45, math.rad(90))
+					track.LocalTransparencyModifier = hide
 				end
 			elseif follow.kind == "levelup" then
 				local ring = follow.parts[1]
@@ -546,25 +570,172 @@ ensureLoop = function()
 	end)
 end
 
-local function followRecall(userId: number, duration: number)
+local function recallSuppressed(userId: number): boolean
+	local untilAt = suppressRecallUntil[userId]
+	return untilAt ~= nil and os.clock() < untilAt
+end
+
+local function localTeamId(): Types.TeamId?
+	local lp = Players.LocalPlayer
+	local team = if lp then lp.Team else nil
+	if not team then
+		return nil
+	end
+	if team.Name == Constants.Teams.BlueInstance then
+		return "Blue"
+	end
+	if team.Name == Constants.Teams.RedInstance then
+		return "Red"
+	end
+	return nil
+end
+
+local function recallCueFor(userId: number, team: Types.TeamId?): RecallJuice.CueKind
+	local lp = Players.LocalPlayer
+	local localId = if lp then lp.UserId else 0
+	if userId == localId then
+		return "local"
+	end
+	local mine = localTeamId()
+	if team ~= nil and mine ~= nil and team == mine then
+		return "ally"
+	end
+	return "enemy"
+end
+
+local function rgbOf(triple: { number }): Color3
+	return Color3.fromRGB(triple[1], triple[2], triple[3])
+end
+
+local function washModel(userId: number, triple: { number }, seconds: number, amount: number)
+	local model = modelOf(userId)
+	if not model then
+		return
+	end
+	local tint = rgbOf(triple)
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" and child.Transparency < 0.95 then
+			local part = child :: BasePart
+			local baseColor = part.Color
+			local baseTransparency = part.Transparency
+			part.Color = baseColor:Lerp(tint, amount)
+			task.delay(seconds, function()
+				if not part.Parent then
+					return
+				end
+				TweenService:Create(part, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					Color = baseColor,
+					Transparency = baseTransparency,
+				}):Play()
+			end)
+		end
+	end
+end
+
+local function shatterRecall(at: Vector3)
+	local coral = rgbOf(RecallJuice.Coral)
+	for i = 1, 5 do
+		local bit = takePart("RecallShard")
+		bit.Shape = Enum.PartType.Ball
+		local angle = (i / 5) * math.pi * 2
+		bit.Size = Vector3.new(0.32, 0.32, 0.32)
+		bit.CFrame = CFrame.new(at + Vector3.new(math.cos(angle) * 1.6, 0.35, math.sin(angle) * 1.6))
+		flashPart(bit, coral, 0.12)
+		release(bit, RecallJuice.ShatterSeconds)
+	end
+end
+
+-- Amber/cream foot swirl. Local gets a cream track + growing fill.
+-- Allies get one faint fill. Enemies use the same part, fog-gated in the loop.
+local function followRecallChannel(
+	userId: number,
+	cue: RecallJuice.CueKind,
+	startedAt: number,
+	endsAt: number,
+	authoritative: boolean,
+	fresh: boolean
+)
+	if not recallAllowed or not RecallJuice.shouldPaint(cue) then
+		return
+	end
+	if fresh then
+		suppressRecallUntil[userId] = nil
+	elseif recallSuppressed(userId) then
+		return
+	end
 	local key = `recall:{userId}`
-	if duration <= 0 then
-		clearFollow(key)
+	local existing = follows[key]
+	if existing and existing.kind == "recall" then
+		if authoritative or not existing.locked then
+			existing.startedAt = startedAt
+			existing.endsAt = endsAt
+		end
+		if authoritative then
+			existing.locked = true
+		end
+		existing.cue = cue
+		local liveEnds = existing.endsAt or endsAt
+		local liveRemain = math.max(liveEnds - Workspace:GetServerTimeNow(), 0)
+		existing.expiresAt = os.clock() + liveRemain + RecallJuice.HoldAfter
+		ensureLoop()
 		return
 	end
 	clearFollow(key)
-	local ring = takePart("Recall")
-	ring.Shape = Enum.PartType.Cylinder
-	ring.Size = Vector3.new(0.16, 6.4, 6.4)
-	flashPart(ring, Theme.mint, 0.4)
+	local fill = takePart("RecallFill")
+	fill.Shape = Enum.PartType.Cylinder
+	flashPart(fill, rgbOf(RecallJuice.Amber), RecallJuice.fillTransparency(cue, 0))
+	local parts = { fill }
+	if cue == "local" then
+		local track = takePart("RecallTrack")
+		track.Shape = Enum.PartType.Cylinder
+		flashPart(track, rgbOf(RecallJuice.Cream), RecallJuice.trackTransparency(cue))
+		table.insert(parts, track)
+		washModel(userId, RecallJuice.Amber, RecallJuice.WashSeconds, 0.3)
+	end
+	local remain = math.max(endsAt - Workspace:GetServerTimeNow(), 0)
 	follows[key] = {
 		kind = "recall",
 		userId = userId,
-		parts = { ring },
-		expiresAt = os.clock() + duration,
+		parts = parts,
+		expiresAt = os.clock() + remain + RecallJuice.HoldAfter,
 		offset = 0,
+		cue = cue,
+		startedAt = startedAt,
+		endsAt = endsAt,
+		locked = authoritative,
+		bornAt = os.clock(),
 	}
 	ensureLoop()
+end
+
+local function finishRecall(userId: number, outcome: string, at: Vector3?)
+	local key = `recall:{userId}`
+	local follow = follows[key]
+	local cue = if follow and follow.cue then follow.cue else recallCueFor(userId, nil)
+	suppressRecallUntil[userId] = os.clock() + RecallJuice.SuppressAfter
+	clearFollow(key)
+	if cue ~= "local" then
+		return
+	end
+	if outcome == "success" then
+		local pos = at
+		if not pos then
+			local root = rootOf(userId)
+			pos = if root then root.Position else nil
+		end
+		if pos then
+			local mint = rgbOf(RecallJuice.Mint)
+			placeBurst(pos, mint, 2.6, RecallJuice.FlashSeconds)
+			placeRing(pos, 3.2, mint, RecallJuice.FlashSeconds + 0.08)
+		end
+		washModel(userId, RecallJuice.Mint, RecallJuice.FlashSeconds, 0.42)
+	elseif outcome == "cancel" then
+		local root = rootOf(userId)
+		local pos = if root then root.Position else nil
+		if pos then
+			shatterRecall(pos)
+		end
+	end
 end
 
 local function followShield(userId: number, at: Vector3, duration: number, color: Color3?)
@@ -1120,8 +1291,19 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		lastHealAt[key] = now
 		placeBurst(event.origin, Theme.mint, 2, 0.24)
 	elseif event.kind == "recall" then
-		if event.userId then
-			followRecall(event.userId, event.duration or 0)
+		if not recallAllowed or not event.userId then
+			return
+		end
+		local duration = event.duration or 0
+		local origin = event.origin
+		local outcome = RecallJuice.fxOutcome(duration, origin.X, origin.Y, origin.Z)
+		if outcome == "channel" then
+			local nowS = Workspace:GetServerTimeNow()
+			local cue = recallCueFor(event.userId, event.team)
+			followRecallChannel(event.userId, cue, nowS, nowS + duration, false, true)
+		else
+			local at = if outcome == "success" then origin else nil
+			finishRecall(event.userId, outcome, at)
 		end
 	elseif event.kind == "cleave" then
 		placeBurst(event.origin, Theme.pink, 3.4, 0.28)
@@ -1148,11 +1330,66 @@ function CombatFx.setFloatsEnabled(enabled: boolean)
 	end
 end
 
-function CombatFx.localRecall(userId: number, recalling: boolean, remain: number)
-	if recalling then
-		followRecall(userId, math.max(remain, 0.2))
-	else
-		followRecall(userId, 0)
+function CombatFx.localRecall(
+	userId: number,
+	recalling: boolean,
+	remain: number,
+	startedAt: number?,
+	endsAt: number?,
+	fresh: boolean?
+)
+	if not recallAllowed then
+		clearFollow(`recall:{userId}`)
+		return
+	end
+	if not recalling then
+		local follow = follows[`recall:{userId}`]
+		if follow and follow.kind == "recall" then
+			follow.expiresAt = math.min(follow.expiresAt, os.clock() + RecallJuice.FinishGrace)
+		end
+		return
+	end
+	local nowS = Workspace:GetServerTimeNow()
+	local ends = endsAt or (nowS + math.max(remain, 0.05))
+	local started = startedAt or (ends - math.max(remain, RecallJuice.ChannelFallback))
+	followRecallChannel(userId, "local", started, ends, true, fresh == true)
+end
+
+function CombatFx.recallChannelLive(userId: number): boolean
+	if recallSuppressed(userId) then
+		return false
+	end
+	local follow = follows[`recall:{userId}`]
+	return follow ~= nil and follow.kind == "recall"
+end
+
+function CombatFx.recallWash(userId: number)
+	if not recallAllowed or recallSuppressed(userId) then
+		return
+	end
+	washModel(userId, RecallJuice.Amber, RecallJuice.WashSeconds, 0.28)
+end
+
+function CombatFx.clearRecallJuice()
+	local drop: { string } = {}
+	for key, follow in follows do
+		if follow.kind == "recall" then
+			table.insert(drop, key)
+		end
+	end
+	for _, key in drop do
+		clearFollow(key)
+	end
+	table.clear(suppressRecallUntil)
+end
+
+function CombatFx.setRecallAllowed(on: boolean)
+	if recallAllowed == on then
+		return
+	end
+	recallAllowed = on
+	if not on then
+		CombatFx.clearRecallJuice()
 	end
 end
 

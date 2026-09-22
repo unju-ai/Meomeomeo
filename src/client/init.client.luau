@@ -28,6 +28,7 @@ local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
 local LevelUpJuice = require(Shared:WaitForChild("LevelUpJuice"))
 local FountainRegenJuice = require(Shared:WaitForChild("FountainRegenJuice"))
+local RecallJuice = require(Shared:WaitForChild("RecallJuice"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
@@ -228,6 +229,9 @@ local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
 local fountainFloatAt = -FountainRegenJuice.FloatGap
 local lastFountainRegen = false
+local lastRecallTick = 0
+local recallProgressSeen = 0
+local recallOutcomeShown = false
 local tutorialDone = player:GetAttribute(Constants.Attributes.TutorialDone) == true
 
 local function tutorialIsDone(): boolean
@@ -705,6 +709,25 @@ local function noteRecallChannel(recalling: boolean)
 	end
 end
 
+local function recallPhase(): string?
+	if latestMatch then
+		return latestMatch.phase
+	end
+	return nil
+end
+
+local function paintLocalRecall(state: Types.CombatState, fresh: boolean)
+	if not RecallJuice.modeAllows(gameMode, recallPhase()) then
+		return
+	end
+	CombatFx.setRecallAllowed(true)
+	local nowS = Workspace:GetServerTimeNow()
+	local endsAt = state.recallEndsAt or (nowS + RecallJuice.ChannelFallback)
+	local startedAt = state.recallStartedAt or (endsAt - RecallJuice.ChannelFallback)
+	local remain = math.max(endsAt - nowS, 0.05)
+	CombatFx.localRecall(player.UserId, true, remain, startedAt, endsAt, fresh)
+end
+
 local function applyCombatJuice(state: Types.CombatState)
 	noteRecallChannel(rootedChannel(state))
 	local prev = juiceCombat
@@ -728,10 +751,12 @@ local function applyCombatJuice(state: Types.CombatState)
 	lastFountainRegen = regenerating
 
 	if not prev then
-		if state.recalling then
+		if state.recalling and RecallJuice.modeAllows(gameMode, recallPhase()) then
 			Sfx.startLoop("RecallLoop")
-			local remain = if state.recallEndsAt then state.recallEndsAt - Workspace:GetServerTimeNow() else 7
-			CombatFx.localRecall(player.UserId, true, remain)
+			lastRecallTick = os.clock()
+			recallProgressSeen = 0
+			recallOutcomeShown = false
+			paintLocalRecall(state, true)
 		end
 		return
 	end
@@ -772,9 +797,15 @@ local function applyCombatJuice(state: Types.CombatState)
 		end
 	end
 	if state.recalling and not prev.recalling then
-		Sfx.startLoop("RecallLoop")
-		local remain = if state.recallEndsAt then state.recallEndsAt - Workspace:GetServerTimeNow() else 7
-		CombatFx.localRecall(player.UserId, true, remain)
+		if RecallJuice.modeAllows(gameMode, recallPhase()) then
+			Sfx.startLoop("RecallLoop")
+			lastRecallTick = os.clock()
+			recallProgressSeen = 0
+			recallOutcomeShown = false
+			paintLocalRecall(state, true)
+		end
+	elseif state.recalling then
+		paintLocalRecall(state, false)
 	elseif not state.recalling and prev.recalling then
 		Sfx.stopLoop("RecallLoop")
 		CombatFx.localRecall(player.UserId, false, 0)
@@ -1815,6 +1846,32 @@ Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 end)
 
 Remotes.event("CombatFx").OnClientEvent:Connect(function(payload)
+	if typeof(payload) == "table" and (payload :: any).kind == "recall" then
+		local duration = (payload :: any).duration
+		local origin = (payload :: any).origin
+		local seconds = if typeof(duration) == "number" then duration else 0
+		local localRecall = (payload :: any).userId == player.UserId
+		if RecallJuice.modeAllows(gameMode, recallPhase()) then
+			CombatFx.setRecallAllowed(true)
+		end
+		if localRecall and seconds > 0 then
+			recallOutcomeShown = false
+			lastRecallTick = os.clock()
+			recallProgressSeen = 0
+		elseif localRecall and typeof(origin) == "Vector3" and RecallJuice.modeAllows(gameMode, recallPhase()) and not recallOutcomeShown then
+			local outcome = RecallJuice.fxOutcome(seconds, origin.X, origin.Y, origin.Z)
+			if outcome == "cancel" then
+				recallOutcomeShown = true
+				local coral = RecallJuice.Coral
+				ScreenJuice.banner(RecallJuice.cancelBanner(), Color3.fromRGB(coral[1], coral[2], coral[3]))
+				Sfx.play("PingWarn", 0.75)
+			elseif outcome == "success" then
+				recallOutcomeShown = true
+				ScreenJuice.healFlash()
+				Sfx.play("Heal", 0.85)
+			end
+		end
+	end
 	CombatFx.playUnknown(payload)
 end)
 
@@ -1970,6 +2027,8 @@ applyVision = function()
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
 		CombatFx.setFloatsEnabled(false)
+		CombatFx.setRecallAllowed(false)
+		Sfx.stopLoop("RecallLoop")
 		if lastFountainRegen then
 			clearFountainJuice()
 		end
@@ -1986,6 +2045,7 @@ applyVision = function()
 	visionArmed = true
 	FogOfWar.setEnabled(true)
 	CombatFx.setFloatsEnabled(true)
+	CombatFx.setRecallAllowed(true)
 	FogOfWar.apply(lastVision.fogBits, lastVision.exploredBits)
 
 	local mine = snapshot.players[tostring(player.UserId)]
@@ -3277,6 +3337,24 @@ task.spawn(function()
 				if lastFountainRegen then
 					clearFountainJuice()
 				end
+			end
+			if latestCombat and latestCombat.recalling and RecallJuice.modeAllows(gameMode, latestMatch.phase) then
+				local nowS = Workspace:GetServerTimeNow()
+				local endsAt = latestCombat.recallEndsAt
+				local startedAt = latestCombat.recallStartedAt
+				if endsAt and startedAt and CombatFx.recallChannelLive(player.UserId) then
+					local progress = RecallJuice.progress(startedAt, endsAt, nowS)
+					if RecallJuice.crossedWash(recallProgressSeen, progress) then
+						CombatFx.recallWash(player.UserId)
+					end
+					recallProgressSeen = progress
+					if RecallJuice.tickDue(lastRecallTick, os.clock()) then
+						lastRecallTick = os.clock()
+						Sfx.play("PingSoft", 0.7)
+					end
+				end
+			else
+				recallProgressSeen = 0
 			end
 			if latestMatch.practice then
 				local mine = latestMatch.players[tostring(player.UserId)]

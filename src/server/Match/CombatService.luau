@@ -270,6 +270,7 @@ interruptRecall = function(player: Player)
 	Remotes.event("CombatUpdated"):FireClient(player, state)
 	FxRelay.emit({
 		kind = "recall",
+		-- Zero origin is the cancel sentinel RecallJuice reads. Fountain spawns are not here.
 		origin = Vector3.zero,
 		userId = player.UserId,
 		duration = 0,
@@ -314,6 +315,7 @@ local function completeRecall(player: Player)
 	fireCombat(player.UserId)
 	FxRelay.emit({
 		kind = "recall",
+		-- Fountain point + duration 0 is the success teleport cue. Channel math stays above.
 		origin = spawn.Position,
 		userId = player.UserId,
 		duration = 0,
