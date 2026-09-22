@@ -19,6 +19,7 @@ script = (
     wrap("CombatFloat", "src/shared/CombatFloat.luau")
     + wrap("FarmCredit", "src/shared/FarmCredit.luau")
     + wrap("LastHitJuice", "src/shared/LastHitJuice.luau")
+    + wrap("BountyJuice", "src/shared/BountyJuice.luau")
     + (root / "tests/farm-credit-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-farm-credit-test-") as folder:
