@@ -61,6 +61,14 @@ function Instance.new(class)
                     for _, child in values.children do if child.ClassName == kind then return child end end
                     return nil
                 end
+            elseif key == "GetChildren" then
+                return function()
+                    return values.children
+                end
+            elseif key == "IsA" then
+                return function(_, kind)
+                    return values.ClassName == kind
+                end
             end
             return values[key]
         end,
@@ -84,6 +92,8 @@ modules = [
     ("NpcCatalog", "src/server/Npcs/NpcCatalog.luau"),
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),
+    ("PublishChecklist", "src/shared/PublishChecklist.luau"),
+    ("PublishPanel", "src/client/UI/PublishPanel.luau"),
     ("LobbyPanel", "src/client/UI/LobbyPanel.luau"),
     ("HubPanel", "src/client/UI/HubPanel.luau"),
     ("NpcChatPanel", "src/client/UI/NpcChatPanel.luau"),

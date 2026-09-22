@@ -5,6 +5,7 @@
 -- The Meo404 minter key belongs on a hosted backend, not in this ModuleScript.
 --
 -- PRODUCTION CHECKLIST — 0 / "" is the Studio-safe stub. Fill locally before publish.
+-- The hub Live panel reports these stubs. It does not edit this file.
 -- See PLAYTEST.md and README "Production config".
 --   Match.MatchPlaceId            published PlaceId for ReserveServer (0 = in-place)
 --   Match.LobbyPlaceId            published lobby PlaceId for "Back to lobby" (0 = remember origin)

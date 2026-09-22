@@ -250,7 +250,7 @@ function LobbyPanel.create(parent: Instance): LobbyApi
 	local function applyQueue(queueStatus: Types.QueueStatus)
 		lastQueue = queueStatus
 		inQueue = queueStatus.inQueue or queueStatus.phase == "Found" or queueStatus.phase == "Teleporting"
-		local mode = if queueStatus.mode == "Reserved" then "reserved server" else "this server"
+		local mode = if queueStatus.mode == "Reserved" then "reserved server" else "in-place"
 		statusLabel.Text = `Lobby · {queueStatus.count} in queue`
 		if queueStatus.phase == "Found" then
 			eta.TextColor3 = Theme.amber

@@ -71,6 +71,7 @@ end
 
 local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
+	{ "Live", "Publish checklist · not a gate · PLAYTEST §7" },
 	{ "Board", "Yarn daily/weekly · Koi/Arcade dailies (UTC)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
 	{ "Closet", "Hats + trails · Rift unlocks · yarn points, not Robux" },

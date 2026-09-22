@@ -34,6 +34,7 @@ local YarnPartyService = require(script.YarnParty.YarnPartyService)
 local ArcadeService = require(script.Arcade.ArcadeService)
 local ArcadeBoardStore = require(script.Arcade.ArcadeBoardStore)
 local CosmeticService = require(script.Cosmetics.CosmeticService)
+local PublishReport = require(script.Publish.PublishReport)
 
 local function ensureTeam(name: string, color: BrickColor)
 	local existing = Teams:FindFirstChild(name)
@@ -145,6 +146,10 @@ end
 
 Remotes.function_("GetQueueStatus").OnServerInvoke = function(player: Player)
 	return MatchmakingService.statusFor(player)
+end
+
+Remotes.function_("GetPublishReadiness").OnServerInvoke = function(_player: Player)
+	return PublishReport.get()
 end
 
 Remotes.function_("InviteParty").OnServerInvoke = function(player: Player, targetUserId: unknown)
@@ -473,6 +478,7 @@ for _, player in Players:GetPlayers() do
 	sendLobby(player)
 end
 
+local publishSummary = PublishReport.init()
 print(
-	`[Meo Meo Meo] Cat hub online. Queue mode={if Config.Match.MatchPlaceId > 0 then "reserved" else "in-place"} min={Config.Match.MinPlayersToStart}.`
+	`[Meo Meo Meo] Cat hub online. Queue mode={if Config.Match.MatchPlaceId > 0 then "reserved" else "in-place"} min={Config.Match.MinPlayersToStart}. Publish: {publishSummary}.`
 )

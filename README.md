@@ -153,7 +153,7 @@ Tune timers and team size in `src/server/Config.luau`.
 | `Nft404.ClaimApiSecret` | `""` | Shared Bearer secret with the bridge. **Not** a chain key. Never commit. |
 | `Ai.Endpoint` / `Ai.ApiKey` | `""` | Only if `Ai.Provider = "http"`. Never commit a real key. |
 
-Steps to wire PlaceIds and the Developer Product: [PLAYTEST.md](PLAYTEST.md) §§6–7.
+Steps to wire PlaceIds and the Developer Product: [PLAYTEST.md](PLAYTEST.md) §§6–7. In Play, hub **Live** shows the same fields as Ready, Still Studio stub, or Blocked. It does not write Config or block Studio Play.
 
 ## Reserved-server matchmaking
 

@@ -10,7 +10,7 @@ Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / M
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens / Pawmart; leads traveling skillshots), **team voice pill** (allow-lists refreshed across draft / fight / end, **Mute me**, Studio stays honest), **Kitty Caster callouts** (first blood, streaks, posts, stalls, yarn core, victory — mock lines, no API key), meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, **traveling line bolts** + click-to-confirm ground AoE, **true fog of war** (server mask + ground overlay + brush + fading last-seen ghosts), map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
-This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe.
+This is **not** a finished live-ops title. Placeholders (`0` / `""`) are Studio-safe. Hub **Live** reports which of those are still stubs. It does not block Play. See §7.
 
 The channel trio **MEO, ME and MO** now appear as talkable lobby hosts, with the shared sculptural silhouette, cobalt braincell and character dialogue. The 14 playable champions remain available. Creative sources and production assets live in [docs/creative](docs/creative/README.md).
 
@@ -363,7 +363,7 @@ Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this se
 
 1. Two Studio clients (Team Test / local server + players) or two published clients.
 2. With no party, both hit **Queue**. HUD shows count / ETA. Two solos can land on opposite teams.
-3. On **Match found** you should hear the stinger. With `MatchPlaceId = 0` (or Studio), draft starts **in place**.
+3. On **Match found** you should hear the stinger. With `MatchPlaceId = 0` (or Studio), the lobby line reads **MATCH FOUND · in-place** and the blurb says the draft starts in-place. Reserved teleport needs a published PlaceId (hub **Live**, §7). Draft still starts here.
 4. **Invite** is same-server only (not Roblox friends, not cross-server):
    - Cat Rift stall → **Invite {name}** (Next cycles when more than one other cat is here).
    - The other cat gets **Accept** / **Decline** for 20 seconds, including a toast if they are still on the hub grid.
@@ -494,6 +494,33 @@ Fill these in `src/server/Config.luau` **locally** (do not commit secrets). `0` 
 | `Nft404.AllowSiweMockBypass` | `true` | Studio: claim without ECDSA. Set `false` before live Robux. |
 | `Ai.Endpoint` / `Ai.ApiKey` | `""` | Only if `Ai.Provider = "http"`. Never commit a real key. |
 
+### Readiness panel
+
+Hub **Live** sits on the hint row on a wide window. On a narrow window it sits left of Closet when that row has room, otherwise on the tagline row. It opens **Publish / Live**. The server builds it at boot from `Shared.PublishChecklist` and `GetPublishReadiness`. A one-line summary with no ids is also on `ReplicatedStorage` attribute `MeoPublishSummary`. The panel does not edit `Config.luau` and does not block Studio Play.
+
+| Row | Ready | Still Studio stub | Blocked |
+| --- | --- | --- | --- |
+| Match place | `Match.MatchPlaceId` is set | `0` — queue stays **in-place**. Reserved teleport needs a published PlaceId | — |
+| Lobby place | `Match.LobbyPlaceId` is set | `0` — Back to lobby remembers the queue origin | — |
+| Developer product | `Nft404.DeveloperProductId` is set | `0` — Studio mock grant | — |
+| Voice service | `VoiceChatService` is in the place | — | Service missing. The Rojo tree declares it |
+| DataStore API | `GetAsync` pcall succeeded (read-only probe `MeoPublishProbe_v1`) | API did not answer. Memory fallback, Play still works | — |
+| Economy | `Economy.Enabled` is on | — | Flag is off |
+
+Each row's fix names the Config key and points here. It never shows a numeric PlaceId or product id. Fill those yourself in `Config.luau` locally.
+
+Smoke (helper + hub panel, not a Studio substitute): `python3 tools/test-brand.py /path/to/luau`.
+
+### Studio live-pass (readiness)
+
+1. Leave Config at the defaults (`0` / `""`). Do not paste a PlaceId or product id.
+2. Studio → Play (Solo). API Services can stay off.
+3. On the hub, click **Live**.
+4. Match place, Lobby place, and Developer product say **Still Studio stub**. DataStore says **Still Studio stub** when API Services are off.
+5. Voice service says **Ready** when the Rojo `VoiceChatService` is in the place. The voice pill can still say **Studio** / **You: not eligible** — that is the mic check, not this row.
+6. Economy says **Ready** while `Config.Economy.Enabled` is true.
+7. Close **Live**. Cat Rift → Practice still starts. Queue **Match found** says **in-place**. Nothing in the panel stops Play.
+
 Also for a live place:
 
 1. Publish the experience (reserved servers and voice need this).
@@ -585,7 +612,8 @@ These are not covered by the Luau smoke:
 - Closet says Memory: same API Services toggle (`MeoCloset_v1`). Starters still equip in-session.
 - Yarn ghost / board says Memory: same toggle (`MeoYarnGhost_v1`, `MeoYarnDaily_v1`, `MeoYarnWeekly_v1`, `MeoKoiDaily_v1`, `MeoArcadeDaily_v1`). Ghost still works for the current Studio session.
 - Claim says SIWE-verify: leave `AllowSiweMockBypass = true` in Studio, or Challenge → `studio-bypass` → Verify.
-- Queue never teleports in Studio: expected. Publish + `MatchPlaceId`.
+- Queue never teleports in Studio: expected. Publish + `MatchPlaceId`. Hub **Live** says that row is still a Studio stub.
+- No **Live** panel, or it stays on "Reading the server checklist…": Rojo-sync `Shared.PublishChecklist`, `Server.Publish.PublishReport`, and `Client.UI.PublishPanel`, then Play again. The checklist is not a gate.
 - Voice pill says **Studio** / **You: not eligible**: unpublished Solo Play cannot enable experience voice. Publish, enable Voice Chat, then use two eligible clients (§4b). **No mic** means the device is not parented yet. **Mute me** does not change SFX or Music.
 - Voice pill says **Off** in the hub: default `OutsideMatch`. Team voice starts when a match assigns your side. Practice against only bots should say they are silent, not that voice crashed.
 - Bots idle: you are still in **Champion select** — lock a cat and wait for the timer.
