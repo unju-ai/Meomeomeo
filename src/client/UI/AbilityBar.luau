@@ -213,7 +213,7 @@ function AbilityBar.create(parent: Instance): BarApi
 					recallBar.Visible = true
 					recallLabel.Visible = true
 					recallFill.Size = UDim2.fromScale(elapsed / total, 1)
-					recallLabel.Text = `Recalling · {string.format("%.1f", left)}s  (F or S to cancel)`
+					recallLabel.Text = `Recalling · {string.format("%.1f", left)}s  (move or click cancels)`
 				else
 					death.Visible = false
 					recallBar.Visible = false

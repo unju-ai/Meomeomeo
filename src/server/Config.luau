@@ -81,7 +81,8 @@ local Config = {
 		FountainHpRegen = 48,
 		FountainManaRegen = 56,
 		StructureTouchRadius = 18,
-		-- B is Pawmart. F channels home. Damage / combat orders cancel.
+		-- B is Pawmart. F channels home.
+		-- A new move, attack, or cast cancels immediately. RecallMoveCancel is the shove fallback.
 		RecallSeconds = 7,
 		RecallMoveCancel = 2.5,
 		-- Line skillshots travel this many studs/s; hits apply on contact.

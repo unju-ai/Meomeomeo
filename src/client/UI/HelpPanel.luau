@@ -29,7 +29,7 @@ local LINES_MOBA: { { string } } = {
 	{ "6", "Control Yarn / pink (buy, 2 charges). Visible · slow · true sight" },
 	{ "Fog", "Unseen ground is dark. Explored stays dim. Walls and thick cover block sight; thin props do not. Brush hides until entered. A ghost fades at the last spot you saw an enemy. Bolts vanish in fog" },
 	{ "B", "Pawmart at fountain — not recall" },
-	{ "F", "Recall 7s to fountain (damage cancels)" },
+	{ "F", "Recall 7s. A new move, ground click, attack, or cast cancels" },
 	{ "T", "Hold emote wheel · release or click" },
 	{ "G", "Hold ping wheel · minimap click = Attention" },
 	{ "Tab", "Hold scoreboard" },

@@ -84,7 +84,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Tab** (hold) — scoreboard: KDA, CS, gold, level, items, team totals.
 - **V** — toggle a simple locked follow camera (north-up, overhead).
 - **B** — Pawmart (fountain only). **Not recall.**
-- **F** — recall: 7s channel, server teleports you to your fountain. **Damage, movement, attacks, abilities, or S / F again cancel it.**
+- **F** — recall: 7s channel, server teleports you to your fountain. **A new move (WASD / stick or a ground click), attack, attack-move, ability cast, or damage cancels it.** Camera, help, emotes, pings, and opening Pawmart do not.
 - **Minimap** (bottom-right) — lanes, towers, nexuses, allies, **fog overlay**, visible enemies/minions, and visible jungle camps (amber). Unseen enemies stay off the map. Click it to ping teammates.
 - **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
@@ -102,7 +102,7 @@ Hub grid  →  Yarn Party  →  micro-rounds  →  CROWNED  →  Retry / Hub
 Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit board  →  Retry / Hub
 ```
 
-- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
+- **Server owns** gold, health, mana, XP, levels, death timers, auto-attacks, recall teleports, wards, vision, structure HP, and match phase. Clients send intent (`UseAbility`, `IssueAttack`, `AttackMove`, `IssueMove`, `PlaceWard`, `UseLens`, `StartRecall`, `SelectChampion`); they never set prices or wallets.
 - **Teams:** Blue Whiskers vs Red Paws (`Teams` service). Practice puts you on Blue and fills Red with practice bots.
 - **Practice bots:** `BotService` spawns dummy champion models (negative `userId`, name suffix `(Bot)`). Combat is the same server path as players (`issueAttackFor` / `useAbilityFor`). **Easy** thinks slowly, retreats early (~42% HP), AAs anything, no lead/dodge/dive IQ, buys Longclaw + Yarnplate, 0.88× damage, and will not walk under enemy towers. **Normal** last-hits, leads line shots using `Config.Combat.ProjectileSpeed` (72 studs/s, 0.7s cap), sidesteps incoming line/ground casts (dodge hang uses the bolt's travel time), dives only with a crashing wave or a short low-HP chase, mid can take a nearby camp. **Hard** is faster, 1.22× damage, tighter CS, fuller build (incl. Whisker Lens), one early **magenta control ward**, dives to finish a kill, and uses lens when an enemy ward is revealed nearby. Queue matches fill each side to `Config.Bots.QueueFillTo` when `Match.PadQueueWithBots` is on (uses the last practice difficulty). Practice is always **in-place** (never teleports).
 - **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
@@ -123,7 +123,7 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Control Yarn / pink (6):** Pawmart consumable, 75g, max **2** charges. Magenta ball (visible, not stealthed), 90s / 90 HP, one live per owner. Team vision uses `ControlRadius` (48). Enemies in `ControlSlowRadius` walk at `ControlSlowMul`. Nearby enemy trinkets get `revealedUntil` refreshed (`ControlTrueSight` / `ControlRevealSeconds`). **Hard** jungle bots still call `placeControlFor` once (no charge). Destroyable like trinkets (AA / lens / skillshots).
 - **Whisker Lens (Pawmart, 180g):** unique. **5** reveals enemy wards in 32 studs for 5s and deals 80 damage to them (trinkets 60 HP, pinks 90 HP). Enemy **trinkets** are stealthed unless revealed, you stand within 14 studs, or a pink is nearby. Pinks are always on the map.
 - **Pawmart:** at your fountain (or talk to the clerk), press **B** and spend match gold on Longclaw / Yarnplate / Mana Treat / Pounce Boots / **Whisker Lens** / **Control Yarn**. Server checks gold and location. Longclaw raises AA damage. **B is shop only — recall is F, trinket is 4, pink is 6.**
-- **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. Interrupted by champion/minion/tower/jungle damage, movement > 2.5 studs, AA, attack-move, abilities, **S**, or **F** again. Fountain regen still ticks while you channel.
+- **Recall:** press **F** (not B). Server starts a 7s channel (`Config.Combat.RecallSeconds`), roots you, then `PivotTo` your fountain. A **new** move order cancels immediately (`IssueMove`: WASD / stick after you release the direction you were holding, or a ground click that walks without auto-acquiring). AA, attack-move, a validated ability, wards, lens, **S**, or **F** again also cancel. Champion/minion/tower/jungle damage still cancels. A shove past `RecallMoveCancel` (2.5 studs) still cancels while you are rooted. Camera, help, emotes, pings, and opening Pawmart do not. Fountain regen still ticks while you channel. The mint circle and channel bar clear as soon as the server drops the channel.
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
 - **Scoreboard:** hold Tab. Client overlay on the match snapshot (includes `cs`).
@@ -397,7 +397,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **vision/fog grid**, emote catalog, ping catalog
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **recall cancel rules**, **vision/fog grid**, emote catalog, ping catalog
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
@@ -428,7 +428,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
 2. Smarter bots: dive / dodge / lens / projectile lead are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
 3. Mesh LoS is in (eye-height walls + thick cover, mesh raycast on `MeoBlocksVision`). Next: inner-tower vision.
-4. Cancel-on-order recall only (keep walking without breaking channel if we add click-to-move). Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
+4. Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
 6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`). Closet drip stays Parts-only unless you hang accessories on the same `MeoCosmetics` welds.
