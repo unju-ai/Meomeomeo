@@ -3,6 +3,7 @@
 -- Client-only keybind overlay. Toggle with ? or hold H. No remotes.
 
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
+local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
@@ -53,6 +54,10 @@ local function withKitRows(lines: { { string } }): { { string } }
 		if row[1] == "Q W E R" then
 			for _, kit in ChampionKits.helpRows() do
 				table.insert(out, kit)
+			end
+		elseif row[1] == "6" then
+			for _, item in ItemKits.helpRows() do
+				table.insert(out, item)
 			end
 		end
 	end

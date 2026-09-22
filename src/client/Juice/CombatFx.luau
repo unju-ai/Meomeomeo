@@ -897,6 +897,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		if event.userId then
 			followRecall(event.userId, event.duration or 0)
 		end
+	elseif event.kind == "cleave" then
+		placeBurst(event.origin, Theme.pink, 3.4, 0.28)
 	end
 end
 

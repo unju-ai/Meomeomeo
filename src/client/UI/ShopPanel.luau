@@ -19,7 +19,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	root.Name = "ShopPanel"
 	root.AnchorPoint = Vector2.new(0, 1)
 	root.Position = UDim2.new(0, 16, 1, -150)
-	root.Size = UDim2.fromOffset(320, 430)
+	root.Size = UDim2.fromOffset(340, 480)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -40,14 +40,14 @@ function ShopPanel.create(parent: Instance): ShopApi
 	gold.Position = UDim2.fromOffset(0, 28)
 	gold.Size = UDim2.new(1, 0, 0, 18)
 
-	local hint = Theme.text(root, "Hint", "4 trinket · 5 lens · 6 Control Yarn (2 charges). Fountain gold only.", 12, Theme.peach)
+	local hint = Theme.text(root, "Hint", "4 trinket · 5 lens · 6 pink (2) · 7 Yarn Cleave. Fountain gold only.", 12, Theme.peach)
 	hint.Position = UDim2.fromOffset(0, 48)
-	hint.Size = UDim2.new(1, 0, 0, 28)
+	hint.Size = UDim2.new(1, 0, 0, 32)
 
 	local list = Instance.new("ScrollingFrame")
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 80)
-	list.Size = UDim2.new(1, 0, 1, -80)
+	list.Position = UDim2.fromOffset(0, 84)
+	list.Size = UDim2.new(1, 0, 1, -84)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
@@ -66,7 +66,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 		card.BackgroundColor3 = Theme.ink
 		card.Text = ""
 		card.LayoutOrder = index
-		card.Size = UDim2.new(1, -4, 0, 58)
+		card.Size = UDim2.new(1, -4, 0, 64)
 		card.Parent = list
 		Theme.corner(card, 10)
 		Theme.pad(card, 8)

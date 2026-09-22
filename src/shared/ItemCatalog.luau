@@ -70,9 +70,56 @@ local ITEMS: { [string]: Types.ItemDef } = {
 		walkSpeed = 0,
 		stackMax = 2,
 	},
+	-- Night-market effects live in Shared.ItemKits (not flat stats).
+	-- 280 still leaves a Control Yarn inside the 500 start gold.
+	YarnCleave = {
+		id = "YarnCleave",
+		name = "Yarn Cleave",
+		blurb = "Press 7: slash nearby enemies, then a 12s cooldown.",
+		cost = 280,
+		bonusDamage = 0,
+		armor = 0,
+		maxHealth = 0,
+		maxMana = 0,
+		walkSpeed = 0,
+	},
+	-- Band ceiling. Longclaw (250) plus this waits on a wave of farm.
+	StallFang = {
+		id = "StallFang",
+		name = "Stall Fang",
+		blurb = "Champion hits bite harder at or below 20% HP.",
+		cost = 300,
+		bonusDamage = 0,
+		armor = 0,
+		maxHealth = 0,
+		maxMana = 0,
+		walkSpeed = 0,
+	},
+	-- Sits with Mana Treat / Pounce Boots. Under Yarnplate.
+	PaperCharm = {
+		id = "PaperCharm",
+		name = "Paper Charm",
+		blurb = "An enemy pink opens 2.4s of slow immunity, then 20s.",
+		cost = 220,
+		bonusDamage = 0,
+		armor = 0,
+		maxHealth = 0,
+		maxMana = 0,
+		walkSpeed = 0,
+	},
 }
 
-local ORDER = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots", "WhiskerLens", "ControlYarn" }
+local ORDER = {
+	"Longclaw",
+	"Yarnplate",
+	"ManaTreat",
+	"PounceBoots",
+	"WhiskerLens",
+	"ControlYarn",
+	"YarnCleave",
+	"StallFang",
+	"PaperCharm",
+}
 
 local ItemCatalog = {}
 

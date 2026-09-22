@@ -8,6 +8,7 @@ assert(RecallLogic.breaksChannel("stop") == true)
 assert(RecallLogic.breaksChannel("ward") == true)
 assert(RecallLogic.breaksChannel("control") == true)
 assert(RecallLogic.breaksChannel("lens") == true)
+assert(RecallLogic.breaksChannel("cleave") == true)
 assert(RecallLogic.breaksChannel("damage") == true)
 
 assert(RecallLogic.breaksChannel("camera") == false)

@@ -154,6 +154,9 @@ export type CombatState = {
 	psiTarget: number?,
 	trinketReadyAt: number,
 	lensReadyAt: number,
+	cleaveReadyAt: number,
+	charmUntil: number?,
+	charmReadyAt: number?,
 }
 
 export type PartyRole = "solo" | "leader" | "member"
@@ -290,6 +293,7 @@ export type CombatFxKind =
 	| "recall"
 	| "projectile"
 	| "projectileHit"
+	| "cleave"
 
 export type CombatFxEvent = {
 	kind: CombatFxKind,

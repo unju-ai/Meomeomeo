@@ -1,6 +1,7 @@
 --!strict
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
+local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Theme = require(script.Parent.Parent.Theme)
@@ -100,20 +101,25 @@ function AbilityBar.create(parent: Instance): BarApi
 	tools.Parent = root
 	Theme.list(tools, 8, Enum.FillDirection.Horizontal)
 	local trinket = Theme.text(tools, "T4", "4  Ward", 12, Theme.cream, Theme.fontTitle)
-	trinket.Size = UDim2.new(0.34, -4, 1, 0)
+	trinket.Size = UDim2.new(0.25, -6, 1, 0)
 	trinket.BackgroundColor3 = Theme.panelAlt
 	trinket.BackgroundTransparency = 0.15
 	Theme.corner(trinket, 8)
 	local lens = Theme.text(tools, "T5", "5  Lens", 12, Theme.cream, Theme.fontTitle)
-	lens.Size = UDim2.new(0.33, -4, 1, 0)
+	lens.Size = UDim2.new(0.25, -6, 1, 0)
 	lens.BackgroundColor3 = Theme.panelAlt
 	lens.BackgroundTransparency = 0.15
 	Theme.corner(lens, 8)
 	local pink = Theme.text(tools, "T6", "6  Pink", 12, Theme.pink, Theme.fontTitle)
-	pink.Size = UDim2.new(0.33, -4, 1, 0)
+	pink.Size = UDim2.new(0.25, -6, 1, 0)
 	pink.BackgroundColor3 = Theme.panelAlt
 	pink.BackgroundTransparency = 0.15
 	Theme.corner(pink, 8)
+	local cleave = Theme.text(tools, "T7", "7  Cleave", 12, Theme.cream, Theme.fontTitle)
+	cleave.Size = UDim2.new(0.25, -6, 1, 0)
+	cleave.BackgroundColor3 = Theme.panelAlt
+	cleave.BackgroundTransparency = 0.15
+	Theme.corner(cleave, 8)
 
 	local recallBar = Instance.new("Frame")
 	recallBar.Name = "Recall"
@@ -218,6 +224,15 @@ function AbilityBar.create(parent: Instance): BarApi
 			if combat and combat.psiUntil and combat.psiUntil > workspace:GetServerTimeNow() then
 				psiBit = " · Psi"
 			end
+			local charmBit = ""
+			if combat then
+				charmBit = ItemKits.charmHud(
+					ItemKits.owns(matchPlayer.items, ItemKits.CharmId),
+					workspace:GetServerTimeNow(),
+					combat.charmUntil,
+					combat.charmReadyAt
+				)
+			end
 			meta.Text = `{(if champ then champ.name else "Cat")}`
 				.. guardBit
 				.. wickBit
@@ -230,6 +245,7 @@ function AbilityBar.create(parent: Instance): BarApi
 				.. chargeBit
 				.. curseBit
 				.. psiBit
+				.. charmBit
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. ` · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. aaBit
@@ -325,6 +341,7 @@ function AbilityBar.create(parent: Instance): BarApi
 				else
 					pink.Text = `6  Pink  ×{pinkCount}`
 				end
+				cleave.Text = ItemKits.cleaveHud(ItemKits.owns(matchPlayer.items, ItemKits.CleaveId), t, combat.cleaveReadyAt)
 			else
 				death.Visible = false
 				recallBar.Visible = false
