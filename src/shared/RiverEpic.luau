@@ -35,7 +35,7 @@ export type Clock = {
 	respawnAt: number?,
 }
 
-export type Marker = "body" | "pit" | "down" | "none"
+export type Marker = "body" | "pit" | "down" | "spent" | "none"
 
 export type HudTone = "wait" | "up" | "spent"
 
@@ -117,7 +117,8 @@ function RiverEpic.scale(amount: number, buffed: boolean): number
 end
 
 -- The living body is fog. The pit is map knowledge once the epic has woken,
--- including the one respawn window. Nothing before the first wake, nothing after it is spent.
+-- including the one respawn window. Nothing before the first wake. After the
+-- second take the minimap keeps a faint spent mark so "taken" still reads.
 function RiverEpic.marker(phase: string, inVision: boolean): Marker
 	if phase == "alive" and inVision then
 		return "body"
@@ -127,6 +128,9 @@ function RiverEpic.marker(phase: string, inVision: boolean): Marker
 	end
 	if phase == "returning" then
 		return "down"
+	end
+	if phase == "spent" then
+		return "spent"
 	end
 	return "none"
 end

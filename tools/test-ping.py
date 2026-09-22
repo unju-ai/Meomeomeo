@@ -15,7 +15,11 @@ def wrap(name: str, rel: str) -> str:
     return f"local {name} = (function()\n{source}\nend)()\n"
 
 
-script = wrap("PingLogic", "src/shared/PingLogic.luau") + (root / "tests/ping-smoke.luau").read_text()
+script = (
+    wrap("PingLogic", "src/shared/PingLogic.luau")
+    + wrap("MinimapPaint", "src/shared/MinimapPaint.luau")
+    + (root / "tests/ping-smoke.luau").read_text()
+)
 with tempfile.TemporaryDirectory(prefix="meo-ping-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)

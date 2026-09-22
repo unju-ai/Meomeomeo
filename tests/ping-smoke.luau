@@ -13,6 +13,15 @@ assert(PingLogic.markerFor("Core") == "core")
 assert(PingLogic.markerFor(nil) == "dot")
 assert(PingLogic.markerFor("Lane") == "dot")
 
+-- Minimap structure paint shares those marker ids (post / stall / core).
+assert(MinimapPaint.structure("Outer", "Blue", true, true).shape == "post")
+assert(MinimapPaint.structure("Inner", "Red", true, true).shape == "stall")
+assert(MinimapPaint.structure("Inner", "Red", true, false).shape == "stall")
+assert(MinimapPaint.structure("Inner", "Red", true, false).transparency > 0)
+assert(MinimapPaint.structure("Core", "Blue", true, true).shape == "core")
+assert(MinimapPaint.ping("post", "Blue", { 255, 196, 74 }, 14).corner == 2)
+assert(MinimapPaint.ping("stall", "Red", { 255, 196, 74 }, 14).fill[1] == 255)
+
 assert(PingLogic.compose("⚠", "Caution", "Caution", "Nyan Rocket") == "⚠ Caution · Nyan Rocket")
 assert(PingLogic.compose("⚔", "Attack", "Attack here", "lantern stall") == "⚔ Attack · lantern stall")
 assert(PingLogic.compose("⚔", "Attack", "Attack here", nil) == "⚔ Attack here")
