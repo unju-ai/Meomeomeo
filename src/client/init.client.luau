@@ -13,6 +13,7 @@ local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
 local ChampionCatalog = require(Shared:WaitForChild("ChampionCatalog"))
 local Constants = require(Shared:WaitForChild("Constants"))
 local HostGuide = require(Shared:WaitForChild("HostGuide"))
+local OldTomGuide = require(Shared:WaitForChild("OldTomGuide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -1956,6 +1957,37 @@ Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
 end)
 
 local mutterAt = -HostGuide.AmbientGap
+local tomMutterAt = -OldTomGuide.AmbientGap
+local FOUNTAIN_RADIUS = 32
+local RIFT_FOUNTAINS = { Vector3.new(-176, 0, 0), Vector3.new(176, 0, 0) }
+
+local function nearRiftFountain(): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return false
+	end
+	local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
+	for _, fountain in RIFT_FOUNTAINS do
+		if (flat - fountain).Magnitude <= FOUNTAIN_RADIUS then
+			return true
+		end
+	end
+	return false
+end
+
+-- Cat Rift only. A live fight, or a fountain visit while his Talk prompt is up.
+-- Draft, the hub, and the other stalls stay quiet. He does not join the kill feed.
+local function oldTomAmbientOk(): boolean
+	if gameMode ~= "Moba" then
+		return false
+	end
+	if latestMatch and latestMatch.phase == "InProgress" then
+		return true
+	end
+	return nearRiftFountain()
+end
+
 local function showHostMutter(part: Instance, line: string)
 	local previous = part:FindFirstChild("HostMutter")
 	if previous then
@@ -1989,9 +2021,10 @@ local function showHostMutter(part: Instance, line: string)
 	end)
 end
 
--- Rare lobby line while the Talk prompt is up. Does not open the panel or move the host.
+-- Rare line while the Talk prompt is up. Does not open the panel or move the cat.
+-- Hosts mutter in the hub. Old Tom mutters in a live Cat Rift, or at a fountain, and rarely.
 ProximityPromptService.PromptShown:Connect(function(prompt)
-	if gameMode ~= "Hub" or hud.chat.root.Visible then
+	if hud.chat.root.Visible then
 		return
 	end
 	local part = prompt.Parent
@@ -1999,12 +2032,26 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
 		return
 	end
 	local npcId = part:GetAttribute(Constants.Attributes.NpcId)
-	if typeof(npcId) ~= "string" or not BrandCatalog.host(npcId) then
+	if typeof(npcId) ~= "string" then
 		return
 	end
 	local now = os.clock()
-	local line, nextAt = HostGuide.ambient(npcId, now, mutterAt, math.floor(now * 10))
-	mutterAt = nextAt
+	if BrandCatalog.host(npcId) then
+		if gameMode ~= "Hub" then
+			return
+		end
+		local line, nextAt = HostGuide.ambient(npcId, now, mutterAt, math.floor(now * 10))
+		mutterAt = nextAt
+		if line then
+			showHostMutter(part, line)
+		end
+		return
+	end
+	if npcId ~= OldTomGuide.NpcId or not oldTomAmbientOk() then
+		return
+	end
+	local line, nextAt = OldTomGuide.ambient(npcId, now, tomMutterAt, math.floor(now * 10))
+	tomMutterAt = nextAt
 	if line then
 		showHostMutter(part, line)
 	end

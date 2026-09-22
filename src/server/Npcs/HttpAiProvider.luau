@@ -1,6 +1,7 @@
 --!strict
 
 local HostGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HostGuide"))
+local OldTomGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("OldTomGuide"))
 
 -- Integration point for a future hosted LLM.
 -- This file never ships a real key. If ApiKey/Endpoint are empty, we
@@ -18,6 +19,8 @@ local HttpAiProvider = {}
 function HttpAiProvider.complete(message: string, context: ChatContext): string
 	local guidance = HostGuide.reply(context.npc.id, message)
 	if guidance then return guidance end
+	local coach = OldTomGuide.reply(context.npc.id, message)
+	if coach then return coach end
 	if Config.Ai.ApiKey == "" or Config.Ai.Endpoint == "" then
 		return MockAiProvider.complete(message, context)
 	end

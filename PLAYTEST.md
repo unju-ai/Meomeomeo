@@ -63,6 +63,8 @@ First-Practice tips (same day, later slice): the deck keeps move, scratch, abili
 
 Verified locally: Luau compiled 133 sources; `tools/test-tutorial.py` passed (17-card deck, **Next** / **Got it**, **Skip all** stays dismissed, **Show tips** replays after a finished flag, live matches and other modes stay quiet, hub **Live** stays on the Tips row). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to step **Show tips** in Play.
 
+Old Tom jungle coach (same day, later slice): Luau compiled 134 sources; `tools/test-old-tom.py` passed (camp gold and respawn, clear vs rotate, Control Yarn on **6** / Whisker Lens on **5**, fog memory and the 1.8s ghost, Hard pigeon → golem → crabs, five chips, a rare ambient gap). `tools/test-brand.py` still passed. The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to talk to him in Practice (the live-pass below). No API key.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -70,7 +72,7 @@ Verified locally: Luau compiled 133 sources; `tools/test-tutorial.py` passed (17
 3. Talk to each host. Confirm the dialogue panel names the selected host and replies in that host's voice. Hosts should not block movement.
    - Each host opens with a distinct authored greeting. Switch hosts while a reply is pending: the new conversation should contain only the new host's greeting and subsequent messages. Closing and reopening the same host should also discard pending replies from the old conversation.
    - Send with both Enter and the Send button. If a request fails, the panel should offer a retry message. The transcript keeps the most recent 60 lines per open conversation.
-   - Hosts show six chips: **Cat Rift**, **Closet**, **Fog**, **Shop**, **Voice**, **Help**. Tapping a chip asks that question and leaves any unfinished draft in the box. Kitty Caster, the clerks, and Old Tom do not show the chips.
+   - Hosts show six chips: **Cat Rift**, **Closet**, **Fog**, **Shop**, **Voice**, **Help**. Tapping a chip asks that question and leaves any unfinished draft in the box. Kitty Caster and the clerks do not show chips. Old Tom has his own row (**Camps**, **Wards**, **Fog**, **Route**, **Help**) — see his live-pass.
    - Stand near a host without pressing **Talk**. Once in a while a short line appears over that cat and then leaves. Walking the trio should not stack three speeches. Opening **Talk** clears the line. The hosts still do not block movement.
 4. With two Studio clients, queue both players and confirm live queue status stays readable and the match starts. The host answer for **Invite** matches what this queue actually does.
 
@@ -92,6 +94,21 @@ The Luau smoke checks authored replies, chip questions, and the idle-line gap. I
 12. Start a Practice match and confirm the full 14-champion draft still appears. Return to the lobby after a match and check the host prompts again. Fog, callouts, the purse, and the tape behave as in their own passes. The hosts did not become champions.
 
 Smoke (not a Studio substitute): `python3 tools/test-brand.py /path/to/luau`.
+
+### Studio live-pass (Old Tom)
+
+The Luau smoke checks authored replies, the five chips, the mock fallback, and the ambient gap. It does not move a character and it does not call an LLM. Talk to him in Play. No OpenAI key. He stands in the blue jungle, just east of the NW Yarn Golem — not on the fountain pad. Walk there from your fountain.
+
+1. **Hard** Practice (Normal or Easy still answers; Hard is the route he describes). After lock-in, walk from the blue fountain to Old Tom and press **Talk**. The panel greets you as kitten. Chips read **Camps**, **Wards**, **Fog**, **Route**, **Help**. A draft you already typed stays in the box.
+2. **Camps**. The joke comes first. Then Pigeon Pack is 22 gold and about 32 seconds, Yarn Golem is 48 gold and about 45, a river crab is 36 gold and about 50, and the last hit adds 1 CS. Clear your own side once the wave is past the river. Finish a hurt camp (Hard under about 40% HP, Normal under about 55%). A healthy camp can wait if a cat is in your face (about 32 studs on Hard, about 22 on Normal). Drag one past about 38 studs and it resets. Then rotate to the pushed lane. Do not pace the river.
+3. **Wards**. **4** is the free stealthed trinket, one live, about 70 seconds, lasting about 60. Control Yarn is 75 gold with **B**, two charges, then **6**: a magenta pink everyone can see, about 90 seconds, slowing enemies inside about 22 studs and revealing nearby enemy trinkets. Whisker Lens is 180 gold, then **5**: 80 damage inside about 32 studs (a trinket at 60 pops, a full pink at 90 does not), then about 75 seconds. Your pink slows enemies, not you. Paper Charm shrugs an enemy pink for about 2.4 seconds, then waits about 20. Hard bots drop one free pink and do not buy Control Yarn.
+4. **Fog**. Unseen ground stays dark. Explored ground stays a dim tint for this match only. Walls and the thick drums block sight. Brush hides you until someone steps into that same pocket, and you cannot scratch a cat you cannot see. A last-seen ghost fades in about 1.8 seconds. It is not vision, and it is not the Yarn Run personal-best cat. Ward the river before you face-check the crab brush.
+5. **Route**. Only mid jungles on Hard. Top and bot stay in lane. Blue: pigeon pack NW → yarn golem NW → north river crab → south river crab. Red (the Practice bots): pigeon pack SE → yarn golem SE → south river crab → north river crab. They hold the camp and do not flip crabs. On a healthy camp they turn inside about 32 studs; under about 40% HP they finish first. Camps pop about 8 seconds in. After the four are down they rotate to the lane where the allied wave is furthest up. A sighting from about the last 8 seconds can pull that. They will not path into brush just because a ghost stood there. Easy never clears. Normal mid takes the nearest own-side camp only after the wave is past the river.
+6. **Help**, or "camps and wards" together, lists the four topics and does not dump every number. "hello" still gets a short mock line that echoes your words. Clerks and Kitty Caster stay on that generic mock, with no coach chips. Host chips are unchanged.
+7. Stand in his **Talk** prompt without pressing it, during the live fight (walking up from the fountain counts). Most approaches stay quiet. About one in four, and not twice inside about 75 seconds, a short line appears over him and then leaves. It does not enter the kill feed, and it does not play in the hub, during draft, or in Yarn Run, Koi Pond, Yarn Party, or Meme Arcade. Opening **Talk** clears it. He does not call first blood or towers.
+8. Closet, voice, fog rendering, Kitty Caster's callouts, and combat behave as in their own passes.
+
+Smoke (not a Studio substitute): `python3 tools/test-old-tom.py /path/to/luau`.
 
 ### Live sync
 
@@ -182,7 +199,7 @@ The Luau smoke checks line choice and the quiet rules: first blood, double throu
 3. **First blood.** Kill a Red bot, or let one kill you. The scratch line stays, and a second row says **FIRST BLOOD** and names the cat (**Nyan Rocket (Bot)**, or your champion plus your display name). The same cat killing again within about 10 seconds steps **DOUBLE KILL**, **TRIPLE KILL**, **QUADRA**, **PENTA**. A separate cat's isolated kill inside 8 seconds of the last spoken line stays on the scratch feed only.
 4. **Kittens.** Last-hitting lane kittens does not call her. Dying to lane kittens (or a camp) stays quiet unless that death is first blood, or it is the last cat on a side that had 2 or more. Red's three bots going down is an **ACE** when the finisher is not already on a double / triple / penta — one cat chaining them hears the streak instead. You alone on Blue is not an ace. A scratching-post execution can still get a short line once the 8-second gap allows it.
 5. **Structures.** Knock an outer post. She names that scratching post and that the stall is open. Snuff the lantern stall: she names the stall. When the last post or stall on that side falls, a second line says the yarn core is **OPEN**. Unplug the core: she names who did it, then **VICTORY** (you) or **DEFEAT** (your core). Victory uses the match-found sting; defeat uses the soft announcer ping.
-6. **Chat still talks.** Walk to Kitty Caster in the river and **Talk**. Mock replies still come back with no API key. The transcript includes the callouts from this match. Clerks and Old Tom are unchanged. Closet, voice, fog, and kits are unchanged.
+6. **Chat still talks.** Walk to Kitty Caster in the river and **Talk**. Mock replies still come back with no API key. The transcript includes the callouts from this match. Clerks stay on those generic lines. Old Tom's coaching is in his own pass. Closet, voice, fog, and kits are unchanged.
 
 Smoke (not a Studio substitute): `python3 tools/test-announcer.py /path/to/luau`.
 
@@ -445,7 +462,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **Invite** (Cat Rift) | Same server. They **Accept** within 20s. Leader **Queue party** or **Practice with party**. **Decline**, **Leave party**, or expiry returns the line to solo |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** into fog is fine (team-only). History keeps post squares and lantern stalls, not only dots |
-| Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom). Rift callouts also push into the kill feed; talking to her still uses the mock chat |
+| Talk prompt | Fountain / jungle NPC chat. Kitty Caster and the clerks stay on mock lines (her callouts are separate). Old Tom answers camps, wards, fog, and the Hard route from authored lines, still with no API key |
 | **A / D** (Yarn Run) | Switch lane (also arrows). In the Rift, **A** is still engine strafe |
 | **Space** (Yarn Run) | Jump a dog or the Roomba gap |
 | **C / Ctrl** (Yarn Run) | Slide under a laundry sign / tunnel |
