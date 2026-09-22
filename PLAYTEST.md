@@ -85,6 +85,8 @@ Meme Arcade juice / readability (same day, later slice): louder **Buy / Sell** c
 
 Yarn Party juice / readability (same day, later slice): stream-readable lobby countdown (**STARTS IN N** pulses) and punchier seat rows (`[YOU]` / `[CAT]` / `[BOT]` chips). Giant round titles keep a short rule banner (Dodge hop / Stall Freeze lit pillow). Elim pops (`YARN BONK` / `WRONG PILLOW`) get a coral event plate + banner + cheap `YarnPartyCamera.kick`. **CROWNED** podium highlights the winner and keeps **Party again** / **Back to hub** obvious. Join polish / scoring math / three mini-rounds / other hub modes unchanged. Verified locally: Luau compiled 140 sources; `tools/test-party.py` passed (ruleBanner / seatLine / isElimPop / podium lines). Full smoke suite passed (24). Rojo 7.4.4 built the place. Studio live-pass under §3d Yarn Party juice.
 
+Closet wardrobe juice / readability (same day, later slice): Closet rows get rarity chips (`CMN` / `UNC` / `RARE` / `EPIC`) and unlock-source chips (`STARTER` / `YARN` / `RUN` / `KOI` / `PARTY` / `ARCADE` / `RIFT`) so locked drip is not hint-text-only. Equipped rows show **✓** / **ON** / **Worn ✓**; locked rows dim with **LOCK**. Hover try-on ghosts locked slots and paints owned drip on the silhouette. `EQUIPPED ·` / `UNLOCKED ·` / `BOUGHT ·` get louder ticker + banner + `ScreenJuice.powerFlash` plus a preview-frame flash and a brief avatar `MeoCosmetics` neon pulse. Emote flair (#68) unchanged. Unlock thresholds, Gold Bell 25 yarn, start 40 yarn, and `MeoCloset_v1` schema unchanged. Other stalls untouched aside from shared ScreenJuice. Verified locally: Luau compiled 141 sources; `tools/test-cosmetics.py` passed (rarityTag / unlockSource / toastTint + gate amounts). Full smoke suite passed (24). Rojo 7.4.4 built the place. Studio live-pass under §3f Closet wardrobe juice.
+
 Pawmart clerk shop tips (same day, later slice): `Shared.PawmartGuide` teaches both fountain clerks (`PawmartBlue` / `PawmartRed`) with authored facts and Blue tired-retail / Red upseller asides. Chips: **Shop**, **Actives**, **Wards**, **Builds**, **Help**. Covers **B** fountain-only, start gold 500 / purse CS, Longclaw / Yarnplate / Mana Treat / Pounce Boots, Lens **5** / Control Yarn **6** / Cleave **7**, Stall Fang, Paper Charm, and a Hard bot buy one-liner. Rare Cat Rift ambient on the Talk prompt. Old Tom, hosts, and Kitty Caster unchanged. Mock / HTTP both gate on the guide before generic lines. No API key. Verified locally: Luau compiled 139 sources; `tools/test-pawmart-guide.py` passed; `tools/test-brand.py` and `tools/test-old-tom.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart clerks.
 
 Match clock (same day, later slice): Cat Rift InProgress shows a top-left **mm:ss** clock and a Canal Levi line. The server publishes `startedAt` and `riverEpic.nextAt` on the match snapshot. The client only paints: a countdown from **Levi 3:00** (`Levi 1:24` on the way), **Levi UP** while it is alive, **Levi 0:47** for the one return, **Levi taken** after the second death. The purse chip still uses **Canal Levi · +8% damage**, and names the other side on that same line when they hold the buff. The minimap pit marker stays. Kitty Caster's take line stays. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the clock. Verified locally: Luau compiled 136 sources; `tools/test-combat.py` and `tools/test-jungle-bot.py` passed (mm:ss, countdown, UP, respawn, taken, purse holder line). `tools/test-announcer.py` still passed with the take line unchanged. The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to watch the countdown, the wake, the take, and the respawn timer (the live-pass below).
@@ -475,10 +477,10 @@ Tape / wallets / events are server-authoritative and **isolated** from in-match 
 
 Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn / stall scores only** — there is no Robux cosmetic shop.
 
-1. Hub chrome **Closet** (left of **Mint 404**), or Cat Rift stall **Closet**. Panel: disclaimer, **Save: DataStore | Memory**, closet-yarn wallet, cat silhouette preview, item list.
-2. Starters **Cream Cap** + **Yarn Puff** are owned and equipped on first load. **Equip** / tap **Worn** to unequip. One hat + one trail at a time.
+1. Hub chrome **Closet** (left of **Mint 404**), or Cat Rift stall **Closet**. Panel: disclaimer, **Save: DataStore | Memory**, closet-yarn wallet, cat silhouette preview, item list with **rarity chips** (`CMN` / `UNC` / `RARE` / `EPIC`) and **source chips** (`STARTER` / `YARN` / `RUN` / `KOI` / `PARTY` / `ARCADE` / `RIFT`). Locked rows dim and show **LOCK**; owned rows show **OWN**; equipped rows show **✓** / **ON** / **Worn ✓**.
+2. Starters **Cream Cap** + **Yarn Puff** are owned and equipped on first load. **Equip** / tap **Worn ✓** to unequip. One hat + one trail at a time. Hover a row to **try on** in the silhouette (locked drip ghosts; unlocked drip paints solid). Equip / unlock / buy flashes the preview frame and briefly neon-pulses the avatar's welded drip.
 3. **Gold Bell** (collar) costs **25 closet yarn**. New cats start with **40**. Closet yarn is **play points**, not in-match meme-stock yarn and not Robux.
-4. Stall unlocks (granted once, then persist even if a daily score resets):
+4. Stall unlocks (granted once, then persist even if a daily score resets) — thresholds unchanged:
    - **Coral Beanie** — Yarn Run **200m** (best distance, including non-PB scores; persists with the PB ghost store)
    - **Mint Aura** — Yarn Run **400m**
    - **Canal Crown** + emote flair — catch a **legendary** koi
@@ -488,18 +490,25 @@ Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn
    - **Lantern Cap** — last-hit an outer scratching post or a lantern stall in Cat Rift (Practice counts; minions and bots do not)
    - **Stall Spark** + emote flair — win a Cat Rift match (Practice counts)
    - **Scratch Tally** — **5** champion kills across Cat Rift matches
-5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Cosmetics marked **emoteFlair** (Canal Crown, Braincell Orbs, Moon Dust, Stall Spark) tint and sparkle the **T** emote bob + billboard for nearby players — the server sends the flair color on `EmotePlayed`. Equip / unlock lines hit the ticker (`EQUIPPED ·` / `UNLOCKED ·`).
-6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Cat Rift counters (`riftWins`, `riftTowerKills`, `riftKills`) live on that same row, so kills add up across matches. Bots do not wear closet drip and do not earn Rift drip.
+5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Cosmetics marked **emoteFlair** (Canal Crown, Braincell Orbs, Moon Dust, Stall Spark) tint and sparkle the **T** emote bob + billboard for nearby players — the server sends the flair color on `EmotePlayed`. Equip / unlock / buy lines hit a louder ticker + banner + screen flash (`EQUIPPED ·` mint / `UNLOCKED ·` amber / `BOUGHT ·` peach).
+6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Cat Rift counters (`riftWins`, `riftTowerKills`, `riftKills`) live on that same row, so kills add up across matches. Schema and unlock amounts are unchanged by the wardrobe juice pass. Bots do not wear closet drip and do not earn Rift drip.
 7. Match end pays closet yarn: **6** for a win, **2** for a loss. Play points, not Robux, and not in-match gold.
 
 ### Studio live-pass (Cat Rift closet)
 
 The cosmetics smoke checks the gates and the yarn tip. It does not walk a lane. Practice is the check.
 
-1. Hub or the Cat Rift stall → **Closet**. The line under the wallet reads **Rift: win · post or stall · 5 scratches**. **Lantern Cap**, **Stall Spark**, and **Scratch Tally** are **Locked**. Cream Cap, Yarn Puff, and Gold Bell behave as before.
-2. Practice. Last-hit an **outer scratching post** or, after it falls, that lane's **lantern stall**. Minion and bot last hits do not count. Ticker and banner: `UNLOCKED · Lantern Cap`.
+1. Hub or the Cat Rift stall → **Closet**. Rows show rarity + source chips. **Lantern Cap**, **Stall Spark**, and **Scratch Tally** are **Locked** with a **RIFT** chip. Cream Cap, Yarn Puff, and Gold Bell behave as before.
+2. Practice. Last-hit an **outer scratching post** or, after it falls, that lane's **lantern stall**. Minion and bot last hits do not count. Ticker, banner, and flash: `UNLOCKED · Lantern Cap`. Preview frame + avatar drip should pulse.
 3. Win the match. Ticker: `UNLOCKED · Stall Spark`. Closet yarn goes up by **6** (a loss pays **2**). Five of your champion kills, including earlier matches this save, ticker `UNLOCKED · Scratch Tally` on the fifth.
-4. **Back to lobby**. Equip the new hat or trail. It stays on the hub cat and in Yarn Run, Koi Pond, Yarn Party, and Meme Arcade.
+4. **Back to lobby**. Equip the new hat or trail. `EQUIPPED ·` must be unmistakable (mint banner + flash + preview pulse). It stays on the hub cat and in Yarn Run, Koi Pond, Yarn Party, and Meme Arcade.
+
+### Studio live-pass (Closet wardrobe juice)
+
+1. Hub → **Closet**. Confirm rarity chips and source chips (`RUN` / `KOI` / `PARTY` / `ARCADE` / `RIFT` / `YARN` / `STARTER`) read in one glance. Locked rows are dimmer with **LOCK**; equipped rows show **✓** / **ON**.
+2. Hover a locked item (e.g. Canal Crown or Lantern Cap): silhouette **try-on** ghosts that slot. Hover an owned unequipped item: solid try-on. Leave the row: preview returns to equipped drip.
+3. Equip Cream Cap or Yarn Puff (or buy Gold Bell if you have yarn). `EQUIPPED ·` / `BOUGHT ·` ticker + banner + screen flash + silhouette flash + brief avatar neon pulse. Unlock thresholds and closet yarn costs feel unchanged.
+4. Hold **T** with Moon Dust / Canal Crown / Braincell Orbs / Stall Spark equipped — emote flair still tints. Open Yarn Run / Koi / Party / Arcade — no Closet panel bleed (shared ScreenJuice hooks only).
 
 Smoke (not a Studio substitute): `python3 tools/test-cosmetics.py /path/to/luau`.
 

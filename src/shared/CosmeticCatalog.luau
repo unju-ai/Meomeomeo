@@ -321,6 +321,98 @@ function CosmeticCatalog.rarityTint(rarity: Rarity): Color3
 	return Color3.fromRGB(255, 243, 224)
 end
 
+-- One-glance rarity chip for Closet rows (HUD only; unlock math unchanged).
+function CosmeticCatalog.rarityTag(rarity: Rarity | string): string
+	if rarity == "Epic" then
+		return "EPIC"
+	elseif rarity == "Rare" then
+		return "RARE"
+	elseif rarity == "Uncommon" then
+		return "UNC"
+	end
+	return "CMN"
+end
+
+-- Stall / mode source chip so locked unlock hints are not text-only.
+export type UnlockSource = "STARTER" | "YARN" | "RUN" | "KOI" | "PARTY" | "ARCADE" | "RIFT"
+
+function CosmeticCatalog.unlockSource(kind: UnlockKind | string): UnlockSource
+	if kind == "yarn" then
+		return "YARN"
+	elseif kind == "runMeters" then
+		return "RUN"
+	elseif kind == "koiLegendary" then
+		return "KOI"
+	elseif kind == "partyWin" then
+		return "PARTY"
+	elseif kind == "arcadeProfit" then
+		return "ARCADE"
+	elseif kind == "riftWin" or kind == "riftTowerKills" or kind == "riftKills" then
+		return "RIFT"
+	end
+	return "STARTER"
+end
+
+function CosmeticCatalog.unlockSourceLabel(kind: UnlockKind | string): string
+	local source = CosmeticCatalog.unlockSource(kind)
+	if source == "YARN" then
+		return "Closet yarn"
+	elseif source == "RUN" then
+		return "Yarn Run"
+	elseif source == "KOI" then
+		return "Koi Pond"
+	elseif source == "PARTY" then
+		return "Yarn Party"
+	elseif source == "ARCADE" then
+		return "Meme Arcade"
+	elseif source == "RIFT" then
+		return "Cat Rift"
+	end
+	return "Starter"
+end
+
+function CosmeticCatalog.unlockSourceTint(kind: UnlockKind | string): Color3
+	local source = CosmeticCatalog.unlockSource(kind)
+	if source == "YARN" then
+		return Color3.fromRGB(255, 184, 140)
+	elseif source == "RUN" then
+		return Color3.fromRGB(255, 196, 74)
+	elseif source == "KOI" then
+		return Color3.fromRGB(120, 196, 150)
+	elseif source == "PARTY" then
+		return Color3.fromRGB(255, 160, 200)
+	elseif source == "ARCADE" then
+		return Color3.fromRGB(86, 148, 230)
+	elseif source == "RIFT" then
+		return Color3.fromRGB(255, 122, 98)
+	end
+	return Color3.fromRGB(255, 243, 224)
+end
+
+function CosmeticCatalog.isUnlockToast(line: string?): boolean
+	return typeof(line) == "string" and string.find(line, "UNLOCKED", 1, true) ~= nil
+end
+
+function CosmeticCatalog.isEquipToast(line: string?): boolean
+	return typeof(line) == "string" and string.find(line, "EQUIPPED", 1, true) ~= nil
+end
+
+function CosmeticCatalog.isBuyToast(line: string?): boolean
+	return typeof(line) == "string" and string.find(line, "BOUGHT", 1, true) ~= nil
+end
+
+-- Stream / ScreenJuice tint for Closet ticker lines (shared juice only).
+function CosmeticCatalog.toastTint(line: string?): Color3
+	if CosmeticCatalog.isUnlockToast(line) then
+		return Color3.fromRGB(255, 196, 74)
+	elseif CosmeticCatalog.isEquipToast(line) then
+		return Color3.fromRGB(120, 196, 150)
+	elseif CosmeticCatalog.isBuyToast(line) then
+		return Color3.fromRGB(255, 184, 140)
+	end
+	return Color3.fromRGB(255, 243, 224)
+end
+
 function CosmeticCatalog.emoteTint(hatId: string?, trailId: string?): Color3?
 	-- Trail flair wins over hat when both are equipped (Moon Dust over Canal Crown).
 	for _, id in { trailId, hatId } do
