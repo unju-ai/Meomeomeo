@@ -1,6 +1,6 @@
-"""Small Luau smoke harness. It does not replace a Roblox Studio playtest.
+"""Old Tom jungle-coach smoke. It does not replace a Roblox Studio playtest.
 
-Usage: python3 tools/test-brand.py /path/to/luau
+Usage: python3 tools/test-old-tom.py /path/to/luau
 The Luau compiler, if beside the executable, syntax-checks the whole src tree.
 """
 from pathlib import Path
@@ -83,52 +83,74 @@ function Instance.new(class)
     return object
 end
 '''
+
 modules = [
     ("BrandCatalog", "src/shared/BrandCatalog.luau"),
-    ("ChampionCatalog", "src/shared/ChampionCatalog.luau"),
     ("ModeCatalog", "src/shared/ModeCatalog.luau"),
-    ("YarnRunCatalog", "src/shared/YarnRunCatalog.luau"),
     ("HostGuide", "src/shared/HostGuide.luau"),
     ("OldTomGuide", "src/shared/OldTomGuide.luau"),
     ("NpcCatalog", "src/server/Npcs/NpcCatalog.luau"),
     ("MockAiProvider", "src/server/Npcs/MockAiProvider.luau"),
     ("Theme", "src/client/Theme.luau"),
-    ("PublishChecklist", "src/shared/PublishChecklist.luau"),
-    ("PublishPanel", "src/client/UI/PublishPanel.luau"),
-    ("LobbyPanel", "src/client/UI/LobbyPanel.luau"),
-    ("HubPanel", "src/client/UI/HubPanel.luau"),
     ("NpcChatPanel", "src/client/UI/NpcChatPanel.luau"),
 ]
+
+
+def wrap(name: str, rel: str) -> str:
+    source = (root / rel).read_text()
+    source = re.sub(r"^local \w+ = require\([^\n]+\)\n", "", source, flags=re.MULTILINE)
+    return f"local {name} = (function()\n{source}\nend)()\n"
+
+
+def assert_before(source: str, earlier: str, later: str, label: str) -> None:
+    left = source.find(earlier)
+    right = source.find(later)
+    if left < 0 or right < 0 or left > right:
+        raise SystemExit(f"{label}: {earlier} must run before {later}")
+
+
+http = (root / "src/server/Npcs/HttpAiProvider.luau").read_text()
+http_fn = http.split("function HttpAiProvider.complete", 1)[1]
+assert_before(http_fn, "HostGuide.reply", "OldTomGuide.reply", "http")
+assert_before(http_fn, "OldTomGuide.reply", "HttpService:RequestAsync", "http")
+
+mock = (root / "src/server/Npcs/MockAiProvider.luau").read_text()
+mock_fn = mock.split("function MockAiProvider.complete", 1)[1]
+assert_before(mock_fn, "HostGuide.reply", "OldTomGuide.reply", "mock")
+assert_before(mock_fn, "OldTomGuide.reply", "LINES[context.npc.id]", "mock")
+
+client = (root / "src/client/init.client.luau").read_text()
+gate_start = client.find("local function oldTomAmbientOk")
+gate_end = client.find("local function showHostMutter")
+if gate_start < 0 or gate_end < gate_start:
+    raise SystemExit("Old Tom ambient gate missing")
+gate = client[gate_start:gate_end]
+for phrase in (
+    'gameMode ~= "Moba"',
+    'phase == "InProgress"',
+    "nearRiftFountain",
+    "FOUNTAIN_RADIUS = 32",
+):
+    if phrase not in gate and phrase not in client[client.find("local FOUNTAIN_RADIUS"):gate_end]:
+        raise SystemExit(f"Old Tom ambient gate missing {phrase}")
+if "Announcer" in gate or "KillFeed" in gate:
+    raise SystemExit("Old Tom ambient must stay off the caster feed")
+if client.count("OldTomGuide.ambient") != 1:
+    raise SystemExit("Old Tom should mutter from the Talk prompt only")
+
+for rel in (
+    "src/shared/HostGuide.luau",
+    "src/shared/AnnouncerLines.luau",
+    "src/server/Match/AnnouncerService.luau",
+):
+    if "OldTomGuide" in (root / rel).read_text():
+        raise SystemExit(f"{rel} should not depend on Old Tom")
+
 chunks = [prelude]
 for name, path in modules:
-    source = (root / path).read_text()
-    # Replace Roblox module resolution with the actual modules loaded above.
-    source = re.sub(r"^local \w+ = require\([^\n]+\)\n", "", source, flags=re.MULTILINE)
-    chunks.append(f"local {name} = (function()\n{source}\nend)()\n")
-chunks.append((root / "tests/brand-smoke.luau").read_text())
-# Aliases the smoke asks out loud. Fail here if a phrase disappears from the authored gate.
-guide = (root / "src/shared/HostGuide.luau").read_text().lower()
-for phrase in (
-    "lantern cap",
-    "stall spark",
-    "last seen",
-    "party queue",
-    "yarn cleave",
-    "stall fang",
-    "paper charm",
-    "kitty caster",
-    "smart ping",
-    "death recap",
-    "purse chip",
-    "mute me",
-    "meme tape",
-    "not robux",
-    "press 7",
-    "hold g",
-):
-    if phrase not in guide:
-        raise SystemExit(f"HostGuide missing authored phrase: {phrase}")
-with tempfile.TemporaryDirectory(prefix="meo-brand-test-") as folder:
+    chunks.append(wrap(name, path))
+chunks.append((root / "tests/old-tom-smoke.luau").read_text())
+with tempfile.TemporaryDirectory(prefix="meo-old-tom-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text("\n".join(chunks))
     subprocess.run([str(luau), str(entry)], check=True)

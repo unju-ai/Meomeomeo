@@ -179,7 +179,7 @@ chat.open("HostMo", "MO")
 pending("MO", "after reopen")
 assert(#chatLines() == 1, "Same-host reopen must invalidate old requests")
 chat.open("OldTom", "Old Tom")
-assert(chatLines()[1] == "Old Tom: Mrrp. What is on your mind?")
+assert(chatLines()[1] == "Old Tom: " .. OldTomGuide.Greeting)
 for i = 1, 100 do chat.append("Cat", tostring(i)) end
 assert(#chatLines() == 60, "Transcript must remain bounded")
 assert(chatLines()[60] == "Cat: 100")
@@ -356,7 +356,9 @@ print("PASS: closet, fog, invite, shop, caster, ping, recap, purse, voice, tape,
 
 chat.open("HostMeo", "MEO")
 local topics = chat.root:FindFirstChild("Topics")
+local coachTopics = chat.root:FindFirstChild("CoachTopics")
 assert(topics.Visible and topics.AutomaticCanvasSize == Enum.AutomaticSize.X)
+assert(coachTopics and not coachTopics.Visible, "Host talk does not show jungle chips")
 local questions = {}
 chat.onSend(function(id, question, reply)
 	assert(id == "HostMeo")
@@ -384,10 +386,24 @@ end
 assert(#questions == 6 and input.Text == "my unfinished thought")
 chat.open("OldTom", "Old Tom")
 assert(not topics.Visible)
+assert(coachTopics.Visible, "Old Tom keeps his own chips")
 topics:FindFirstChild("Help").Activated:Fire()
-assert(#questions == 6, "Ordinary NPCs should not send host topics")
+assert(#questions == 6, "Host chips stay quiet on Old Tom")
+assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 332)
+chat.onSend(function(id, question, reply)
+	assert(id == "OldTom")
+	table.insert(questions, question)
+	pending = reply
+end)
+input.Text = "my unfinished thought"
+coachTopics:FindFirstChild("Camps").Activated:Fire()
+assert(questions[7] == "camps" and input.Text == "my unfinished thought")
+pending("Old Tom", "Ready")
+chat.open("PawmartBlue", "Pawmart Clerk")
+assert(not topics.Visible and not coachTopics.Visible, "Clerks stay chipless")
 assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 280)
-print("PASS: tappable host topics, all game questions, draft preservation and pending guard")
+assert(chatLines()[1] == "Pawmart Clerk: Mrrp. What is on your mind?")
+print("PASS: tappable host topics, Old Tom chips, draft preservation and pending guard")
 
 local function checklistRow(report, id)
 	for _, row in report.rows do
