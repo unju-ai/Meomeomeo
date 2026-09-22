@@ -836,6 +836,7 @@ hud.hub.onPlayArcade(function()
 end)
 
 hud.hub.onMint(function()
+	hud.hub.dismissPublish()
 	hud.closet.setVisible(false)
 	hud.mint.toggle()
 end)
@@ -863,11 +864,33 @@ local function applyClosetToast(status: Types.ClosetStatus)
 end
 
 hud.hub.onCloset(function()
+	hud.hub.dismissPublish()
 	hud.mint.setVisible(false)
 	hud.closet.toggle()
 	if hud.closet.root.Visible then
 		refreshCloset()
 	end
+end)
+
+local publishFetch = 0
+hud.hub.onLive(function()
+	hud.mint.setVisible(false)
+	hud.closet.setVisible(false)
+	publishFetch += 1
+	local generation = publishFetch
+	task.spawn(function()
+		local ok, result = pcall(function()
+			return Remotes.function_("GetPublishReadiness"):InvokeServer()
+		end)
+		if generation ~= publishFetch then
+			return
+		end
+		if ok and typeof(result) == "table" then
+			hud.hub.applyPublish(result)
+		else
+			hud.hub.showPublishError("Could not read the server checklist. Play is not blocked. See PLAYTEST §7.")
+		end
+	end)
 end)
 
 hud.closet.onEquip(function(id, slot)
@@ -1483,7 +1506,7 @@ Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
 	if queue.phase == "Found" then
 		Sfx.play("MatchFound")
 		Music.duck(1.8)
-		toast("Match found!")
+		toast(if queue.mode == "InPlace" then "Match found — in-place" else "Match found!")
 	elseif queue.phase == "Teleporting" then
 		toast("Teleporting to the rift…")
 	end

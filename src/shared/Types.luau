@@ -170,6 +170,22 @@ export type PartyInviteCard = {
 	expiresIn: number,
 }
 
+export type PublishStatus = "Ready" | "Stub" | "Blocked"
+
+export type PublishRow = {
+	id: string,
+	label: string,
+	status: PublishStatus,
+	statusLabel: string,
+	fix: string,
+}
+
+export type PublishReport = {
+	rows: { PublishRow },
+	summary: string,
+	informational: boolean,
+}
+
 export type QueueStatus = {
 	phase: QueuePhase,
 	mode: QueueMode,

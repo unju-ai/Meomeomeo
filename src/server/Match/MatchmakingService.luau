@@ -201,7 +201,7 @@ function MatchmakingService.statusFor(player: Player?): Types.QueueStatus
 	if phase == "Found" or phase == "Teleporting" then
 		detail = if MatchTeleport.shouldReserve()
 			then "Match found — reserving a private server…"
-			else "Match found — starting draft here."
+			else "Match found — starting draft in-place."
 	elseif #players == 0 then
 		detail = `Need {need} cat(s) to start. Set MinPlayersToStart to 6 or 10 for a real pop.`
 	elseif missing > 0 then

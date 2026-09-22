@@ -3,6 +3,7 @@
 -- Night-market mode grid. Rounded yarn/coral tiles — not a Discover clone.
 
 local Theme = require(script.Parent.Parent.Theme)
+local PublishPanel = require(script.Parent.PublishPanel)
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 local ModeCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ModeCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -22,6 +23,10 @@ export type HubApi = {
 	onTalk: ((hostId: string, hostName: string) -> ()) -> (),
 	onMint: (() -> ()) -> (),
 	onCloset: (() -> ()) -> (),
+	onLive: (() -> ()) -> (),
+	applyPublish: (report: any) -> (),
+	showPublishError: (message: string) -> (),
+	dismissPublish: () -> (),
 	onBoard: (() -> ()) -> (),
 	onKoiBoard: (() -> ()) -> (),
 	onArcadeBoard: (() -> ()) -> (),
@@ -107,9 +112,16 @@ function HubPanel.create(parent: Instance): HubApi
 	sub.Position = UDim2.fromOffset(0, 36)
 	sub.Size = UDim2.new(1, 0, 0, 20)
 
-	local hint = Theme.text(root, "Hint", "Pick a game or meet the cats · T emote · Audio · ? help", 12, Theme.muted)
+	local hint = Theme.text(root, "Hint", "Pick a game · Live checklist · T emote · Audio · ? help", 12, Theme.muted)
 	hint.Position = UDim2.fromOffset(0, 56)
-	hint.Size = UDim2.new(1, 0, 0, 16)
+	hint.Size = UDim2.new(1, -80, 0, 16)
+
+	local liveBtn = Theme.button(root, "Live", "Live", Theme.mint)
+	liveBtn.AnchorPoint = Vector2.new(1, 0)
+	liveBtn.Position = UDim2.new(1, 0, 0, 56)
+	liveBtn.Size = UDim2.fromOffset(72, 22)
+	liveBtn.TextSize = 13
+	liveBtn.ZIndex = 4
 
 	local grid = Instance.new("ScrollingFrame")
 	grid.Name = "Grid"
@@ -140,6 +152,27 @@ function HubPanel.create(parent: Instance): HubApi
 		mintBtn.Position = UDim2.new(1, 0, 0, if compact then 76 else 2)
 		sub.Size = UDim2.new(1, 0, 0, if compact then 36 else 20)
 		hint.Visible = not compact
+		hint.Size = UDim2.new(1, if compact then 0 else -80, 0, 16)
+		sub.Position = UDim2.fromOffset(0, 36)
+		if compact then
+			-- Closet's right edge sits 136px in from the right, and the button is 128 wide.
+			local closetLeft = root.AbsoluteSize.X - 264
+			if closetLeft >= 80 then
+				liveBtn.AnchorPoint = Vector2.new(0, 0)
+				liveBtn.Position = UDim2.fromOffset(0, 76)
+				liveBtn.Size = UDim2.fromOffset(math.min(72, closetLeft - 8), 34)
+			else
+				liveBtn.AnchorPoint = Vector2.new(0, 0)
+				liveBtn.Position = UDim2.fromOffset(0, 40)
+				liveBtn.Size = UDim2.fromOffset(64, 28)
+				sub.Position = UDim2.fromOffset(70, 40)
+				sub.Size = UDim2.new(1, -70, 0, 28)
+			end
+		else
+			liveBtn.AnchorPoint = Vector2.new(1, 0)
+			liveBtn.Position = UDim2.new(1, 0, 0, 56)
+			liveBtn.Size = UDim2.fromOffset(72, 22)
+		end
 		local top = if compact then 120 else 80
 		grid.Position = UDim2.fromOffset(0, top)
 		grid.Size = UDim2.new(1, 0, 1, -top)
@@ -155,7 +188,9 @@ function HubPanel.create(parent: Instance): HubApi
 	local talkHandler: ((string, string) -> ())? = nil
 	local mintHandler: (() -> ())? = nil
 	local closetHandler: (() -> ())? = nil
+	local liveHandler: (() -> ())? = nil
 	local boardHandler: (() -> ())? = nil
+	local publish = PublishPanel.create(root)
 	local koiBoardHandler: (() -> ())? = nil
 	local arcadeBoardHandler: (() -> ())? = nil
 	local counts: { [string]: number } = {}
@@ -393,11 +428,21 @@ function HubPanel.create(parent: Instance): HubApi
 			closetHandler()
 		end
 	end)
+	liveBtn.MouseButton1Click:Connect(function()
+		local open = not publish.isOpen()
+		publish.setVisible(open)
+		if open and liveHandler then
+			liveHandler()
+		end
+	end)
 
 	return {
 		root = root,
 		setVisible = function(visible: boolean)
 			root.Visible = visible
+			if not visible then
+				publish.setVisible(false)
+			end
 		end,
 		update = function(status: Types.HubStatus)
 			yarnBest = status.yarnBest
@@ -438,6 +483,18 @@ function HubPanel.create(parent: Instance): HubApi
 		end,
 		onCloset = function(fn)
 			closetHandler = fn
+		end,
+		onLive = function(fn)
+			liveHandler = fn
+		end,
+		applyPublish = function(report: any)
+			publish.apply(report)
+		end,
+		showPublishError = function(message: string)
+			publish.showError(message)
+		end,
+		dismissPublish = function()
+			publish.setVisible(false)
 		end,
 		onBoard = function(fn)
 			boardHandler = fn

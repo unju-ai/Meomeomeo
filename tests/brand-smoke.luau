@@ -74,6 +74,8 @@ assert(hub.onPlayArcade ~= nil, "Hub must start Meme Arcade")
 assert(hub.onArcadeBoard ~= nil and hub.updateArcadeBoard ~= nil, "Hub must open the Arcade daily board")
 assert(hub.root:FindFirstChild("Closet") ~= nil, "Hub chrome must expose Closet")
 assert(hub.onCloset ~= nil, "Hub must open the closet")
+assert(hub.root:FindFirstChild("Live") ~= nil and hub.root:FindFirstChild("Live").Text == "Live", "Hub must expose the publish checklist")
+assert(hub.onLive ~= nil and hub.applyPublish ~= nil and hub.dismissPublish ~= nil)
 local tape = ModeCatalog.get("MemeArcade")
 assert(tape and tape.playable == true and tape.tag == "TAPE")
 assert(#ModeCatalog.all() == 5, "All five hub tiles must be live")
@@ -135,6 +137,13 @@ assert(lobby.root:FindFirstChild("Party").Text == "Party · solo")
 assert(card.Visible == false)
 assert(lobby.root:FindFirstChild("LeaveParty").Visible == false)
 assert(lobby.root:FindFirstChild("Practice").Text == "Practice vs 3 bots (Hard)")
+lobby.updateQueue({
+	phase = "Found", mode = "InPlace", inQueue = true, count = 2,
+	needed = 2, estimatedSeconds = 0, party = { "Cat" },
+	detail = "Match found — starting draft in-place.",
+})
+assert(lobby.root:FindFirstChild("Eta").Text == "MATCH FOUND  ·  in-place", "Match found stays in-place when MatchPlaceId is unset")
+assert(string.find(lobby.root:FindFirstChild("Blurb").Text, "in-place", 1, true), "Match found blurb must say in-place")
 print("PASS: host dialogue, original roster/NPCs, safe substitutions, theme buttons, lobby copy and queue state")
 
 -- A yielded NPC request must never leak into a newly opened conversation.
@@ -203,7 +212,12 @@ for _, example in {{780, 3}, {600, 2}, {351, 1}} do
 	assert(cellWidth >= 200, "Cards became too narrow to read")
 end
 assert(castHub.root:FindFirstChild("Closet").Position[4] == 76)
+assert(castHub.root:FindFirstChild("Live").Position[2] == 76, "Narrow hub keeps Live beside Closet")
 assert(castHub.root:FindFirstChild("Title").Size[2] == 0)
+castHub.root.AbsoluteSize = {X = 300, Y = 560}
+castHub.root.Changed:Fire()
+assert(castHub.root:FindFirstChild("Closet").Position[4] == 76, "Very narrow hub must not move Closet")
+assert(castHub.root:FindFirstChild("Live").Position[2] == 40, "Very narrow hub parks Live on the tagline row")
 assert(cast.LayoutOrder == 6, "Trio must stay after the game tiles")
 print("PASS: hub columns, narrow header and scrollable cast access")
 
@@ -374,3 +388,123 @@ topics:FindFirstChild("Help").Activated:Fire()
 assert(#questions == 6, "Ordinary NPCs should not send host topics")
 assert(chat.root:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.Y == 280)
 print("PASS: tappable host topics, all game questions, draft preservation and pending guard")
+
+local function checklistRow(report, id)
+	for _, row in report.rows do
+		if row.id == id then
+			return row
+		end
+	end
+	return nil
+end
+local function assertNoPlaceId(text, where)
+	assert(not string.find(text, "%d%d%d%d"), where .. " must not invent a numeric id")
+end
+
+local solo = PublishChecklist.report(PublishChecklist.studioSoloFacts())
+assert(solo.informational == true, "Readiness is not a hard gate")
+assert(#solo.rows == 6, "Checklist stays the six publish rows")
+assert(solo.summary == "Ready 2 · Still Studio stub 4 · Blocked 0")
+local soloMatch = checklistRow(solo, "MatchPlace")
+local soloLobby = checklistRow(solo, "LobbyPlace")
+local soloProduct = checklistRow(solo, "DeveloperProduct")
+local soloVoice = checklistRow(solo, "VoiceService")
+local soloStore = checklistRow(solo, "DataStore")
+local soloEconomy = checklistRow(solo, "Economy")
+assert(soloMatch.status == "Stub" and soloMatch.statusLabel == "Still Studio stub")
+assert(string.find(soloMatch.fix, "Reserved teleport needs a published PlaceId", 1, true))
+assert(string.find(soloMatch.fix, "Config.Match.MatchPlaceId", 1, true))
+assert(string.find(soloMatch.fix, "PLAYTEST", 1, true))
+assert(soloLobby.status == "Stub" and string.find(soloLobby.fix, "Config.Match.LobbyPlaceId", 1, true))
+assert(soloProduct.status == "Stub" and string.find(soloProduct.fix, "Config.Nft404.DeveloperProductId", 1, true))
+assert(soloVoice.status == "Ready" and soloVoice.statusLabel == "Ready")
+assert(soloStore.status == "Stub" and soloStore.statusLabel == "Still Studio stub")
+assert(soloEconomy.status == "Ready" and string.find(soloEconomy.fix, "Config.Economy.Enabled", 1, true))
+for _, row in solo.rows do
+	assertNoPlaceId(row.fix, row.id)
+	assertNoPlaceId(row.label, row.id)
+	assert(string.find(row.fix, "PLAYTEST", 1, true), row.id .. " fix must point at PLAYTEST")
+end
+
+local liveFacts = {
+	matchPlaceSet = true,
+	lobbyPlaceSet = true,
+	developerProductSet = true,
+	voiceServicePresent = true,
+	dataStoreReachable = true,
+	economyEnabled = true,
+}
+local live = PublishChecklist.report(liveFacts)
+assert(live.summary == "Ready 6 · Still Studio stub 0 · Blocked 0")
+assert(live.informational == true)
+for _, row in live.rows do
+	assert(row.status == "Ready" and row.statusLabel == "Ready")
+	assertNoPlaceId(row.fix, "live " .. row.id)
+end
+
+local blockedFacts = {
+	matchPlaceSet = false,
+	lobbyPlaceSet = false,
+	developerProductSet = false,
+	voiceServicePresent = false,
+	dataStoreReachable = false,
+	economyEnabled = false,
+}
+local blocked = PublishChecklist.report(blockedFacts)
+assert(checklistRow(blocked, "MatchPlace").status == "Stub", "A zero PlaceId is a stub, not a gate")
+assert(checklistRow(blocked, "VoiceService").status == "Blocked")
+assert(checklistRow(blocked, "VoiceService").statusLabel == "Blocked")
+assert(string.find(checklistRow(blocked, "VoiceService").fix, "VoiceChatService", 1, true))
+assert(checklistRow(blocked, "DataStore").status == "Stub")
+assert(checklistRow(blocked, "Economy").status == "Blocked")
+assert(string.find(checklistRow(blocked, "Economy").fix, "Config.Economy.Enabled", 1, true))
+assert(blocked.summary == "Ready 0 · Still Studio stub 4 · Blocked 2")
+print("PASS: publish checklist stubs, ready rows, and blocked voice or economy")
+
+local panel = hub.root:FindFirstChild("PublishPanel")
+assert(panel and panel.Visible == false, "Live panel starts closed")
+local opened = false
+hub.onLive(function()
+	opened = true
+end)
+hub.root:FindFirstChild("Live").MouseButton1Click:Fire()
+assert(panel.Visible == true and opened, "Live opens the checklist and asks the server")
+assert(panel:FindFirstChild("Summary").Text == "Reading the server checklist…")
+hub.applyPublish(solo)
+local rows = panel:FindFirstChild("Rows")
+local matchRow = rows:FindFirstChild("MatchPlace")
+assert(matchRow:FindFirstChild("Status").Text == "Still Studio stub")
+assert(string.find(matchRow:FindFirstChild("Fix").Text, "Reserved teleport needs a published PlaceId", 1, true))
+assertNoPlaceId(matchRow:FindFirstChild("Fix").Text, "panel match fix")
+assert(rows:FindFirstChild("VoiceService"):FindFirstChild("Status").Text == "Ready")
+assert(rows:FindFirstChild("DataStore"):FindFirstChild("Status").Text == "Still Studio stub")
+assert(rows:FindFirstChild("Economy"):FindFirstChild("Status").Text == "Ready")
+assert(string.find(panel:FindFirstChild("Summary").Text, "Still Studio stub 4", 1, true))
+hub.applyPublish({
+	summary = "Place 12345678",
+	rows = {
+		{
+			id = "MatchPlace",
+			label = "Match place",
+			status = "Stub",
+			statusLabel = "Still Studio stub",
+			fix = "Do not show 87654321. Set Config.Match.MatchPlaceId. See PLAYTEST §7.",
+		},
+	},
+})
+assert(not string.find(panel:FindFirstChild("Summary").Text, "12345678", 1, true), "Summary must scrub a numeric id")
+assert(string.find(panel:FindFirstChild("Summary").Text, "…", 1, true))
+local scrubbed = rows:FindFirstChild("MatchPlace"):FindFirstChild("Fix").Text
+assert(not string.find(scrubbed, "87654321", 1, true), "Fix line must scrub a numeric id")
+assert(string.find(scrubbed, "Config.Match.MatchPlaceId", 1, true))
+panel:FindFirstChild("Close").MouseButton1Click:Fire()
+assert(panel.Visible == false)
+hub.showPublishError("Could not read the server checklist. Play is not blocked. See PLAYTEST §7.")
+assert(rows:FindFirstChild("Error"):FindFirstChild("Status").Text == "Blocked")
+hub.dismissPublish()
+assert(panel.Visible == false)
+hub.root:FindFirstChild("Live").MouseButton1Click:Fire()
+assert(panel.Visible == true)
+hub.setVisible(false)
+assert(panel.Visible == false, "Leaving the hub closes the checklist")
+print("PASS: hub Live panel, studio stub rows, and id scrub")

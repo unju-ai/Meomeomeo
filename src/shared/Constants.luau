@@ -55,6 +55,7 @@ local Constants = {
 		YarnBest = "MeoYarnBest",
 		CosmeticHat = "MeoHat",
 		CosmeticTrail = "MeoTrail",
+		PublishSummary = "MeoPublishSummary",
 	},
 
 	Lanes = { "Top", "Mid", "Bot" } :: { string },

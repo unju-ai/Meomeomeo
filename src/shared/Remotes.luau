@@ -49,6 +49,7 @@ export type RemoteName =
 	| "SaveSettings"
 	| "PlayEmote"
 	| "GetHubStatus"
+	| "GetPublishReadiness"
 	| "StartYarnRun"
 	| "YarnRunInput"
 	| "LeaveYarnRun"
@@ -137,6 +138,7 @@ local FUNCTION_NAMES = {
 	"SaveSettings",
 	"PlayEmote",
 	"GetHubStatus",
+	"GetPublishReadiness",
 	"StartYarnRun",
 	"YarnRunInput",
 	"LeaveYarnRun",
