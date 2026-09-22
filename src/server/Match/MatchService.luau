@@ -14,6 +14,7 @@ local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BountyJuice"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
+local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local XpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("XpJuice"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -123,7 +124,12 @@ local function fillBots(players: { [string]: Types.MatchPlayer }, practice: bool
 		for _ = 1, Config.Bots.PracticeEnemies do
 			addBot(players, "Red")
 		end
-		for _ = 1, Config.Bots.PracticeAllies do
+		-- Humans are already seated. Ally bots only fill the Blue seats left
+		-- under QueueFillTo, and never more than PracticeAllies. They still
+		-- wait to lock a cat until the humans do.
+		local blueHumans = countTeam(players, "Blue") - countTeam(players, "Blue", true)
+		local allies = PracticeRoster.allyCount(blueHumans, Config.Bots.PracticeAllies, Config.Bots.QueueFillTo)
+		for _ = 1, allies do
 			addBot(players, "Blue", true)
 		end
 		return
