@@ -198,6 +198,8 @@ function Scoreboard.create(parent: Instance): BoardApi
 			end
 			totals.Text = ScoreboardPaint.totalsLine(blueK, blueCs, blueG, redK, redCs, redG)
 			local crownId = ScoreboardPaint.crownUserId(leadBits, now, snapshot.mvpUserId)
+			local mine = snapshot.players[tostring(localUserId)]
+			local myTeam = if mine then mine.team else nil
 
 			-- Flatten Blue section → Blue rows → Red section → Red rows.
 			local slots: { { kind: "section" | "player", player: Types.MatchPlayer? } } = {}
@@ -229,7 +231,8 @@ function Scoreboard.create(parent: Instance): BoardApi
 					local isDead = ScoreboardPaint.isDead(matchPlayer.respawnAt, now)
 					local isCrown = crownId == matchPlayer.userId
 					local paint = ScoreboardPaint.rowPaint(matchPlayer.team, isYou, isDead, isCrown)
-					local name = ScoreboardPaint.catLabel(champBase(matchPlayer), matchPlayer.isBot, isYou, isCrown)
+					local showAfk = matchPlayer.afk == true and matchPlayer.team == myTeam
+					local name = ScoreboardPaint.catLabel(champBase(matchPlayer), matchPlayer.isBot, isYou, isCrown, showAfk)
 					local values = {
 						matchPlayer.team,
 						name,

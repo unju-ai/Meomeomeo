@@ -605,6 +605,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 			hubPage = "grid"
 		end
 	end
+	hud.noteAfk(latestMatch, gameMode, inMini())
 	applyShellView()
 	notePeerRespawns(latestMatch)
 	if not inMini() and latestMatch.phase ~= "Lobby" then

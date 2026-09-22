@@ -29,6 +29,7 @@ local DeathRecap = require(script.Parent.DeathRecap)
 local RespawnCountdown = require(script.Parent.RespawnCountdown)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
+local AfkWatch = require(script.Parent.AfkWatch)
 local HelpPanel = require(script.Parent.HelpPanel)
 local RemakePanel = require(script.Parent.RemakePanel)
 local SurrenderPanel = require(script.Parent.SurrenderPanel)
@@ -80,6 +81,7 @@ export type HudApi = {
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
 	applyShell: (mode: Types.GameMode, hubPage: "grid" | "moba", snapshot: Types.MatchSnapshot?, localUserId: number) -> (),
+	noteAfk: (snapshot: Types.MatchSnapshot, mode: Types.GameMode, mini: boolean) -> (),
 }
 
 function Hud.create(): HudApi
@@ -403,6 +405,11 @@ function Hud.create(): HudApi
 		tips = tips,
 		emotes = emotes,
 		pings = pings,
+		noteAfk = function(snapshot: Types.MatchSnapshot, mode: Types.GameMode, mini: boolean)
+			AfkWatch.note(snapshot, player.UserId, mode, mini, function(text: string)
+				paintBanner(text)
+			end, feed.push)
+		end,
 		banner = function(text: string, color: Color3?)
 			paintBanner(text, color)
 		end,

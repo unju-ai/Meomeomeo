@@ -54,7 +54,8 @@ local LINES_MOBA: { { string } } = {
 
 	{ SEC, "Social" },
 	{ "T", "Hold emote wheel · release to cast · Esc cancel" },
-	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
+	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip. Teammate AFK chip" },
+	{ "AFK", "45s still: Still there? · 90s teammates see AFK. Move, AA, cast, ping, shop, or recall clears. No kick" },
 	{ "F7", "Remake under 3:00. Majority of living humans. Practice, or a missing teammate. Bots never vote" },
 	{ "F8", "Surrender after 8:00. Living humans, majority. Bots never vote" },
 	{ "Mute", "Voice pill · Mute me (mic only) · teammates, not bots" },
