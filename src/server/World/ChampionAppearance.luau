@@ -8,8 +8,10 @@
 local RunService = game:GetService("RunService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local BillboardHp = require(Shared:WaitForChild("BillboardHp"))
 local ChampionCatalog = require(Shared:WaitForChild("ChampionCatalog"))
 local ChampionLooks = require(Shared:WaitForChild("ChampionLooks"))
+local ChampionPlate = require(Shared:WaitForChild("ChampionPlate"))
 local Types = require(Shared:WaitForChild("Types"))
 
 export type ApplyInfo = {
@@ -38,7 +40,11 @@ local rigs: { [Model]: Rig } = {}
 local loopBound = false
 
 local FOLDER_NAME = "MeoAppearance"
-local PLATE_NAME = "MeoNameplate"
+local PLATE_NAME = ChampionPlate.GuiName
+
+local function plateRgb(triplet: { number }): Color3
+	return Color3.fromRGB(triplet[1], triplet[2], triplet[3])
+end
 
 local function findPart(model: Model, names: { string }): BasePart?
 	for _, name in names do
@@ -190,7 +196,15 @@ local function tintBody(model: Model, look: ChampionLooks.LookDef, body: Color3,
 	end
 end
 
-local function attachNameplate(anchor: BasePart, champName: string, role: string, isBot: boolean, team: Types.TeamId, tall: boolean)
+local function attachNameplate(
+	anchor: BasePart,
+	champName: string,
+	role: string,
+	lookLabel: string,
+	isBot: boolean,
+	team: Types.TeamId,
+	tall: boolean
+)
 	local old = anchor:FindFirstChild(PLATE_NAME)
 	if old then
 		old:Destroy()
@@ -211,36 +225,67 @@ local function attachNameplate(anchor: BasePart, champName: string, role: string
 		rootBot:Destroy()
 	end
 
+	-- Name + role/look tag + small HP track. Client paints fill from Health attrs.
 	local bb = Instance.new("BillboardGui")
 	bb.Name = PLATE_NAME
-	bb.Size = UDim2.fromOffset(176, 38)
-	bb.StudsOffset = Vector3.new(0, if tall then 4.4 else 3.55, 0)
+	bb.Size = UDim2.fromOffset(176, 52)
+	bb.StudsOffset = Vector3.new(0, if tall then 4.55 else 3.7, 0)
 	bb.AlwaysOnTop = true
 	bb.MaxDistance = 90
+	bb:SetAttribute("ChampName", champName)
+	bb:SetAttribute("IsBot", isBot)
+	bb:SetAttribute("RoleTag", ChampionPlate.tagLine(role, lookLabel))
 	bb.Parent = anchor
 
 	local name = Instance.new("TextLabel")
-	name.Name = "Champ"
+	name.Name = ChampionPlate.ChampName
 	name.BackgroundTransparency = 1
-	name.Size = UDim2.new(1, 0, 0.58, 0)
+	name.Size = UDim2.new(1, 0, 0, 16)
+	name.Position = UDim2.fromOffset(0, 0)
 	name.Font = Enum.Font.FredokaOne
 	name.TextSize = 14
 	name.TextColor3 = Color3.new(1, 1, 1)
 	name.TextStrokeTransparency = 0.35
-	name.Text = if isBot then `{champName} (Bot)` else champName
+	name.Text = ChampionPlate.nameLine(champName, isBot, false)
 	name.Parent = bb
 
 	local roleLabel = Instance.new("TextLabel")
-	roleLabel.Name = "Role"
+	roleLabel.Name = ChampionPlate.RoleName
 	roleLabel.BackgroundTransparency = 1
-	roleLabel.Position = UDim2.fromScale(0, 0.52)
-	roleLabel.Size = UDim2.new(1, 0, 0.48, 0)
+	roleLabel.Position = UDim2.fromOffset(0, 16)
+	roleLabel.Size = UDim2.new(1, 0, 0, 14)
 	roleLabel.Font = Enum.Font.GothamMedium
 	roleLabel.TextSize = 11
 	roleLabel.TextColor3 = ChampionLooks.teamColor(team)
 	roleLabel.TextStrokeTransparency = 0.45
-	roleLabel.Text = role
+	roleLabel.Text = ChampionPlate.tagLine(role, lookLabel)
 	roleLabel.Parent = bb
+
+	local track = Instance.new("Frame")
+	track.Name = ChampionPlate.TrackName
+	track.BackgroundColor3 = plateRgb(BillboardHp.Track)
+	track.BorderSizePixel = 0
+	track.Size = UDim2.new(1, -16, 0, 8)
+	track.Position = UDim2.new(0, 8, 0, 34)
+	track.Parent = bb
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UDim.new(0, 3)
+	trackCorner.Parent = track
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = plateRgb(BillboardHp.Stroke)
+	stroke.Thickness = 1
+	stroke.Transparency = 0.4
+	stroke.Parent = track
+
+	local fill = Instance.new("Frame")
+	fill.Name = ChampionPlate.FillName
+	fill.BackgroundColor3 = plateRgb(BillboardHp.teamFillRgb("cream", team))
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.Parent = track
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = UDim.new(0, 3)
+	fillCorner.Parent = fill
 end
 
 local function buildFlair(
@@ -487,12 +532,13 @@ function ChampionAppearance.apply(model: Model, info: ApplyInfo)
 	ensureLoop()
 
 	local tall = look.flair.wizardHat == true or look.flair.crystalHat == true or look.flair.mortar == true
-	attachNameplate(root, champ.name, champ.role, info.isBot, info.team, tall)
+	attachNameplate(root, champ.name, champ.role, look.label, info.isBot, info.team, tall)
 
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
+		-- Custom MeoNameplate HP fill replaces the default Roblox bar.
+		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 	end
 
 	model:SetAttribute("MeoLookId", info.championId)

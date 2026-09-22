@@ -2,7 +2,7 @@
 
 -- Pure rules for night-market HP billboards on structures, Canal Levi,
 -- lane kittens, and jungle camps. Health stays on the model attributes.
--- The client paints; no new remotes. Champion nameplates stay on their path.
+-- The client paints; no new remotes. Champion plates use Shared.ChampionPlate.
 
 local BillboardHp = {}
 

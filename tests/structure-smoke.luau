@@ -302,4 +302,56 @@ assert(
 -- Levi stays on showEpic, not the small-camp rule.
 assert(BillboardHp.showEpic({ alive = true, inVision = true }) == true, "Levi still uses the epic rule")
 
-print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi/kitten/camp HP bars")
+-- Champion nameplate visibility + labels (Shared.ChampionPlate). Client paints fill.
+assert(ChampionPlate.GuiName == "MeoNameplate")
+assert(ChampionPlate.nameLine("Professor Whiskers", false, false) == "Professor Whiskers")
+assert(ChampionPlate.nameLine("Professor Whiskers", true, false) == "Professor Whiskers (Bot)")
+assert(ChampionPlate.nameLine("Professor Whiskers", false, true) == "YOU · Professor Whiskers")
+assert(ChampionPlate.nameLine("Bytekit", true, true) == "YOU · Bytekit (Bot)")
+assert(ChampionPlate.tagLine("Mage", nil) == "Mage")
+assert(ChampionPlate.tagLine("Mage", "Office hours") == "Mage · Office hours")
+assert(ChampionPlate.MaxPlates >= 8)
+
+assert(
+	ChampionPlate.show({
+		alive = true,
+		ally = false,
+		inVision = false,
+	}) == false,
+	"enemy champion plate stays hidden in fog (same as AA refuse)"
+)
+assert(
+	ChampionPlate.show({
+		alive = true,
+		ally = true,
+		inVision = false,
+	}) == true,
+	"ally champion plate can stay visible through fog"
+)
+assert(
+	ChampionPlate.show({
+		alive = true,
+		ally = false,
+		inVision = true,
+	}) == true,
+	"enemy champion plate shows in vision"
+)
+assert(
+	ChampionPlate.show({
+		alive = false,
+		ally = true,
+		inVision = true,
+	}) == false,
+	"dead champions do not keep a nameplate"
+)
+
+local bluePlate = ChampionPlate.teamFillRgb("cream", "Blue")
+local redPlate = ChampionPlate.teamFillRgb("cream", "Red")
+assert(bluePlate[3] ~= redPlate[3], "champion plate fill reuses Blue/Red team wash")
+local keyA = ChampionPlate.paintKey(100, 200, true, "A", "Mage", "Blue")
+local keyB = ChampionPlate.paintKey(100, 200, true, "A", "Mage", "Blue")
+local keyC = ChampionPlate.paintKey(50, 200, true, "A", "Mage", "Blue")
+assert(keyA == keyB, "unchanged plate paint key is stable")
+assert(keyA ~= keyC, "HP change dirties the plate paint key")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi/kitten/camp HP bars, champion plates")

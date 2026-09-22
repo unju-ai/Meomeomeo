@@ -138,8 +138,8 @@ local function makeBotModel(matchPlayer: Types.MatchPlayer): Model
 	weld(head, root)
 
 	local humanoid = Instance.new("Humanoid")
-	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
-	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 	humanoid.MaxHealth = 100
 	humanoid.Health = 100
 	humanoid.WalkSpeed = 16
