@@ -42,7 +42,7 @@ local LINES_MOBA: { { string } } = {
 	{ "Clock", "Top-left match time. Levi counts down, then UP, then the respawn, then taken" },
 	{ "Canal Levi", "Clock line tracks the river epic. Epic HP bar while UP in vision. Last hit's team keeps +8% damage" },
 	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
-	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
+	{ "Tab", "Hold scoreboard · YOU / Blue-Red / dead dim · same gold and CS as the purse" },
 	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },
 	{ "V", "Toggle follow camera" },
 	{ "Voice", "Pill · Mute me (mic only) · teammates, not bots" },

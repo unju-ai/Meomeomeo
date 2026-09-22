@@ -1,7 +1,7 @@
 --!strict
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
-local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local ScoreboardPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ScoreboardPaint"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -16,58 +16,70 @@ export type BoardApi = {
 -- Fixed columns so CS and gold stay readable. Gotham is not monospace.
 local COLS = {
 	{ name = "Team", width = 48 },
-	{ name = "Cat", width = 156 },
+	{ name = "Cat", width = 168 },
 	{ name = "Lv", width = 28 },
 	{ name = "KDA", width = 76 },
 	{ name = "CS", width = 48 },
 	{ name = "Gold", width = 64 },
-	{ name = "Items", width = 240 },
+	{ name = "Items", width = 228 },
 }
 
-local function itemsText(ids: { string }): string
-	if #ids == 0 then
-		return "—"
-	end
-	local counts: { [string]: number } = {}
-	local order: { string } = {}
-	for _, id in ids do
-		if not counts[id] then
-			table.insert(order, id)
-			counts[id] = 0
-		end
-		counts[id] += 1
-	end
-	local names = {}
-	for _, id in order do
-		local item = ItemCatalog.get(id)
-		local label = if item then item.name else id
-		local n = counts[id]
-		table.insert(names, if n > 1 then `{label} ×{n}` else label)
-	end
-	return table.concat(names, ", ")
+local function rgb(color: { number }): Color3
+	return Color3.fromRGB(color[1], color[2], color[3])
 end
 
-local function columnRow(parent: Instance, name: string, order: number): (Frame, { TextLabel })
-	local row = Instance.new("Frame")
-	row.Name = name
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, 0, 0, 22)
-	row.LayoutOrder = order
-	row.ZIndex = 22
-	row.Parent = parent
-	Theme.list(row, 4, Enum.FillDirection.Horizontal)
+local function champBase(matchPlayer: Types.MatchPlayer): string
+	if matchPlayer.championId then
+		local champ = ChampionCatalog.get(matchPlayer.championId)
+		if champ then
+			return champ.name
+		end
+	end
+	return matchPlayer.displayName
+end
+
+type RowBits = {
+	frame: Frame,
+	stroke: UIStroke,
+	cells: { TextLabel },
+	kind: "player" | "section" | "head",
+}
+
+local function makeRow(parent: Instance, name: string, order: number, kind: "player" | "section" | "head"): RowBits
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.BackgroundTransparency = 1
+	frame.BackgroundColor3 = Theme.panel
+	frame.BorderSizePixel = 0
+	frame.Size = UDim2.new(1, 0, 0, 24)
+	frame.LayoutOrder = order
+	frame.ZIndex = 22
+	frame.Parent = parent
+	Theme.corner(frame, if kind == "player" then 8 else 6)
+	local stroke = Theme.stroke(frame, Theme.amber, 1, 1)
 
 	local cells = {}
-	for index, col in COLS do
-		local cell = Theme.text(row, col.name, "", 13, Theme.cream, Theme.fontMono)
-		cell.Size = UDim2.fromOffset(col.width, 22)
-		cell.LayoutOrder = index
+	if kind == "section" then
+		local cell = Theme.text(frame, "Section", "", 12, Theme.cream, Theme.fontMono)
+		cell.Size = UDim2.new(1, -8, 1, 0)
+		cell.Position = UDim2.fromOffset(6, 0)
 		cell.TextWrapped = false
 		cell.TextTruncate = Enum.TextTruncate.AtEnd
-		cell.ZIndex = 22
+		cell.ZIndex = 23
 		table.insert(cells, cell)
+	else
+		Theme.list(frame, 4, Enum.FillDirection.Horizontal)
+		for index, col in COLS do
+			local cell = Theme.text(frame, col.name, "", 13, Theme.cream, Theme.fontMono)
+			cell.Size = UDim2.fromOffset(col.width, 22)
+			cell.LayoutOrder = index
+			cell.TextWrapped = false
+			cell.TextTruncate = Enum.TextTruncate.AtEnd
+			cell.ZIndex = 23
+			table.insert(cells, cell)
+		end
 	end
-	return row, cells
+	return { frame = frame, stroke = stroke, cells = cells, kind = kind }
 end
 
 function Scoreboard.create(parent: Instance): BoardApi
@@ -75,9 +87,10 @@ function Scoreboard.create(parent: Instance): BoardApi
 	root.Name = "Scoreboard"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.46)
-	root.Size = UDim2.fromOffset(760, 360)
+	root.Size = UDim2.fromOffset(780, 400)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
+	root.Active = false
 	root.ZIndex = 20
 	root.Parent = parent
 	Theme.corner(root, 16)
@@ -101,32 +114,48 @@ function Scoreboard.create(parent: Instance): BoardApi
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
+	list.Active = false
+	list.ScrollingEnabled = true
 	list.ZIndex = 21
 	list.Parent = root
 	Theme.corner(list, 10)
 	Theme.pad(list, 8)
 	Theme.list(list, 4)
 
-	local _, headerCells = columnRow(list, "Head", 0)
+	local head = makeRow(list, "Head", 0, "head")
 	for index, col in COLS do
-		headerCells[index].Text = col.name
-		headerCells[index].TextColor3 = Theme.peach
-		headerCells[index].TextSize = 12
+		head.cells[index].Text = col.name
+		head.cells[index].TextColor3 = Theme.peach
+		head.cells[index].TextSize = 12
 	end
 
-	local rows: { Frame } = {}
-	local cells: { { TextLabel } } = {}
+	local rows: { RowBits } = {}
 
-	local function rowAt(index: number): { TextLabel }
-		local existing = cells[index]
-		if existing then
-			rows[index].Visible = true
+	local function rowAt(index: number, kind: "player" | "section"): RowBits
+		local existing = rows[index]
+		if existing and existing.kind == kind then
+			existing.frame.Visible = true
 			return existing
 		end
-		local row, rowCells = columnRow(list, `R{index}`, index)
-		rows[index] = row
-		cells[index] = rowCells
-		return rowCells
+		if existing then
+			existing.frame:Destroy()
+		end
+		local bits = makeRow(list, `R{index}`, index, kind)
+		rows[index] = bits
+		return bits
+	end
+
+	local function paintCells(bits: RowBits, paint: ScoreboardPaint.RowPaint, values: { string })
+		bits.frame.BackgroundColor3 = rgb(paint.fill)
+		bits.frame.BackgroundTransparency = paint.fillAlpha
+		bits.stroke.Color = rgb(paint.stroke)
+		bits.stroke.Transparency = paint.strokeAlpha
+		for index, cell in bits.cells do
+			cell.Text = values[index] or ""
+			cell.TextColor3 = rgb(paint.text)
+			cell.TextTransparency = paint.textAlpha
+			cell.Visible = true
+		end
 	end
 
 	return {
@@ -135,6 +164,7 @@ function Scoreboard.create(parent: Instance): BoardApi
 			root.Visible = visible
 		end,
 		update = function(snapshot: Types.MatchSnapshot, localUserId: number)
+			local now = workspace:GetServerTimeNow()
 			local ordered: { Types.MatchPlayer } = {}
 			for _, matchPlayer in snapshot.players do
 				table.insert(ordered, matchPlayer)
@@ -146,8 +176,16 @@ function Scoreboard.create(parent: Instance): BoardApi
 				return a.gold > b.gold
 			end)
 
+			local leadBits: { ScoreboardPaint.LeadPlayer } = {}
 			local blueK, redK, blueG, redG, blueCs, redCs = 0, 0, 0, 0, 0, 0
 			for _, matchPlayer in ordered do
+				table.insert(leadBits, {
+					userId = matchPlayer.userId,
+					kills = matchPlayer.kills,
+					damageDealt = matchPlayer.damageDealt,
+					gold = matchPlayer.gold,
+					respawnAt = matchPlayer.respawnAt,
+				})
 				if matchPlayer.team == "Blue" then
 					blueK += matchPlayer.kills
 					blueG += matchPlayer.gold
@@ -158,35 +196,59 @@ function Scoreboard.create(parent: Instance): BoardApi
 					redCs += matchPlayer.cs or 0
 				end
 			end
-			totals.Text = `Blue  {blueK} kills · {blueCs} CS · {blueG}g     Red  {redK} kills · {redCs} CS · {redG}g`
+			totals.Text = ScoreboardPaint.totalsLine(blueK, blueCs, blueG, redK, redCs, redG)
+			local crownId = ScoreboardPaint.crownUserId(leadBits, now, snapshot.mvpUserId)
 
-			for i, matchPlayer in ordered do
-				local rowCells = rowAt(i)
-				local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
-				local name = champ and champ.name or matchPlayer.displayName
-				if matchPlayer.isBot and not string.find(name, "%(Bot%)") then
-					name = `{name} (Bot)`
+			-- Flatten Blue section → Blue rows → Red section → Red rows.
+			local slots: { { kind: "section" | "player", player: Types.MatchPlayer? } } = {}
+			local lastTeam: string? = nil
+			for _, matchPlayer in ordered do
+				if matchPlayer.team ~= lastTeam then
+					table.insert(slots, { kind = "section", player = matchPlayer })
+					lastTeam = matchPlayer.team
 				end
-				if matchPlayer.userId == localUserId then
-					name = `{name} *`
-				end
-				local color = if matchPlayer.team == "Blue" then Theme.blue else Theme.red
-				local values = {
-					matchPlayer.team,
-					name,
-					tostring(matchPlayer.level or 1),
-					`{matchPlayer.kills}/{matchPlayer.deaths}/{matchPlayer.assists}`,
-					tostring(matchPlayer.cs or 0),
-					`{matchPlayer.gold}g`,
-					itemsText(matchPlayer.items),
-				}
-				for index, cell in rowCells do
-					cell.Text = values[index]
-					cell.TextColor3 = color
+				table.insert(slots, { kind = "player", player = matchPlayer })
+			end
+
+			for i, slot in slots do
+				local matchPlayer = slot.player :: Types.MatchPlayer
+				if slot.kind == "section" then
+					local bits = rowAt(i, "section")
+					local teamColor = rgb(ScoreboardPaint.teamRgb(matchPlayer.team))
+					bits.frame.BackgroundColor3 = teamColor
+					bits.frame.BackgroundTransparency = 0.82
+					bits.stroke.Color = teamColor
+					bits.stroke.Transparency = 0.35
+					local cell = bits.cells[1]
+					cell.Text = ScoreboardPaint.sectionTitle(matchPlayer.team)
+					cell.TextColor3 = teamColor
+					cell.TextTransparency = 0
+				else
+					local bits = rowAt(i, "player")
+					local isYou = matchPlayer.userId == localUserId
+					local isDead = ScoreboardPaint.isDead(matchPlayer.respawnAt, now)
+					local isCrown = crownId == matchPlayer.userId
+					local paint = ScoreboardPaint.rowPaint(matchPlayer.team, isYou, isDead, isCrown)
+					local name = ScoreboardPaint.catLabel(champBase(matchPlayer), matchPlayer.isBot, isYou, isCrown)
+					local values = {
+						matchPlayer.team,
+						name,
+						tostring(matchPlayer.level or 1),
+						`{matchPlayer.kills}/{matchPlayer.deaths}/{matchPlayer.assists}`,
+						tostring(matchPlayer.cs or 0),
+						`{matchPlayer.gold}g`,
+						ScoreboardPaint.itemsLine(matchPlayer.items),
+					}
+					paintCells(bits, paint, values)
+					-- YOU keeps cream text for scan; team tint on Team column only.
+					if isYou and not isDead then
+						bits.cells[1].TextColor3 = rgb(ScoreboardPaint.teamRgb(matchPlayer.team))
+						bits.cells[2].TextColor3 = Theme.amber
+					end
 				end
 			end
-			for i = #ordered + 1, #rows do
-				rows[i].Visible = false
+			for i = #slots + 1, #rows do
+				rows[i].frame.Visible = false
 			end
 		end,
 	}
