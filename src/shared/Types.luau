@@ -6,7 +6,7 @@ export type AbilitySlot = "Q" | "W" | "E" | "R"
 export type AbilityKind = "damage" | "heal" | "buff" | "dash" | "shield" | "stun"
 export type AbilityTargeting = "instant" | "ground" | "line" | "dash"
 export type AbilityRanks = { Q: number, W: number, E: number, R: number }
-export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce"
+export type FeedKind = "kill" | "tower" | "nexus" | "level" | "announce" | "ping"
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceOutsideMatch = "Off" | "Proximity"
 export type VoiceAvailability = "Ready" | "PlayerIneligible" | "StudioBlocked" | "Unavailable"
@@ -269,6 +269,9 @@ export type PingPayload = {
 	at: number,
 	text: string,
 	targetName: string?,
+	-- "dot" | "post" | "stall" | "core". Structures are not bare minimap dots.
+	marker: string?,
+	markerTeam: TeamId?,
 }
 
 export type PingRequest = {
@@ -276,6 +279,10 @@ export type PingRequest = {
 	position: Vector3?,
 	objectiveId: string?,
 	targetUserId: number?,
+	jungleId: string?,
+	wardId: string?,
+	-- "world" (ray) or "minimap". Minimap never attaches to a body.
+	source: string?,
 }
 
 export type FeedEvent = {

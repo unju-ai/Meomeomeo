@@ -5,6 +5,7 @@
 local Workspace = game:GetService("Workspace")
 
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
+local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
 
@@ -36,6 +37,7 @@ function PingFx.play(payload: Types.PingPayload)
 	local color = if def then def.color else Theme.amber
 	local emoji = if def then def.emoji else "📍"
 	local label = if def then def.label else "Attention"
+	local line = if def then def.line else "Attention"
 
 	local disc = Instance.new("Part")
 	disc.Name = "PingDisc"
@@ -72,7 +74,7 @@ function PingFx.play(payload: Types.PingPayload)
 	gui.MaxDistance = 140
 	gui.Parent = disc
 
-	local caption = if payload.targetName then `{emoji}  {label} · {payload.targetName}` else `{emoji}  {label}`
+	local caption = PingLogic.compose(emoji, label, line, payload.targetName)
 	local text = Theme.text(gui, "Ping", caption, 16, Theme.cream, Theme.fontTitle)
 	text.Size = UDim2.fromScale(1, 1)
 	text.BackgroundColor3 = Theme.panel

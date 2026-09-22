@@ -53,6 +53,8 @@ Cat Rift closet (same day, later slice): Luau compiled 125 sources; `tools/test-
 
 Kitty Caster callouts (same day, later slice): Luau compiled 127 sources; `tools/test-announcer.py` passed (first blood, double through penta, 8s ordinary cooldown, lane-kitten quiet unless first blood or an ace on a team of 2+, post / stall / yarn-core lines, victory and defeat cues). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to hear the lines in Practice.
 
+Smart pings (same day, later slice): Luau compiled 128 sources; `tools/test-ping.py` passed (named Caution / Attack lines, Attention refuse on a fogged enemy, ground and minimap Attention / Missing still allowed, post / stall / core marker shapes, 2s cooldown). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to ping a bot, a lantern stall, and fogged ground (§8f).
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -381,7 +383,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **B** | Pawmart — **fountain only**. Not recall |
 | **F** | Recall 7s → fountain. A new move, ground click, AA, attack-move, or cast cancels immediately. Damage still cancels. Camera, help, emote, ping, and **B** do not |
 | **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
-| **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only; cooldown. Aim at a tower/nexus/visible champ to name them |
+| **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only. ~2s cooldown. A visible cat, post, stall, yarn core, ward, or camp is named (`⚠ Caution · Nyan Rocket`). Ground stays generic |
 | **Purse** | Above the ability bar during a Cat Rift match: your gold, CS, level, and whether Yarn Cleave (280g) fits. Same numbers as Tab. Hidden on the hub and the other stalls |
 | **Tab** (hold) | Scoreboard: KDA, CS, gold, level, items. Humans and bots |
 | **Death** | Recap of recent scratches (cat / post / kitten / camp / item). **✕** dismisses, or it hides ~2.5s before the fountain. **Recap** reopens while you are down |
@@ -391,7 +393,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
 | **Invite** (Cat Rift) | Same server. They **Accept** within 20s. Leader **Queue party** or **Practice with party**. **Decline**, **Leave party**, or expiry returns the line to solo |
 | **?** or hold **H** | This help overlay |
-| Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
+| Minimap click | Generic **Attention** into fog is fine (team-only). History keeps post squares and lantern stalls, not only dots |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom). Rift callouts also push into the kill feed; talking to her still uses the mock chat |
 | **A / D** (Yarn Run) | Switch lane (also arrows). In the Rift, **A** is still engine strafe |
 | **Space** (Yarn Run) | Jump a dog or the Roomba gap |
@@ -492,7 +494,25 @@ Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex
 
 ## 8f. Smart pings
 
-Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap click stays generic **Attention**. Markers + a short line go to **teammates only** (fog: unseen enemy champs are not named). Server cooldown ~1.25s. Minimap keeps a short history flash of recent pings.
+Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Aim is captured when **G** goes down. Minimap click stays generic **Attention** (legal in fog). Markers + a kill-feed line go to **teammates only**.
+
+The line names what the ray hit when you can see it: a cat (`Alex: ⚠ Caution · Nyan Rocket`), a scratching post, a lantern stall (`⚔ Attack · Red Mid lantern stall`), the yarn core, a ward (`ward` or `pink`), or a camp (`Yarn Golem`). Empty ground keeps the generic line (`⚔ Attack here`). Kittens are not named.
+
+**Fog:** Attention on a fogged enemy body refuses with **No vision.** (same idea as an auto-attack). It does not drop a marker on that cat. Ground clicks and minimap clicks into fog still send Attention, and Enemy Missing on a hidden body or on fogged ground still sends — unnamed, so the line does not reveal who is there. Other wheel kinds on a hidden body stay unnamed too.
+
+Server cooldown is **2 seconds** per player (`PingLogic.CooldownSeconds`). A second ping inside that window is ignored, so PingSoft / PingWarn do not machine-gun over Kitty Caster. Her banner still holds for 5 seconds; the ping line waits in the kill feed instead of erasing her. Soft cues are unchanged (Caution / Missing / Attack use PingWarn, the rest PingSoft).
+
+Minimap: outer-post pings are **squares** in team color with a lantern-amber stroke. Lantern stalls are **amber circles** with a wood stroke. The yarn core is a pink circle with a yarn stroke. Ground and champ pings stay round dots in the ping color. A short history of those shapes lingers. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade still do not ping.
+
+Smoke (rules only, not a Studio substitute): `python3 tools/test-ping.py /path/to/luau`.
+
+### Studio live-pass (pings)
+
+1. Practice, lock a cat, and walk up to a visible bot. Hold **G** on the bot and release **Caution**. The kill feed and the world tag read `⚠ Caution ·` plus that cat's name (Nyan Rocket, not the `(Bot)` suffix). Teammates would see it; the enemy team does not.
+2. Hold **G** on an inner lantern stall and release **Attack**. The line names that stall (`Red Mid lantern stall` or whichever lane). The minimap mark is a lantern-amber circle with a wood ring, not a bare dot. An outer scratching post is a square. The yarn core is the larger pink mark.
+3. Let a bot walk into fog. Attention on the hidden body toasts **No vision.** and does not mark them. Click empty fogged ground, or click the minimap in the fog: Attention still lands, unnamed. Enemy Missing on that fog still lands, unnamed.
+4. Ping twice quickly. The second press inside about 2 seconds does nothing. If Kitty Caster just spoke, her banner stays up and the ping line appears in the feed under it. One soft cue plays per accepted ping.
+5. Open Yarn Run, Koi Pond, Yarn Party, Arcade, or the hub. **G** does not ping. Closet, voice, and kits are unchanged.
 
 ## 8g. Fog of war (Cat Rift)
 
@@ -507,7 +527,7 @@ Practice (or a live match) is the check. Hub / Yarn Run / Koi Pond / Yarn Party 
 - Enemy traveling **Q bolts** hide while the projectile is in unseen/unexplored fog, including ground hidden behind a drum. **Your own** bolt stays visible. Server still simulates hits. Pink wards, brush, fog memory, last-seen ghosts, and hub / Closet / Yarn Run / Koi / Party modes are unchanged.
 - After **Back to lobby**, the overlay and any ghosts are gone and hub hosts / Closet look normal.
 
-Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBits` + visible unit ids (radius + brush + eye-height mesh LoS). Memory resets on match start/stop only. Keep walls and upright cover are occlusion volumes; parts tagged `MeoBlocksVision` that are meshes, wedges, or tilted are `Workspace:Raycast` at eye height (a hit blocks, a miss does not open a wall). AA / attack-move / pings refuse fogged champs; attack-move can path to last-known brush. The client fades a last-seen ghost from visibility transitions (`LastSeenGhostLogic`); that ghost is not replicated and does not update `fogBits`. `python3 tools/test-vision.py` covers grid pack, brush, wall LoS, drum cover, thin/short reject, mesh-corner probe, mask OR, and ghost freeze/fade, not Studio rendering.
+Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBits` + visible unit ids (radius + brush + eye-height mesh LoS). Memory resets on match start/stop only. Keep walls and upright cover are occlusion volumes; parts tagged `MeoBlocksVision` that are meshes, wedges, or tilted are `Workspace:Raycast` at eye height (a hit blocks, a miss does not open a wall). AA / attack-move refuse fogged champs. Attention pings refuse a fogged enemy body the same way; ground and minimap Attention / Missing into fog still land unnamed. Attack-move can path to last-known brush. The client fades a last-seen ghost from visibility transitions (`LastSeenGhostLogic`); that ghost is not replicated and does not update `fogBits`. `python3 tools/test-vision.py` covers grid pack, brush, wall LoS, drum cover, thin/short reject, mesh-corner probe, mask OR, and ghost freeze/fade, not Studio rendering. `python3 tools/test-ping.py` covers the ping fog rule.
 
 ### Studio live-pass (mesh LoS)
 
@@ -541,7 +561,7 @@ These are not covered by the Luau smoke:
 - Fog stays on after the match / in Yarn Run: leave Practice via **Back to lobby** first; hub modes call `FogOfWar.setEnabled(false)`.
 - No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
 - No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
-- No ping wheel: Rojo-sync `PingCatalog` + `MinimapPing`. Hold **G** in Practice (not lobby). Minimap click still Attention.
+- No ping wheel, or a ping never names the cat: Rojo-sync `PingCatalog`, `PingLogic`, and `MinimapPing`. Hold **G** in Practice (not lobby) on a visible bot. Minimap click is still generic Attention, including into fog. Attention on a hidden enemy says **No vision.**
 - No death recap after a Practice death: Rojo-sync so `MeoRemotes.DeathRecap` exists, then die again in a new Practice. Hub, Yarn Run, Koi, Party, and Arcade do not show it.
 
 ## 10. Still stubbed (do not expect)

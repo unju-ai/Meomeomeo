@@ -358,6 +358,9 @@ function Hud.create(): HudApi
 			banner.Text = text
 			bannerHoldUntil = os.clock() + 5
 		end,
+		aside = function(text: string)
+			writeBanner(text)
+		end,
 		ticker = function(text: string)
 			ticker.Text = text
 		end,
