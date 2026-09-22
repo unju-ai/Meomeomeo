@@ -171,7 +171,8 @@ function TargetingIndicator.show(ability: Types.AbilityDef, origin: Vector3, aim
 		local full = math.max(flat.Magnitude, 2)
 		local dir = if flat.Magnitude > 0.2 then flat.Unit else Vector3.new(1, 0, 0)
 		-- Short streak + tip so a dash does not read as a line bolt.
-		local streakLen = math.clamp(full * 0.38, 8, math.min(full, 18))
+		local streakCap = math.min(full, 18)
+		local streakLen = math.clamp(full * 0.38, math.min(8, streakCap), streakCap)
 		local streakMid = origin + dir * (streakLen / 2)
 		local path = ensurePath()
 		path.Parent = parent
