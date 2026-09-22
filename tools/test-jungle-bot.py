@@ -25,6 +25,7 @@ def wrap(name: str, rel: str) -> str:
 script = (
     wrap("VisionLogic", "src/shared/VisionLogic.luau")
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
+    + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")
     + (root / "tests/jungle-bot-smoke.luau").read_text()
 )
