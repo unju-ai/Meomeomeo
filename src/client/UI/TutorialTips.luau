@@ -89,7 +89,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "tab",
 		title = "Scoreboard (Tab)",
-		body = "Hold Tab for KDA, CS, gold, and items. Bots are tagged (Bot).",
+		body = "A purse chip above the ability bar shows your gold, CS, and level, including whether you can buy Yarn Cleave. Hold Tab for the whole rift: KDA, CS, gold, and items. Bots are tagged (Bot). The chip and Tab match.",
 	},
 	{
 		id = "nexus",
