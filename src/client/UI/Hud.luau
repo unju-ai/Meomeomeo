@@ -36,6 +36,7 @@ local ShopPanel = require(script.Parent.ShopPanel)
 local VoiceHud = require(script.Parent.VoiceHud)
 local EmoteWheel = require(script.Parent.EmoteWheel)
 local PingWheel = require(script.Parent.PingWheel)
+local MatchStartFx = require(script.Parent.Parent.Juice.MatchStartFx)
 
 local Hud = {}
 
@@ -85,6 +86,7 @@ function Hud.create(): HudApi
 	gui.IgnoreGuiInset = true
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = player:WaitForChild("PlayerGui")
+	MatchStartFx.bind(gui)
 
 	local ticker = Theme.text(gui, "Ticker", "", 13, Theme.ink, Theme.fontMono)
 	ticker.AnchorPoint = Vector2.new(0.5, 0)
@@ -256,6 +258,18 @@ function Hud.create(): HudApi
 		snapshot: Types.MatchSnapshot?,
 		localUserId: number
 	)
+		local startPhase: string? = if snapshot then snapshot.phase else nil
+		local startedAt = if snapshot then snapshot.startedAt else nil
+		local inRoster = false
+		local startTeam: string? = nil
+		if snapshot then
+			local mine = snapshot.players[tostring(localUserId)]
+			if mine then
+				inRoster = true
+				startTeam = mine.team
+			end
+		end
+		MatchStartFx.sync(mode, startPhase, startedAt, inRoster, startTeam, localUserId)
 		if mode ~= "Hub" or (snapshot ~= nil and snapshot.phase ~= "Lobby") then
 			chat.close()
 		end
