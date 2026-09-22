@@ -1,6 +1,7 @@
 --!strict
 
 -- Client-only keybind overlay. Toggle with ? or hold H. No remotes.
+-- Tip cards / Show tips stay separate — this sheet is the reference card only.
 
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
@@ -20,40 +21,56 @@ export type HelpApi = {
 	isOpen: () -> boolean,
 }
 
+-- Section sentinel: first field "#", second field is the section title.
+local SEC = "#"
+
+-- Cat Rift: Movement · Combat · Vision · Shop · Social · Objectives
 local LINES_MOBA: { { string } } = {
-	{ "LMB", "Lock auto-attack on an enemy / minion / tower" },
-	{ "Towers", "Outer post, then lantern stall, then yarn core. Stalls gate per lane · HP bar when damaged or aimed" },
-	{ "HP bars", "Posts, stalls, core, Levi, damaged/aimed kittens, camps in combat · fog hides enemy / camp bars" },
+	{ SEC, "Movement" },
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
-	{ "Q W E R", "Hold line/dash (mint/coral aim), release bolt · ground: click or 2nd press · bar: CD sweep / mint ready / coral mana" },
-	{ "Resources", "Ability bar HP (coral) / mana (cobalt) / XP (amber) with current/max · low HP and mana-gate pulse" },
+	{ "F", "Recall 7s. Move, ground click, AA, or cast cancels" },
+	{ "V", "Toggle follow camera" },
+
+	{ SEC, "Combat" },
+	{ "LMB", "Lock auto-attack on enemy / minion / tower" },
+	{ "Q W E R", "Hold line/dash, release bolt · ground: click or 2nd press · CD sweep / mint ready / coral mana" },
 	{ "Esc / RMB", "Cancel armed ground or held aim" },
+	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },
+
+	{ SEC, "Vision" },
+	{ "Fog", "Unseen dark · explored dim · walls block · brush hides · ghost fades at last seen · bolts vanish in fog" },
 	{ "4", "Trinket ward (team tint, stealthed)" },
 	{ "5", "Whisker Lens (buy at Pawmart first)" },
 	{ "6", "Control Yarn / pink (buy, 2 charges). Visible · slow · true sight" },
-	{ "Fog", "Unseen ground is dark. Explored stays dim. Walls and thick cover block sight; thin props do not. Brush hides until entered. A ghost fades at the last spot you saw an enemy. Bolts vanish in fog" },
-	{ "B", "Pawmart at fountain — not recall" },
-	{ "F", "Recall 7s. A new move, ground click, attack, or cast cancels" },
-	{ "T", "Hold emote wheel · release to cast · Esc cancel" },
 	{ "G", "Ping wheel · names a visible cat, post, stall, ward, or camp" },
 	{ "G fog", "Attention refuses a hidden cat" },
-	{ "Purse", "Gold, CS, level, and Yarn Cleave cost sit above the ability bar" },
-	{ "Clock", "Top-left match time. Levi counts down, then UP, then the respawn, then taken" },
-	{ "Canal Levi", "Clock line tracks the river epic. Epic HP bar while UP in vision. Last hit's team keeps +8% damage" },
-	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
-	{ "Tab", "Hold scoreboard · YOU / Blue-Red / dead dim · same gold and CS as the purse" },
-	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },
-	{ "V", "Toggle follow camera" },
-	{ "Voice", "Pill · Mute me (mic only) · teammates, not bots" },
-	{ "Audio", "SFX + Music sliders · mute (top-right)" },
-	{ "H / ?", "This help (hold H or click ?)" },
 	{ "Minimap", "Fog click = Attention · post square, stall lantern" },
-	{ "Talk", "Fountain / jungle cats" },
-	{ "Practice", "Solo vs 3 bots · party shares Blue" },
+
+	{ SEC, "Shop" },
+	{ "B", "Pawmart at fountain — not recall · Stats / Vision / Actives" },
+	{ "Purse", "Gold, CS, level, and Yarn Cleave cost above the ability bar" },
+	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
+
+	{ SEC, "Social" },
+	{ "T", "Hold emote wheel · release to cast · Esc cancel" },
+	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
+	{ "Mute", "Voice pill · Mute me (mic only) · teammates, not bots" },
+	{ "Caster", "Kitty Caster: first blood, streaks, posts, stalls, core, Levi, win/lose" },
 	{ "Invite", "Same-server Accept · leader queues" },
 	{ "Party", "Leader + members, or solo · 20s" },
+	{ "Talk", "Fountain / jungle cats · clerks / Old Tom / hosts" },
 	{ "Tips", "Hub Live is the checklist, not a card · Show tips replays" },
+
+	{ SEC, "Objectives" },
+	{ "Posts", "Outer post → lantern stall → yarn core. Stalls gate per lane" },
+	{ "Levi", "Clock: countdown → UP → return → taken. Last hit +8% damage" },
+	{ "Clock", "Top-left match time + Canal Levi line" },
+	{ "HP bars", "Posts, stalls, core, Levi, damaged/aimed kits & camps · fog hides enemy bars" },
+	{ "Practice", "Solo vs 3 bots · party shares Blue" },
+	{ "Closet", "Lantern Cap (post/stall) · Stall Spark (win) · Scratch Tally (5 kills)" },
+	{ "Audio", "SFX + Music sliders · mute (top-right)" },
+	{ "H / ?", "This help (hold H or click ?)" },
 }
 
 local function withKitRows(lines: { { string } }): { { string } }
@@ -74,11 +91,17 @@ local function withKitRows(lines: { { string } }): { { string } }
 end
 
 local LINES_HUB: { { string } } = {
+	{ SEC, "Stalls" },
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
 	{ "Live", "Publish checklist · not a gate · PLAYTEST §7" },
 	{ "Board", "Yarn daily/weekly · Koi/Arcade dailies (UTC)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
-	{ "Closet", "Hats + trails · Rift unlocks · yarn points, not Robux" },
+
+	{ SEC, "Closet" },
+	{ "Closet", "Hats + trails · yarn points, not Robux" },
+	{ "Unlocks", "Run / Koi / Party / Arcade / Rift drip · Gold Bell 25 yarn" },
+
+	{ SEC, "Social" },
 	{ "T", "Hold emote wheel on the hub pad · Esc cancel" },
 	{ "Voice", "Quiet until a match · Mute me is the mic" },
 	{ "Audio", "SFX + Music · Hide my name → Anonymous Cat" },
@@ -86,61 +109,91 @@ local LINES_HUB: { { string } } = {
 }
 
 local LINES_RUNNER: { { string } } = {
+	{ SEC, "Movement" },
 	{ "A / D", "Switch lane (also arrows)" },
 	{ "Space", "Jump a dog / Roomba gap" },
 	{ "C / Ctrl", "Slide under laundry / tunnel" },
+
+	{ SEC, "Run" },
 	{ "Pickups", "SPD burst · MAG yarn · SHD hit · 2X score" },
 	{ "Ghost", "Translucent PB cat + gold PB gate (persists)" },
+	{ "Death", "Slow-mo · PB compare · daily / weekly rank · podium · Retry same seed" },
+
+	{ SEC, "Closet" },
+	{ "Closet", "Coral Beanie 200m · Mint Aura 400m (best distance)" },
+
+	{ SEC, "Social" },
 	{ "T", "Emote mid-dash (stream juice)" },
 	{ "Voice", "Hub rules · not a team channel" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Death", "Slow-mo cam · daily / weekly rank · podium · Retry same seed" },
 }
 
 local LINES_KOI: { { string } } = {
+	{ SEC, "Cast" },
 	{ "Space / Click", "Cast the yarn bobber (Idle)" },
 	{ "Space / Click", "Reel when the loaf hits the cream window" },
 	{ "Wait", "Don't yank early — patience, loaf" },
 	{ "Nibble", "Bobber NIBBLE! + cream rail flash when it bites" },
+
+	{ SEC, "Catch" },
 	{ "Rarities", "Cream · Peach · Mint · Cobalt · Amber · Coral Crown" },
 	{ "Stall log", "Session collection + best catch / PB / daily board" },
+	{ "Hub", "Back to hub · Daily board for today's catches" },
+
+	{ SEC, "Closet" },
+	{ "Closet", "Canal Crown + emote flair from a legendary koi" },
+
+	{ SEC, "Social" },
 	{ "T", "Emote on the dock" },
 	{ "Voice", "Hub rules · not a team channel" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub · Daily board for today's catches" },
 }
 
 local LINES_PARTY: { { string } } = {
+	{ SEC, "Movement" },
 	{ "WASD", "Run around the night-market courtyard" },
 	{ "Space", "Hop the coral yarn (Yarn Dodge)" },
 	{ "Pillows", "When lanterns blink, stand on a lit stall pillow" },
+
+	{ SEC, "Lobby" },
 	{ "Rounds", "3 micro-rounds: Dodge · Stall Freeze · Dodge" },
 	{ "Lobby", "Seats 1–4 count down, then the rounds" },
 	{ "Join", "A friend takes a bot seat before GO" },
 	{ "Late", "Mid-round Play waits for the next party" },
 	{ "Bots", "LoafBot, NibBot, PurrBot hold empty seats" },
 	{ "Leave", "Back to hub frees your seat in lobby" },
+	{ "Hub", "Back to hub (clean exit)" },
+
+	{ SEC, "Closet" },
+	{ "Closet", "Party Tiara + Moon Dust on a human win (not a bot)" },
+
+	{ SEC, "Social" },
 	{ "T", "Emote mid-party" },
 	{ "Voice", "Hub rules · not a team channel" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub (clean exit)" },
 }
 
 local LINES_ARCADE: { { string } } = {
+	{ SEC, "Tape" },
 	{ "1–5", "Buy 1 bag of that ticker (LOAF NYAN CHNK BRAIN RUG)" },
 	{ "Shift+1–5", "Sell 1 bag at the listed yarn price" },
 	{ "Tap", "Buy / Sell on the stall cards" },
 	{ "Round", "28s tape · auto-sell at the bell · daily profit board" },
 	{ "Events", "TO THE MOON · RUG PULL · WHALE SNEEZE" },
 	{ "Yarn only", "Play yarn / points — not real money" },
+	{ "Hub", "Back to hub · Board for today's yarn profit" },
+
+	{ SEC, "Closet" },
+	{ "Closet", "Tape Shades +15 · Braincell Orbs +25 daily profit" },
+
+	{ SEC, "Social" },
 	{ "T", "Emote at the counter" },
 	{ "Voice", "Hub rules · not a team channel" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub · Board for today's yarn profit" },
 }
 
 function HelpPanel.create(parent: Instance): HelpApi
@@ -158,7 +211,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 	root.Name = "HelpPanel"
 	root.AnchorPoint = Vector2.new(0, 0.5)
 	root.Position = UDim2.new(0, 16, 0.48, 0)
-	root.Size = UDim2.fromOffset(320, 510)
+	root.Size = UDim2.fromOffset(340, 530)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 28
@@ -200,22 +253,39 @@ function HelpPanel.create(parent: Instance): HelpApi
 			end
 		end
 		for i, pair in lines do
-			local row = Instance.new("Frame")
-			row.Name = `Bind{i}`
-			row.BackgroundTransparency = 1
-			row.Size = UDim2.new(1, -4, 0, 22)
-			row.LayoutOrder = i
-			row.Parent = list
+			if pair[1] == SEC then
+				local header = Instance.new("Frame")
+				header.Name = `Section{i}`
+				header.BackgroundColor3 = Theme.ink
+				header.BackgroundTransparency = 0.35
+				header.Size = UDim2.new(1, -4, 0, 20)
+				header.LayoutOrder = i
+				header.Parent = list
+				Theme.corner(header, 6)
+				Theme.stroke(header, Theme.mint, 1, 0.5)
 
-			local key = Theme.text(row, "K", pair[1], 12, Theme.amber, Theme.fontMono)
-			key.Size = UDim2.fromOffset(88, 22)
-			key.TextWrapped = false
+				local label = Theme.text(header, "K", string.upper(pair[2]), 11, Theme.mint, Theme.fontMono)
+				label.Position = UDim2.fromOffset(8, 0)
+				label.Size = UDim2.new(1, -12, 1, 0)
+				label.TextWrapped = false
+			else
+				local row = Instance.new("Frame")
+				row.Name = `Bind{i}`
+				row.BackgroundTransparency = 1
+				row.Size = UDim2.new(1, -4, 0, 22)
+				row.LayoutOrder = i
+				row.Parent = list
 
-			local desc = Theme.text(row, "D", pair[2], 12, Theme.cream)
-			desc.Position = UDim2.fromOffset(92, 0)
-			desc.Size = UDim2.new(1, -92, 0, 22)
-			desc.TextWrapped = false
-			desc.TextTruncate = Enum.TextTruncate.AtEnd
+				local key = Theme.text(row, "K", pair[1], 12, Theme.amber, Theme.fontMono)
+				key.Size = UDim2.fromOffset(88, 22)
+				key.TextWrapped = false
+
+				local desc = Theme.text(row, "D", pair[2], 12, Theme.cream)
+				desc.Position = UDim2.fromOffset(92, 0)
+				desc.Size = UDim2.new(1, -92, 0, 22)
+				desc.TextWrapped = false
+				desc.TextTruncate = Enum.TextTruncate.AtEnd
+			end
 		end
 	end
 	paintLines(LINES_HUB)

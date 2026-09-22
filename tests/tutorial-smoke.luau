@@ -163,11 +163,18 @@ assert(fountain.root:FindFirstChild("Title").Text == "Gold burning a hole")
 local help = HelpPanel.create(parent)
 help.setContext("moba")
 local tipHelp = nil
+local sections: { [string]: boolean } = {}
+local keys: { [string]: boolean } = {}
 for _, row in help.root:FindFirstChild("Binds"):GetChildren() do
 	if row.ClassName == "Frame" then
 		local key = row:FindFirstChild("K")
-		if key and key.Text == "Tips" then
-			tipHelp = row:FindFirstChild("D").Text
+		if key then
+			keys[key.Text] = true
+			if string.find(row.Name, "Section", 1, true) then
+				sections[key.Text] = true
+			elseif key.Text == "Tips" then
+				tipHelp = row:FindFirstChild("D").Text
+			end
 		end
 	end
 end
@@ -175,5 +182,39 @@ assert(tipHelp, "Cat Rift help should keep a Tips row")
 assert(string.find(tipHelp, "Live", 1, true))
 assert(string.find(tipHelp, "Show tips", 1, true))
 assert(string.find(tipHelp, "not a card", 1, true))
+for _, name in { "MOVEMENT", "COMBAT", "VISION", "SHOP", "SOCIAL", "OBJECTIVES" } do
+	assert(sections[name], "Cat Rift help missing section " .. name)
+end
+for _, name in { "LMB", "Q W E R", "B", "F", "4", "5", "6", "7", "G", "T", "Tab", "V", "Mute", "Fog", "Death", "Purse", "Levi", "Posts", "Caster", "Invite" } do
+	assert(keys[name], "Cat Rift help missing bind " .. name)
+end
+
+help.setContext("hub")
+local hubCloset = false
+local hubLive = false
+for _, row in help.root:FindFirstChild("Binds"):GetChildren() do
+	if row.ClassName == "Frame" then
+		local key = row:FindFirstChild("K")
+		local desc = row:FindFirstChild("D")
+		if key and key.Text == "Closet" and desc then
+			hubCloset = true
+		elseif key and key.Text == "Live" and desc then
+			hubLive = true
+		end
+	end
+end
+assert(hubCloset and hubLive, "Hub help should list Closet and Live")
+
+help.setContext("runner")
+local runnerCloset = nil
+for _, row in help.root:FindFirstChild("Binds"):GetChildren() do
+	if row.ClassName == "Frame" then
+		local key = row:FindFirstChild("K")
+		if key and key.Text == "Closet" then
+			runnerCloset = row:FindFirstChild("D").Text
+		end
+	end
+end
+assert(runnerCloset and string.find(runnerCloset, "Coral Beanie", 1, true), "Yarn Run help should name Closet unlocks")
 
 print("PASS: practice tip deck, dismiss persistence, and Show tips replay")
