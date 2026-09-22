@@ -15,6 +15,7 @@ local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
+local RemakeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RemakeLogic"))
 local SurrenderLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SurrenderLogic"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local XpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("XpJuice"))
@@ -50,10 +51,25 @@ local surrenderSerial: { [Types.TeamId]: number } = {
 	Blue = 0,
 	Red = 0,
 }
+local remakeSerial: { [Types.TeamId]: number } = {
+	Blue = 0,
+	Red = 0,
+}
 local onMatchCleared: (() -> ())? = nil
 local nextBotId = -1001
 
 local function blankSurrender(): Types.SurrenderView
+	return {
+		ballots = {},
+		blueCooldownUntil = nil,
+		redCooldownUntil = nil,
+		noticeId = 0,
+		notice = nil,
+		noticeTeam = nil,
+	}
+end
+
+local function blankRemake(): Types.RemakeView
 	return {
 		ballots = {},
 		blueCooldownUntil = nil,
@@ -567,20 +583,179 @@ local function recheckSurrender(team: Types.TeamId)
 	end
 end
 
-function MatchService.endMatch(winner: Types.TeamId, reason: string)
+local function remakeView(): Types.RemakeView?
+	if not current then
+		return nil
+	end
+	if not current.remake then
+		current.remake = blankRemake()
+	end
+	return current.remake
+end
+
+local function remakeSeats(): { RemakeLogic.Seat }
+	local seats: { RemakeLogic.Seat } = {}
+	if not current then
+		return seats
+	end
+	for _, matchPlayer in current.players do
+		table.insert(seats, RemakeLogic.seat(
+			matchPlayer.userId,
+			matchPlayer.team,
+			matchPlayer.isBot,
+			matchPlayer.respawnAt,
+			matchPlayer.connected
+		))
+	end
+	return seats
+end
+
+local function remakeBallotFor(team: Types.TeamId): Types.RemakeBallot?
+	local view = remakeView()
+	if not view then
+		return nil
+	end
+	for _, ballot in view.ballots do
+		if ballot.team == team then
+			return ballot
+		end
+	end
+	return nil
+end
+
+local function dropRemakeBallot(team: Types.TeamId)
+	local view = remakeView()
+	if not view then
+		return
+	end
+	local kept: { Types.RemakeBallot } = {}
+	for _, ballot in view.ballots do
+		if ballot.team ~= team then
+			table.insert(kept, ballot)
+		end
+	end
+	view.ballots = kept
+end
+
+local function remakeCooldownUntil(team: Types.TeamId): number?
+	local view = remakeView()
+	if not view then
+		return nil
+	end
+	if team == "Blue" then
+		return view.blueCooldownUntil
+	end
+	return view.redCooldownUntil
+end
+
+local function setRemakeCooldown(team: Types.TeamId, at: number)
+	local view = remakeView()
+	if not view then
+		return
+	end
+	if team == "Blue" then
+		view.blueCooldownUntil = at
+	else
+		view.redCooldownUntil = at
+	end
+end
+
+local function remakeNotice(team: Types.TeamId, text: string)
+	local view = remakeView()
+	if not view then
+		return
+	end
+	view.noticeId = (view.noticeId or 0) + 1
+	view.notice = text
+	view.noticeTeam = team
+end
+
+local function invalidateRemake(team: Types.TeamId)
+	remakeSerial[team] += 1
+end
+
+local function failRemake(team: Types.TeamId)
+	if not current or current.phase ~= "InProgress" or not remakeBallotFor(team) then
+		return
+	end
+	invalidateRemake(team)
+	dropRemakeBallot(team)
+	setRemakeCooldown(team, Workspace:GetServerTimeNow() + RemakeLogic.CooldownSeconds)
+	remakeNotice(team, RemakeLogic.failedNotice())
+	broadcast()
+end
+
+local function passRemake(team: Types.TeamId)
+	if not current or current.phase ~= "InProgress" then
+		return
+	end
+	dropRemakeBallot(team)
+	MatchService.endMatch(nil, "remake")
+end
+
+local function resolveRemake(team: Types.TeamId)
+	local ballot = remakeBallotFor(team)
+	if not ballot or not current or current.phase ~= "InProgress" then
+		return
+	end
+	local result = RemakeLogic.tally(remakeSeats(), ballot)
+	if result.outcome == "pass" then
+		passRemake(team)
+	elseif result.outcome == "fail" then
+		failRemake(team)
+	end
+end
+
+local function armRemake(team: Types.TeamId)
+	invalidateRemake(team)
+	local token = remakeSerial[team]
+	local matchId = if current then current.id else ""
+	task.delay(RemakeLogic.WindowSeconds, function()
+		if not current or current.id ~= matchId or current.phase ~= "InProgress" then
+			return
+		end
+		if remakeSerial[team] ~= token then
+			return
+		end
+		local ballot = remakeBallotFor(team)
+		if not ballot then
+			return
+		end
+		local result = RemakeLogic.tally(remakeSeats(), ballot)
+		if RemakeLogic.timeoutOutcome(result) == "pass" then
+			passRemake(team)
+		else
+			failRemake(team)
+		end
+	end)
+end
+
+local function recheckRemake(team: Types.TeamId)
+	if remakeBallotFor(team) then
+		resolveRemake(team)
+	end
+end
+
+function MatchService.endMatch(winner: Types.TeamId?, reason: string)
 	if not current or current.phase == "Ended" then
 		return
 	end
+	local remake = reason == "remake"
 	current.phase = "Ended"
-	current.winner = winner
-	current.endReason = if reason == "surrender" then "surrender" else "nexus"
+	current.winner = if remake then nil else winner
+	current.endReason = if remake then "remake" elseif reason == "surrender" then "surrender" else "nexus"
 	current.endedAt = Workspace:GetServerTimeNow()
 	current.phaseEndsAt = Workspace:GetServerTimeNow() + Config.Match.PostMatchSeconds
 	if current.surrender then
 		current.surrender.ballots = {}
 	end
+	if current.remake then
+		current.remake.ballots = {}
+	end
 	surrenderSerial.Blue += 1
 	surrenderSerial.Red += 1
+	remakeSerial.Blue += 1
+	remakeSerial.Red += 1
 	MinionService.stop()
 	JungleService.stop()
 	TowerService.stop()
@@ -589,17 +764,24 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	BotService.stop()
 	current.mvpUserId = pickMvp()
 	CombatService.clearAll()
-	if reason == "surrender" then
+	if remake then
+		feed("announce", "Remake. Fight called early.")
+		AnnouncerService.onMatchEnd(nil, "remake")
+	elseif reason == "surrender" and winner then
 		local folded: Types.TeamId = if winner == "Blue" then "Red" else "Blue"
 		feed("announce", `{folded} surrendered. {winner} takes the night market.`)
-	else
+		AnnouncerService.onMatchEnd(winner, "surrender")
+	elseif winner then
 		feed("announce", `{winner} destroyed the enemy nexus!`)
+		AnnouncerService.onMatchEnd(winner, nil)
 	end
-	AnnouncerService.onMatchEnd(winner, if reason == "surrender" then "surrender" else nil)
-	for _, matchPlayer in current.players do
-		local player = riftHuman(matchPlayer.userId)
-		if player then
-			CosmeticService.noteRiftMatchEnd(player, matchPlayer.team == winner)
+	-- A remake has no winner, so it does not pay a rift win or a loss yarn.
+	if not remake and winner then
+		for _, matchPlayer in current.players do
+			local player = riftHuman(matchPlayer.userId)
+			if player then
+				CosmeticService.noteRiftMatchEnd(player, matchPlayer.team == winner)
+			end
 		end
 	end
 	-- Sides stay assigned through the end screen. Rewrite lists in case a
@@ -685,6 +867,7 @@ function MatchService.start(
 		structureFalls = {},
 		endReason = nil,
 		surrender = blankSurrender(),
+		remake = blankRemake(),
 		riverEpic = {
 			phase = "waiting",
 			blueBuff = false,
@@ -771,6 +954,10 @@ function MatchService.surrender(player: Player, action: unknown): Types.TradeRes
 	local alive = matchPlayer.respawnAt == nil
 	local connected = matchPlayer.connected ~= false
 	if choice == "start" then
+		local blocked = RemakeLogic.blocksFold(remakeBallotFor(team) ~= nil)
+		if blocked then
+			return { ok = false, error = blocked }
+		end
 		local refusal = SurrenderLogic.startRefusal({
 			phase = current.phase,
 			elapsed = SurrenderLogic.elapsed(now, current.startedAt),
@@ -828,6 +1015,97 @@ function MatchService.surrender(player: Player, action: unknown): Types.TradeRes
 	end
 	resolveSurrender(team)
 	if current and current.phase == "InProgress" and ballotFor(team) then
+		broadcast()
+	end
+	return { ok = true }
+end
+
+function MatchService.remake(player: Player, action: unknown): Types.TradeResult
+	if not current or current.phase ~= "InProgress" then
+		return { ok = false, error = RemakeLogic.QuietToast }
+	end
+	local view = remakeView()
+	if not view then
+		return { ok = false, error = RemakeLogic.QuietToast }
+	end
+	if typeof(action) ~= "string" or (action ~= "start" and action ~= "yes" and action ~= "no") then
+		return { ok = false, error = RemakeLogic.NoVoteToast }
+	end
+	local choice = action
+	local matchPlayer = current.players[tostring(player.UserId)]
+	if not matchPlayer then
+		return { ok = false, error = "You are not in this match." }
+	end
+	local team = matchPlayer.team
+	local ballot = remakeBallotFor(team)
+	if choice == "start" and ballot ~= nil then
+		choice = "yes"
+	end
+	local now = Workspace:GetServerTimeNow()
+	local alive = matchPlayer.respawnAt == nil
+	local connected = matchPlayer.connected ~= false
+	if choice == "start" then
+		local seats = remakeSeats()
+		local refusal = RemakeLogic.startRefusal({
+			phase = current.phase,
+			elapsed = RemakeLogic.elapsed(now, current.startedAt),
+			isBot = matchPlayer.isBot == true,
+			alive = alive,
+			connected = connected,
+			voteOpen = false,
+			surrenderOpen = ballotFor(team) ~= nil,
+			practice = current.practice == true,
+			allyMissing = RemakeLogic.allyMissing(seats, team),
+			cooldownUntil = remakeCooldownUntil(team),
+			now = now,
+		})
+		if refusal then
+			return { ok = false, error = refusal }
+		end
+		local opened: Types.RemakeBallot = {
+			team = team,
+			endsAt = now + RemakeLogic.WindowSeconds,
+			yesUserIds = { player.UserId },
+			noUserIds = {},
+		}
+		table.insert(view.ballots, opened)
+		local result = RemakeLogic.tally(seats, opened)
+		if result.outcome == "pass" then
+			passRemake(team)
+			return { ok = true }
+		end
+		if result.outcome == "fail" then
+			failRemake(team)
+			return { ok = true }
+		end
+		remakeNotice(team, RemakeLogic.openedNotice(matchPlayer.displayName))
+		armRemake(team)
+		broadcast()
+		return { ok = true }
+	end
+
+	local already = if ballot then RemakeLogic.voted(ballot, player.UserId) else false
+	local refusal = RemakeLogic.voteRefusal({
+		isBot = matchPlayer.isBot == true,
+		alive = alive,
+		connected = connected,
+		voteOpen = ballot ~= nil,
+		already = already,
+	})
+	if refusal then
+		return { ok = false, error = refusal }
+	end
+	local open = remakeBallotFor(team)
+	if not open then
+		return { ok = false, error = RemakeLogic.NoVoteToast }
+	end
+	if choice == "no" then
+		table.insert(open.noUserIds, player.UserId)
+	else
+		table.insert(open.yesUserIds, player.UserId)
+	end
+	resolveRemake(team)
+	if current and current.phase == "InProgress" and remakeBallotFor(team) then
 		broadcast()
 	end
 	return { ok = true }
@@ -975,6 +1253,7 @@ function MatchService.init(cleared: () -> ())
 				local team = matchPlayer.team
 				task.defer(function()
 					recheckSurrender(team)
+					recheckRemake(team)
 				end)
 			end
 		end,
@@ -1460,6 +1739,7 @@ function MatchService.init(cleared: () -> ())
 			matchPlayer.connected = false
 			broadcast()
 			recheckSurrender(matchPlayer.team)
+			recheckRemake(matchPlayer.team)
 		end
 	end)
 

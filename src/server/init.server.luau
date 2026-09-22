@@ -272,6 +272,10 @@ Remotes.function_("SurrenderVote").OnServerInvoke = function(player: Player, act
 	return MatchService.surrender(player, action)
 end
 
+Remotes.function_("RemakeVote").OnServerInvoke = function(player: Player, action: unknown)
+	return MatchService.remake(player, action)
+end
+
 Remotes.function_("LeaveMatch").OnServerInvoke = function(player: Player)
 	return MatchmakingService.leaveMatch(player)
 end

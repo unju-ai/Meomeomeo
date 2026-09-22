@@ -337,4 +337,9 @@ function ScreenJuice.matchEnd(won: boolean)
 	end
 end
 
+-- Early remake. Peach wash, neither a win nor a loss.
+function ScreenJuice.remake()
+	pulse(Theme.peach, 0.78)
+end
+
 return ScreenJuice

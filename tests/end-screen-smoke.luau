@@ -3,9 +3,13 @@
 assert(EndScreenCopy.outcomeTitle(true) == "VICTORY")
 assert(EndScreenCopy.outcomeTitle(false) == "DEFEAT")
 assert(EndScreenCopy.outcomeTitle(nil) == "MATCH OVER")
+assert(EndScreenCopy.outcomeTitle(nil, "remake") == "REMAKE")
+assert(EndScreenCopy.outcomeTitle(true, "remake") == "REMAKE")
 assert(EndScreenCopy.outcomeTone(true) == "win")
 assert(EndScreenCopy.outcomeTone(false) == "loss")
 assert(EndScreenCopy.outcomeTone(nil) == "neutral")
+assert(EndScreenCopy.outcomeTone(true, "remake") == "neutral")
+assert(EndScreenCopy.outcomeTone(false, "remake") == "neutral")
 
 assert(EndScreenCopy.subLine(true, "Blue") == "Blue wins · enemy yarn core unplugged")
 assert(EndScreenCopy.subLine(false, "Red") == "Red wins · your yarn core fell")
@@ -13,6 +17,9 @@ assert(EndScreenCopy.subLine(true, "Blue", "nexus") == "Blue wins · enemy yarn 
 assert(EndScreenCopy.subLine(true, "Blue", "surrender") == "Blue wins · the other side folded")
 assert(EndScreenCopy.subLine(false, "Red", "surrender") == "Red wins · your team surrendered")
 assert(EndScreenCopy.subLine(nil, nil, "surrender") == "Surrender signed — match over")
+assert(EndScreenCopy.subLine(nil, nil, "remake") == "Fight called early")
+assert(EndScreenCopy.subLine(true, "Blue", "remake") == "Fight called early")
+assert(string.find(EndScreenCopy.subLine(nil, nil, "remake"), "wins", 1, true) == nil)
 assert(string.find(EndScreenCopy.subLine(nil, nil), "match over", 1, true) ~= nil)
 
 assert(EndScreenCopy.mvpLine("Whiskers", 8, 2, 4, 12345.6) == "MVP · Whiskers · 8/2/4 · 12345 dmg")
