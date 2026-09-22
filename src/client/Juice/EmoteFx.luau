@@ -1,6 +1,7 @@
 --!strict
 
--- Billboard + short Part bob for emotes. No animation binaries.
+-- Billboard + short Part bob for emotes. Closet emoteFlair adds tint + sparkle.
+-- No animation binaries.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -16,8 +17,8 @@ local Sfx = require(script.Parent.Parent.Audio.Sfx)
 local EmoteFx = {}
 
 local FOLDER_NAME = "MeoEmoteFx"
-local BILLBOARD = 2.4
-local BOB = 1.45
+local BILLBOARD = 2.55
+local BOB = 1.55
 
 type Active = {
 	userId: number,
@@ -26,6 +27,7 @@ type Active = {
 	gui: BillboardGui,
 	motion: EmoteCatalog.EmoteMotion,
 	seed: number,
+	flair: boolean,
 }
 
 local folder: Folder? = nil
@@ -116,6 +118,39 @@ local function motionOffset(motion: EmoteCatalog.EmoteMotion, t: number, seed: n
 	return CFrame.new(0, 2.2, 0) * CFrame.Angles(0, spin, 0)
 end
 
+local function attachFlairSpark(part: BasePart, tint: Color3)
+	local spark = Instance.new("ParticleEmitter")
+	spark.Name = "FlairSpark"
+	spark.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	spark.Color = ColorSequence.new(tint)
+	spark.LightEmission = 0.85
+	spark.LightInfluence = 0
+	spark.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.35),
+		NumberSequenceKeypoint.new(0.55, 0.22),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	spark.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	spark.Lifetime = NumberRange.new(0.35, 0.7)
+	spark.Speed = NumberRange.new(1.4, 3.6)
+	spark.SpreadAngle = Vector2.new(180, 180)
+	spark.Acceleration = Vector3.new(0, 2.4, 0)
+	spark.RotSpeed = NumberRange.new(-90, 90)
+	spark.Rate = 0
+	spark.Enabled = false
+	spark.Parent = part
+	spark:Emit(18)
+	task.delay(0.05, function()
+		if spark.Parent then
+			spark.Enabled = true
+			spark.Rate = 14
+		end
+	end)
+end
+
 local function ensureLoop()
 	if loopBound then
 		return
@@ -137,8 +172,12 @@ local function ensureLoop()
 			local offset = motionOffset(active.motion, t * BOB, active.seed)
 			active.part.CFrame = root.CFrame * offset
 			if active.motion == "puff" then
-				local s = 0.5 + math.abs(math.sin(t * 10)) * 0.35
+				local base = if active.flair then 0.7 else 0.5
+				local s = base + math.abs(math.sin(t * 10)) * (if active.flair then 0.42 else 0.35)
 				active.part.Size = Vector3.new(s, s, s)
+			elseif active.flair then
+				local pulse = 0.92 + math.sin(t * 14) * 0.08
+				active.part.Transparency = math.clamp(0.08 + (1 - pulse) * 0.2, 0.05, 0.35)
 			end
 		end
 	end)
@@ -161,8 +200,13 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean, tint: C
 	end
 
 	local tint = if opts then opts.tint else nil
-	local color = tint or def.color
-	local bob = if tint then 0.78 else 0.55
+	if tint == nil and typeof(event.flairTint) == "Color3" then
+		tint = event.flairTint
+	end
+	local hasFlair = tint ~= nil
+	-- Flair leads; keep a hint of the emote's own color so Meow still reads as Meow.
+	local color = if tint then tint:Lerp(def.color, 0.28) else def.color
+	local bob = if hasFlair then 0.88 else 0.55
 
 	local part = Instance.new("Part")
 	part.Name = "EmoteBob"
@@ -176,26 +220,30 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean, tint: C
 	part.CanTouch = false
 	part.CastShadow = false
 	part.Massless = true
-	part.Transparency = 0.15
+	part.Transparency = if hasFlair then 0.08 else 0.15
 	part.CFrame = root.CFrame * CFrame.new(0, 2.2, 0)
 	part.Parent = fxFolder()
 
+	if tint then
+		attachFlairSpark(part, tint)
+	end
+
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "MeoEmote"
-	gui.Size = UDim2.fromOffset(132, 52)
-	gui.StudsOffset = Vector3.new(0, 3.5, 0)
+	gui.Size = UDim2.fromOffset(if hasFlair then 148 else 132, if hasFlair then 56 else 52)
+	gui.StudsOffset = Vector3.new(0, 3.55, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 96
+	gui.MaxDistance = 110
 	gui.Parent = root
 
-	local label = Theme.text(gui, "Emote", `{def.emoji}  {def.label}`, 20, Theme.cream, Theme.fontTitle)
+	local label = Theme.text(gui, "Emote", `{def.emoji}  {def.label}`, if hasFlair then 22 else 20, Theme.cream, Theme.fontTitle)
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundColor3 = Theme.panel
-	label.BackgroundTransparency = 0.18
+	label.BackgroundTransparency = if hasFlair then 0.08 else 0.18
 	label.TextXAlignment = Enum.TextXAlignment.Center
-	label.TextStrokeTransparency = 0.35
+	label.TextStrokeTransparency = 0.3
 	Theme.corner(label, 12)
-	Theme.stroke(label, color, 2, 0.15)
+	Theme.stroke(label, if tint then tint else color, if hasFlair then 3 else 2, if hasFlair then 0.05 else 0.15)
 
 	actives[event.userId] = {
 		userId = event.userId,
@@ -204,6 +252,7 @@ function EmoteFx.play(event: Types.EmoteEvent, opts: { muteSfx: boolean, tint: C
 		gui = gui,
 		motion = def.motion,
 		seed = event.userId % 17,
+		flair = hasFlair,
 	}
 
 	task.delay(BILLBOARD, function()

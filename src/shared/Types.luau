@@ -404,6 +404,8 @@ export type EmoteEvent = {
 	userId: number,
 	emoteId: string,
 	at: number,
+	-- Closet emoteFlair color when equipped (Canal Crown, Moon Dust, …). Nil = no flair.
+	flairTint: Color3?,
 }
 
 export type ChatResult = {
