@@ -16,6 +16,7 @@ local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
 local RecallLogic = require(Shared:WaitForChild("RecallLogic"))
+local ChampionKits = require(Shared:WaitForChild("ChampionKits"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
@@ -485,6 +486,15 @@ local function movementIntent(): boolean
 	return keyboardMoving() or stickMoving()
 end
 
+local function channelActive(state: Types.CombatState): boolean
+	local ends = state.channelEndsAt
+	return ends ~= nil and ends > Workspace:GetServerTimeNow()
+end
+
+local function rootedChannel(state: Types.CombatState): boolean
+	return state.recalling or channelActive(state)
+end
+
 local function noteRecallChannel(recalling: boolean)
 	if recalling then
 		if not recallLatch.active then
@@ -502,7 +512,7 @@ local function noteRecallChannel(recalling: boolean)
 end
 
 local function applyCombatJuice(state: Types.CombatState)
-	noteRecallChannel(state.recalling)
+	noteRecallChannel(rootedChannel(state))
 	local prev = juiceCombat
 	juiceCombat = state
 	if not prev then
@@ -1923,7 +1933,7 @@ local function requestMove(position: Vector3?)
 	if not latestMatch or latestMatch.phase ~= "InProgress" then
 		return
 	end
-	if not latestCombat or not latestCombat.recalling then
+	if not latestCombat or not rootedChannel(latestCombat) then
 		return
 	end
 	recallMoveSent = true
@@ -1936,7 +1946,7 @@ local function requestMove(position: Vector3?)
 	if accepted then
 		reportAttack(result)
 	end
-	if not accepted or (latestCombat and latestCombat.recalling) then
+	if not accepted or (latestCombat and rootedChannel(latestCombat)) then
 		recallMoveSent = false
 	end
 end
@@ -1988,7 +1998,22 @@ local function castAbility(slot: Types.AbilitySlot)
 			toast(result.error)
 		end
 	elseif result and result.ok ~= false then
-		Sfx.play("AbilityCast")
+		local wasChanneling = latestCombat ~= nil and channelActive(latestCombat)
+		local nextCombat = if result.combat then result.combat :: Types.CombatState else nil
+		local cancelledChannel = wasChanneling
+			and latestCombat ~= nil
+			and latestCombat.channelSlot == slot
+			and (nextCombat == nil or not channelActive(nextCombat))
+		if not cancelledChannel then
+			local pitch = 1
+			if latestMatch then
+				local mine = latestMatch.players[tostring(player.UserId)]
+				if mine and mine.championId then
+					pitch = ChampionKits.castPitch(mine.championId, slot)
+				end
+			end
+			Sfx.play("AbilityCast", pitch)
+		end
 		if result.combat then
 			latestCombat = result.combat
 			applyCombatJuice(latestCombat)
@@ -2318,7 +2343,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		elseif attackMoveArmed then
 			attackMoveArmed = false
 			reportAttack(Remotes.function_("AttackMove"):InvokeServer(attackMovePoint()))
-		elseif latestCombat and latestCombat.recalling then
+		elseif latestCombat and rootedChannel(latestCombat) then
 			requestMove(aimPoint())
 		end
 		return

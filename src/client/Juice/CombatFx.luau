@@ -7,9 +7,11 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
+local Sfx = require(script.Parent.Parent.Audio.Sfx)
 local FogOfWar = require(script.Parent.FogOfWar)
 
 local CombatFx = {}
@@ -262,6 +264,17 @@ local function ensureLoop()
 				clearFollow(key)
 				continue
 			end
+			if follow.kind == "zone" then
+				local ring = follow.parts[1]
+				local at = follow.origin
+				if ring and at then
+					local pulse = 1 + math.sin(now * 6) * 0.05
+					local span = follow.width or 12
+					ring.Size = Vector3.new(0.2, span * pulse, span * pulse)
+					ring.CFrame = CFrame.new(at.X, at.Y + 0.22, at.Z) * CFrame.Angles(0, now * 0.4, math.rad(90))
+				end
+				continue
+			end
 			if follow.kind == "projectile" then
 				local bolt = follow.parts[1]
 				local origin = follow.origin
@@ -288,7 +301,13 @@ local function ensureLoop()
 				clearFollow(key)
 				continue
 			end
-			if follow.kind == "recall" then
+			if follow.kind == "channel" then
+				local ring = follow.parts[1]
+				if ring then
+					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.05, root.Position.Z)
+						* CFrame.Angles(0, now * 2.2, math.rad(90))
+				end
+			elseif follow.kind == "recall" then
 				local ring = follow.parts[1]
 				if ring then
 					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.15, root.Position.Z)
@@ -331,15 +350,15 @@ local function followRecall(userId: number, duration: number)
 	ensureLoop()
 end
 
-local function followShield(userId: number, at: Vector3, duration: number)
+local function followShield(userId: number, at: Vector3, duration: number, color: Color3?)
 	local key = `shield:{userId}`
 	clearFollow(key)
 	local bubble = takePart("Shield")
 	bubble.Shape = Enum.PartType.Ball
-	bubble.Size = Vector3.new(4.2, 4.2, 4.2)
+	bubble.Size = if color then Vector3.new(5.2, 3.4, 5.2) else Vector3.new(4.2, 4.2, 4.2)
 	bubble.Material = Enum.Material.ForceField
-	bubble.Color = Theme.amber
-	bubble.Transparency = 0.45
+	bubble.Color = color or Theme.amber
+	bubble.Transparency = 0.42
 	bubble.CFrame = CFrame.new(at)
 	follows[key] = {
 		kind = "shield",
@@ -372,14 +391,97 @@ local function followStun(userId: number, duration: number)
 	ensureLoop()
 end
 
+local function kitLook(event: Types.CombatFxEvent): ChampionKits.Look?
+	if not event.championId or not event.slot then
+		return nil
+	end
+	return ChampionKits.look(event.championId, event.slot)
+end
+
+local function playKitSound(event: Types.CombatFxEvent, pitch: number, includeLocal: boolean)
+	local localId = Players.LocalPlayer and Players.LocalPlayer.UserId
+	if not includeLocal and localId ~= nil and event.userId == localId then
+		return
+	end
+	Sfx.play("AbilityCast", pitch)
+end
+
+local function followChannel(userId: number, at: Vector3, duration: number)
+	local key = `channel:{userId}`
+	if duration <= 0 then
+		clearFollow(key)
+		return
+	end
+	clearFollow(key)
+	local ring = takePart("Hyperbeam")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.22, 7.2, 7.2)
+	flashPart(ring, Color3.fromRGB(255, 72, 196), 0.28)
+	ring.CFrame = CFrame.new(at.X, at.Y - 2.05, at.Z) * CFrame.Angles(0, 0, math.rad(90))
+	follows[key] = {
+		kind = "channel",
+		userId = userId,
+		parts = { ring },
+		expiresAt = os.clock() + duration,
+		offset = 0,
+	}
+	ensureLoop()
+end
+
+local function followZone(event: Types.CombatFxEvent, duration: number)
+	local dest = event.dest or event.origin
+	local key = `zone:{event.id or event.userId or 0}:{math.floor(dest.X)}:{math.floor(dest.Z)}`
+	clearFollow(key)
+	local radius = event.radius or 12
+	local span = math.max(radius * 2, 8)
+	local ring = takePart("QuizZone")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.2, span, span)
+	flashPart(ring, Color3.fromRGB(126, 196, 255), 0.45)
+	ring.CFrame = CFrame.new(dest.X, dest.Y + 0.22, dest.Z) * CFrame.Angles(0, 0, math.rad(90))
+	follows[key] = {
+		kind = "zone",
+		userId = event.userId or 0,
+		parts = { ring },
+		expiresAt = os.clock() + duration,
+		offset = 0,
+		origin = dest,
+		width = span,
+	}
+	ensureLoop()
+end
+
+local function placePull(dest: Vector3, radius: number)
+	local gold = Color3.fromRGB(214, 168, 74)
+	placeRing(dest, radius, gold, 0.42)
+	for i = 1, 4 do
+		local angle = (i / 4) * math.pi * 2
+		local edge = dest + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		placeBeam(edge, dest, gold, 1.15, 0.28)
+	end
+end
+
 local function followProjectile(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local duration = math.max(event.duration or 0.2, 0.08)
 	local key = `bolt:{event.id or event.userId or 0}:{math.floor(event.origin.X)}:{math.floor(event.origin.Z)}`
 	clearFollow(key)
+	local look = kitLook(event)
 	local color = abilityColor(event.abilityKind)
+	if look == "laser" then
+		color = Color3.fromRGB(126, 214, 255)
+	elseif look == "channel" then
+		color = Color3.fromRGB(255, 64, 196)
+	elseif look == "rainbow" then
+		color = Color3.fromRGB(255, 120, 210)
+	end
 	local bolt = takePart("BoltShot")
 	local width = math.max((event.radius or 6) * 0.45, 0.9)
+	if look == "laser" then
+		width = math.max(width * 0.55, 0.65)
+	elseif look == "channel" then
+		width *= 1.35
+	end
 	bolt.Shape = Enum.PartType.Ball
 	bolt.Size = Vector3.new(width, width, width * 1.6)
 	bolt.Material = Enum.Material.Neon
@@ -401,10 +503,38 @@ local function followProjectile(event: Types.CombatFxEvent)
 end
 
 local function playAbility(event: Types.CombatFxEvent)
-	local color = abilityColor(event.abilityKind)
+	local look = kitLook(event)
 	local origin = event.origin
 	local dest = event.dest or origin
 	local radius = event.radius or 10
+	if look == "channel" then
+		local seconds = event.duration or 0
+		if seconds <= 0 then
+			followChannel(event.userId or 0, origin, 0)
+			local pitch = if event.championId and event.slot then ChampionKits.breakPitch(event.championId, event.slot) else nil
+			if pitch then
+				playKitSound(event, pitch, true)
+			end
+		else
+			followChannel(event.userId or 0, origin, seconds)
+			placeBeam(origin, dest, Color3.fromRGB(255, 120, 210), 1.4, 0.16)
+			local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+			playKitSound(event, pitch, false)
+		end
+		return
+	elseif look == "zone" then
+		local seconds = math.max(event.duration or 2.4, 0.4)
+		followZone(event, seconds)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "pull" then
+		placePull(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	end
+	local color = abilityColor(event.abilityKind)
 	local mode = event.mode
 	if mode == "line" then
 		placeBeam(origin, dest, color, math.max((event.radius or 6) * 1.4, 2), 0.18)
@@ -488,7 +618,14 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		local localId = Players.LocalPlayer and Players.LocalPlayer.UserId
 		local own = localId ~= nil and event.userId == localId
 		if own or FogOfWar.isLit(event.origin.X, event.origin.Z) then
-			placeBurst(event.origin, abilityColor(event.abilityKind), 1.7, 0.2)
+			local look = kitLook(event)
+			local color = abilityColor(event.abilityKind)
+			if look == "laser" then
+				color = Color3.fromRGB(126, 214, 255)
+			elseif look == "channel" or look == "rainbow" then
+				color = Color3.fromRGB(255, 96, 196)
+			end
+			placeBurst(event.origin, color, 1.7, 0.2)
 		end
 	elseif event.kind == "aa" then
 		playAa(event)
@@ -497,7 +634,9 @@ function CombatFx.play(event: Types.CombatFxEvent)
 	elseif event.kind == "structureDeath" then
 		playStructureDeath(event)
 	elseif event.kind == "shield" then
-		followShield(event.userId or 0, event.origin, event.duration or 1.15)
+		local guard = kitLook(event) == "guard"
+		local tint = if guard then Color3.fromRGB(196, 148, 72) else nil
+		followShield(event.userId or 0, event.origin, event.duration or 1.15, tint)
 	elseif event.kind == "stun" then
 		if event.userId then
 			followStun(event.userId, event.duration or 0.8)

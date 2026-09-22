@@ -172,8 +172,13 @@ function AbilityBar.create(parent: Instance): BarApi
 					aaBit = ` · AA {combat.attackTarget}`
 				end
 			end
+			local guardBit = ""
+			if combat and combat.guardUntil and combat.guardUntil > workspace:GetServerTimeNow() then
+				guardBit = " · Guard"
+			end
 			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
+				.. guardBit
 				.. aaBit
 			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
 			if combat then
@@ -203,6 +208,25 @@ function AbilityBar.create(parent: Instance): BarApi
 					death.Text = `Respawn at fountain · {string.format("%.1f", left)}s`
 					recallBar.Visible = false
 					recallLabel.Visible = false
+				elseif combat.channelEndsAt and combat.channelEndsAt > t then
+					death.Visible = false
+					local ends = combat.channelEndsAt
+					local started = combat.channelStartedAt or ends
+					local total = math.max(0.1, ends - started)
+					local left = math.max(0, ends - t)
+					local elapsed = math.clamp(t - started, 0, total)
+					local channelName = "Beam"
+					if champ and combat.channelSlot then
+						local channelAbility = champ.abilities[combat.channelSlot]
+						if channelAbility then
+							channelName = channelAbility.name
+						end
+					end
+					recallBar.Visible = true
+					recallLabel.Visible = true
+					recallFill.BackgroundColor3 = Theme.pink
+					recallFill.Size = UDim2.fromScale(elapsed / total, 1)
+					recallLabel.Text = `{channelName} · {string.format("%.1f", left)}s  (move or hit cancels)`
 				elseif combat.recalling then
 					death.Visible = false
 					local ends = combat.recallEndsAt or t
@@ -212,6 +236,7 @@ function AbilityBar.create(parent: Instance): BarApi
 					local elapsed = math.clamp(t - started, 0, total)
 					recallBar.Visible = true
 					recallLabel.Visible = true
+					recallFill.BackgroundColor3 = Theme.mint
 					recallFill.Size = UDim2.fromScale(elapsed / total, 1)
 					recallLabel.Text = `Recalling · {string.format("%.1f", left)}s  (move or click cancels)`
 				else

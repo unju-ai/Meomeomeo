@@ -81,7 +81,7 @@ function Sfx.setMuted(on: boolean)
 	applyMaster()
 end
 
-function Sfx.play(cue: SoundIds.Cue)
+function Sfx.play(cue: SoundIds.Cue, speedScale: number?)
 	ensure()
 	if muted or master <= 0.01 then
 		return
@@ -97,11 +97,12 @@ function Sfx.play(cue: SoundIds.Cue)
 	if not def then
 		return
 	end
+	local scale = if typeof(speedScale) == "number" and speedScale > 0 then speedScale else 1
 	local sound = Instance.new("Sound")
 	sound.Name = cue
 	sound.SoundId = def.id
 	sound.Volume = def.volume
-	sound.PlaybackSpeed = def.playbackSpeed
+	sound.PlaybackSpeed = def.playbackSpeed * scale
 	sound.RollOffMaxDistance = 80
 	sound.SoundGroup = group
 	sound.Parent = folder

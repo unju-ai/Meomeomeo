@@ -42,7 +42,7 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		name = "Chairman Meow",
 		title = "CEO of the Rift",
 		role = "Tank",
-		blurb = "Slams the frontline with hostile takeovers and board-approved shields.",
+		blurb = "Golden Parachute: W cuts incoming damage. R pulls and stuns.",
 		color = Color3.fromRGB(92, 64, 51),
 		maxHealth = 820,
 		maxMana = 280,
@@ -55,7 +55,7 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 				damage = 70,
 				heal = 0,
 			}),
-			W = ability("W", "Board Meeting", "Call a quick huddle and mend yourself.", "heal", {
+			W = ability("W", "Board Meeting", "Huddle up and mend. For a few seconds incoming damage is cut.", "heal", {
 				cooldown = 10,
 				manaCost = 50,
 				range = 8,
@@ -71,13 +71,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 				damage = 40,
 				heal = 0,
 			}),
-			R = ability("R", "Executive Order", "Massive AoE decree that hurts the other board.", "damage", {
+			R = ability("R", "Executive Order", "A decree that damages, stuns, and pulls the board toward the point.", "damage", {
 				cooldown = 40,
 				manaCost = 100,
 				range = 32,
 				radius = 20,
 				damage = 160,
 				heal = 0,
+				stunSeconds = 0.75,
 			}),
 		},
 	},
@@ -87,7 +88,7 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		name = "Nyan Rocket",
 		title = "Pop-Star Assassin",
 		role = "Assassin",
-		blurb = "Leaves a rainbow trail and deletes the backline before the beat drops.",
+		blurb = "Encore: a takedown resets Q W E. R channels a breakable beam.",
 		color = Color3.fromRGB(255, 105, 180),
 		maxHealth = 620,
 		maxMana = 340,
@@ -117,13 +118,14 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 				damage = 95,
 				heal = 0,
 			}),
-			R = ability("R", "Hyperbeam", "Channel the entire 2000s into one laser.", "damage", {
+			R = ability("R", "Hyperbeam", "Short channel, then a line. A new move, cast, or hit breaks it before the beam fires.", "damage", {
 				cooldown = 50,
 				manaCost = 120,
 				range = 50,
 				radius = 12,
 				damage = 220,
 				heal = 0,
+				targeting = "line",
 			}),
 		},
 	},
@@ -178,12 +180,12 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 		name = "Professor Whiskers",
 		title = "Lane Tutor",
 		role = "Mage",
-		blurb = "Corrects your last-hits and your life choices with a laser pointer.",
+		blurb = "Office Hours: Q refunds mana on a hit. E leaves a ticking zone.",
 		color = Color3.fromRGB(90, 122, 180),
 		maxHealth = 640,
 		maxMana = 420,
 		abilities = {
-			Q = ability("Q", "Lecture Laser", "A precise line skillshot of unsolicited advice.", "damage", {
+			Q = ability("Q", "Lecture Laser", "A precise line. Hitting an enemy cat refunds some mana, once per bolt.", "damage", {
 				cooldown = 4,
 				manaCost = 45,
 				range = 48,
@@ -200,7 +202,7 @@ local CATALOG: { [string]: Types.ChampionDef } = {
 				damage = 0,
 				heal = 100,
 			}),
-			E = ability("E", "Pop Quiz", "Zone the lane with confusing diagrams.", "damage", {
+			E = ability("E", "Pop Quiz", "A diagram that stays on the lane and ticks instead of popping once.", "damage", {
 				cooldown = 8,
 				manaCost = 50,
 				range = 34,
