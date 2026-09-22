@@ -2104,6 +2104,7 @@ applyVision = function()
 		CombatFx.setActiveJuiceAllowed(false)
 		CombatFx.setRecallAllowed(false)
 		CombatFx.syncBrush(nil, player.UserId, gameMode, nil)
+		CombatFx.syncStructureAggro(nil, player.UserId, gameMode)
 		WardFx.clear()
 		Sfx.stopLoop("RecallLoop")
 		if lastFountainRegen then
@@ -2125,6 +2126,7 @@ applyVision = function()
 	CombatFx.setActiveJuiceAllowed(true)
 	CombatFx.setRecallAllowed(true)
 	CombatFx.syncBrush(snapshot, player.UserId, gameMode, lastVision.players)
+	CombatFx.syncStructureAggro(snapshot, player.UserId, gameMode)
 	FogOfWar.apply(lastVision.fogBits, lastVision.exploredBits)
 
 	local mine = snapshot.players[tostring(player.UserId)]

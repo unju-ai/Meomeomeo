@@ -27,6 +27,7 @@ script = (
     + wrap("BillboardHp", "src/shared/BillboardHp.luau")
     + wrap_deps("ChampionPlate", "src/shared/ChampionPlate.luau", ["BillboardHp"])
     + wrap_deps("StructureDeathJuice", "src/shared/StructureDeathJuice.luau", ["StructureLogic"])
+    + wrap("StructureAggroJuice", "src/shared/StructureAggroJuice.luau")
     + (root / "tests/structure-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-structure-test-") as folder:

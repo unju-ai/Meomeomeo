@@ -2,10 +2,12 @@
 
 local Workspace = game:GetService("Workspace")
 
+local StructureAggroJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureAggroJuice"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MinionService = require(script.Parent.MinionService)
@@ -92,10 +94,38 @@ local function pickTarget(objective: Types.ObjectiveState, part: BasePart): (num
 	return bestUserId, bestMinion
 end
 
+-- Display only. pickTarget is unchanged; the client reads this champion id.
+local function publishLock(part: BasePart, userId: number?)
+	local current = part:GetAttribute(StructureAggroJuice.LockAttribute)
+	if userId == nil then
+		if current ~= nil then
+			part:SetAttribute(StructureAggroJuice.LockAttribute, nil)
+		end
+		return
+	end
+	if current ~= userId then
+		part:SetAttribute(StructureAggroJuice.LockAttribute, userId)
+	end
+end
+
+local function clearLocks()
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	local objectives = if map then map:FindFirstChild("Objectives") else nil
+	if not objectives then
+		return
+	end
+	for _, child in objectives:GetChildren() do
+		if child:IsA("BasePart") then
+			publishLock(child, nil)
+		end
+	end
+end
+
 function TowerService.stop()
 	running = false
 	table.clear(threat)
 	table.clear(nextShot)
+	clearLocks()
 end
 
 function TowerService.start()
@@ -114,18 +144,22 @@ function TowerService.start()
 			end
 			local now = Workspace:GetServerTimeNow()
 			for _, state in MapBuilder.objectiveStates() do
-				if not state.alive then
-					continue
-				end
 				local part = MapBuilder.getObjectivePart(state.id)
 				if not part then
 					continue
 				end
+				if not state.alive then
+					publishLock(part, nil)
+					continue
+				end
+				-- Same pick the bolt will use. Published even while the interval is cooling
+				-- so the client can show who is about to be shot. Damage still waits for readyAt.
+				local userTarget, minionId = pickTarget(state, part)
+				publishLock(part, userTarget)
 				local readyAt = nextShot[state.id] or 0
 				if now < readyAt then
 					continue
 				end
-				local userTarget, minionId = pickTarget(state, part)
 				local dmg = Config.Towers.Damage
 				if state.kind == "Nexus" then
 					dmg = Config.Towers.NexusDamage
@@ -144,6 +178,7 @@ function TowerService.start()
 							team = state.team,
 							structureKind = structureKind,
 							tier = state.tier,
+							userId = userTarget,
 						})
 					end
 					local def = StructureLogic.get(state.id)
