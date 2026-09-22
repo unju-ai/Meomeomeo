@@ -66,6 +66,7 @@ export type HudApi = {
 	emotes: EmoteWheel.WheelApi,
 	pings: PingWheel.WheelApi,
 	banner: (text: string) -> (),
+	callout: (text: string) -> (),
 	ticker: (text: string) -> (),
 	applyPhase: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
 	applyShell: (mode: Types.GameMode, hubPage: "grid" | "moba", snapshot: Types.MatchSnapshot?, localUserId: number) -> (),
@@ -97,6 +98,19 @@ function Hud.create(): HudApi
 	banner.TextXAlignment = Enum.TextXAlignment.Center
 	banner.TextStrokeTransparency = 0.4
 	banner.ZIndex = 10
+	local bannerHoldUntil = 0
+
+	local function forceBanner(text: string)
+		bannerHoldUntil = 0
+		banner.Text = text
+	end
+
+	local function writeBanner(text: string)
+		if os.clock() < bannerHoldUntil then
+			return
+		end
+		banner.Text = text
+	end
 
 	local hub = HubPanel.create(gui)
 	local yarn = YarnRunHud.create(gui)
@@ -204,14 +218,14 @@ function Hud.create(): HudApi
 		end
 		if phase == "Lobby" then
 			lobby.update(snapshot)
-			banner.Text = "Cat Rift · ← Hub to change stalls"
+			forceBanner("Cat Rift · ← Hub to change stalls")
 		elseif phase == "ChampionSelect" then
 			select.update(snapshot, localUserId)
-			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
+			writeBanner(if snapshot.practice then "Practice draft" else "Champion select")
 		elseif phase == "InProgress" then
-			banner.Text = if mine
+			writeBanner(if mine
 				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens · 7 cleave`
-				else "Spectating"
+				else "Spectating")
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
 		end
@@ -238,7 +252,7 @@ function Hud.create(): HudApi
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
-			banner.Text = "Yarn Run · chase the ghost · SPD MAG SHD 2X"
+			forceBanner("Yarn Run · chase the ghost · SPD MAG SHD 2X")
 			return
 		end
 		if mode == "KoiPond" then
@@ -253,7 +267,7 @@ function Hud.create(): HudApi
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
-			banner.Text = "Koi Pond · Space cast · reel in the cream window"
+			forceBanner("Koi Pond · Space cast · reel in the cream window")
 			return
 		end
 		if mode == "YarnParty" then
@@ -269,7 +283,7 @@ function Hud.create(): HudApi
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
-			banner.Text = "Yarn Party · WASD · Space hop · lit pillows"
+			forceBanner("Yarn Party · WASD · Space hop · lit pillows")
 			return
 		end
 		if mode == "MemeArcade" then
@@ -284,7 +298,7 @@ function Hud.create(): HudApi
 			hideMobaPlay()
 			mint.setVisible(false)
 			closet.setVisible(false)
-			banner.Text = "Meme Arcade · play yarn only · tap the tape"
+			forceBanner("Meme Arcade · play yarn only · tap the tape")
 			return
 		end
 		yarn.setVisible(false)
@@ -295,7 +309,7 @@ function Hud.create(): HudApi
 			hub.setVisible(true)
 			lobby.setVisible(false)
 			hideMobaPlay()
-			banner.Text = "Night-market hub · pick a stall"
+			forceBanner("Night-market hub · pick a stall")
 			return
 		end
 		if snapshot then
@@ -304,7 +318,7 @@ function Hud.create(): HudApi
 			hub.setVisible(true)
 			lobby.setVisible(false)
 			hideMobaPlay()
-			banner.Text = "Night-market hub · pick a stall"
+			forceBanner("Night-market hub · pick a stall")
 		end
 	end
 
@@ -339,6 +353,10 @@ function Hud.create(): HudApi
 		pings = pings,
 		banner = function(text: string)
 			banner.Text = text
+		end,
+		callout = function(text: string)
+			banner.Text = text
+			bannerHoldUntil = os.clock() + 5
 		end,
 		ticker = function(text: string)
 			ticker.Text = text

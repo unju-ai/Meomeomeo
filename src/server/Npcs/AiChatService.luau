@@ -91,6 +91,8 @@ function AiChatService.chat(player: Player, npcId: unknown, message: unknown): T
 	}
 end
 
+-- Match callouts are pushed by AnnouncerService (authored lines, rift players only).
+-- These two stay for a one-off line that is not a fight beat.
 function AiChatService.announce(text: string)
 	Remotes.event("AnnouncerMessage"):FireAllClients({
 		speaker = "Kitty Caster",

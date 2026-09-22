@@ -241,6 +241,34 @@ local function toast(text: string)
 	hud.banner(text)
 end
 
+local recentCallouts: { string } = {}
+
+local function riftCalloutsOn(): boolean
+	if inMini() then
+		return false
+	end
+	return gameMode == "Moba"
+end
+
+local function rememberCallout(text: string, beat: string?)
+	if beat == "Draft" or beat == "DraftPractice" then
+		table.clear(recentCallouts)
+	end
+	table.insert(recentCallouts, text)
+	while #recentCallouts > 6 do
+		table.remove(recentCallouts, 1)
+	end
+end
+
+local function seedCasterChat(npcId: string)
+	if npcId ~= "KittyCaster" then
+		return
+	end
+	for _, line in recentCallouts do
+		hud.chat.append("Kitty Caster", line)
+	end
+end
+
 local lastPartyNotice = 0
 local function noteParty(queue: Types.QueueStatus)
 	if typeof(queue.noticeId) == "number" and typeof(queue.notice) == "string" and queue.notice ~= "" and queue.noticeId ~= lastPartyNotice then
@@ -1405,9 +1433,30 @@ Remotes.event("VoiceStatusChanged").OnClientEvent:Connect(function(status)
 end)
 
 Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
-	if typeof(payload) == "table" and typeof((payload :: any).text) == "string" then
-		local text = (payload :: any).text :: string
-		toast(`{(payload :: any).speaker or "Kitty Caster"}: {text}`)
+	if typeof(payload) ~= "table" or typeof((payload :: any).text) ~= "string" then
+		return
+	end
+	if not riftCalloutsOn() then
+		return
+	end
+	local text = (payload :: any).text :: string
+	local beat = if typeof((payload :: any).beat) == "string" then (payload :: any).beat :: string else nil
+	local speaker = if typeof((payload :: any).speaker) == "string" then (payload :: any).speaker :: string else "Kitty Caster"
+	local line = `{speaker}: {text}`
+	hud.callout(line)
+	hud.feed.push({
+		kind = "announce",
+		text = line,
+		at = os.clock(),
+	})
+	hud.chat.note(speaker, text)
+	rememberCallout(text, beat)
+	local explicit = (payload :: any).cue
+	if explicit == "Announcer" then
+		Sfx.play("Announcer")
+	elseif explicit == "MatchFound" then
+		Sfx.play("MatchFound")
+	elseif beat == nil then
 		local cue = Sfx.cueForAnnouncer(text)
 		if cue then
 			Sfx.play(cue)
@@ -1781,6 +1830,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 			hud.shop.setVisible(true)
 		end
 		hud.chat.open(npcId, prompt.ObjectText)
+		seedCasterChat(npcId)
 	end
 end)
 
