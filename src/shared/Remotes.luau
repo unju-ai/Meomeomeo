@@ -88,6 +88,7 @@ export type RemoteName =
 	| "VisionUpdated"
 	| "PingReceived"
 	| "KillFeed"
+	| "DeathRecap"
 	| "CombatFx"
 	| "EmotePlayed"
 	| "ClosetUpdated"
@@ -169,6 +170,7 @@ local EVENT_NAMES = {
 	"VisionUpdated",
 	"PingReceived",
 	"KillFeed",
+	"DeathRecap",
 	"QueueUpdated",
 	"CombatFx",
 	"EmotePlayed",

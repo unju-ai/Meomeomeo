@@ -13,6 +13,7 @@ local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
+local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -573,6 +574,7 @@ function CombatService.clear(userId: number)
 	locks[userId] = nil
 	nextAA[userId] = nil
 	recentHits[userId] = nil
+	DamageLog.clear(userId)
 	recallOrigin[userId] = nil
 	boundModels[userId] = nil
 	outgoingAmp[userId] = nil
@@ -604,6 +606,7 @@ function CombatService.clearAll()
 	table.clear(locks)
 	table.clear(nextAA)
 	table.clear(recentHits)
+	DamageLog.clearAll()
 	table.clear(deathToken)
 	table.clear(recallToken)
 	table.clear(recallOrigin)
@@ -753,6 +756,7 @@ function CombatService.respawnUser(userId: number)
 	state.alive = true
 	state.respawnAt = nil
 	state.shield = 0
+	DamageLog.clear(userId)
 	locks[userId] = nil
 	local champ = ChampionCatalog.get(matchPlayer.championId)
 	if champ then
@@ -783,6 +787,39 @@ end
 
 function CombatService.respawn(player: Player)
 	CombatService.respawnUser(player.UserId)
+end
+
+local function displayNameOf(userId: number): string
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	local matchPlayer = if snapshot then snapshot.players[tostring(userId)] else nil
+	if matchPlayer then
+		return matchPlayer.displayName
+	end
+	return "A cat"
+end
+
+local function abilityLabel(championId: string?, slot: Types.AbilitySlot?): string
+	if championId and slot then
+		local champ = ChampionCatalog.get(championId)
+		local ability = if champ then champ.abilities[slot] else nil
+		if ability then
+			return ability.name
+		end
+	end
+	return "Scratch"
+end
+
+local function publishDeathRecap(victimUserId: number, respawnAt: number)
+	local lines = DamageLog.recap(victimUserId, now())
+	local player = playerOf(victimUserId)
+	if not player then
+		return
+	end
+	Remotes.event("DeathRecap"):FireClient(player, {
+		victimUserId = victimUserId,
+		respawnAt = respawnAt,
+		lines = lines,
+	} :: Types.DeathRecap)
 end
 
 local function killUser(victimUserId: number, killerUserId: number?)
@@ -948,6 +985,7 @@ local function killUser(victimUserId: number, killerUserId: number?)
 			end
 		end
 	end
+	publishDeathRecap(victimUserId, state.respawnAt or now())
 end
 
 local function noteAssist(attackerUserId: number, victimUserId: number)
@@ -959,7 +997,39 @@ local function noteAssist(attackerUserId: number, victimUserId: number)
 	bag[attackerUserId] = now()
 end
 
-local function damageUser(attackerUserId: number?, targetUserId: number, amount: number)
+local function fallbackNote(attackerUserId: number?): Types.DamageNote
+	if attackerUserId then
+		return {
+			sourceKind = "champion",
+			sourceName = displayNameOf(attackerUserId),
+			sourceId = tostring(attackerUserId),
+			label = "Scratch",
+		}
+	end
+	return {
+		sourceKind = "minion",
+		sourceName = "Kitten",
+		sourceId = "kitten",
+		label = "Nibble",
+	}
+end
+
+local function recordDamage(targetUserId: number, amount: number, note: Types.DamageNote, killing: boolean)
+	if amount <= 0 then
+		return
+	end
+	DamageLog.record(targetUserId, {
+		at = now(),
+		amount = amount,
+		sourceKind = note.sourceKind,
+		sourceName = note.sourceName,
+		sourceId = note.sourceId,
+		label = note.label,
+		killingBlow = killing,
+	})
+end
+
+local function damageUser(attackerUserId: number?, targetUserId: number, amount: number, note: Types.DamageNote?)
 	if attackerUserId and attackerUserId == targetUserId then
 		return
 	end
@@ -968,12 +1038,14 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 		return
 	end
 	local raw = amount
+	local fangRaw = 0
 	if attackerUserId and amount > 0 and matchApi then
 		local snapshot = matchApi.getSnapshot()
 		local attacker = if snapshot then snapshot.players[tostring(attackerUserId)] else nil
 		local victimMatch = if snapshot then snapshot.players[tostring(targetUserId)] else nil
 		if attacker and victimMatch and attacker.team ~= victimMatch.team then
-			raw += ItemKits.fangBonus(state.health, state.maxHealth, ShopService.has(attackerUserId, ItemKits.FangId))
+			fangRaw = ItemKits.fangBonus(state.health, state.maxHealth, ShopService.has(attackerUserId, ItemKits.FangId))
+			raw += fangRaw
 		end
 	end
 	local guarded = state.guardUntil ~= nil and now() < state.guardUntil
@@ -1003,6 +1075,23 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	end
 	applyHumanoid(targetUserId, state)
 	fireCombat(targetUserId)
+	if reduced > 0 then
+		local source = note or fallbackNote(attackerUserId)
+		local fangDealt = if fangRaw > 0 and raw > 0 then reduced * (fangRaw / raw) else 0
+		local mainDealt = math.max(0, reduced - fangDealt)
+		local lethal = state.health <= 0
+		if mainDealt > 0.05 then
+			recordDamage(targetUserId, mainDealt, source, lethal)
+		end
+		if fangDealt > 0.05 then
+			recordDamage(targetUserId, fangDealt, {
+				sourceKind = "item",
+				sourceName = "Stall Fang",
+				sourceId = if attackerUserId then `{ItemKits.FangId}:{attackerUserId}` else ItemKits.FangId,
+				label = if attackerUserId then displayNameOf(attackerUserId) else "Bite",
+			}, lethal and mainDealt <= 0.05)
+		end
+	end
 	if attackerUserId and matchApi then
 		if reduced > 0 then
 			matchApi.addDamageDealt(attackerUserId, reduced)
@@ -1019,15 +1108,21 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	end
 end
 
-function CombatService.applyDamageToUser(targetUserId: number, amount: number)
-	damageUser(nil, targetUserId, amount)
+function CombatService.applyDamageToUser(targetUserId: number, amount: number, note: Types.DamageNote?)
+	damageUser(nil, targetUserId, amount, note)
 end
 
 function CombatService.applyDamageToPlayer(target: Player, amount: number)
 	damageUser(nil, target.UserId, amount)
 end
 
-function CombatService.damagePlayersNear(attackerTeam: Types.TeamId, position: Vector3, range: number, amount: number)
+function CombatService.damagePlayersNear(
+	attackerTeam: Types.TeamId,
+	position: Vector3,
+	range: number,
+	amount: number,
+	note: Types.DamageNote?
+)
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot then
 		return
@@ -1036,7 +1131,7 @@ function CombatService.damagePlayersNear(attackerTeam: Types.TeamId, position: V
 		local otherRoot = rootOf(otherMatch.userId)
 		if otherMatch.team ~= attackerTeam and otherRoot then
 			if (otherRoot.Position - position).Magnitude <= range then
-				damageUser(nil, otherMatch.userId, amount)
+				damageUser(nil, otherMatch.userId, amount, note)
 			end
 		end
 	end
@@ -1286,7 +1381,12 @@ end
 local function strike(attackerUserId: number, lock: AttackLock)
 	local power = aaDamage(attackerUserId)
 	if lock.kind == "player" and lock.userId then
-		damageUser(attackerUserId, lock.userId, power)
+		damageUser(attackerUserId, lock.userId, power, {
+			sourceKind = "champion",
+			sourceName = displayNameOf(attackerUserId),
+			sourceId = tostring(attackerUserId),
+			label = "Scratch",
+		})
 	elseif lock.kind == "minion" and lock.minionId then
 		local minion = MinionService.get(lock.minionId)
 		if minion then
@@ -2332,7 +2432,12 @@ local function applyStrikes(ctx: StrikeCtx)
 					local nudged = ChampionKits.pullPosition(otherRoot.Position, ctx.origin, kit.nudgeStuds)
 					otherRoot.CFrame = CFrame.new(nudged.X, otherRoot.Position.Y, nudged.Z)
 				end
-				damageUser(ctx.caster, otherMatch.userId, dealt)
+				damageUser(ctx.caster, otherMatch.userId, dealt, {
+					sourceKind = "champion",
+					sourceName = displayNameOf(ctx.caster),
+					sourceId = tostring(ctx.caster),
+					label = abilityLabel(ctx.championId, ctx.slot),
+				})
 				if psiLive and kit and kit.nudgeStuds > 0 then
 					clearPsi(otherMatch.userId, ctx.caster)
 				end
@@ -2622,7 +2727,12 @@ tickShots = function()
 				local dot = ChampionKits.curseDamage(state.curseStacks or 0, state.cursePer or 0)
 				local owner = state.curseFrom
 				if dot > 0 and owner then
-					damageUser(owner, userId, dot)
+					damageUser(owner, userId, dot, {
+						sourceKind = "champion",
+						sourceName = displayNameOf(owner),
+						sourceId = tostring(owner),
+						label = "Curse",
+					})
 				end
 			end
 		end
@@ -3255,7 +3365,12 @@ function CombatService.useCleaveFor(userId: number): Types.AbilityResult
 			local otherState = combat[otherMatch.userId]
 			if otherRoot and otherState and otherState.alive and ItemKits.inCleave(root.Position, otherRoot.Position) then
 				if VisionService.canSeeChampion(userId, otherMatch.userId) then
-					damageUser(userId, otherMatch.userId, ItemKits.CLEAVE_DAMAGE)
+					damageUser(userId, otherMatch.userId, ItemKits.CLEAVE_DAMAGE, {
+						sourceKind = "item",
+						sourceName = "Yarn Cleave",
+						sourceId = `{ItemKits.CleaveId}:{userId}`,
+						label = displayNameOf(userId),
+					})
 				end
 			end
 		end

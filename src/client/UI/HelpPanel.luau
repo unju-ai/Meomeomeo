@@ -36,6 +36,7 @@ local LINES_MOBA: { { string } } = {
 	{ "T", "Hold emote wheel · release or click" },
 	{ "G", "Hold ping wheel · minimap click = Attention" },
 	{ "Tab", "Hold scoreboard" },
+	{ "Death", "Recap of recent scratches · hides before fountain · Recap reopens" },
 	{ "V", "Toggle follow camera" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },

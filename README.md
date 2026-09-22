@@ -22,7 +22,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
 - Lane minion waves, outer scratching posts + inner lantern stalls, tower/nexus aggro, nexus gating, **fog of war**, Pawmart item shop
-- Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
+- Champion auto-attack, assist gold, levels 1–18, death timers, death recap, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP, post/stall/core counts, structure timeline), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **Yarn Cleave** (**7**), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
 - Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
@@ -31,7 +31,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Three channel hosts (MEO / ME / MO) with shared identities, authored dialogue and non-colliding lobby stand-ins
 - Optional yarn / meme-stock ticker on champions
-- Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
+- Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **death recap**, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
 - Combat VFX stubs: **pooled traveling bolts** for line Qs, ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests

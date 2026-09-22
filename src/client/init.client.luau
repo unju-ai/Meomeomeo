@@ -1342,6 +1342,8 @@ Remotes.event("CombatUpdated").OnClientEvent:Connect(function(state)
 		refreshBars()
 		if latestCombat.alive == false then
 			hud.emotes.close()
+		else
+			hud.recap.hide()
 		end
 	end
 end)
@@ -1385,6 +1387,44 @@ end)
 
 Remotes.event("CombatFx").OnClientEvent:Connect(function(payload)
 	CombatFx.playUnknown(payload)
+end)
+
+Remotes.event("DeathRecap").OnClientEvent:Connect(function(payload)
+	if gameMode ~= "Moba" or not latestMatch or latestMatch.phase ~= "InProgress" then
+		return
+	end
+	if typeof(payload) ~= "table" then
+		return
+	end
+	local raw = payload :: Types.DeathRecap
+	if raw.victimUserId ~= player.UserId or typeof(raw.lines) ~= "table" then
+		return
+	end
+	local lines: { Types.DamageLine } = {}
+	for _, item in raw.lines do
+		if
+			typeof(item) == "table"
+			and typeof(item.sourceKind) == "string"
+			and typeof(item.sourceName) == "string"
+			and typeof(item.label) == "string"
+			and typeof(item.amount) == "number"
+		then
+			table.insert(lines, {
+				sourceKind = item.sourceKind,
+				sourceName = item.sourceName,
+				sourceId = if typeof(item.sourceId) == "string" then item.sourceId else nil,
+				label = item.label,
+				amount = item.amount,
+				killingBlow = item.killingBlow == true,
+				at = if typeof(item.at) == "number" then item.at else 0,
+			})
+		end
+	end
+	hud.recap.show({
+		victimUserId = player.UserId,
+		respawnAt = if typeof(raw.respawnAt) == "number" then raw.respawnAt else nil,
+		lines = lines,
+	})
 end)
 
 Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
