@@ -57,6 +57,8 @@ Smart pings (same day, later slice): Luau compiled 128 sources; `tools/test-ping
 
 Meme tape (same day, later slice): Luau compiled 130 sources; `tools/test-meme-stock.py` passed (kill up, death down and smaller, post then stall then yarn core, team nudge smaller than a last hit, lane kittens and camps refused, same-kind gap). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to scratch a bot and a post and watch the tape under the kill feed.
 
+Lobby hosts (same day, later slice): Luau compiled 130 sources; `tools/test-brand.py` passed (Closet / Lantern Cap / Stall Spark, fog and last-seen ghosts, Invite / party queue, Pawmart Yarn Cleave on **7** / Stall Fang / Paper Charm, Kitty Caster, smart pings on **G**, death recap, purse chip, **Mute me**, meme tape as a side system, six topic chips, a rare idle line). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to talk to MEO, ME, and MO (the live-pass below). No API key.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -64,8 +66,28 @@ Meme tape (same day, later slice): Luau compiled 130 sources; `tools/test-meme-s
 3. Talk to each host. Confirm the dialogue panel names the selected host and replies in that host's voice. Hosts should not block movement.
    - Each host opens with a distinct authored greeting. Switch hosts while a reply is pending: the new conversation should contain only the new host's greeting and subsequent messages. Closing and reopening the same host should also discard pending replies from the old conversation.
    - Send with both Enter and the Send button. If a request fails, the panel should offer a retry message. The transcript keeps the most recent 60 lines per open conversation.
-4. Start a Practice match and confirm the full 14-champion draft still appears. Return to the lobby after a match and check the host prompts again.
-5. With two Studio clients, queue both players and confirm live queue status stays readable and the match starts.
+   - Hosts show six chips: **Cat Rift**, **Closet**, **Fog**, **Shop**, **Voice**, **Help**. Tapping a chip asks that question and leaves any unfinished draft in the box. Kitty Caster, the clerks, and Old Tom do not show the chips.
+   - Stand near a host without pressing **Talk**. Once in a while a short line appears over that cat and then leaves. Walking the trio should not stack three speeches. Opening **Talk** clears the line. The hosts still do not block movement.
+4. With two Studio clients, queue both players and confirm live queue status stays readable and the match starts. The host answer for **Invite** matches what this queue actually does.
+
+### Studio live-pass (lobby hosts)
+
+The Luau smoke checks authored replies, chip questions, and the idle-line gap. It does not move a character and it does not call an LLM. Talk to the three hosts in Play. No OpenAI key.
+
+1. Open **Talk** on MEO, then ME, then MO. The chips match. **Help** lists Cat Rift, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade. **Cat Rift** still says to use that stall's **Play** button. MEO can sound sure of himself. The controls below stay the same on every host. ME stays practical. MO stays soft. None of them name a PlaceId, a Robux price, or an investment.
+2. **Closet** (or type "Lantern Cap" / "Stall Spark"). Hub **Closet**. Yarn points, not Robux. Lantern Cap after an outer post or a lantern stall. Stall Spark after a Cat Rift win. A win pays 6 closet yarn and a loss pays 2.
+3. **Fog**. Unseen ground stays dark, explored ground stays dim, walls and thick cover block sight, brush hides you until someone walks in. A last-seen ghost freezes and fades. It is not vision. It is not the Yarn Run personal-best cat.
+4. Type "invite" or "party queue". Same-server **Invite**, **Accept** or **Decline**, about 20 seconds. The leader presses **Queue party** or **Practice with party**. Practice stays in this server. "Yarn Party" on its own is still the party stall, not this queue.
+5. **Shop** (or "Yarn Cleave" / "Stall Fang" / "Paper Charm"). **B** at the fountain. Yarn Cleave is 280 gold, then **7**. Stall Fang is 300 gold and bites champions at or below 20% HP. Paper Charm is 220 gold: about 2.4 seconds after an enemy pink, then about 20 seconds. **5** is still Whisker Lens. **6** is still Control Yarn.
+6. Type "Kitty Caster". First blood, streaks, posts, stalls, the yarn core, victory or defeat. Lane kittens stay quiet unless that death is first blood or an ace. Talking to her in the river is still mock chat.
+7. Type "ping" or "smart ping". **Hold G**. A hidden cat is refused. Fogged ground and the minimap can still ping without a name. About 2 seconds between pings.
+8. Type "death recap". Scratches from about the last 12 seconds. The killing blow is marked. The card hides about 2.5 seconds before the fountain. **Recap** brings it back while you are down. The other stalls do not show it.
+9. Type "purse" or "cs". The chip above the ability bar is gold, CS, level, and the Yarn Cleave line. **Tab** matches the gold and CS. A kill, an assist, or tower gold does not add CS.
+10. **Voice** (or "Mute me"). Teammates only. Bots are silent. **Mute me** is the mic, not SFX or Music. The hub stays quiet until a match assigns a side. Studio blocks voice until you publish and use two eligible clients.
+11. Type "meme tape". It sits under the kill feed in Cat Rift only. Play yarn, not gold, not closet yarn, and not the Meme Arcade board. Kittens and camps do not move it. Nothing on it spends Robux.
+12. Start a Practice match and confirm the full 14-champion draft still appears. Return to the lobby after a match and check the host prompts again. Fog, callouts, the purse, and the tape behave as in their own passes. The hosts did not become champions.
+
+Smoke (not a Studio substitute): `python3 tools/test-brand.py /path/to/luau`.
 
 ### Live sync
 

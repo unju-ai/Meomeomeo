@@ -1,7 +1,7 @@
 --!strict
 
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
-local ModeCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ModeCatalog"))
+local HostGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HostGuide"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local NpcChatPanel = {}
@@ -150,17 +150,17 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 
 	local function addTopic(id: string, label: string, question: string)
 		local button = Theme.button(topics, id, label, Theme.peach)
-		button.Size = UDim2.fromOffset(112, 44)
+		button.Size = UDim2.fromOffset(100, 44)
 		button.TextSize = 13
+		button.TextWrapped = true
 		button.LayoutOrder = #topicButtons + 1
 		table.insert(topicButtons, button)
 		button.Activated:Connect(function()
 			if topics.Visible then submit(question) end
 		end)
 	end
-	addTopic("Help", "All games", "help")
-	for _, mode in ModeCatalog.all() do
-		if mode.playable then addTopic(mode.id, mode.title, mode.title) end
+	for _, chip in HostGuide.chips() do
+		addTopic(chip.id, chip.label, chip.question)
 	end
 
 	send.MouseButton1Click:Connect(function() submit() end)
@@ -196,7 +196,7 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			bounds.MaxSize = Vector2.new(340, if host then 332 else 280)
 			log.Position = UDim2.fromOffset(0, if host then 88 else 36)
 			log.Size = UDim2.new(1, 0, 1, if host then -136 else -84)
-			box.PlaceholderText = if host then "Ask about a game, or say help" else "mrrp?"
+			box.PlaceholderText = if host then "Fog, shop, voice, or help" else "mrrp?"
 			append(npcName, if host then host.greeting else "Mrrp. What is on your mind?")
 		end,
 		close = closeChat,
