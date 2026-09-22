@@ -1,4 +1,11 @@
-"""Jungle bot route / commit / rotate smoke. Usage: python3 tools/test-jungle-bot.py /path/to/luau"""
+"""Jungle bot route / commit / rotate / Canal Levi priority smoke.
+
+Usage: python3 tools/test-jungle-bot.py /path/to/luau
+
+Levi gates live in tests/jungle-bot-smoke.luau: Hard mid beats leftover camps when
+UP, finishes a hurt camp first, peels a visible enemy on the pit, resumes after
+death; Normal mid-river assist; Easy ignore.
+"""
 from pathlib import Path
 import re
 import subprocess

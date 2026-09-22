@@ -358,6 +358,29 @@ local function findEpic(camps: { CampView }): CampView?
 	return nil
 end
 
+-- Visible enemy standing on / next to the pit. Same fog rule as other enemies:
+-- the caller only passes a champ they can already see.
+local function enemyOnEpic(query: JungleQuery, epic: CampView): boolean
+	local enemy = query.enemy
+	if not enemy then
+		return false
+	end
+	return dist(enemy.x, enemy.z, epic.x, epic.z) <= HARD_CONTEST + 8
+end
+
+-- Engaged non-epic camp blocks a Levi walk only once the camp is hurt.
+-- In-range healthy leftover walks (and sticky opens) still lose to Levi.
+local function startedCamp(camp: CampView): boolean
+	return camp.health < camp.maxHealth - 0.5
+end
+
+local function holdingForLevi(query: JungleQuery, hold: CampView?): boolean
+	if not hold or hold.epic == true then
+		return false
+	end
+	return startedCamp(hold)
+end
+
 local function nearestCamp(query: JungleQuery, sticky: CampView?): CampView?
 	if sticky and ownSide(query.team, sticky.x) then
 		local keep = dist(query.x, query.z, sticky.x, sticky.z)
@@ -438,11 +461,21 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 		committed = nil
 	end
 
-	-- Hard sticks to the route camp until it dies. Normal only locks in once the
-	-- fight has started (hurt, or already in auto-attack range). A walk that has
-	-- not connected yet can still retarget when another camp is clearly closer.
+	local epic = findEpic(query.camps)
+
+	-- Hard sticks to the route camp until it dies — unless Canal Levi is up and
+	-- this camp is only a leftover (full HP) walk. A hurt camp still finishes.
+	-- Normal only locks in once the fight has started.
 	local hold = committed
-	if hold and query.difficulty ~= "Hard" and not engaged(query, hold) then
+	if hold and hold.epic ~= true then
+		if query.difficulty == "Hard" and epic and RiverEpic.wantsHardPath(query.difficulty, query.jungler, false) then
+			if not startedCamp(hold) then
+				hold = nil
+			end
+		elseif query.difficulty ~= "Hard" and not engaged(query, hold) then
+			hold = nil
+		end
+	elseif hold and query.difficulty ~= "Hard" and not engaged(query, hold) then
 		hold = nil
 	end
 
@@ -455,14 +488,23 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 		return campDecision(query, hold, index)
 	end
 
+	-- Canal Levi beats leftover camps and rotates while it is up. Hard mid must
+	-- contest. A visible enemy on the pit peels when in face range (tagged to
+	-- Levi), else walk the canal. Normal only tags along if already mid-river.
+	local hardGo = epic ~= nil and RiverEpic.wantsHardPath(query.difficulty, query.jungler, holdingForLevi(query, committed))
+	local normalGo = epic ~= nil and RiverEpic.wantsNormalAssist(query.difficulty, query.jungler, query.x, query.z)
+	if epic and (hardGo or normalGo) then
+		if enemyOnEpic(query, epic) and contesting(query, epic) then
+			local index = routeIndexOf(query.team, epic.id) or routeIndex
+			return fightDecision(epic.id, index)
+		end
+	end
+
 	if contesting(query, nil) then
 		return fightDecision(nil, routeIndex)
 	end
 
-	-- Canal Levi is not on the route. Hard mid may walk it when it is up and they
-	-- are not already holding a camp. Normal nearest-camp and Easy never see it.
-	local epic = findEpic(query.camps)
-	if epic and RiverEpic.wantsHardPath(query.difficulty, query.jungler, false) then
+	if epic and (hardGo or normalGo) then
 		return campDecision(query, epic, routeIndex)
 	end
 
