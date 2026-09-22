@@ -57,6 +57,11 @@ local SEQUENCE: { Tip } = {
 		body = ChampionKits.practiceTipExpansion(),
 	},
 	{
+		id = "kits4",
+		title = "Three more expansion kits",
+		body = ChampionKits.practiceTipExpansionMore(),
+	},
+	{
 		id = "shop",
 		title = "Pawmart (B)",
 		body = "B opens the shop — only at your fountain. Spend match gold on claws and yarn. B is not recall.",
@@ -105,7 +110,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	root.Name = "TutorialTips"
 	root.AnchorPoint = Vector2.new(0, 0)
 	root.Position = UDim2.new(0, 16, 0, 72)
-	root.Size = UDim2.fromOffset(348, 204)
+	root.Size = UDim2.fromOffset(348, 248)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 26
@@ -115,7 +120,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	Theme.stroke(root, Theme.coral, 2, 0.2)
 	Theme.pad(root, 12)
 
-	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 12", 11, Theme.coral, Theme.fontMono)
+	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 13", 11, Theme.coral, Theme.fontMono)
 	kicker.Size = UDim2.new(1, -8, 0, 16)
 
 	local title = Theme.text(root, "Title", "", 18, Theme.cream, Theme.fontTitle)
@@ -124,7 +129,8 @@ function TutorialTips.create(parent: Instance): TipsApi
 
 	local body = Theme.text(root, "Body", "", 13, Theme.peach)
 	body.Position = UDim2.fromOffset(0, 42)
-	body.Size = UDim2.new(1, 0, 0, 100)
+	body.Size = UDim2.new(1, 0, 0, 128)
+	body.TextYAlignment = Enum.TextYAlignment.Top
 
 	local nextBtn = Theme.button(root, "Next", "Next", Theme.cream)
 	nextBtn.Position = UDim2.new(0, 0, 1, -36)

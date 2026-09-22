@@ -196,6 +196,18 @@ function AbilityBar.create(parent: Instance): BarApi
 			if combat and combat.vanishUntil and combat.vanishUntil > workspace:GetServerTimeNow() then
 				vanishBit = " · Vanish"
 			end
+			local plateBit = ""
+			if combat and combat.plateUntil and combat.plateStacks and combat.plateUntil > workspace:GetServerTimeNow() and combat.plateStacks > 0 then
+				plateBit = ` · Plate {combat.plateStacks}`
+			end
+			local omenBit = ""
+			if combat and combat.omenUntil and combat.omenUntil > workspace:GetServerTimeNow() then
+				omenBit = " · Omen"
+			end
+			local chargeBit = ""
+			if combat and combat.chargeUntil and combat.chargeStacks and combat.chargeUntil > workspace:GetServerTimeNow() and combat.chargeStacks > 0 then
+				chargeBit = ` · Charge {combat.chargeStacks}`
+			end
 			meta.Text = `{(if champ then champ.name else "Cat")}`
 				.. guardBit
 				.. wickBit
@@ -203,6 +215,9 @@ function AbilityBar.create(parent: Instance): BarApi
 				.. bleedBit
 				.. markBit
 				.. vanishBit
+				.. plateBit
+				.. omenBit
+				.. chargeBit
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. ` · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. aaBit

@@ -72,6 +72,12 @@ named = (
     "Shield Fortify",
     "Alley Mark",
     "Smoke Vanish",
+    "Chrome Plate",
+    "Lunge Reload",
+    "Ward Omen",
+    "Foresight Veil",
+    "Spell Charge",
+    "Charged Meteor",
 )
 missing = [name for name in named if name not in result.stdout]
 if missing:
