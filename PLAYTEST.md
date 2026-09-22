@@ -75,6 +75,8 @@ Lane kitten + jungle camp HP bars (same day, later slice): same `BillboardHp` / 
 
 Floating combat numbers (same day, later slice): Practice hits that the local player deals or takes raise a short cream/coral float at the target (mint for heal/shield; Stall Fang execute larger/bolder). Same `CombatFx` remote — `kind = "float"` with amount + kind — not a second combat system. Client merges near-simultaneous hits and soft-caps on-screen pops so Yarn Cleave / AoE does not carpet. Fogged enemy bodies stay quiet. Hub / Yarn Run / Koi / Party / Arcade stay quiet. HP bars, death recap, and kits unchanged. Verified locally: Luau compiled 140 sources; `tools/test-combat.py` passed (CombatFloat format / merge / fog / spam). `tools/test-structure.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under §8c.
 
+Level-up juice (same day, later slice): local Cat Rift level-ups from the existing combat level-change edge get a punchier cream/amber **LEVEL UP** banner + soft amber flash (`ScreenJuice.levelUp`), a brief silhouette neon flash + expanding foot ring + optional floating `LEVEL n` (`CombatFx.localLevelUp`), and an amber ability-bar pulse on the QWER slot that auto-gained a rank (`AbilityBar.flashRanks` via `LevelUpJuice.gainedSlots`). XP curve, minion XP, floating damage, and select UI stay unchanged. Teammate level-ups stay kill-feed only (Kitty Caster still skips level narration). Verified locally: Luau compiled 142 sources; `tools/test-combat.py` passed (LevelUpJuice helpers); full smoke suite passed (24). Rojo 7.4.4 built the place. Studio live-pass under level-up juice (farm a wave).
+
 Ability bar cooldown feedback (same day, later slice): Cat Rift `AbilityBar` keeps the same cooldown seconds and CombatService timings. Each QWER slot and Ward / Lens / Cleave chip gets a translucent ink sweep that shrinks while `readyAt` is in the future, a mint ready flash when the slot hits 0, and a coral mana-gate tint when mana is too low for the next cast (even off cooldown). Control Yarn still shows `×charges`. Overlays are non-Active so they do not eat clicks. Hub / Yarn Run / Koi / Party / Arcade stay unchanged. Floating damage, HP bars, and kits untouched. Verified locally: Luau compiled 140 sources; full smoke suite passed (24). Rojo 7.4.4 built the place. Studio live-pass under ability bar CD.
 
 Yarn Run juice / readability (same day, later slice): stream-readable power chips + soft screen tint for SPD / MAG / SHD / 2X (equal banners + `ScreenJuice.powerFlash`; SHIELD POP keeps its coral pop). CLOSE! / COMBO BREAK pop larger; near-miss adds a cheap `YarnCamera.kick`. Lane neon + outer rails slightly stronger; dogs / DODGE walls get a ground telegraph — seed / scoring / ghost / boards unchanged. Death card shows a one-glance PB compare line and clearer Daily / Weekly rank strip. Cat Rift / Closet / other stalls untouched. Verified locally: Luau compiled 140 sources; `tools/test-yarn.py` passed (power chip RGB / labels, death PB + rank lines). Full smoke suite passed (24). Rojo 7.4.4 built the place. Studio live-pass under §3b Yarn Run juice.
@@ -746,6 +748,17 @@ Smoke (format / merge / fog / spam helpers): `python3 tools/test-combat.py /path
 3. Yarn Cleave (**7**) into a clump: floats merge / cap — the screen does not carpet with one number per kitten.
 4. Walk a bot into fog and have an ally (or wait for off-screen trades you do not deal/take): no floats on fogged enemy bodies you cannot see. Your own taken damage still shows.
 5. Open Yarn Run / Koi / Party / Arcade or stay on the hub: no Cat Rift combat floats. HP bars and death recap behave as before.
+
+### Studio live-pass (level-up juice)
+
+Client juice only. XP tables and auto-ranks stay in `Progression`. Farm a wave in Practice.
+
+1. Hub → Cat Rift → Practice. Last-hit lane kittens until you level (purse chip **Lv** ticks). A cream/amber **LEVEL UP** banner pops with a soft amber screen flash and the LevelUp ping. A brief amber ring + silhouette flash sits on your cat, and a floating **LEVEL n** rises off the body.
+2. Watch the ability bar: the QWER slot that just gained a rank (auto-assign, no + buttons) pulses amber once. Cooldown sweeps and mana tint still behave as before.
+3. A Red bot leveling only adds a kill-feed line (`grew another life`). No local banner, no silhouette ring on them for you. Kitty Caster still does not narrate every ding.
+4. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade stay quiet. Floating damage numbers and HP bars are unchanged.
+
+Smoke (helpers only, not a Studio substitute): `python3 tools/test-combat.py /path/to/luau`.
 
 ## 8d. Map art pass
 

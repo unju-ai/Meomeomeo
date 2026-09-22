@@ -10,6 +10,7 @@ local Workspace = game:GetService("Workspace")
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -20,15 +21,19 @@ export type BarApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
 	update: (matchPlayer: Types.MatchPlayer, combat: Types.CombatState?) -> (),
+	flashRanks: (slots: { string }) -> (),
 }
 
 local FLASH_SECONDS = 0.38
+local RANK_FLASH_SECONDS = LevelUpJuice.RankFlashSeconds
 local COOLING_EPS = 0.15
 local SWEEP_TRANSPARENCY = 0.42
 local READY_BG = Theme.panelAlt
 local COOLING_BG = Color3.fromRGB(48, 34, 32)
 local MANA_BG = Color3.fromRGB(92, 48, 44)
 local UNLEARNED_BG = Color3.fromRGB(52, 38, 36)
+local RANK_FLASH = Theme.amber
+local READY_FLASH = Theme.mint
 
 type SlotPaint = {
 	cell: Frame,
@@ -40,6 +45,7 @@ type SlotPaint = {
 	duration: number,
 	cooling: boolean,
 	flashUntil: number,
+	rankFlashUntil: number,
 	manaLow: boolean,
 	usable: boolean,
 	readyTextColor: Color3,
@@ -104,6 +110,7 @@ local function makeSlot(parent: Instance, name: string, size: UDim2, layoutOrder
 		duration = 1,
 		cooling = false,
 		flashUntil = 0,
+		rankFlashUntil = 0,
 		manaLow = false,
 		usable = false,
 		readyTextColor = Theme.cream,
@@ -160,18 +167,31 @@ local function paintSlotFrame(slot: SlotPaint, now: number)
 		end
 	end
 
+	local rankLeft = slot.rankFlashUntil - now
 	local flashLeft = slot.flashUntil - now
-	if flashLeft > 0 and slot.usable and not slot.manaLow then
+	if rankLeft > 0 then
+		local u = rankLeft / RANK_FLASH_SECONDS
+		slot.flash.Visible = true
+		slot.flash.BackgroundColor3 = RANK_FLASH
+		slot.flash.BackgroundTransparency = 0.28 + 0.55 * (1 - u)
+		slot.stroke.Color = Theme.amber
+		slot.stroke.Transparency = 0.08
+	elseif flashLeft > 0 and slot.usable and not slot.manaLow then
 		local u = flashLeft / FLASH_SECONDS
 		slot.flash.Visible = true
+		slot.flash.BackgroundColor3 = READY_FLASH
 		slot.flash.BackgroundTransparency = 0.35 + 0.55 * (1 - u)
 		slot.stroke.Color = Theme.mint
 		slot.stroke.Transparency = 0.15
 	else
 		slot.flash.Visible = false
 		slot.flash.BackgroundTransparency = 1
+		slot.flash.BackgroundColor3 = READY_FLASH
 		if flashLeft <= 0 then
 			slot.flashUntil = 0
+		end
+		if rankLeft <= 0 then
+			slot.rankFlashUntil = 0
 		end
 	end
 end
@@ -321,6 +341,16 @@ function AbilityBar.create(parent: Instance): BarApi
 				recallBar.Visible = false
 				recallLabel.Visible = false
 			end
+		end,
+		flashRanks = function(slots: { string })
+			local now = Workspace:GetServerTimeNow()
+			for _, slotName in slots do
+				local paint = abilitySlots[slotName]
+				if paint then
+					paint.rankFlashUntil = now + RANK_FLASH_SECONDS
+				end
+			end
+			tickFrames()
 		end,
 		update = function(matchPlayer: Types.MatchPlayer, combat: Types.CombatState?)
 			local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil

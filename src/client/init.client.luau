@@ -24,6 +24,7 @@ local ChampionKits = require(Shared:WaitForChild("ChampionKits"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
+local LevelUpJuice = require(Shared:WaitForChild("LevelUpJuice"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
@@ -698,6 +699,11 @@ local function applyCombatJuice(state: Types.CombatState)
 	if state.level > prev.level then
 		ScreenJuice.levelUp(state.level)
 		Sfx.play("LevelUp")
+		CombatFx.localLevelUp(player.UserId, state.level)
+		local gained = LevelUpJuice.gainedSlots(prev.ranks, state.ranks)
+		if #gained > 0 then
+			hud.abilities.flashRanks(gained)
+		end
 	end
 	if state.recalling and not prev.recalling then
 		Sfx.startLoop("RecallLoop")
