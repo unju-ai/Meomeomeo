@@ -266,6 +266,8 @@ local Config = {
 		StartingYarn = 100,
 		CheerCost = 10,
 		CheerBump = 0.08,
+		-- Fight bumps (kill / death / post / stall / core) live in Shared.MemeStockLogic.
+		-- This yarn is cheers only. Closet yarn and Meme Arcade yarn are other piles.
 	},
 
 	-- Meo404: Robux Developer Product → DataStore entitlement → hosted mint.

@@ -334,6 +334,98 @@ local function refreshVoiceContext()
 	})
 end
 
+type TapeQuote = {
+	id: string,
+	symbol: string,
+	price: number,
+	change: number,
+}
+
+local marketRows: { TapeQuote } = {}
+local marketEnabled = true
+
+local function ingestMarket(payload: any): { string }?
+	if typeof(payload) ~= "table" then
+		return nil
+	end
+	if (payload :: any).enabled == false then
+		marketEnabled = false
+	elseif (payload :: any).enabled == true then
+		marketEnabled = true
+	end
+	local tickers = (payload :: any).tickers
+	if typeof(tickers) ~= "table" then
+		return {}
+	end
+	local rows: { TapeQuote } = {}
+	for _, ticker in tickers do
+		if typeof(ticker) == "table" then
+			local quote = ticker :: any
+			local id = quote.id
+			local symbol = quote.symbol
+			local price = quote.price
+			local change = quote.change
+			if typeof(id) == "string" and typeof(symbol) == "string" and typeof(price) == "number" and typeof(change) == "number" then
+				table.insert(rows, {
+					id = id,
+					symbol = symbol,
+					price = price,
+					change = change,
+				})
+			end
+		end
+	end
+	marketRows = rows
+	local flash = {}
+	local rawFlash = (payload :: any).flash
+	if typeof(rawFlash) == "table" then
+		for _, symbol in rawFlash do
+			if typeof(symbol) == "string" then
+				table.insert(flash, symbol)
+			end
+		end
+	end
+	return flash
+end
+
+local function riftTapeQuotes(): { TapeQuote }
+	if not latestMatch then
+		return {}
+	end
+	local want: { [string]: boolean } = {}
+	for _, matchPlayer in latestMatch.players do
+		if matchPlayer.championId then
+			want[matchPlayer.championId] = true
+		end
+	end
+	local rows: { TapeQuote } = {}
+	for _, row in marketRows do
+		if want[row.id] then
+			table.insert(rows, row)
+		end
+	end
+	table.sort(rows, function(a, b)
+		return a.symbol < b.symbol
+	end)
+	return rows
+end
+
+local function paintMemeTape(flash: { string }?)
+	local phase = if latestMatch then latestMatch.phase else nil
+	local inRift = (not inMini()) and gameMode == "Moba" and marketEnabled and (phase == "InProgress" or phase == "Ended")
+	if not inRift then
+		hud.tape.setVisible(false)
+		return
+	end
+	local rows = riftTapeQuotes()
+	if #rows == 0 then
+		hud.tape.setVisible(false)
+		return
+	end
+	hud.tape.setVisible(true)
+	hud.tape.setRows(rows, flash)
+end
+
 local function applyShellView()
 	hud.applyShell(gameMode, hubPage, latestMatch, player.UserId)
 	if gameMode == "YarnRun" then
@@ -422,6 +514,7 @@ local function applyShellView()
 		end
 	end
 	refreshVoiceContext()
+	paintMemeTape(nil)
 end
 
 local function applySnapshot(snapshot: Types.MatchSnapshot?)
@@ -1831,20 +1924,10 @@ Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
 end)
 
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
-	if typeof(payload) ~= "table" then
-		return
+	local flash = ingestMarket(payload)
+	if flash then
+		paintMemeTape(flash)
 	end
-	local tickers = (payload :: any).tickers
-	if typeof(tickers) ~= "table" then
-		return
-	end
-	local bits = { "🧶" }
-	for _, ticker in tickers do
-		if typeof(ticker) == "table" then
-			table.insert(bits, `{ticker.symbol} {string.format("%.1f", ticker.price)}`)
-		end
-	end
-	hud.ticker(table.concat(bits, "   ·   "))
 end)
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
@@ -2646,12 +2729,8 @@ task.spawn(function()
 		hud.closet.update(closet :: Types.ClosetStatus)
 	end
 	local market = Remotes.function_("GetMemeMarket"):InvokeServer()
-	if typeof(market) == "table" and typeof((market :: any).tickers) == "table" then
-		local bits = { "🧶" }
-		for _, ticker in (market :: any).tickers do
-			table.insert(bits, `{ticker.symbol} {string.format("%.1f", ticker.price)}`)
-		end
-		hud.ticker(table.concat(bits, "   ·   "))
+	if ingestMarket(market) then
+		paintMemeTape(nil)
 	end
 end)
 

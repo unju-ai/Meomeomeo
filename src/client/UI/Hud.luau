@@ -21,6 +21,7 @@ local MintPanel = require(script.Parent.MintPanel)
 local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EconomyChip = require(script.Parent.EconomyChip)
+local MemeTape = require(script.Parent.MemeTape)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local DeathRecap = require(script.Parent.DeathRecap)
@@ -57,6 +58,7 @@ export type HudApi = {
 	minimap: Minimap.MinimapApi,
 	scoreboard: Scoreboard.BoardApi,
 	economy: EconomyChip.ChipApi,
+	tape: MemeTape.TapeApi,
 	feed: KillFeed.FeedApi,
 	recap: DeathRecap.RecapApi,
 	endScreen: EndScreen.EndApi,
@@ -81,15 +83,17 @@ function Hud.create(): HudApi
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	local ticker = Theme.text(gui, "Ticker", "🐾 MEO stocks warming up…", 13, Theme.ink, Theme.fontMono)
+	local ticker = Theme.text(gui, "Ticker", "", 13, Theme.ink, Theme.fontMono)
 	ticker.AnchorPoint = Vector2.new(0.5, 0)
 	ticker.Position = UDim2.new(0.5, 0, 0, 8)
 	ticker.Size = UDim2.fromOffset(640, 22)
 	ticker.BackgroundColor3 = Theme.amber
 	ticker.BackgroundTransparency = 0.12
 	ticker.TextXAlignment = Enum.TextXAlignment.Center
+	ticker.Visible = false
 	Theme.corner(ticker, 8)
 	Theme.pad(ticker, 4)
+	local tickerSerial = 0
 
 	local banner = Theme.text(gui, "Banner", "", 20, Theme.cream, Theme.fontTitle)
 	banner.AnchorPoint = Vector2.new(0.5, 0)
@@ -152,6 +156,7 @@ function Hud.create(): HudApi
 	local recap = DeathRecap.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local economy = EconomyChip.create(gui)
+	local tape = MemeTape.create(gui)
 	local endScreen = EndScreen.create(gui)
 	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
 	local startMuted = player:GetAttribute(Constants.Attributes.SfxMuted)
@@ -343,6 +348,7 @@ function Hud.create(): HudApi
 		minimap = minimap,
 		scoreboard = scoreboard,
 		economy = economy,
+		tape = tape,
 		feed = feed,
 		recap = recap,
 		endScreen = endScreen,
@@ -362,7 +368,18 @@ function Hud.create(): HudApi
 			writeBanner(text)
 		end,
 		ticker = function(text: string)
+			tickerSerial += 1
+			local serial = tickerSerial
 			ticker.Text = text
+			ticker.Visible = text ~= ""
+			if text ~= "" then
+				task.delay(4.5, function()
+					if tickerSerial == serial then
+						ticker.Text = ""
+						ticker.Visible = false
+					end
+				end)
+			end
 		end,
 		applyPhase = applyPhase,
 		applyShell = applyShell,
