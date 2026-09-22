@@ -9,6 +9,10 @@ assert(EndScreenCopy.outcomeTone(nil) == "neutral")
 
 assert(EndScreenCopy.subLine(true, "Blue") == "Blue wins · enemy yarn core unplugged")
 assert(EndScreenCopy.subLine(false, "Red") == "Red wins · your yarn core fell")
+assert(EndScreenCopy.subLine(true, "Blue", "nexus") == "Blue wins · enemy yarn core unplugged")
+assert(EndScreenCopy.subLine(true, "Blue", "surrender") == "Blue wins · the other side folded")
+assert(EndScreenCopy.subLine(false, "Red", "surrender") == "Red wins · your team surrendered")
+assert(EndScreenCopy.subLine(nil, nil, "surrender") == "Surrender signed — match over")
 assert(string.find(EndScreenCopy.subLine(nil, nil), "match over", 1, true) ~= nil)
 
 assert(EndScreenCopy.mvpLine("Whiskers", 8, 2, 4, 12345.6) == "MVP · Whiskers · 8/2/4 · 12345 dmg")

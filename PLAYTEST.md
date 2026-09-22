@@ -107,6 +107,8 @@ Pawmart shop panel polish (same day, later slice): **B** register (`ShopPanel`) 
 
 Help overlay refresh (same day, later slice): **?** / hold **H** sheets restructured into scannable sections (Cat Rift: Movement · Combat · Vision · Shop · Social · Objectives). Cat Rift rows cover move/AA/QWER/B/F/4/5/6/7/G/T/Tab/V/Mute, fog + ghosts, death recap, purse/CS, Canal Levi, posts → stalls → core, Invite / party, Kitty Caster, and Hub **Live** (Tips row — not a tip card). Hub / Yarn Run / Koi / Party / Arcade sheets keep juice-accurate binds and one Closet unlock line each. Tip cards / Show tips stay separate. Gameplay systems unchanged (copy only). Verified locally: Luau compiled 148 sources; `tools/test-tutorial.py` + `tools/test-brand.py` passed; full smoke suite passed (29). Rojo 7.4.4 built the place. Studio live-pass under §5 Help overlay.
 
+Cat Rift surrender vote (same day, later slice): after the match clock hits **8:00**, a human can press **F8** or the **Fold** chip beside **?** to open a 30s ballot. Majority of *living* human teammates on that side (1 alone, 2 need both, 3 need 2). Bots never start or cast a vote and are not in the count. Dead or disconnected humans are out of the count. Fail or timeout waits **90s** before that team can try again. Pass calls the existing match end: the other side wins, the end screen and Kitty Caster victory/defeat path run, with surrender copy on the subline. Practice included. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade stay quiet. Verified locally: Luau compiled 181 sources; `tools/test-surrender.py`, `tools/test-end-screen.py`, and `tools/test-announcer.py` passed; full smoke suite passed (34). Rojo 7.4.4 built the place. Studio live-pass under surrender vote.
+
 Champion nameplate HP (same day, later slice): Cat Rift `MeoNameplate` billboards keep champion name + role · look tag, and add a small team-tinted cream/amber/coral HP fill (same paint helpers as structure / kitten bars). Client reads existing `Health` / `MaxHealth` attributes mirrored from combat (Humanoid fallback). Enemy plates hide in fog like AA refuse; ally plates can stay. Bots keep `(Bot)`; local plate can show **YOU ·**. Default Roblox humanoid bar stays off. Structure / kitten / camp `BillboardHp` bars, kits, HUD resource bars, and minimap unchanged. Verified locally: Luau compiled 150 sources; `tools/test-structure.py` + `tools/test-vision.py` passed (plate fog + labels); full smoke suite passed (29). Rojo 7.4.4 built the place. Studio live-pass under champion nameplates.
 
 Skillshot wall collision (same day, later slice): traveling line bolts (`CombatService` + `ProjectileLogic.clipAgainstWalls`) stop on the same solids fog uses — keep walls, market drums, and other `MeoBlocksVision` volumes that pass vision thickness. Mid gate, brush, and thin props stay open. Ally and enemy bolts both collide; units beyond the wall are not hit. Enemy bolt fog show/hide is unchanged. Kits / damage numbers / HP bars / nameplates / Pawmart untouched. Verified locally: Luau compiled 150 sources; `tools/test-combat.py` + `tools/test-vision.py` passed (wallHitT / clipAgainstWalls); Rojo 7.4.4 built the place. Studio live-pass under skillshot wall collision.
@@ -860,6 +862,7 @@ Same list as the in-game **?** / hold **H** panel. The overlay is a **reference 
 | **Canal Levi** | One river epic. Wakes about 3:00 in the canal between mid and the south crab. The clock counts down, shows UP, counts the one ~90s return, then **Levi taken**. Last hit's team keeps +8% auto and ability damage for the match |
 | **Posts** | Outer scratching post → lantern stall → yarn core. Stalls gate per lane |
 | **Tab** (hold) | Scoreboard: Blue/Red sections, YOU highlight, KDA / CS / gold / level / short items. Dead dimmed. Bots tagged. Non-modal |
+| **F8** / **Fold** | Surrender vote after **8:00**. Chip sits beside **?**. Majority of living humans. 30s window, then **90s** cooldown. Bots never vote. Practice too |
 | **Death** | Recap of recent scratches (cat / post / kitten / camp / item). **✕** dismisses, or it hides ~2.5s before the fountain. **Recap** reopens while you are down |
 | **Kitty Caster** | First blood, streaks, posts, stalls, yarn core, Canal Levi, victory/defeat. Mock Talk lines stay separate from callouts |
 | **V** | Toggle locked follow camera |
@@ -888,11 +891,23 @@ Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade
 Copy-only. Tip cards and Show tips stay on their own deck. Open **?** (or hold **H**) in each place below — do not treat this as a combat or unlock pass.
 
 1. **Hub.** Sheet title **Hub**. Sections include Stalls / Closet / Social. **Live** points at the publish checklist. Closet unlocks are one short line. Tip cards do not open from this sheet.
-2. **Cat Rift Practice.** After draft, open **?**. Title **Cat Rift**. Scan **Movement · Combat · Vision · Shop · Social · Objectives**. Confirm rows for move / AA / QWER / B / F / 4 / 5 / 6 / 7 (via item rows) / G / T / Tab / V / Mute, fog + ghosts, death recap, purse/CS, Levi, posts → stalls → core, Invite, Kitty Caster, and Tips → Live (not a card). The Practice row reads solo + 2 Blue bots vs 3 Red, and a party caps Blue at 3. Kit shorthand still sits under QWER.
+2. **Cat Rift Practice.** After draft, open **?**. Title **Cat Rift**. Scan **Movement · Combat · Vision · Shop · Social · Objectives**. Confirm rows for move / AA / QWER / B / F / 4 / 5 / 6 / 7 (via item rows) / G / T / Tab / **F8** / V / Mute, fog + ghosts, death recap, purse/CS, Levi, posts → stalls → core, Invite, Kitty Caster, and Tips → Live (not a card). The Practice row reads solo + 2 Blue bots vs 3 Red, and a party caps Blue at 3. Kit shorthand still sits under QWER. **F8** says surrender after 8:00, living humans, bots never vote.
 3. **Yarn Run / Koi / Party / Arcade.** Open **?** in each stall. Each sheet stays short, juice-accurate, and names that mode's Closet unlock in one line.
 4. Close help. Lobby **Show tips** still replays tip cards only — it does not replace this reference sheet.
 
 Smoke (not a Studio substitute): `python3 tools/test-tutorial.py /path/to/luau` (Tips / Live row). Brand smoke still covers Closet / Live chrome: `python3 tools/test-brand.py /path/to/luau`.
+
+### Studio live-pass (surrender vote)
+
+Cat Rift only. The Fold chip sits just left of **?**, under the voice pill. **F8** does the same thing. Yarn Run, Koi Pond, Yarn Party, Meme Arcade, and the hub grid do not show the chip and do not toast on F8.
+
+1. **Practice**, lock in, fight. Before the top-left clock reads **8:00**, press **F8** (or **Fold**). A short toast says surrender opens at 8:00. The match keeps going. Bots do not open a vote on their own.
+2. At **8:00** the chip turns amber. **F8** or **Fold** opens a night-market panel: Yes / No counts, a ~30s timer, **Yes** and **No**. Teammates get a toast that someone called a surrender. In solo Practice you are the only living human, so that press passes immediately: the end screen is **DEFEAT** for you (**VICTORY** would be the other side), the subline says your team surrendered, and Kitty Caster still calls victory or defeat. **Practice again** / **Back to lobby** / **Hub** are the same buttons.
+3. With two humans on a side, one Yes stays open (need both). The second Yes passes. With three, two Yes passes even if the third has not voted. A dead human is not in the count. Bots are not in the count and have no Yes/No.
+4. If the window runs out, or everyone living has voted and Yes is short, the panel closes and a toast says the vote failed with a **90s** cooldown. **F8** during that wait toasts the cooldown. After it, the team can start again.
+5. The other side winning still uses the normal end screen and caster. Hub stalls never show this panel.
+
+Smoke (not a Studio substitute): `python3 tools/test-surrender.py /path/to/luau` and `python3 tools/test-end-screen.py /path/to/luau`.
 
 ### Combat notes (Cat Rift)
 

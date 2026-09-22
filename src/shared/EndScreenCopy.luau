@@ -41,8 +41,16 @@ function EndScreenCopy.outcomeTone(won: boolean?): OutcomeTone
 	return "neutral"
 end
 
-function EndScreenCopy.subLine(won: boolean?, winner: string?): string
+function EndScreenCopy.subLine(won: boolean?, winner: string?, reason: string?): string
 	local side = winner or "??"
+	if reason == "surrender" then
+		if won == true then
+			return `{side} wins · the other side folded`
+		elseif won == false then
+			return `{side} wins · your team surrendered`
+		end
+		return "Surrender signed — match over"
+	end
 	if won == true then
 		return `{side} wins · enemy yarn core unplugged`
 	elseif won == false then

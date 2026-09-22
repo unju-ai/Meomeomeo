@@ -304,4 +304,16 @@ assert(defeat.cue == "Announcer")
 assert(defeat.line == "DEFEAT — your yarn core rug-pulled. GG.")
 assert(string.find(defeat.line, "VICTORY", 1, true) == nil)
 
+local foldedWin = AnnouncerLines.matchEnd(true, "Red", 1, "surrender")
+assert(foldedWin.beat == "SurrenderWin")
+assert(foldedWin.cue == "MatchFound")
+assert(foldedWin.speak == true)
+assert(foldedWin.line == "VICTORY — Red takes the tape. The other side folded.")
+
+local foldedLoss = AnnouncerLines.matchEnd(false, "Red", 1, "surrender")
+assert(foldedLoss.beat == "SurrenderLoss")
+assert(foldedLoss.cue == "Announcer")
+assert(foldedLoss.line == "DEFEAT — your team folded the night market. GG.")
+assert(string.find(foldedLoss.line :: string, "yarn core", 1, true) == nil)
+
 print("announcer smoke ok")

@@ -15,6 +15,7 @@ local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
+local SurrenderLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SurrenderLogic"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local XpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("XpJuice"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -44,8 +45,24 @@ local MatchService = {}
 local current: Types.MatchSnapshot? = nil
 local lastPingAt: { [number]: number } = {}
 local phaseToken = 0
+-- Monotonic per team so a finished ballot's timer cannot resolve the next one.
+local surrenderSerial: { [Types.TeamId]: number } = {
+	Blue = 0,
+	Red = 0,
+}
 local onMatchCleared: (() -> ())? = nil
 local nextBotId = -1001
+
+local function blankSurrender(): Types.SurrenderView
+	return {
+		ballots = {},
+		blueCooldownUntil = nil,
+		redCooldownUntil = nil,
+		noticeId = 0,
+		notice = nil,
+		noticeTeam = nil,
+	}
+end
 
 local function blankPlayer(userId: number, displayName: string, team: Types.TeamId, isBot: boolean, championId: string?): Types.MatchPlayer
 	return {
@@ -396,14 +413,174 @@ local function riftHuman(userId: number?): Player?
 	return Players:GetPlayerByUserId(userId)
 end
 
-function MatchService.endMatch(winner: Types.TeamId, _reason: string)
+local function surrenderView(): Types.SurrenderView?
+	if not current then
+		return nil
+	end
+	if not current.surrender then
+		current.surrender = blankSurrender()
+	end
+	return current.surrender
+end
+
+local function surrenderSeats(): { SurrenderLogic.Seat }
+	local seats: { SurrenderLogic.Seat } = {}
+	if not current then
+		return seats
+	end
+	for _, matchPlayer in current.players do
+		table.insert(seats, SurrenderLogic.seat(
+			matchPlayer.userId,
+			matchPlayer.team,
+			matchPlayer.isBot,
+			matchPlayer.respawnAt,
+			matchPlayer.connected
+		))
+	end
+	return seats
+end
+
+local function ballotFor(team: Types.TeamId): Types.SurrenderBallot?
+	local view = surrenderView()
+	if not view then
+		return nil
+	end
+	for _, ballot in view.ballots do
+		if ballot.team == team then
+			return ballot
+		end
+	end
+	return nil
+end
+
+local function dropBallot(team: Types.TeamId)
+	local view = surrenderView()
+	if not view then
+		return
+	end
+	local kept: { Types.SurrenderBallot } = {}
+	for _, ballot in view.ballots do
+		if ballot.team ~= team then
+			table.insert(kept, ballot)
+		end
+	end
+	view.ballots = kept
+end
+
+local function cooldownUntil(team: Types.TeamId): number?
+	local view = surrenderView()
+	if not view then
+		return nil
+	end
+	if team == "Blue" then
+		return view.blueCooldownUntil
+	end
+	return view.redCooldownUntil
+end
+
+local function setCooldown(team: Types.TeamId, at: number)
+	local view = surrenderView()
+	if not view then
+		return
+	end
+	if team == "Blue" then
+		view.blueCooldownUntil = at
+	else
+		view.redCooldownUntil = at
+	end
+end
+
+local function surrenderNotice(team: Types.TeamId, text: string)
+	local view = surrenderView()
+	if not view then
+		return
+	end
+	view.noticeId = (view.noticeId or 0) + 1
+	view.notice = text
+	view.noticeTeam = team
+end
+
+local function invalidateSurrender(team: Types.TeamId)
+	surrenderSerial[team] += 1
+end
+
+local function failSurrender(team: Types.TeamId)
+	if not current or current.phase ~= "InProgress" or not ballotFor(team) then
+		return
+	end
+	invalidateSurrender(team)
+	dropBallot(team)
+	setCooldown(team, Workspace:GetServerTimeNow() + SurrenderLogic.CooldownSeconds)
+	surrenderNotice(team, SurrenderLogic.failedNotice())
+	broadcast()
+end
+
+local function passSurrender(team: Types.TeamId)
+	if not current or current.phase ~= "InProgress" then
+		return
+	end
+	local winner: Types.TeamId = if team == "Blue" then "Red" else "Blue"
+	dropBallot(team)
+	MatchService.endMatch(winner, "surrender")
+end
+
+local function resolveSurrender(team: Types.TeamId)
+	local ballot = ballotFor(team)
+	if not ballot or not current or current.phase ~= "InProgress" then
+		return
+	end
+	local result = SurrenderLogic.tally(surrenderSeats(), ballot)
+	if result.outcome == "pass" then
+		passSurrender(team)
+	elseif result.outcome == "fail" then
+		failSurrender(team)
+	end
+end
+
+local function armSurrender(team: Types.TeamId)
+	invalidateSurrender(team)
+	local token = surrenderSerial[team]
+	local matchId = if current then current.id else ""
+	task.delay(SurrenderLogic.WindowSeconds, function()
+		if not current or current.id ~= matchId or current.phase ~= "InProgress" then
+			return
+		end
+		if surrenderSerial[team] ~= token then
+			return
+		end
+		local ballot = ballotFor(team)
+		if not ballot then
+			return
+		end
+		local result = SurrenderLogic.tally(surrenderSeats(), ballot)
+		if SurrenderLogic.timeoutOutcome(result) == "pass" then
+			passSurrender(team)
+		else
+			failSurrender(team)
+		end
+	end)
+end
+
+local function recheckSurrender(team: Types.TeamId)
+	if ballotFor(team) then
+		resolveSurrender(team)
+	end
+end
+
+function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	if not current or current.phase == "Ended" then
 		return
 	end
 	current.phase = "Ended"
 	current.winner = winner
+	current.endReason = if reason == "surrender" then "surrender" else "nexus"
 	current.endedAt = Workspace:GetServerTimeNow()
 	current.phaseEndsAt = Workspace:GetServerTimeNow() + Config.Match.PostMatchSeconds
+	if current.surrender then
+		current.surrender.ballots = {}
+	end
+	surrenderSerial.Blue += 1
+	surrenderSerial.Red += 1
 	MinionService.stop()
 	JungleService.stop()
 	TowerService.stop()
@@ -412,8 +589,13 @@ function MatchService.endMatch(winner: Types.TeamId, _reason: string)
 	BotService.stop()
 	current.mvpUserId = pickMvp()
 	CombatService.clearAll()
-	feed("announce", `{winner} destroyed the enemy nexus!`)
-	AnnouncerService.onMatchEnd(winner)
+	if reason == "surrender" then
+		local folded: Types.TeamId = if winner == "Blue" then "Red" else "Blue"
+		feed("announce", `{folded} surrendered. {winner} takes the night market.`)
+	else
+		feed("announce", `{winner} destroyed the enemy nexus!`)
+	end
+	AnnouncerService.onMatchEnd(winner, if reason == "surrender" then "surrender" else nil)
 	for _, matchPlayer in current.players do
 		local player = riftHuman(matchPlayer.userId)
 		if player then
@@ -501,6 +683,8 @@ function MatchService.start(
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
 		structureFalls = {},
+		endReason = nil,
+		surrender = blankSurrender(),
 		riverEpic = {
 			phase = "waiting",
 			blueBuff = false,
@@ -558,6 +742,93 @@ function MatchService.selectChampion(player: Player, championId: unknown): Types
 		phaseToken += 1
 		autoAssignChampions()
 		beginFight()
+	end
+	return { ok = true }
+end
+
+function MatchService.surrender(player: Player, action: unknown): Types.TradeResult
+	if not current or current.phase ~= "InProgress" then
+		return { ok = false, error = SurrenderLogic.QuietToast }
+	end
+	local view = surrenderView()
+	if not view then
+		return { ok = false, error = SurrenderLogic.QuietToast }
+	end
+	if typeof(action) ~= "string" or (action ~= "start" and action ~= "yes" and action ~= "no") then
+		return { ok = false, error = SurrenderLogic.NoVoteToast }
+	end
+	local choice = action
+	local matchPlayer = current.players[tostring(player.UserId)]
+	if not matchPlayer then
+		return { ok = false, error = "You are not in this match." }
+	end
+	local team = matchPlayer.team
+	local ballot = ballotFor(team)
+	if choice == "start" and ballot ~= nil then
+		choice = "yes"
+	end
+	local now = Workspace:GetServerTimeNow()
+	local alive = matchPlayer.respawnAt == nil
+	local connected = matchPlayer.connected ~= false
+	if choice == "start" then
+		local refusal = SurrenderLogic.startRefusal({
+			phase = current.phase,
+			elapsed = SurrenderLogic.elapsed(now, current.startedAt),
+			isBot = matchPlayer.isBot == true,
+			alive = alive,
+			connected = connected,
+			voteOpen = false,
+			cooldownUntil = cooldownUntil(team),
+			now = now,
+		})
+		if refusal then
+			return { ok = false, error = refusal }
+		end
+		local opened: Types.SurrenderBallot = {
+			team = team,
+			endsAt = now + SurrenderLogic.WindowSeconds,
+			yesUserIds = { player.UserId },
+			noUserIds = {},
+		}
+		table.insert(view.ballots, opened)
+		local result = SurrenderLogic.tally(surrenderSeats(), opened)
+		if result.outcome == "pass" then
+			passSurrender(team)
+			return { ok = true }
+		end
+		if result.outcome == "fail" then
+			failSurrender(team)
+			return { ok = true }
+		end
+		surrenderNotice(team, SurrenderLogic.openedNotice(matchPlayer.displayName))
+		armSurrender(team)
+		broadcast()
+		return { ok = true }
+	end
+
+	local already = if ballot then SurrenderLogic.voted(ballot, player.UserId) else false
+	local refusal = SurrenderLogic.voteRefusal({
+		isBot = matchPlayer.isBot == true,
+		alive = alive,
+		connected = connected,
+		voteOpen = ballot ~= nil,
+		already = already,
+	})
+	if refusal then
+		return { ok = false, error = refusal }
+	end
+	local open = ballotFor(team)
+	if not open then
+		return { ok = false, error = SurrenderLogic.NoVoteToast }
+	end
+	if choice == "no" then
+		table.insert(open.noUserIds, player.UserId)
+	else
+		table.insert(open.yesUserIds, player.UserId)
+	end
+	resolveSurrender(team)
+	if current and current.phase == "InProgress" and ballotFor(team) then
+		broadcast()
 	end
 	return { ok = true }
 end
@@ -699,6 +970,12 @@ function MatchService.init(cleared: () -> ())
 			if matchPlayer then
 				matchPlayer.respawnAt = at
 				broadcast()
+				-- After the death handler finishes, so a passing vote does not
+				-- clear combat mid-takedown.
+				local team = matchPlayer.team
+				task.defer(function()
+					recheckSurrender(team)
+				end)
 			end
 		end,
 		onPlayerKilled = function(killerUserId: number?, victimUserId: number, assists: { number })
@@ -1182,6 +1459,7 @@ function MatchService.init(cleared: () -> ())
 		if matchPlayer then
 			matchPlayer.connected = false
 			broadcast()
+			recheckSurrender(matchPlayer.team)
 		end
 	end)
 
