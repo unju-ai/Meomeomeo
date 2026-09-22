@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ActiveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ActiveJuice"))
+local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BountyJuice"))
 local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrushJuice"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
@@ -598,6 +599,131 @@ local function playLastHit(event: Types.CombatFxEvent)
 	ensureLoop()
 end
 
+local function paintBounty(pop: FloatPop)
+	local rgb = BountyJuice.rgb()
+	local ink = BountyJuice.Ink
+	pop.label.RichText = false
+	pop.label.Text = BountyJuice.goldLabel(pop.amount)
+	pop.label.TextColor3 = Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+	pop.label.TextSize = BountyJuice.TextSize
+	pop.label.Font = Theme.fontTitle
+	pop.label.TextXAlignment = Enum.TextXAlignment.Center
+	pop.label.TextStrokeColor3 = Color3.fromRGB(ink[1], ink[2], ink[3])
+	pop.stroke.Color = Color3.fromRGB(ink[1], ink[2], ink[3])
+	pop.stroke.Thickness = 1.3
+	pop.gui.Size = UDim2.fromOffset(110, 36)
+end
+
+local function spawnBounty(amount: number, origin: Vector3, key: string, now: number)
+	local part = Instance.new("Part")
+	part.Name = "BountyGold"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(origin + Vector3.new(0, BountyJuice.Lift, 0))
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoBounty"
+	gui.Size = UDim2.fromOffset(110, 36)
+	gui.StudsOffset = Vector3.new(0, 0, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 120
+	gui.Adornee = part
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Amount"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextStrokeTransparency = 0.35
+	label.Parent = gui
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Transparency = 0.4
+	stroke.Parent = label
+
+	local pop: FloatPop = {
+		key = key,
+		kind = "bounty",
+		amount = amount,
+		bornAt = now,
+		origin = origin,
+		part = part,
+		gui = gui,
+		label = label,
+		stroke = stroke,
+	}
+	paintBounty(pop)
+	table.insert(floatPops, pop)
+	local slotted = false
+	for _, slot in floatMergeSlots do
+		if slot.key == key and slot.kind == "bounty" and (now - slot.bornAt) <= CombatFloat.MergeWindow then
+			slot.amount = amount
+			slotted = true
+			break
+		end
+	end
+	if not slotted then
+		table.insert(floatMergeSlots, {
+			key = key,
+			amount = amount,
+			kind = "bounty",
+			bornAt = now,
+		})
+	end
+end
+
+-- Local FarmCredit.bounty only. Last-hit credits never arrive here.
+local function playBounty(event: Types.CombatFxEvent)
+	if not floatsEnabled then
+		return
+	end
+	local localPlayer = Players.LocalPlayer
+	if not localPlayer then
+		return
+	end
+	local gold = event.amount
+	if typeof(gold) ~= "number" or not BountyJuice.wantsFloat(0, gold) then
+		return
+	end
+	if not BountyJuice.isLocal(localPlayer.UserId, event.userId) then
+		return
+	end
+
+	local now = os.clock()
+	pruneFloatSlots(now)
+	local key = BountyJuice.mergeKey(event.origin.X, event.origin.Z)
+	local merged = BountyJuice.tryMerge(floatMergeSlots, key, gold, now)
+	if merged then
+		for _, pop in floatPops do
+			if pop.key == key and pop.kind == "bounty" and (now - pop.bornAt) <= CombatFloat.MergeWindow then
+				pop.amount = merged.amount
+				paintBounty(pop)
+				return
+			end
+		end
+		if BountyJuice.canSpawn(#floatPops) then
+			spawnBounty(merged.amount, event.origin, key, now)
+			ensureLoop()
+		end
+		return
+	end
+	if not BountyJuice.canSpawn(#floatPops) then
+		return
+	end
+	local jitter = Vector3.new((math.random() - 0.5) * 0.7, 0, (math.random() - 0.5) * 0.7)
+	spawnBounty(gold, event.origin + jitter, key, now)
+	if BountyJuice.wantsCoin(false) then
+		Sfx.play("CoinTick")
+	end
+	ensureLoop()
+end
+
 ensureLoop = function()
 	if loopBound then
 		return
@@ -747,7 +873,10 @@ ensureLoop = function()
 				local alpha = age / CombatFloat.Duration
 				local rise = CombatFloat.RiseStuds * alpha
 				local fade = if alpha < 0.55 then 0 else (alpha - 0.55) / 0.45
-				local lift = if pop.kind == "gold" then LastHitJuice.Lift else 2.4
+				local lift = if pop.kind == "gold"
+					then LastHitJuice.Lift
+					elseif pop.kind == "bounty" then BountyJuice.Lift
+					else 2.4
 				pop.part.CFrame = CFrame.new(pop.origin + Vector3.new(0, lift + rise, 0))
 				pop.label.TextTransparency = fade
 				pop.label.TextStrokeTransparency = 0.35 + fade * 0.65
@@ -1939,6 +2068,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		playFloat(event)
 	elseif event.kind == "lastHit" then
 		playLastHit(event)
+	elseif event.kind == "bounty" then
+		playBounty(event)
 	end
 end
 

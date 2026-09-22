@@ -51,4 +51,18 @@ function FxRelay.lastHit(origin: Vector3, userId: number, gold: number)
 	})
 end
 
+-- Local bounty gold paint. Same gold FarmCredit.bounty just credited. Not a last hit.
+-- Client keeps it on the credited cat and merges with CombatFloat.
+function FxRelay.bounty(origin: Vector3, userId: number, gold: number)
+	if gold <= 0 then
+		return
+	end
+	FxRelay.emit({
+		kind = "bounty",
+		origin = origin,
+		amount = gold,
+		userId = userId,
+	})
+end
+
 return FxRelay

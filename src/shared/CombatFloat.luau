@@ -19,8 +19,10 @@ CombatFloat.ShieldMint = { 150, 214, 180 }
 CombatFloat.Ink = { 52, 36, 32 }
 -- Last-hit gold only. Damage numbers stay cream / coral.
 CombatFloat.GoldAmber = { 255, 196, 74 }
+-- Bounty gold only (kill / assist / structure). Peach, not amber, not execute coral.
+CombatFloat.BountyPeach = { 255, 164, 120 }
 
-export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute" | "gold"
+export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute" | "gold" | "bounty"
 
 function CombatFloat.format(amount: number): string
 	if amount <= 0 then
@@ -56,6 +58,9 @@ function CombatFloat.textSize(kind: FloatKind): number
 	if kind == "crit" or kind == "execute" then
 		return 28
 	end
+	if kind == "bounty" then
+		return 22
+	end
 	if kind == "heal" or kind == "shield" or kind == "gold" then
 		return 20
 	end
@@ -75,11 +80,14 @@ function CombatFloat.rgb(kind: FloatKind): { number }
 	if kind == "gold" then
 		return CombatFloat.GoldAmber
 	end
+	if kind == "bounty" then
+		return CombatFloat.BountyPeach
+	end
 	return CombatFloat.DamageCream
 end
 
 function CombatFloat.prefix(kind: FloatKind): string
-	if kind == "heal" or kind == "shield" or kind == "gold" then
+	if kind == "heal" or kind == "shield" or kind == "gold" or kind == "bounty" then
 		return "+"
 	end
 	return ""
@@ -87,7 +95,7 @@ end
 
 function CombatFloat.label(kind: FloatKind, amount: number): string
 	local body = `{CombatFloat.prefix(kind)}{CombatFloat.format(amount)}`
-	if kind == "gold" then
+	if kind == "gold" or kind == "bounty" then
 		return `{body}g`
 	end
 	return body

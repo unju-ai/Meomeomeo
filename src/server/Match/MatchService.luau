@@ -11,6 +11,7 @@ local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingLogic"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
+local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BountyJuice"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
@@ -580,8 +581,8 @@ function MatchService.init(cleared: () -> ())
 	onMatchCleared = cleared
 	AnnouncerService.init(MatchService.snapshot)
 
-	-- Tower and nexus gold only. Does not touch CS. Last hits go through FarmCredit.
-	-- A last-hit paint cue uses the same credit. It does not grant extra gold.
+	-- Lane kitten and camp last hits. One CS plus that gold. The paint cue
+	-- uses the same credit and does not grant extra gold. Bounties do not enter here.
 	local function creditLastHit(userId: number, gold: number, position: Vector3): boolean
 		if not current then
 			return false
@@ -598,13 +599,23 @@ function MatchService.init(cleared: () -> ())
 		return true
 	end
 
-	local function addGold(userId: number, amount: number)
+	-- Kill, assist, tower, and nexus gold. No CS. The paint cue uses the same
+	-- credit and does not grant extra gold. Last hits do not enter here.
+	local function creditBounty(matchPlayer: Types.MatchPlayer, gold: number, position: Vector3?)
+		local credit = FarmCredit.bounty(gold)
+		FarmCredit.apply(matchPlayer, credit)
+		if position and BountyJuice.wantsFloat(credit.cs, credit.gold) then
+			FxRelay.bounty(position, matchPlayer.userId, credit.gold)
+		end
+	end
+
+	local function addGold(userId: number, amount: number, position: Vector3?)
 		if not current then
 			return
 		end
 		local matchPlayer = current.players[tostring(userId)]
 		if matchPlayer then
-			FarmCredit.apply(matchPlayer, FarmCredit.bounty(amount))
+			creditBounty(matchPlayer, amount, position)
 			broadcast()
 		end
 	end
@@ -661,9 +672,11 @@ function MatchService.init(cleared: () -> ())
 				v.deaths += 1
 			end
 			if killerUserId then
+				local victimRoot = CombatService.rootOf(victimUserId)
+				local bountyAt = if victimRoot then victimRoot.Position else nil
 				if k then
 					k.kills += 1
-					FarmCredit.apply(k, FarmCredit.bounty(Config.Match.KillGold))
+					creditBounty(k, Config.Match.KillGold, bountyAt)
 					grantXp(killerUserId, Config.Match.KillXp)
 					local killer = riftHuman(killerUserId)
 					if killer then
@@ -675,7 +688,7 @@ function MatchService.init(cleared: () -> ())
 					local helperMatch = current.players[tostring(helperId)]
 					if helperMatch then
 						helperMatch.assists += 1
-						FarmCredit.apply(helperMatch, FarmCredit.bounty(Config.Match.AssistGold))
+						creditBounty(helperMatch, Config.Match.AssistGold, bountyAt)
 						grantXp(helperId, Config.Match.AssistXp)
 						table.insert(assistNames, helperMatch.displayName)
 					end

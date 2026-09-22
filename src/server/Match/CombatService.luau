@@ -35,7 +35,7 @@ type MatchApi = {
 	getSnapshot: () -> Types.MatchSnapshot?,
 	onPlayerKilled: (killerUserId: number?, victimUserId: number, assists: { number }) -> (),
 	onObjectiveDestroyed: (attackerUserId: number?, objective: Types.ObjectiveState) -> (),
-	addGold: (userId: number, amount: number) -> (),
+	addGold: (userId: number, amount: number, position: Vector3?) -> (),
 	addDamageDealt: (userId: number, amount: number) -> (),
 	setRespawnAt: (userId: number, at: number?) -> (),
 }
@@ -1282,7 +1282,7 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 				objective.alive = false
 				objective.health = 0
 				if attackerUserId then
-					matchApi.addGold(attackerUserId, Config.Match.TowerGold)
+					matchApi.addGold(attackerUserId, Config.Match.TowerGold, part.Position)
 				end
 				-- Minions can melt a tower/nexus; the match still has to resolve.
 				matchApi.onObjectiveDestroyed(attackerUserId, objective)

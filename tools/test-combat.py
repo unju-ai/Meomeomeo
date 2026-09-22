@@ -59,6 +59,7 @@ script = (
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap("CombatFloat", "src/shared/CombatFloat.luau")
     + wrap("LastHitJuice", "src/shared/LastHitJuice.luau")
+    + wrap("BountyJuice", "src/shared/BountyJuice.luau")
     + wrap("LevelUpJuice", "src/shared/LevelUpJuice.luau")
     + wrap("FountainRegenJuice", "src/shared/FountainRegenJuice.luau")
     + wrap("RespawnJuice", "src/shared/RespawnJuice.luau")
@@ -96,6 +97,7 @@ named = (
     "Mind Nudge",
     "CombatFloat",
     "LastHitJuice",
+    "BountyJuice",
     "LevelUpJuice",
     "FountainRegenJuice",
     "RespawnJuice",
