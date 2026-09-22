@@ -467,6 +467,33 @@ function ChampionKits.identity(championId: string): Identity?
 	return nil
 end
 
+-- Draft-card kit teaser. Flagships keep identity() nil (combat hooks only);
+-- this labels all 14 for ChampionSelect without dumping full guides.
+function ChampionKits.teaser(championId: string): Identity?
+	local known = ChampionKits.identity(championId)
+	if known then
+		return known
+	end
+	if championId == "ChairmanMeow" then
+		return { passive = "Golden Parachute", signature = "Executive Order" }
+	end
+	if championId == "NyanRocket" then
+		return { passive = "Encore", signature = "Hyperbeam" }
+	end
+	if championId == "ProfessorWhiskers" then
+		return { passive = "Office Hours", signature = "Pop Quiz" }
+	end
+	return nil
+end
+
+function ChampionKits.teaserLine(championId: string): string
+	local kit = ChampionKits.teaser(championId)
+	if not kit then
+		return ""
+	end
+	return `{kit.passive} · {kit.signature}`
+end
+
 function ChampionKits.refundMana(championId: string, slot: Types.AbilitySlot): number
 	if championId == "ProfessorWhiskers" and slot == "Q" then
 		return WHISK_REFUND
