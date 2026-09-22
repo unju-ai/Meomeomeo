@@ -14,6 +14,7 @@ local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
+local ActiveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ActiveJuice"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -713,10 +714,12 @@ function CombatService.init(api: MatchApi)
 					if root and matchPlayer and humanoid and humanoid.JumpPower > 0 then
 						local base = 16 + ShopService.bonuses(userId).walkSpeed
 						local slow = WardService.slowMul(matchPlayer.team, root.Position)
+						local prevCharm = state.charmUntil
+						local t = now()
 						local step = ItemKits.charmStep(
 							slow,
 							ShopService.has(userId, ItemKits.CharmId),
-							now(),
+							t,
 							state.charmUntil,
 							state.charmReadyAt
 						)
@@ -725,6 +728,21 @@ function CombatService.init(api: MatchApi)
 						humanoid.WalkSpeed = base * step.mul
 						if step.procced then
 							fireCombat(userId)
+							FxRelay.emit({
+								kind = "charm",
+								origin = root.Position,
+								userId = userId,
+								team = matchPlayer.team,
+								duration = ItemKits.CHARM_WINDOW,
+							})
+						elseif ActiveJuice.charmClosed(prevCharm, step.untilAt, t) then
+							FxRelay.emit({
+								kind = "charm",
+								origin = root.Position,
+								userId = userId,
+								team = matchPlayer.team,
+								duration = 0,
+							})
 						end
 					end
 				end
@@ -1046,6 +1064,7 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	end
 	local raw = amount
 	local fangRaw = 0
+	local fangTeam: Types.TeamId? = nil
 	if attackerUserId and amount > 0 and matchApi then
 		local snapshot = matchApi.getSnapshot()
 		local attacker = if snapshot then snapshot.players[tostring(attackerUserId)] else nil
@@ -1053,6 +1072,9 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 		if attacker and victimMatch and attacker.team ~= victimMatch.team then
 			fangRaw = ItemKits.fangBonus(state.health, state.maxHealth, ShopService.has(attackerUserId, ItemKits.FangId))
 			raw += fangRaw
+			if fangRaw > 0 then
+				fangTeam = victimMatch.team
+			end
 		end
 	end
 	local guarded = state.guardUntil ~= nil and now() < state.guardUntil
@@ -1103,7 +1125,7 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 				label = if attackerUserId then displayNameOf(attackerUserId) else "Bite",
 			}, lethal and mainDealt <= 0.05)
 			if floatAt then
-				FxRelay.float(floatAt, fangDealt, "execute", targetUserId, attackerUserId)
+				FxRelay.float(floatAt, fangDealt, "execute", targetUserId, attackerUserId, fangTeam)
 			end
 		end
 	end
@@ -3372,6 +3394,15 @@ function CombatService.useLensFor(userId: number): Types.AbilityResult
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)
 	result.combat = state
+	if result.ok then
+		FxRelay.emit({
+			kind = "lens",
+			origin = root.Position,
+			userId = userId,
+			team = matchPlayer.team,
+			radius = Config.Vision.LensRadius,
+		})
+	end
 	if player then
 		Remotes.event("CombatUpdated"):FireClient(player, state)
 	end
@@ -3434,6 +3465,7 @@ function CombatService.useCleaveFor(userId: number): Types.AbilityResult
 		kind = "cleave",
 		origin = root.Position,
 		userId = userId,
+		team = matchPlayer.team,
 		radius = ItemKits.CLEAVE_RADIUS,
 	})
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)

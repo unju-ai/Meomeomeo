@@ -20,7 +20,8 @@ function FxRelay.float(
 	amount: number,
 	floatKind: Types.CombatFloatKind,
 	targetUserId: number?,
-	attackerUserId: number?
+	attackerUserId: number?,
+	team: Types.TeamId?
 )
 	if amount <= 0.05 then
 		return
@@ -32,6 +33,7 @@ function FxRelay.float(
 		floatKind = floatKind,
 		userId = targetUserId,
 		attackerUserId = attackerUserId,
+		team = team,
 	})
 end
 
