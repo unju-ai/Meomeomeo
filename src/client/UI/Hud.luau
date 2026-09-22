@@ -21,6 +21,7 @@ local MintPanel = require(script.Parent.MintPanel)
 local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EconomyChip = require(script.Parent.EconomyChip)
+local MatchClock = require(script.Parent.MatchClock)
 local MemeTape = require(script.Parent.MemeTape)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
@@ -156,6 +157,7 @@ function Hud.create(): HudApi
 	local recap = DeathRecap.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local economy = EconomyChip.create(gui)
+	local clock = MatchClock.create(gui)
 	local tape = MemeTape.create(gui)
 	local endScreen = EndScreen.create(gui)
 	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
@@ -187,6 +189,7 @@ function Hud.create(): HudApi
 		shop.setVisible(false)
 		scoreboard.setVisible(false)
 		economy.setVisible(false)
+		clock.setVisible(false)
 	end
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
@@ -210,6 +213,12 @@ function Hud.create(): HudApi
 		economy.setVisible(phase == "InProgress" and mine ~= nil)
 		if phase == "InProgress" and mine then
 			economy.update(mine, snapshot.riverEpic)
+		end
+		if phase == "InProgress" then
+			clock.show(snapshot.startedAt, snapshot.riverEpic)
+			clock.setVisible(true)
+		else
+			clock.setVisible(false)
 		end
 		minimap.setVisible(phase == "InProgress")
 		feed.setVisible(phase == "InProgress" or phase == "Ended")

@@ -35,7 +35,7 @@ type Api = {
 	rootOf: (userId: number) -> BasePart?,
 	onClear: (userId: number, gold: number, xp: number) -> (),
 	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
-	onEpicPhase: (phase: string) -> (),
+	onEpicPhase: (phase: string, respawnAt: number?) -> (),
 	onEpicTaken: (userId: number) -> (),
 }
 
@@ -339,7 +339,7 @@ function JungleService.applyDamage(attackerUserId: number?, jungleId: string, am
 			local changed = nextClock.phase ~= epicClock.phase
 			epicClock = nextClock
 			if changed then
-				api.onEpicPhase(epicClock.phase)
+				api.onEpicPhase(epicClock.phase, epicClock.respawnAt)
 			end
 		end
 		if api then
@@ -408,7 +408,7 @@ function JungleService.start()
 				end
 				if nextClock.phase ~= epicClock.phase then
 					epicClock = nextClock
-					api.onEpicPhase(epicClock.phase)
+					api.onEpicPhase(epicClock.phase, epicClock.respawnAt)
 				else
 					epicClock = nextClock
 				end

@@ -208,11 +208,15 @@ export type QueueStatus = {
 
 export type RiverEpicPhase = "waiting" | "alive" | "returning" | "spent"
 
--- Canal Levi. The body is still a jungle camp under fog. This is the pit clock and the team buff.
+-- Canal Levi. The body is still a jungle camp under fog.
+-- phase and nextAt are server-owned. The HUD only paints them.
 export type RiverEpicView = {
 	phase: RiverEpicPhase,
 	blueBuff: boolean,
 	redBuff: boolean,
+	-- Workspace:GetServerTimeNow() when the next body appears.
+	-- Nil while the beast is alive, after it is spent, or before the fight starts.
+	nextAt: number?,
 }
 
 export type MatchSnapshot = {
@@ -220,6 +224,7 @@ export type MatchSnapshot = {
 	phase: MatchPhase,
 	practice: boolean,
 	phaseEndsAt: number?,
+	-- Server time when the fight began. The match clock paints mm:ss from this.
 	startedAt: number?,
 	endedAt: number?,
 	winner: TeamId?,

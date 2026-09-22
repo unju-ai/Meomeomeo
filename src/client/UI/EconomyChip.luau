@@ -1,8 +1,8 @@
 --!strict
 
 -- Always-on local purse for Cat Rift InProgress. Gold, CS, level, and whether
--- Yarn Cleave fits in the purse. Hidden by Hud outside that phase.
--- Hub, Yarn Run, Koi, Party, and Arcade never show it.
+-- Yarn Cleave fits in the purse. A Canal Levi line names who holds the buff.
+-- Hidden by Hud outside that phase. Hub, Yarn Run, Koi, Party, and Arcade never show it.
 
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
@@ -86,11 +86,12 @@ function EconomyChip.create(parent: Instance): ChipApi
 			)
 			cleave.Text = read.text
 			cleave.TextColor3 = TONE_COLOR[read.tone]
-			local on = epic ~= nil
-				and ((matchPlayer.team == "Blue" and epic.blueBuff) or (matchPlayer.team == "Red" and epic.redBuff))
-			buff.Visible = on
-			buff.Text = if on then RiverEpic.BuffChip else ""
-			root.Size = if on then UDim2.fromOffset(248, 76) else UDim2.fromOffset(248, 56)
+			local line = if epic then RiverEpic.purseLine(matchPlayer.team, epic.blueBuff, epic.redBuff) else nil
+			buff.Visible = line ~= nil
+			buff.Text = line or ""
+			local wide = line ~= nil and #line > #RiverEpic.BuffChip
+			local width = if wide then 360 else 248
+			root.Size = if line ~= nil then UDim2.fromOffset(width, 76) else UDim2.fromOffset(248, 56)
 		end,
 	}
 end

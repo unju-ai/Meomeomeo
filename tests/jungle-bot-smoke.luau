@@ -466,4 +466,23 @@ assert(laneBot.action == "lane", "top and bot do not path to Canal Levi")
 assert(RiverEpic.wantsHardPath("Hard", true, true) == false)
 assert(RiverEpic.wantsHardPath("Normal", true, false) == false)
 
+-- HUD copy is pure. The client paints these strings; it does not pick the wake.
+local opening = RiverEpic.hudRead(96, 0, "waiting", RiverEpic.dueAt(0, "waiting", nil))
+assert(opening.clock == "1:36")
+assert(opening.objective == "Levi 1:24")
+local wokeLine = RiverEpic.hudRead(180, 0, "alive", RiverEpic.dueAt(0, "alive", nil))
+assert(wokeLine.clock == "3:00" and wokeLine.objective == "Levi UP")
+local downClock = RiverEpic.killed({
+	phase = "alive",
+	spawnsUsed = 1,
+	respawnAt = nil,
+}, 200)
+assert(downClock.respawnAt == 290)
+local respawnLine = RiverEpic.hudRead(243, 0, "returning", RiverEpic.dueAt(0, "returning", downClock.respawnAt))
+assert(respawnLine.objective == "Levi 0:47")
+local spentLine = RiverEpic.hudRead(400, 0, "spent", nil)
+assert(spentLine.objective == "Levi taken" and spentLine.clock == "6:40")
+assert(RiverEpic.purseLine("Blue", true, false) == "Canal Levi · +8% damage")
+assert(RiverEpic.purseLine("Blue", false, true) == "Red holds Levi")
+
 print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi")
