@@ -101,13 +101,14 @@ local LINES_KOI: { { string } } = {
 	{ "Space / Click", "Cast the yarn bobber (Idle)" },
 	{ "Space / Click", "Reel when the loaf hits the cream window" },
 	{ "Wait", "Don't yank early — patience, loaf" },
+	{ "Nibble", "Bobber NIBBLE! + cream rail flash when it bites" },
 	{ "Rarities", "Cream · Peach · Mint · Cobalt · Amber · Coral Crown" },
 	{ "Stall log", "Session collection + best catch / PB / daily board" },
 	{ "T", "Emote on the dock" },
 	{ "Voice", "Hub rules · not a team channel" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
-	{ "Hub", "Back to hub · Board for today's catches" },
+	{ "Hub", "Back to hub · Daily board for today's catches" },
 }
 
 local LINES_PARTY: { { string } } = {

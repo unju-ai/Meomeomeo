@@ -125,7 +125,7 @@ function Hud.create(): HudApi
 	local board = YarnBoardPanel.create(gui)
 	local koiBoard = StallBoardPanel.create(gui, {
 		name = "KoiBoard",
-		title = "Koi Daily",
+		title = "Canal Daily · Best Catch",
 		empty = "No catches logged today. Land a cream loaf.",
 		accent = Theme.mint,
 	})

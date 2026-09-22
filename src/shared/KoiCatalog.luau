@@ -178,6 +178,31 @@ function KoiCatalog.rarityTint(rarity: Rarity): Color3
 	return Color3.fromRGB(255, 243, 224)
 end
 
+-- Exact fish color when we know the catch (mint vs cobalt both Rare).
+function KoiCatalog.catchTint(name: string?, rarity: Rarity): Color3
+	if typeof(name) == "string" and name ~= "" then
+		for _, fish in FISH do
+			if fish.name == name or fish.id == name then
+				return fish.color
+			end
+		end
+	end
+	return KoiCatalog.rarityTint(rarity)
+end
+
+function KoiCatalog.rarityTag(rarity: Rarity): string
+	if rarity == "Legendary" then
+		return "CROWN"
+	elseif rarity == "Epic" then
+		return "EPIC"
+	elseif rarity == "Rare" then
+		return "RARE"
+	elseif rarity == "Uncommon" then
+		return "UNCM"
+	end
+	return "CREAM"
+end
+
 function KoiCatalog.logRows(counts: { [string]: number }): { LogRow }
 	local rows: { LogRow } = {}
 	for _, fish in FISH do

@@ -1,4 +1,7 @@
-"""Koi Pond catalog smoke. Usage: python3 tools/test-koi.py /path/to/luau"""
+"""Koi Pond catalog smoke (rarities, windows, catchTint / rarityTag).
+
+Usage: python3 tools/test-koi.py /path/to/luau
+"""
 from pathlib import Path
 import re
 import subprocess
