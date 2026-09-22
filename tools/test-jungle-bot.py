@@ -4,7 +4,9 @@ Usage: python3 tools/test-jungle-bot.py /path/to/luau
 
 Levi gates live in tests/jungle-bot-smoke.luau: Hard mid beats leftover camps when
 UP, finishes a hurt camp first, peels a visible enemy on the pit, resumes after
-death; Normal mid-river assist; Easy ignore.
+death; Normal mid-river assist; Easy ignore. Hard ally peel (BotPeelLogic) beats
+leftover camps and lane shove, and interrupts Levi only when the ally is
+critically low and the fight is nearby.
 """
 from pathlib import Path
 import re
@@ -34,6 +36,7 @@ script = (
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
+    + wrap("BotPeelLogic", "src/shared/BotPeelLogic.luau")
     + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")
     + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
     + wrap_deps("BotShopLogic", "src/shared/BotShopLogic.luau", ["ItemCatalog"])

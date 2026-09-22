@@ -5,7 +5,9 @@
 -- list JungleService already gave bots). That is mild camp omniscience, not a
 -- champion wallhack. Enemy cats are only the one the caller marks visible.
 -- Last-known lane hints score a rotate; they are never a hidden body to chase.
--- Easy never clears.
+-- Easy never clears. Hard may peel a visible low ally above leftover camps
+-- and idle lane shove. A hurt camp still finishes. Canal Levi still wins
+-- unless that ally is critically low and the fight is nearby.
 
 local RiverEpic = require(script.Parent:WaitForChild("RiverEpic"))
 
@@ -64,6 +66,15 @@ export type JungleMemory = {
 	routeIndex: number,
 }
 
+-- Already chosen by BotPeelLogic. Jungle only ranks it against camps and Levi.
+export type PeelHint = {
+	x: number,
+	z: number,
+	critical: boolean,
+	nearby: boolean,
+	enemyUserId: number?,
+}
+
 export type JungleQuery = {
 	difficulty: Difficulty,
 	team: TeamId,
@@ -77,9 +88,10 @@ export type JungleQuery = {
 	enemy: EnemyView?,
 	lanes: { LaneView },
 	brushes: { BrushBox },
+	peel: PeelHint?,
 }
 
-export type JungleAction = "camp" | "rotate" | "lane" | "fight"
+export type JungleAction = "camp" | "rotate" | "lane" | "fight" | "peel"
 
 export type JungleDecision = {
 	action: JungleAction,
@@ -88,6 +100,7 @@ export type JungleDecision = {
 	z: number?,
 	stepX: number?,
 	stepZ: number?,
+	focusUserId: number?,
 	memory: JungleMemory,
 }
 
@@ -441,12 +454,41 @@ local function rotateTarget(query: JungleQuery): (number?, number?)
 	return bestX, bestZ
 end
 
+local function peelDecision(query: JungleQuery, routeIndex: number): JungleDecision
+	local hint = query.peel
+	local goalX = query.x
+	local goalZ = query.z
+	local focus: number? = nil
+	if hint then
+		goalX = hint.x
+		goalZ = hint.z
+		focus = hint.enemyUserId
+	end
+	local stepX, stepZ = approach(query, goalX, goalZ)
+	local resume = if findCamp(query.camps, query.memory.campId) then query.memory.campId else nil
+	return {
+		action = "peel",
+		x = goalX,
+		z = goalZ,
+		stepX = stepX,
+		stepZ = stepZ,
+		focusUserId = focus,
+		memory = memoryOf(resume, routeIndex),
+	}
+end
+
 function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	local routeIndex = query.memory.routeIndex
 	if routeIndex < 1 then
 		routeIndex = 1
 	end
+	-- Top and bot stay in lane. A Hard peel still beats that shove.
+	-- Easy never peels, even if a caller passes a hint.
+	local peel = if query.difficulty == "Hard" then query.peel else nil
 	if not query.jungler or query.difficulty == "Easy" then
+		if peel then
+			return peelDecision(query, routeIndex)
+		end
 		return laneDecision(routeIndex)
 	end
 
@@ -464,17 +506,21 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	local epic = findEpic(query.camps)
 
 	-- Hard sticks to the route camp until it dies — unless Canal Levi is up and
-	-- this camp is only a leftover (full HP) walk. A hurt camp still finishes.
-	-- Normal only locks in once the fight has started.
+	-- this camp is only a leftover (full HP) walk, or a Hard peel is calling.
+	-- A hurt camp still finishes. Normal only locks in once the fight has started.
 	local hold = committed
 	if hold and hold.epic ~= true then
 		if query.difficulty == "Hard" and epic and RiverEpic.wantsHardPath(query.difficulty, query.jungler, false) then
 			if not startedCamp(hold) then
 				hold = nil
 			end
+		elseif peel and not startedCamp(hold) then
+			hold = nil
 		elseif query.difficulty ~= "Hard" and not engaged(query, hold) then
 			hold = nil
 		end
+	elseif hold and hold.epic == true and peel and peel.critical and peel.nearby then
+		hold = nil
 	elseif hold and query.difficulty ~= "Hard" and not engaged(query, hold) then
 		hold = nil
 	end
@@ -489,22 +535,30 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	end
 
 	-- Canal Levi beats leftover camps and rotates while it is up. Hard mid must
-	-- contest. A visible enemy on the pit peels when in face range (tagged to
-	-- Levi), else walk the canal. Normal only tags along if already mid-river.
+	-- contest. A visible enemy on the pit is tagged when in face range, else
+	-- walk the canal. A critical nearby ally peel is the one interrupt.
+	-- Normal only tags along if already mid-river.
 	local hardGo = epic ~= nil and RiverEpic.wantsHardPath(query.difficulty, query.jungler, holdingForLevi(query, committed))
 	local normalGo = epic ~= nil and RiverEpic.wantsNormalAssist(query.difficulty, query.jungler, query.x, query.z)
-	if epic and (hardGo or normalGo) then
+	local leviGo = epic ~= nil and (hardGo or normalGo)
+	local interruptLevi = peel ~= nil and peel.critical and peel.nearby
+	if epic and leviGo and not interruptLevi then
 		if enemyOnEpic(query, epic) and contesting(query, epic) then
 			local index = routeIndexOf(query.team, epic.id) or routeIndex
 			return fightDecision(epic.id, index)
 		end
 	end
 
+	-- Peel beats leftover camps, a soft face-range hunt, and the post-clear rotate.
+	if peel and (not leviGo or interruptLevi) then
+		return peelDecision(query, routeIndex)
+	end
+
 	if contesting(query, nil) then
 		return fightDecision(nil, routeIndex)
 	end
 
-	if epic and (hardGo or normalGo) then
+	if epic and leviGo and not interruptLevi then
 		return campDecision(query, epic, routeIndex)
 	end
 
