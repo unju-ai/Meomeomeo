@@ -27,6 +27,7 @@ local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
 local LevelUpJuice = require(Shared:WaitForChild("LevelUpJuice"))
+local FountainRegenJuice = require(Shared:WaitForChild("FountainRegenJuice"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
@@ -225,6 +226,8 @@ local latestArcade: Types.ArcadeSnapshot? = nil
 local latestMatch: Types.MatchSnapshot? = nil
 local latestCombat: Types.CombatState? = nil
 local juiceCombat: Types.CombatState? = nil
+local fountainFloatAt = -FountainRegenJuice.FloatGap
+local lastFountainRegen = false
 local tutorialDone = player:GetAttribute(Constants.Attributes.TutorialDone) == true
 
 local function tutorialIsDone(): boolean
@@ -663,6 +666,29 @@ local function rootedChannel(state: Types.CombatState): boolean
 	return state.recalling or channelActive(state)
 end
 
+local function localAtFountain(team: Types.TeamId?): boolean
+	if team ~= "Blue" and team ~= "Red" then
+		return false
+	end
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not (root and root:IsA("BasePart")) then
+		return false
+	end
+	return FountainRegenJuice.nearFountain(team, root.Position.X, root.Position.Z)
+end
+
+local function clearFountainJuice()
+	lastFountainRegen = false
+	hud.abilities.setFountainRegen(false, false)
+	CombatFx.clearFountainRegen(player.UserId)
+	if latestMatch then
+		for _, matchPlayer in latestMatch.players do
+			CombatFx.clearFountainRegen(matchPlayer.userId)
+		end
+	end
+end
+
 local function noteRecallChannel(recalling: boolean)
 	if recalling then
 		if not recallLatch.active then
@@ -683,6 +709,24 @@ local function applyCombatJuice(state: Types.CombatState)
 	noteRecallChannel(rootedChannel(state))
 	local prev = juiceCombat
 	juiceCombat = state
+	local mine = if latestMatch then latestMatch.players[tostring(player.UserId)] else nil
+	local team: Types.TeamId? = if mine then mine.team else nil
+	local atFountain = FountainRegenJuice.modeAllows(gameMode, if latestMatch then latestMatch.phase else nil)
+		and localAtFountain(team)
+	local regenerating = FountainRegenJuice.isRegenerating(
+		state.alive,
+		atFountain,
+		state.health,
+		state.maxHealth,
+		state.mana,
+		state.maxMana
+	)
+	local needHp = regenerating and FountainRegenJuice.needsHp(state.health, state.maxHealth)
+	local needMp = regenerating and FountainRegenJuice.needsMana(state.mana, state.maxMana)
+	hud.abilities.setFountainRegen(needHp, needMp)
+	CombatFx.fountainRegen(player.UserId, "local", regenerating)
+	lastFountainRegen = regenerating
+
 	if not prev then
 		if state.recalling then
 			Sfx.startLoop("RecallLoop")
@@ -691,13 +735,32 @@ local function applyCombatJuice(state: Types.CombatState)
 		end
 		return
 	end
+	local hpGain = FountainRegenJuice.hpGain(prev.health, state.health)
+	local manaGain = FountainRegenJuice.manaGain(prev.mana, state.mana)
 	if state.health + 0.5 < prev.health then
 		ScreenJuice.damageFlash()
 	elseif state.health > prev.health + 4 then
-		ScreenJuice.healFlash()
-		Sfx.play("Heal")
+		-- Fountain pad ticks stay calm (soft float/ring); kit heals still flash.
+		if not FountainRegenJuice.suppressHealFlash(atFountain, hpGain) then
+			ScreenJuice.healFlash()
+			Sfx.play("Heal")
+		end
 	elseif state.attackTarget and state.nextAutoAttack > prev.nextAutoAttack + 0.05 then
 		Sfx.play("AutoHit")
+	end
+	if regenerating and os.clock() - fountainFloatAt >= FountainRegenJuice.FloatGap then
+		local popped = false
+		if FountainRegenJuice.isFountainHpTick(hpGain) then
+			CombatFx.fountainTick(player.UserId, "hp", hpGain, true)
+			popped = true
+		end
+		if FountainRegenJuice.isFountainManaTick(manaGain) then
+			CombatFx.fountainTick(player.UserId, "mana", manaGain, not popped)
+			popped = true
+		end
+		if popped then
+			fountainFloatAt = os.clock()
+		end
 	end
 	if state.level > prev.level then
 		ScreenJuice.levelUp(state.level)
@@ -715,6 +778,84 @@ local function applyCombatJuice(state: Types.CombatState)
 	elseif not state.recalling and prev.recalling then
 		Sfx.stopLoop("RecallLoop")
 		CombatFx.localRecall(player.UserId, false, 0)
+	end
+end
+
+local function rootForMatchUser(userId: number): BasePart?
+	if userId == player.UserId then
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if root and root:IsA("BasePart") then
+			return root
+		end
+		return nil
+	end
+	for _, other in Players:GetPlayers() do
+		if other.UserId == userId and other.Character then
+			local root = other.Character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") then
+				return root
+			end
+		end
+	end
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	local bots = if map then map:FindFirstChild("Bots") else nil
+	if bots then
+		for _, child in bots:GetChildren() do
+			if child:IsA("Model") and child:GetAttribute(Constants.Attributes.UserId) == userId then
+				local root = child:FindFirstChild("HumanoidRootPart")
+				if root and root:IsA("BasePart") then
+					return root
+				end
+			end
+		end
+	end
+	return nil
+end
+
+-- Light shared foot ring for allies on their pad; enemies only when fog-lit.
+local function refreshPeerFountainJuice()
+	local snapshot = latestMatch
+	if not snapshot or not FountainRegenJuice.modeAllows(gameMode, snapshot.phase) then
+		return
+	end
+	local mine = snapshot.players[tostring(player.UserId)]
+	if not mine then
+		return
+	end
+	for _, matchPlayer in snapshot.players do
+		if matchPlayer.userId == player.UserId then
+			continue
+		end
+		local root = rootForMatchUser(matchPlayer.userId)
+		local sameTeam = matchPlayer.team == mine.team
+		local atPad = if root and (matchPlayer.team == "Blue" or matchPlayer.team == "Red")
+			then FountainRegenJuice.nearFountain(matchPlayer.team, root.Position.X, root.Position.Z)
+			else false
+		local missing = false
+		if root and root.Parent then
+			local model = root.Parent
+			if model:IsA("Model") then
+				local health = model:GetAttribute("Health")
+				local maxHealth = model:GetAttribute("MaxHealth")
+				if typeof(health) == "number" and typeof(maxHealth) == "number" then
+					missing = FountainRegenJuice.needsHp(health, maxHealth)
+				else
+					local humanoid = model:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						missing = FountainRegenJuice.needsHp(humanoid.Health, humanoid.MaxHealth)
+					end
+				end
+			end
+		end
+		local active = atPad and missing and (matchPlayer.respawnAt == nil or matchPlayer.respawnAt <= Workspace:GetServerTimeNow())
+		local inVision = if root then FogOfWar.isLit(root.Position.X, root.Position.Z) else false
+		local cue = FountainRegenJuice.cueKind(player.UserId, matchPlayer.userId, sameTeam, inVision)
+		if active and FountainRegenJuice.shouldPaint(cue) then
+			CombatFx.fountainRegen(matchPlayer.userId, cue, true)
+		else
+			CombatFx.clearFountainRegen(matchPlayer.userId)
+		end
 	end
 end
 
@@ -1829,6 +1970,9 @@ applyVision = function()
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
 		CombatFx.setFloatsEnabled(false)
+		if lastFountainRegen then
+			clearFountainJuice()
+		end
 		if visionArmed then
 			FogOfWar.setEnabled(false)
 			FogOfWar.resetExplored()
@@ -3110,23 +3254,44 @@ task.spawn(function()
 			refreshBars()
 			applyVision()
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
+			-- Fountain regen juice: re-check pad position between CombatUpdated ticks.
+			if latestCombat and FountainRegenJuice.modeAllows(gameMode, latestMatch.phase) then
+				local mine = latestMatch.players[tostring(player.UserId)]
+				local team: Types.TeamId? = if mine then mine.team else nil
+				local atFountain = localAtFountain(team)
+				local regenerating = FountainRegenJuice.isRegenerating(
+					latestCombat.alive,
+					atFountain,
+					latestCombat.health,
+					latestCombat.maxHealth,
+					latestCombat.mana,
+					latestCombat.maxMana
+				)
+				local needHp = regenerating and FountainRegenJuice.needsHp(latestCombat.health, latestCombat.maxHealth)
+				local needMp = regenerating and FountainRegenJuice.needsMana(latestCombat.mana, latestCombat.maxMana)
+				hud.abilities.setFountainRegen(needHp, needMp)
+				CombatFx.fountainRegen(player.UserId, "local", regenerating)
+				lastFountainRegen = regenerating
+				refreshPeerFountainJuice()
+			else
+				if lastFountainRegen then
+					clearFountainJuice()
+				end
+			end
 			if latestMatch.practice then
 				local mine = latestMatch.players[tostring(player.UserId)]
 				local character = player.Character
 				local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 				local atFountain = false
-				if mine and root and root:IsA("BasePart") then
-					local map = Workspace:FindFirstChild(Constants.MapFolderName)
-					local spawns = if map then map:FindFirstChild("Spawns") else nil
-					local spawnName = if mine.team == "Red" then "RedFountain" else "BlueFountain"
-					local spawn = if spawns then spawns:FindFirstChild(spawnName) else nil
-					if spawn and spawn:IsA("BasePart") then
-						atFountain = (root.Position - spawn.Position).Magnitude <= 32
-					end
+				if mine and root and root:IsA("BasePart") and (mine.team == "Blue" or mine.team == "Red") then
+					atFountain = FountainRegenJuice.nearFountain(mine.team, root.Position.X, root.Position.Z)
 				end
 				hud.tips.tickContextual(atFountain, if mine then mine.gold else 0, hud.shop.root.Visible)
 			end
 		elseif latestMatch and latestMatch.phase == "Ended" then
+			if lastFountainRegen then
+				clearFountainJuice()
+			end
 			applyVision()
 			hud.endScreen.update(latestMatch, player.UserId)
 		end
