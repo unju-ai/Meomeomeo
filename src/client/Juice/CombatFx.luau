@@ -20,6 +20,7 @@ local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("
 local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
 local RespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RespawnJuice"))
 local RiverEpicJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpicJuice"))
+local StructureAggroJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureAggroJuice"))
 local StructureDeathJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureDeathJuice"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -106,7 +107,25 @@ local brushState: {
 	localId = 0,
 	team = nil,
 }
+
+type LockPaint = {
+	ring: BasePart,
+	lamp: BasePart?,
+}
+
+local lockPaints: { [string]: LockPaint } = {}
+local footRing: BasePart? = nil
+local aggroState: {
+	allowed: boolean,
+	localId: number,
+	team: string?,
+} = {
+	allowed = false,
+	localId = 0,
+	team = nil,
+}
 local stepBrush: (number) -> ()
+local stepAggro: () -> ()
 
 local function fxFolder(): Folder
 	if folder and folder.Parent then
@@ -732,6 +751,7 @@ ensureLoop = function()
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
 		stepBrush(now)
+		stepAggro()
 		for key, follow in follows do
 			if now >= follow.expiresAt then
 				clearFollow(key)
@@ -1578,6 +1598,41 @@ local function playAa(event: Types.CombatFxEvent)
 	release(spark, 0.18)
 end
 
+local function playTowerLockHit(event: Types.CombatFxEvent)
+	if not aggroState.allowed or typeof(event.userId) ~= "number" then
+		return
+	end
+	-- A tower only shoots the other side, so its champion pick is on your team.
+	local enemyStructure = aggroState.team ~= nil and event.team ~= nil and event.team ~= aggroState.team
+	local lit = FogOfWar.isLit(event.origin.X, event.origin.Z)
+	local cue = StructureAggroJuice.cueKind(aggroState.localId, event.userId, enemyStructure, lit)
+	if not StructureAggroJuice.wantsShotFlash(cue) then
+		return
+	end
+	local dest = event.dest or event.origin
+	local color = rgbOf(StructureAggroJuice.flashRgb())
+	local scale = StructureAggroJuice.flashScale(cue)
+	local flash = takePart("LockFlash")
+	flash.Shape = Enum.PartType.Ball
+	flash.Size = Vector3.new(scale, scale, scale)
+	flash.CFrame = CFrame.new(dest + Vector3.new(0, 1.5, 0))
+	flashPart(flash, color, StructureAggroJuice.flashTransparency(cue))
+	emitSpark(flash, color, if cue == "local" then 6 else 3)
+	release(flash, StructureAggroJuice.FlashSeconds)
+
+	local mote = takePart("LockFloat")
+	mote.Shape = Enum.PartType.Ball
+	mote.Size = Vector3.new(0.42, 0.42, 0.42)
+	local start = dest + Vector3.new(0, 2.1, 0)
+	mote.CFrame = CFrame.new(start)
+	flashPart(mote, color, StructureAggroJuice.flashTransparency(cue))
+	TweenService:Create(mote, TweenInfo.new(StructureAggroJuice.FlashSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = CFrame.new(start + Vector3.new(0, StructureAggroJuice.FloatRise, 0)),
+		Transparency = 1,
+	}):Play()
+	release(mote, StructureAggroJuice.FlashSeconds)
+end
+
 local function playTowerShot(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local color = if event.tier == "Inner" then Color3.fromRGB(255, 186, 96) else teamColor(event.team)
@@ -1590,6 +1645,7 @@ local function playTowerShot(event: Types.CombatFxEvent)
 	bolt.CFrame = CFrame.new(dest + Vector3.new(0, 1.4, 0))
 	emitSpark(bolt, color, 7)
 	release(bolt, 0.2)
+	playTowerLockHit(event)
 end
 
 local function siteReadable(x: number, z: number, allySide: boolean): boolean
@@ -2769,6 +2825,190 @@ stepBrush = function(now: number)
 		end
 		brushState.allies[userId] = nil
 	end
+end
+
+local function dropLock(id: string)
+	local paint = lockPaints[id]
+	if not paint then
+		return
+	end
+	lockPaints[id] = nil
+	release(paint.ring, 0.06)
+	if paint.lamp then
+		release(paint.lamp, 0.06)
+	end
+end
+
+local function clearAggroPaint()
+	local stale: { string } = {}
+	for id in lockPaints do
+		table.insert(stale, id)
+	end
+	for _, id in stale do
+		dropLock(id)
+	end
+	if footRing then
+		release(footRing, 0.06)
+		footRing = nil
+	end
+end
+
+local function holdRing(part: BasePart, at: Vector3, span: number, transparency: number, color: Color3, now: number)
+	part.Shape = Enum.PartType.Cylinder
+	part.Size = Vector3.new(0.16, span, span)
+	part.Material = Enum.Material.Neon
+	part.Color = color
+	part.Transparency = transparency + math.sin(now * 3.2) * 0.03
+	part.CFrame = CFrame.new(at.X, at.Y, at.Z) * CFrame.Angles(0, now * 0.7, math.rad(90))
+	part.LocalTransparencyModifier = 0
+end
+
+local function paintStructureLock(id: string, pos: Vector3, cue: StructureAggroJuice.CueKind, look: StructureAggroJuice.Look, now: number)
+	local paint = lockPaints[id]
+	if not paint or not paint.ring.Parent then
+		if paint and paint.lamp then
+			release(paint.lamp, 0.02)
+		end
+		paint = {
+			ring = takePart("LockRing"),
+			lamp = nil,
+		}
+		lockPaints[id] = paint
+	end
+	local ground = Vector3.new(pos.X, StructureAggroJuice.GroundY, pos.Z)
+	holdRing(
+		paint.ring,
+		ground,
+		StructureAggroJuice.ringSpan(cue),
+		StructureAggroJuice.ringTransparency(cue),
+		rgbOf(StructureAggroJuice.ringRgb()),
+		now
+	)
+	local wantLamp = StructureAggroJuice.wantsLantern(cue, look)
+	if wantLamp then
+		local lamp = paint.lamp
+		if not lamp or not lamp.Parent then
+			lamp = takePart("LockLantern")
+			paint.lamp = lamp
+		end
+		local span = StructureAggroJuice.lanternSpan(cue)
+		lamp.Shape = Enum.PartType.Ball
+		lamp.Size = Vector3.new(span, span, span)
+		lamp.Material = Enum.Material.Neon
+		lamp.Color = rgbOf(StructureAggroJuice.lanternRgb())
+		lamp.Transparency = StructureAggroJuice.lanternTransparency(cue)
+		lamp.CFrame = CFrame.new(pos.X, pos.Y + StructureAggroJuice.LanternLift, pos.Z)
+		lamp.LocalTransparencyModifier = 0
+	elseif paint.lamp then
+		release(paint.lamp, 0.05)
+		paint.lamp = nil
+	end
+end
+
+local function paintFootLock(now: number)
+	local root = rootOf(aggroState.localId)
+	if not root then
+		if footRing then
+			release(footRing, 0.05)
+			footRing = nil
+		end
+		return
+	end
+	local ring = footRing
+	if not ring or not ring.Parent then
+		ring = takePart("LockFoot")
+		footRing = ring
+	end
+	holdRing(
+		ring,
+		Vector3.new(root.Position.X, root.Position.Y - 2.15, root.Position.Z),
+		StructureAggroJuice.FootSpan,
+		StructureAggroJuice.footTransparency(),
+		rgbOf(StructureAggroJuice.ringRgb()),
+		now
+	)
+end
+
+-- Structure lock is the champion TowerService.pickTarget already chose.
+-- The attribute is display-only. Range, damage, and priority stay on the server.
+stepAggro = function()
+	if not aggroState.allowed then
+		if next(lockPaints) ~= nil or footRing ~= nil then
+			clearAggroPaint()
+		end
+		return
+	end
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	local objectives = if map then map:FindFirstChild("Objectives") else nil
+	local seen: { [string]: boolean } = {}
+	local wantFoot = false
+	local now = os.clock()
+	if objectives then
+		for _, child in objectives:GetChildren() do
+			if not child:IsA("BasePart") then
+				continue
+			end
+			local id = child:GetAttribute(Constants.Attributes.ObjectiveId)
+			local lock = child:GetAttribute(StructureAggroJuice.LockAttribute)
+			if typeof(id) ~= "string" or typeof(lock) ~= "number" then
+				continue
+			end
+			local structureTeam = child:GetAttribute(Constants.Attributes.Team)
+			-- A tower only shoots the other side, so its champion pick is on your team.
+			local enemyStructure = aggroState.team ~= nil
+				and (structureTeam == "Blue" or structureTeam == "Red")
+				and structureTeam ~= aggroState.team
+			local lit = FogOfWar.isLit(child.Position.X, child.Position.Z)
+			local cue = StructureAggroJuice.cueKind(aggroState.localId, lock, enemyStructure, lit)
+			if not StructureAggroJuice.shouldPaint(cue) then
+				continue
+			end
+			seen[id] = true
+			if StructureAggroJuice.wantsFootRing(cue) then
+				wantFoot = true
+			end
+			if StructureAggroJuice.wantsStructureRing(cue) then
+				local kindAttr = child:GetAttribute("Kind")
+				local tierAttr = child:GetAttribute("Tier")
+				local look = StructureAggroJuice.look(
+					if typeof(kindAttr) == "string" then kindAttr else nil,
+					if typeof(tierAttr) == "string" then tierAttr else nil
+				)
+				paintStructureLock(id, child.Position, cue, look, now)
+			end
+		end
+	end
+	local stale: { string } = {}
+	for id in lockPaints do
+		if not seen[id] then
+			table.insert(stale, id)
+		end
+	end
+	for _, id in stale do
+		dropLock(id)
+	end
+	if wantFoot then
+		paintFootLock(now)
+	elseif footRing then
+		release(footRing, 0.05)
+		footRing = nil
+	end
+end
+
+-- Cat Rift only. The heartbeat reads MeoLockUserId off living structures.
+function CombatFx.syncStructureAggro(snapshot: Types.MatchSnapshot?, localUserId: number, gameMode: string)
+	aggroState.localId = localUserId
+	aggroState.allowed = snapshot ~= nil and StructureAggroJuice.modeAllows(gameMode, snapshot.phase)
+	if snapshot then
+		local mine = snapshot.players[tostring(localUserId)]
+		aggroState.team = if mine then mine.team else nil
+	else
+		aggroState.team = nil
+	end
+	if not aggroState.allowed then
+		clearAggroPaint()
+	end
+	ensureLoop()
 end
 
 -- Roster + vision ids for the brush wash. The heartbeat samples positions.
