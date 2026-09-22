@@ -361,7 +361,8 @@ local function withEpic(list: { JungleBotLogic.CampView }, health: number?): { J
 	return copy
 end
 
--- Canal Levi is off the six-camp route. Hard may walk it when it is up.
+-- Canal Levi is off the six-camp route. Hard mid contests it when UP — even over
+-- leftover route camps. A started (hurt / in-range) camp still finishes first.
 local levi = ask({
 	difficulty = "Hard",
 	team = "Red",
@@ -373,6 +374,28 @@ local levi = ask({
 assert(levi.action == "camp" and levi.campId == "CanalLevi", "Hard mid paths to Canal Levi when it is up")
 assert(levi.memory.routeIndex == 3, "the route index waits while they take the canal")
 
+local leftover = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(ALL),
+})
+assert(leftover.action == "camp" and leftover.campId == "CanalLevi", "Levi beats leftover healthy route camps")
+assert(leftover.memory.routeIndex == 1, "abandoning a leftover walk does not advance the route")
+
+local openerLevi = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -176,
+	z = 0,
+	lanePushed = false,
+	camps = withEpic(ALL),
+})
+assert(openerLevi.campId == "CanalLevi", "Hard mid leaves the opener for Levi when UP")
+
 local finishFirst = ask({
 	difficulty = "Hard",
 	team = "Blue",
@@ -382,7 +405,7 @@ local finishFirst = ask({
 	routeIndex = 2,
 	camps = withEpic(without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220))),
 })
-assert(finishFirst.action == "camp" and finishFirst.campId == "YarnGolemNW", "a started camp is finished before the canal")
+assert(finishFirst.action == "camp" and finishFirst.campId == "YarnGolemNW", "a hurt camp is finished before the canal")
 
 local afterClear = ask({
 	difficulty = "Hard",
@@ -432,7 +455,28 @@ local brawl = ask({
 })
 assert(brawl.action == "fight", "a cat in their face still comes before the canal")
 
-local normalIgnore = ask({
+local peel = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 12,
+	z = 24,
+	camps = withEpic(ALL),
+	enemy = { x = 4, z = 24 },
+})
+assert(peel.action == "fight" and peel.campId == "CanalLevi", "a visible enemy on Levi is contested")
+
+local walkContest = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -80,
+	z = -40,
+	camps = withEpic(ALL),
+	enemy = { x = 2, z = 24 },
+})
+assert(walkContest.action == "camp" and walkContest.campId == "CanalLevi", "a far visible enemy on Levi still pulls a Hard walk")
+
+-- Normal mid only tags along when already in the canal pocket. Far Normal stays on camps.
+local normalAssist = ask({
 	difficulty = "Normal",
 	team = "Blue",
 	x = 0,
@@ -440,7 +484,17 @@ local normalIgnore = ask({
 	lanePushed = true,
 	camps = withEpic(ALL),
 })
-assert(normalIgnore.campId == "RiverCrabS", "Normal does not take Canal Levi")
+assert(normalAssist.campId == "CanalLevi", "Normal mid already mid-river may assist Levi")
+
+local normalFar = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	lanePushed = true,
+	camps = withEpic(ALL),
+})
+assert(normalFar.campId == "PigeonsNW", "far Normal still ignores Canal Levi")
 
 local easyLevi = ask({
 	difficulty = "Easy",
@@ -464,7 +518,12 @@ local laneBot = ask({
 assert(laneBot.action == "lane", "top and bot do not path to Canal Levi")
 
 assert(RiverEpic.wantsHardPath("Hard", true, true) == false)
+assert(RiverEpic.wantsHardPath("Hard", true, false) == true)
 assert(RiverEpic.wantsHardPath("Normal", true, false) == false)
+assert(RiverEpic.wantsNormalAssist("Normal", true, 0, 20) == true)
+assert(RiverEpic.wantsNormalAssist("Normal", true, -100, -88) == false)
+assert(RiverEpic.wantsNormalAssist("Easy", true, 0, 24) == false)
+assert(RiverEpic.wantsNormalAssist("Hard", true, 0, 24) == false)
 
 -- HUD copy is pure. The client paints these strings; it does not pick the wake.
 local opening = RiverEpic.hudRead(96, 0, "waiting", RiverEpic.dueAt(0, "waiting", nil))
@@ -485,4 +544,4 @@ assert(spentLine.objective == "Levi taken" and spentLine.clock == "6:40")
 assert(RiverEpic.purseLine("Blue", true, false) == "Canal Levi · +8% damage")
 assert(RiverEpic.purseLine("Blue", false, true) == "Red holds Levi")
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi")
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority")

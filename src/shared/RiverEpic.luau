@@ -131,9 +131,22 @@ function RiverEpic.marker(phase: string, inVision: boolean): Marker
 	return "none"
 end
 
--- Hard mid only, and only when they are not already committed to a camp.
+-- Hard mid contests Canal Levi when it is up. `holding` means they already
+-- hurt a non-epic camp — finish that first. Leftover route walks and rotates
+-- lose to Levi. BotService still owns low-HP flee.
 function RiverEpic.wantsHardPath(difficulty: string, jungler: boolean, holding: boolean): boolean
 	return difficulty == "Hard" and jungler == true and holding ~= true
+end
+
+-- Normal mid may tag along only if they are already in the canal pocket.
+-- Easy never does. Distance is flat XZ from the pit.
+function RiverEpic.wantsNormalAssist(difficulty: string, jungler: boolean, x: number, z: number): boolean
+	if difficulty ~= "Normal" or jungler ~= true then
+		return false
+	end
+	local dx = x - RiverEpic.X
+	local dz = z - RiverEpic.Z
+	return math.sqrt(dx * dx + dz * dz) <= 36
 end
 
 local function mmss(total: number): string
