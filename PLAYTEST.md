@@ -6,7 +6,7 @@ Do not commit API keys, `ClaimApiSecret`, or any chain private key.
 
 ## 0. What you have
 
-Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily/weekly board + persisted PB ghost. **Koi Pond** fishing + UTC daily catch board. **Yarn Party** 4-cat micro-rounds (bots fill). **Meme Arcade** timed yarn-tape stall + UTC daily profit board (play yarn only). **Audio → Hide my name** lists you as **Anonymous Cat** on those boards.
+Playable scaffold: **hub grid** (Cat Rift / Yarn Run / Koi Pond / Yarn Party / Meme Arcade) → Cat Rift practice or queue → 14-cat draft → 3-lane fight → end screen → hub. **Yarn Run** dash + daily/weekly board + persisted PB ghost. **Koi Pond** fishing + UTC daily catch board. **Yarn Party** 4-cat micro-rounds (lobby seats, bots hold empties, friends take a seat before GO). **Meme Arcade** timed yarn-tape stall + UTC daily profit board (play yarn only). **Audio → Hide my name** lists you as **Anonymous Cat** on those boards.
 
 Also: reserved-server-ready queue (in-place fallback), practice bots (Hard dodge / dive / lens; leads traveling skillshots), voice stub, Kitty Caster, meme-stock tape, Meo404 DataStore entitlements + mint panel, **Closet drip** (hats + trails, yarn points, DataStore `MeoCloset_v1`), client SFX + juice, distinct champion silhouettes, **traveling line bolts** + click-to-confirm ground AoE, **true fog of war** (server mask + ground overlay + brush + fading last-seen ghosts), map art pass, **first-Practice tip cards** (Next / Skip all; lobby **Show tips**).
 
@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-22: Luau compiled 114 sources; combat projectile + recall cancel-on-order + Control Yarn stacks + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + jungle-bot route/commit/rotate + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 115 sources; combat projectile + recall cancel-on-order + Control Yarn stacks + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + jungle-bot route/commit/rotate + brand/lobby + cosmetics/arcade/koi/yarn/party (lobby seat takeover) smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -144,14 +144,24 @@ Score / hits / pickups / board writes are server-authoritative. Personal best + 
 
 Cast / reel / catch / score / board writes are server-authoritative. Yarn Run board, power-ups, Closet, and Cat Rift are unchanged. Exclusive with Hub / Moba / Yarn Run (`ModeService`).
 
-## 3d. Yarn Party (solo + bots)
+## 3d. Yarn Party (lobby join + bots)
 
-1. Hub → **Yarn Party → Play**. You teleport to a night-market courtyard south of the rift (`MeoYarnParty`). High 3/4 cam so all four cats stay on stream. Empty seats fill with **LoafBot / NibBot / PurrBot** after a short countdown. A second client on the same server can hop in during lobby.
-2. **Three micro-rounds** (not an obstacle-course clone): **YARN DODGE** (hop the coral yarn ball with **Space**; **WASD** to strafe), **STALL FREEZE** (when lanterns blink, stand on a **lit pillow**), then Dodge again.
-3. Giant round titles, elim pops (`YARN BONK` / `WRONG PILLOW`), live scoreboard. Points: last cat standing 3, timeout survivors 2, then 1 / 0 down the elim order. After round 3: **CROWNED** podium + **Party again** or **Back to hub**.
-4. Help overlay (**?** / **H**) swaps to party binds. **T** emotes still work. **G** pings do not.
+1. Hub → **Yarn Party → Play**. You teleport to a night-market courtyard south of the rift (`MeoYarnParty`). High 3/4 cam so all four cats stay on stream. The lobby is **seats 1–4**: you are **YOU** in seat 1, and **LoafBot / NibBot / PurrBot** already stand on the other spawns as **BOT**. The title counts down (**STARTS IN N**). The subtitle shows how many cats and bots are seated. The count keeps running when someone joins. If they hop in with under a second left, it stretches to about **1.25s** so they land on a spawn before **GO**. It does not restart from scratch, and it does not freeze.
+2. A second (or third) client on the same server hits **Play** during that lobby. They take the first bot seat: that bot model is removed, the human stands on the same spawn, and the board flips **BOT → CAT**. No second copy of the cat, no extra party. A fourth human fills the last seat. A fifth gets **This party is full — wait for the next one.**
+3. **Mid-round** (intro, playing, recap) or while **CROWNED** is up: **Play** does not enter the fight and does not kick the current party. The hub toasts **Wait for the next party**. Scoring stays with the cats already in the round. **Party again** on the podium still starts a fresh lobby.
+4. **Back to hub** during the lobby frees that seat. If another human is still waiting, a bot refills it. The last human to leave closes the courtyard. Leaving during a round frees the seat and does **not** drop a bot into the fight.
+5. **Three micro-rounds** (not an obstacle-course clone): **YARN DODGE** (hop the coral yarn ball with **Space**; **WASD** to strafe), **STALL FREEZE** (when lanterns blink, stand on a **lit pillow**), then Dodge again.
+6. Giant round titles, elim pops (`YARN BONK` / `WRONG PILLOW`), live scoreboard (**YOU / CAT / BOT**). Points: last cat standing 3, timeout survivors 2, then 1 / 0 down the elim order. After round 3: **CROWNED** podium + **Party again** or **Back to hub**.
+7. Help overlay (**?** / **H**) swaps to party binds (lobby, join, late, leave). **T** emotes still work. **G** pings do not.
 
-Scores / elims / bots are server-authoritative. Yarn Run, Koi Pond, and Cat Rift stay exclusive and unchanged.
+Seat claims live in `Shared.YarnPartyLobby` and only apply while the phase is Lobby. Scores / elims / bots are server-authoritative. Smoke: `python3 tools/test-party.py /path/to/luau`. Yarn Run, Koi Pond, Meme Arcade, and Cat Rift stay exclusive and unchanged.
+
+### Studio live-pass (Yarn Party lobby)
+
+1. **Solo bots.** One client → Yarn Party → Play. Seats 1–4 show YOU + LoafBot + NibBot + PurrBot. Countdown reaches GO without sticking. Three rounds, then **CROWNED** and **Party again**.
+2. **Two-client lobby join.** Start the party on client A. Before GO, client B hits Play. B replaces one bot (no duplicate cat). Both boards show YOU / CAT / BOT and the same countdown. The round starts with both humans.
+3. **Late join.** While a round is running (or CROWNED is up), client B hits Play. B stays in the hub with **Wait for the next party**. The live score does not gain a new cat.
+4. **Leave mid-lobby.** A and B are in the lobby. B hits **Back to hub**. B's seat becomes a bot again if A is still there. When A leaves too, the courtyard closes.
 
 ## 3e. Meme Arcade (solo tape)
 
@@ -223,6 +233,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **Space / Click** (Koi Pond) | Cast the yarn bobber; reel when the loaf hits the cream window |
 | **WASD** (Yarn Party) | Run the courtyard. Engine jump **Space** hops the yarn |
 | **Space** (Yarn Party) | Hop the coral yarn (Dodge) · walk onto lit pillows (Stall Freeze) |
+| **Play** (Yarn Party lobby) | Seats 1–4 count down. A friend takes a bot seat. Mid-round Play waits for the next party |
 | **1–5** (Meme Arcade) | Buy 1 yarn bag of LOAF / NYAN / CHNK / BRAIN / RUG |
 | **Shift+1–5** (Meme Arcade) | Sell 1 bag at the listed yarn price |
 

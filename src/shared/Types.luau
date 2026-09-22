@@ -537,6 +537,7 @@ export type YarnPartySeat = {
 	isBot: boolean,
 	alive: boolean,
 	score: number,
+	seat: number,
 }
 
 export type YarnPartySnapshot = {

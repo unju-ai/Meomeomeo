@@ -1191,6 +1191,9 @@ Remotes.event("YarnPartyUpdated").OnClientEvent:Connect(function(payload)
 			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 122, 98))
 		elseif snap.event == "GO" then
 			Sfx.play("MatchFound")
+		elseif string.find(snap.event, "took seat", 1, true) then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 196, 74))
 		elseif string.find(snap.event, "YARN BONK", 1, true) or string.find(snap.event, "WRONG PILLOW", 1, true) then
 			Sfx.play("Kill")
 			ScreenJuice.damageFlash()

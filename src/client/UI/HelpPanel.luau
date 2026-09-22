@@ -82,7 +82,11 @@ local LINES_PARTY: { { string } } = {
 	{ "Space", "Hop the coral yarn (Yarn Dodge)" },
 	{ "Pillows", "When lanterns blink, stand on a lit stall pillow" },
 	{ "Rounds", "3 micro-rounds: Dodge · Stall Freeze · Dodge" },
-	{ "Bots", "Empty seats fill with Loaf / Nib / Purr" },
+	{ "Lobby", "Seats 1–4 count down, then the rounds" },
+	{ "Join", "A friend takes a bot seat before GO" },
+	{ "Late", "Mid-round Play waits for the next party" },
+	{ "Bots", "LoafBot, NibBot, PurrBot hold empty seats" },
+	{ "Leave", "Back to hub frees your seat in lobby" },
 	{ "T", "Emote mid-party" },
 	{ "Audio", "SFX + Music sliders · mute" },
 	{ "H / ?", "This help" },
@@ -222,7 +226,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 				paintLines(LINES_KOI)
 			elseif ctx == "party" then
 				title.Text = "Yarn Party"
-				sub.Text = "Three rounds · four cats · yarn chaos"
+				sub.Text = "Seats 1–4 · countdown · then three rounds"
 				paintLines(LINES_PARTY)
 			elseif ctx == "arcade" then
 				title.Text = "Meme Arcade"
