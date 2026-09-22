@@ -467,6 +467,17 @@ export type ItemBonuses = {
 	walkSpeed: number,
 }
 
+-- A jungle pit waiting on JungleService's existing respawn stamp.
+-- respawnAt is Workspace:GetServerTimeNow() when the body returns.
+export type CampDownView = {
+	id: string,
+	name: string,
+	x: number,
+	y: number,
+	z: number,
+	respawnAt: number,
+}
+
 export type VisionFrame = {
 	players: { number },
 	minions: { string },
@@ -476,6 +487,9 @@ export type VisionFrame = {
 	fogBits: { number }?,
 	-- Match-lifetime OR of fogBits for this viewer's team. Not DataStore.
 	exploredBits: { number }?,
+	-- Small camps this viewer may know are down. Server drops unexplored pits
+	-- and Canal Levi (that timer stays on the match clock).
+	campDowns: { CampDownView }?,
 }
 
 export type TickerState = {

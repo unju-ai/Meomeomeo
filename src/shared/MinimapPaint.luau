@@ -142,6 +142,12 @@ function MinimapPaint.camp(isEpicBody: boolean): Paint
 	return paint(MinimapPaint.Amber, MinimapPaint.Ink, 1, 5, 99, "camp", 0)
 end
 
+-- Small camp waiting on its existing stamp. Dim square, not the living amber pip
+-- and not Canal Levi's pit mark.
+function MinimapPaint.campDown(): Paint
+	return paint({ 120, 92, 58 }, MinimapPaint.Amber, 1, 6, 2, "campDown", 0.4)
+end
+
 -- Ping flash shapes share structure markers when a post / stall / core is named.
 function MinimapPaint.ping(marker: string?, team: string?, pingRgb: Rgb, size: number): Paint
 	local shape = marker or "dot"

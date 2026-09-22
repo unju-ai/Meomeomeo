@@ -560,4 +560,32 @@ assert(RiverEpic.wantsHardPath("Hard", true, true) == false)
 assert(RiverEpicJuice.wantsFloat("local") == false)
 assert(RiverEpicJuice.lossLine(true, false, true) == nil)
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority")
+-- Camp chips format an existing stamp. They do not pick gold or a new duration.
+assert(RiverEpic.RespawnSeconds == 90, "Levi's return stays 90s")
+assert(CampRespawnJuice.Gold == nil and CampRespawnJuice.RespawnSeconds == nil)
+assert(CampRespawnJuice.chipRead(CampRespawnJuice.remaining(132, 100)) == "32s")
+assert(CampRespawnJuice.chipRead(CampRespawnJuice.remaining(145, 100)) == "45s")
+assert(CampRespawnJuice.chipRead(CampRespawnJuice.remaining(150, 100)) == "50s")
+assert(CampRespawnJuice.chipRead(0.2) == "1s")
+assert(CampRespawnJuice.chipRead(0) == "0s")
+assert(CampRespawnJuice.shouldPaint("PigeonsNW", 132, 100, true) == true)
+assert(CampRespawnJuice.shouldPaint("PigeonsNW", 132, 100, false) == false)
+assert(CampRespawnJuice.shouldPaint("YarnGolemNW", 145, 100, true) == true)
+assert(CampRespawnJuice.shouldPaint("RiverCrabS", 150, 100, true) == true)
+assert(CampRespawnJuice.shouldPaint("CanalLevi", 290, 100, true) == false)
+assert(CampRespawnJuice.justReturned(true, 132, 132) == true)
+assert(CampRespawnJuice.justReturned(true, 132, 131.6) == true, "a sliver before the stamp still puffs")
+assert(CampRespawnJuice.justReturned(true, 132, 131) == false)
+assert(CampRespawnJuice.justReturned(true, 132, 100) == false)
+assert(CampRespawnJuice.justReturned(false, 132, 140) == false)
+local pigeonPainted = { PigeonsNW = 132 }
+assert(#CampRespawnJuice.puffIds(pigeonPainted, {
+	{ id = "PigeonsNW", name = "Pigeon Pack", x = -100, y = 2.4, z = -88, respawnAt = 132 },
+}, 120) == 0)
+local popped = CampRespawnJuice.puffIds(pigeonPainted, {}, 132)
+assert(#popped == 1 and popped[1] == "PigeonsNW", "reaching the stamp puffs once")
+assert(#CampRespawnJuice.puffIds(pigeonPainted, {}, 120) == 0, "dropping a still-waiting row does not puff")
+assert(CampRespawnJuice.modeAllows("Moba", "InProgress") == true)
+assert(CampRespawnJuice.modeAllows("Hub", "InProgress") == false)
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, camp respawn chip")

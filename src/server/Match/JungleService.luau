@@ -242,6 +242,7 @@ local function spawnCamp(def: CampDef)
 end
 
 local function scheduleRespawn(def: CampDef)
+	-- Existing duration. The vision frame only reads this stamp.
 	pending[def.id] = Workspace:GetServerTimeNow() + def.respawn
 end
 
@@ -303,6 +304,25 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 		local step = math.min(monster.speed * dt, home.Magnitude)
 		monster.part.CFrame = CFrame.new(monster.part.Position + home.Unit * step)
 	end
+end
+
+-- Small camps waiting on the existing pending stamp. Canal Levi is not in `pending`.
+function JungleService.downs(): { { id: string, name: string, x: number, y: number, z: number, respawnAt: number } }
+	local list = {}
+	for id, readyAt in pending do
+		local def = findDef(id)
+		if def and def.epic ~= true then
+			table.insert(list, {
+				id = id,
+				name = def.name,
+				x = def.position.X,
+				y = def.position.Y,
+				z = def.position.Z,
+				respawnAt = readyAt,
+			})
+		end
+	end
+	return list
 end
 
 function JungleService.list(): { Monster }

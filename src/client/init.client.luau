@@ -2241,6 +2241,9 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 		if incoming.exploredBits == nil then
 			incoming.exploredBits = {}
 		end
+		if incoming.campDowns == nil then
+			incoming.campDowns = {}
+		end
 		lastVision = incoming
 		applyVision()
 		if latestMatch and latestMatch.phase == "InProgress" then

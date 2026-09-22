@@ -107,6 +107,18 @@ assert(MinimapPaint.clickFlash(-1) == 0)
 assert(MinimapPaint.clickFlash(MinimapPaint.ClickFlashSeconds) == 0)
 assert(MinimapPaint.clickFlash(MinimapPaint.ClickFlashSeconds * 0.5) == 0.5)
 
+-- A down small camp is a faint square. The living pip stays round amber. Levi marks stay theirs.
+local campWaiting = MinimapPaint.campDown()
+local campLiving = MinimapPaint.camp(false)
+assert(campWaiting.shape == "campDown")
+assert(campWaiting.corner == 2, "a waiting pit is a small square")
+assert(campWaiting.transparency > campLiving.transparency, "waiting pit is fainter than a living camp")
+assert(campWaiting.fill[1] < MinimapPaint.Amber[1], "waiting fill is dimmer than the living amber")
+assert(rgbEq(campWaiting.stroke, MinimapPaint.Amber))
+local leviBodyMark = MinimapPaint.levi("body")
+assert(leviBodyMark ~= nil and leviBodyMark.size > campWaiting.size, "Levi's body stays larger than a camp pit")
+assert(campLiving.shape == "camp" and campLiving.corner == 99)
+
 -- RiverEpic marker states the minimap consumes (no new vision protocol).
 assert(RiverEpic.marker("alive", false) == "pit")
 assert(RiverEpic.marker("alive", true) == "body")

@@ -24,11 +24,13 @@ def wrap_deps(name: str, rel: str, deps: list[str]) -> str:
 
 script = (
     wrap("VisionLogic", "src/shared/VisionLogic.luau")
+    + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("LastSeenGhostLogic", "src/shared/LastSeenGhostLogic.luau")
     + wrap("MinimapPaint", "src/shared/MinimapPaint.luau")
     + wrap("BillboardHp", "src/shared/BillboardHp.luau")
     + wrap_deps("ChampionPlate", "src/shared/ChampionPlate.luau", ["BillboardHp"])
     + wrap_deps("BrushJuice", "src/shared/BrushJuice.luau", ["VisionLogic"])
+    + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
     + (root / "tests/vision-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-vision-test-") as folder:
