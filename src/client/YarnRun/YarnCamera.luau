@@ -16,6 +16,8 @@ local DEATH_OFFSET = Vector3.new(16, 18, -6)
 
 local death = false
 local deathT = 0
+local kickUntil = 0
+local kickAmp = 0
 
 local function step()
 	if not enabled then
@@ -37,7 +39,15 @@ local function step()
 	else
 		deathT = 0
 	end
-	camera.CFrame = CFrame.lookAt(root.Position + offset, look)
+	local kick = Vector3.zero
+	if not death and os.clock() < kickUntil and kickAmp > 0 then
+		kick = Vector3.new(
+			(math.random() - 0.5) * 2 * kickAmp,
+			(math.random() - 0.5) * 0.9 * kickAmp,
+			(math.random() - 0.5) * 1.4 * kickAmp
+		)
+	end
+	camera.CFrame = CFrame.lookAt(root.Position + offset + kick, look)
 	camera.FieldOfView = fov
 end
 
@@ -46,6 +56,12 @@ function YarnCamera.setDeath(on: boolean)
 	if not on then
 		deathT = 0
 	end
+end
+
+-- Cheap near-miss punch; Yarn Run owns the cam so CameraFollow.shake would no-op.
+function YarnCamera.kick(amplitude: number, duration: number)
+	kickAmp = math.max(0, amplitude)
+	kickUntil = os.clock() + math.max(0, duration)
 end
 
 function YarnCamera.setEnabled(on: boolean)
@@ -67,6 +83,8 @@ function YarnCamera.setEnabled(on: boolean)
 		end
 		death = false
 		deathT = 0
+		kickUntil = 0
+		kickAmp = 0
 	end
 end
 

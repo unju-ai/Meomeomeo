@@ -169,6 +169,81 @@ function YarnRunCatalog.pickupLabel(kind: ObstacleKind): string
 	return "YARN"
 end
 
+-- Stream HUD / ScreenJuice colors (plain RGB so Luau smokes stay Roblox-free).
+function YarnRunCatalog.powerRgb(kind: PowerId): (number, number, number)
+	if kind == "speed" then
+		return 90, 220, 255
+	elseif kind == "magnet" then
+		return 220, 90, 210
+	elseif kind == "shield" then
+		return 120, 220, 160
+	end
+	return 255, 196, 74
+end
+
+function YarnRunCatalog.powerChipLabel(kind: PowerId): string
+	if kind == "speed" then
+		return "SPD"
+	elseif kind == "magnet" then
+		return "MAG"
+	elseif kind == "shield" then
+		return "SHD"
+	end
+	return "2X"
+end
+
+function YarnRunCatalog.isPowerEvent(event: string?): PowerId?
+	if event == "SPEED BURST" then
+		return "speed"
+	elseif event == "MAGNET ON" then
+		return "magnet"
+	elseif event == "SHIELD UP" or event == "SHIELD POP" then
+		return "shield"
+	elseif event == "2X YARN" then
+		return "double"
+	end
+	return nil
+end
+
+-- One-glance death-card lines (no scoring math).
+function YarnRunCatalog.pbCompareLine(score: number, meters: number, bestScore: number, bestMeters: number, newBest: boolean?): string
+	local scoreN = math.max(0, math.floor(score))
+	local metersN = math.max(0, math.floor(meters))
+	local pbScore = math.max(0, math.floor(bestScore))
+	local pbMeters = math.max(0, math.floor(bestMeters))
+	if newBest then
+		if pbScore > 0 or pbMeters > 0 then
+			return `NEW PB  {scoreN}  ·  was {pbScore} / {pbMeters}m`
+		end
+		return `NEW PB  {scoreN}  ·  {metersN}m`
+	end
+	if pbScore <= 0 and pbMeters <= 0 then
+		return `PB  —  ·  this run {scoreN} / {metersN}m`
+	end
+	local delta = scoreN - pbScore
+	local signed = if delta > 0 then `+{delta}` elseif delta < 0 then tostring(delta) else "0"
+	return `PB  {pbScore} / {pbMeters}m  ·  this {scoreN} ({signed})`
+end
+
+function YarnRunCatalog.deathRankLine(dailyRank: number?, weeklyRank: number?, podium: boolean?): string
+	local bits = {}
+	if typeof(dailyRank) == "number" then
+		local n = math.max(1, math.floor(dailyRank))
+		table.insert(bits, if podium then `Daily podium  #{n}` else `Daily #{n}`)
+	end
+	if typeof(weeklyRank) == "number" then
+		table.insert(bits, `Weekly #{math.max(1, math.floor(weeklyRank))}`)
+	end
+	if #bits > 0 then
+		return table.concat(bits, "   ·   ")
+	end
+	return "Daily —   ·   Weekly —"
+end
+
+function YarnRunCatalog.deathRecapLine(score: number, yarn: number, bestCombo: number, meters: number): string
+	return `Score {math.max(0, math.floor(score))}   ·   Yarn {math.max(0, math.floor(yarn))}   ·   best combo x{math.max(0, math.floor(bestCombo))}\n{math.max(0, math.floor(meters))}m of night-market chaos`
+end
+
 function YarnRunCatalog.kindAt(seed: number, index: number): SegmentKind
 	if index < YarnRunCatalog.StartGrace then
 		return "empty"
