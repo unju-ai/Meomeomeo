@@ -7,8 +7,12 @@
 -- A goal ranks above a full-HP camp and soft lane last-hitting. It loses to
 -- low-HP flee, peel, Canal Levi, a camp that is already hurt, a cat already
 -- in face range, and an active safe siege (a post, a stall, or an open yarn
--- core). Easy and Normal never take it.
--- Damage, items, and cast chance stay elsewhere.
+-- core). A cat on the enemy fountain pad is not a finish, even when the
+-- tower dive was marked legal. That disk is BotFountainLogic. The ally pad
+-- is not it, and the yarn core is a separate siege. Easy and Normal never
+-- take this goal. Damage, items, and cast chance stay elsewhere.
+
+local BotFountainLogic = require(script.Parent:WaitForChild("BotFountainLogic"))
 
 local BotFinishLogic = {}
 
@@ -35,6 +39,7 @@ export type Cat = {
 
 export type FinishQuery = {
 	difficulty: Difficulty,
+	team: BotFountainLogic.TeamId,
 	x: number,
 	z: number,
 	selfHp: number,
@@ -101,7 +106,8 @@ function BotFinishLogic.pick(query: FinishQuery): FinishGoal?
 	local bestScore = -1e9
 	local bestDist = 0
 	for _, enemy in query.enemies do
-		if enemy.alive and enemy.diveOk then
+		local onEnemyPad = BotFountainLogic.refuseChase(query.team, enemy.x, enemy.z, false)
+		if enemy.alive and enemy.diveOk and not onEnemyPad then
 			local gap = flat(query.x, query.z, enemy.x, enemy.z)
 			local score = BotFinishLogic.urgency(enemy.hpRatio, gap)
 			local take = false
