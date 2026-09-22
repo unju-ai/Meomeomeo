@@ -1054,6 +1054,7 @@ end
 
 local function finishPick(partial: {
 	difficulty: BotFinishLogic.Difficulty?,
+	team: BotFountainLogic.TeamId?,
 	x: number?,
 	z: number?,
 	selfHp: number?,
@@ -1062,6 +1063,7 @@ local function finishPick(partial: {
 }): BotFinishLogic.FinishGoal?
 	return BotFinishLogic.pick({
 		difficulty = partial.difficulty or "Hard",
+		team = partial.team or "Blue",
 		x = partial.x or 0,
 		z = partial.z or 0,
 		selfHp = if partial.selfHp == nil then 1 else partial.selfHp,
@@ -1286,6 +1288,72 @@ local normalFinishHunt = ask({
 })
 assert(normalFinishHunt.action ~= "finish", "Normal ignores a finish hint")
 
+-- Enemy fountain disk. Same pads FountainRegenJuice / ShopService.nearFountain use.
+assert(BotFountainLogic.Radius == FountainRegenJuice.Radius)
+assert(FountainRegenJuice.Radius == 32)
+assert(FountainRegenJuice.BlueX == -176 and FountainRegenJuice.RedX == 176 and FountainRegenJuice.PadZ == 0)
+assert(BotFountainLogic.onPad("Red", FountainRegenJuice.RedX, FountainRegenJuice.PadZ) == true)
+assert(BotFountainLogic.onEnemyPad("Blue", 176, 0) == true)
+assert(BotFountainLogic.onEnemyPad("Blue", 144, 0) == true, "the rim of the closed disk is still the pad")
+assert(BotFountainLogic.onEnemyPad("Blue", 143, 0) == false)
+assert(BotFountainLogic.onAllyPad("Blue", -176, 0) == true)
+assert(BotFountainLogic.onEnemyPad("Blue", -176, 0) == false, "the ally pad is not a refused chase")
+assert(BotFountainLogic.refuseChase("Blue", 168, 0, false) == true, "the yarn core sits inside the disk")
+assert(BotFountainLogic.refuseChase("Blue", 168, 0, true) == false, "an open-core siege may stand on that point")
+assert(BotFountainLogic.refuseChase("Red", -170, 0, false) == true)
+local rimX, rimZ = BotFountainLogic.laneRim("Blue", -80)
+assert(rimX == 143 and rimZ == -80, "Blue steps just outside the red pad toward top")
+assert(BotFountainLogic.onEnemyPad("Blue", rimX, rimZ) == false)
+local redRimX, redRimZ = BotFountainLogic.laneRim("Red", 80)
+assert(redRimX == -143 and redRimZ == 80, "Red steps just outside the blue pad toward bot")
+assert(BotFountainLogic.onEnemyPad("Red", redRimX, redRimZ) == false)
+
+assert(finishPick({ team = "Blue", x = 120, enemies = { foe(9, 170, 0, 0.2) } }) == nil, "finish into the enemy fountain is refused")
+assert(finishPick({ team = "Blue", x = 120, enemies = { foe(9, 144, 0, 0.2) } }) == nil, "standing on the rim is still the pad")
+local outsideFinish = finishPick({ team = "Blue", x = 100, enemies = { foe(9, 140, 0, 0.2) } })
+assert(outsideFinish ~= nil and outsideFinish.userId == 9, "finish outside the fountain still happens")
+assert(finishPick({ team = "Blue", x = -150, enemies = { foe(9, -170, 0, 0.2) } }) ~= nil, "a cat on the ally fountain can still be finished")
+assert(finishPick({ team = "Red", x = -120, enemies = { foe(9, -170, 0, 0.2) } }) == nil, "Red refuses a finish on the blue pad")
+assert(finishPick({ team = "Red", x = -100, enemies = { foe(9, -140, 0, 0.2) } }) ~= nil, "Red still finishes outside the blue pad")
+local skippedPad = finishPick({
+	team = "Blue",
+	x = 110,
+	enemies = { foe(9, 176, 0, 0.1), foe(4, 130, 0, 0.3) },
+})
+assert(skippedPad ~= nil and skippedPad.userId == 4, "a fountain cat is skipped for a legal finish")
+
+local lanePadFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 120,
+	z = 0,
+	jungler = false,
+	finish = { x = 176, z = 0, userId = 9, hpRatio = 0.1 },
+})
+assert(lanePadFinish.action == "lane", "a finish onto the enemy fountain falls back to lane")
+
+local laneOutside = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 100,
+	z = 0,
+	jungler = false,
+	finish = { x = 140, z = 0, userId = 9, hpRatio = 0.2 },
+})
+assert(laneOutside.action == "finish" and laneOutside.focusUserId == 9, "a finish outside the fountain pad still pulls a lane bot")
+assert(BotFountainLogic.onEnemyPad("Blue", laneOutside.stepX or laneOutside.x or 0, laneOutside.stepZ or laneOutside.z or 0) == false, "that finish step stays off the pad")
+
+local campNotPad = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	finish = { x = 176, z = 0, userId = 9, hpRatio = 0.1 },
+})
+assert(campNotPad.action == "camp" and campNotPad.campId == "PigeonsNW", "a fountain finish does not pull a bot off its camp")
+
 -- Hard yarn core. Callers already applied StructureLogic's vulnerable bit.
 -- Outer/stall siege still refuses a nexus. This walk is separate.
 local function yarnCore(partial: {
@@ -1486,4 +1554,18 @@ local normalCore = ask({
 })
 assert(normalCore.action ~= "siege", "Normal ignores a core hint")
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, hard yarn core, hard wounded finish, camp respawn chip, control yarn plant")
+local coreOverFountainFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 120,
+	z = 0,
+	jungler = false,
+	siege = coreHint,
+	finish = { x = 176, z = 0, userId = 9, hpRatio = 0.1 },
+})
+assert(
+	coreOverFountainFinish.action == "siege" and coreOverFountainFinish.objectiveId == "RedNexus",
+	"an open core still sieges inside the fountain disk"
+)
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, hard yarn core, hard wounded finish, enemy fountain refuse, camp respawn chip, control yarn plant")

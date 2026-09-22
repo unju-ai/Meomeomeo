@@ -15,7 +15,10 @@ uses the same siege ranking: peel, Levi, a hurt camp, and a wounded cat in
 face range still win, and a full-HP camp still loses. Hard finish
 (BotFinishLogic) hunts a visible wounded champion over a full-HP camp and a
 lane shove. It loses to flee, peel, Levi, a hurt camp, a face-range fight,
-and an active siege (post or open core). Easy and Normal ignore all three.
+and an active siege (post or open core). A finish whose cat or next step
+sits on the enemy fountain pad (BotFountainLogic, the FountainRegenJuice
+disk) is refused; a finish outside that pad still happens. An open core
+siege is not that pad. Easy and Normal ignore peel, siege, finish, and core.
 """
 from pathlib import Path
 import re
@@ -45,11 +48,13 @@ script = (
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
+    + wrap("FountainRegenJuice", "src/shared/FountainRegenJuice.luau")
+    + wrap_deps("BotFountainLogic", "src/shared/BotFountainLogic.luau", ["FountainRegenJuice"])
     + wrap("BotCoreLogic", "src/shared/BotCoreLogic.luau")
-    + wrap("BotFinishLogic", "src/shared/BotFinishLogic.luau")
+    + wrap_deps("BotFinishLogic", "src/shared/BotFinishLogic.luau", ["BotFountainLogic"])
     + wrap("BotPeelLogic", "src/shared/BotPeelLogic.luau")
     + wrap("BotSiegeLogic", "src/shared/BotSiegeLogic.luau")
-    + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")
+    + wrap_deps("JungleBotLogic", "src/shared/JungleBotLogic.luau", ["RiverEpic", "BotFountainLogic"])
     + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
     + wrap_deps("BotShopLogic", "src/shared/BotShopLogic.luau", ["ItemCatalog"])
     + (root / "tests/jungle-bot-smoke.luau").read_text()

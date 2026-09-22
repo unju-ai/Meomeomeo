@@ -4,6 +4,7 @@ local Workspace = game:GetService("Workspace")
 
 local BotCoreLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotCoreLogic"))
 local BotFinishLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotFinishLogic"))
+local BotFountainLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotFountainLogic"))
 local BotPeelLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotPeelLogic"))
 local BotSiegeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotSiegeLogic"))
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
@@ -217,6 +218,11 @@ local function assignedZ(lane: string): number
 		return Constants.LaneZ.Bot
 	end
 	return Constants.LaneZ.Mid
+end
+
+local function leaveEnemyPad(userId: number, team: Types.TeamId, lane: string, y: number, dt: number)
+	local exitX, exitZ = BotFountainLogic.laneRim(team, assignedZ(lane))
+	stepToward(userId, Vector3.new(exitX, y, exitZ), dt)
 end
 
 local function waveFollow(team: Types.TeamId, lane: string): Vector3?
@@ -554,6 +560,19 @@ local function coreIsSiege(team: Types.TeamId, userId: number, origin: Vector3, 
 	return BotCoreLogic.eligible(origin.X, origin.Z, view)
 end
 
+-- Open yarn core is a legal walk from here. The bot may cross the regen disk
+-- to reach it. This does not make a champion chase on that disk legal.
+local function coreSiegeActive(team: Types.TeamId, userId: number, origin: Vector3): boolean
+	if currentDifficulty ~= "Hard" then
+		return false
+	end
+	local view = coreView(team, userId)
+	if not view then
+		return false
+	end
+	return BotCoreLogic.eligible(origin.X, origin.Z, view)
+end
+
 local function targetHpRatio(hunt: Hunt): number
 	if hunt.kind == "player" and hunt.userId then
 		local combat = CombatService.get(hunt.userId)
@@ -567,7 +586,31 @@ local function targetHpRatio(hunt: Hunt): number
 	return 1
 end
 
+-- Enemy regen pad (BotFountainLogic / FountainRegenJuice). Champion, minion,
+-- and camp chases never enter it. A nil or objective step may, and only when
+-- that point is the open yarn core BotCoreLogic already called safe.
+local function fountainAllows(team: Types.TeamId, userId: number, origin: Vector3, dest: Vector3, hunt: Hunt?): boolean
+	if not BotFountainLogic.onEnemyPad(team, dest.X, dest.Z) then
+		return true
+	end
+	if hunt ~= nil and hunt.kind ~= "objective" then
+		return false
+	end
+	return coreIsSiege(team, userId, origin, dest)
+end
+
+local function offEnemyPad(team: Types.TeamId, userId: number, origin: Vector3, dest: Vector3): Vector3
+	if fountainAllows(team, userId, origin, dest, nil) then
+		return dest
+	end
+	local exitX, exitZ = BotFountainLogic.laneRim(team, dest.Z)
+	return Vector3.new(exitX, dest.Y, exitZ)
+end
+
 local function allowDive(tune: Tune, brain: BotBrain, team: Types.TeamId, origin: Vector3, dest: Vector3, hunt: Hunt?): boolean
+	if not fountainAllows(team, brain.userId, origin, dest, hunt) then
+		return false
+	end
 	local towerPos, range, defender = enemyTowerAt(team, dest)
 	if not towerPos or not range or not defender then
 		return true
@@ -753,6 +796,9 @@ local function visibleEnemy(team: Types.TeamId, origin: Vector3, userId: number)
 	if not champ then
 		return nil
 	end
+	if BotFountainLogic.onEnemyPad(team, champ.position.X, champ.position.Z) then
+		return nil
+	end
 	return { x = champ.position.X, z = champ.position.Z }
 end
 
@@ -910,6 +956,7 @@ local function hardFinishGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, r
 	end
 	return BotFinishLogic.pick({
 		difficulty = "Hard",
+		team = team,
 		x = root.Position.X,
 		z = root.Position.Z,
 		selfHp = hpRatio,
@@ -1038,6 +1085,12 @@ local function pursueJungle(
 		end
 		local stepX = decision.stepX or decision.x or root.Position.X
 		local stepZ = decision.stepZ or decision.z or root.Position.Z
+		local aimX = decision.x or stepX
+		local aimZ = decision.z or stepZ
+		if BotFountainLogic.refuseChase(team, stepX, stepZ, false) or BotFountainLogic.refuseChase(team, aimX, aimZ, false) then
+			clearJungleNav(brain)
+			return false
+		end
 		brain.navKind = "peel"
 		brain.navX = stepX
 		brain.navZ = stepZ
@@ -1068,6 +1121,12 @@ local function pursueJungle(
 		end
 		local stepX = decision.stepX or decision.x or root.Position.X
 		local stepZ = decision.stepZ or decision.z or root.Position.Z
+		local aimX = decision.x or stepX
+		local aimZ = decision.z or stepZ
+		if BotFountainLogic.refuseChase(team, stepX, stepZ, false) or BotFountainLogic.refuseChase(team, aimX, aimZ, false) then
+			clearJungleNav(brain)
+			return false
+		end
 		brain.navKind = "finish"
 		brain.navX = stepX
 		brain.navZ = stepZ
@@ -1200,8 +1259,20 @@ local function think(brain: BotBrain, dt: number)
 		return
 	end
 
+	-- Already on the enemy regen pad with no open-core siege: step back to
+	-- the lane side of the rim. Ally fountain recall already returned above.
+	-- coreWalk only covers that pad, so an outer-post panic still flees.
+	local onEnemyPad = BotFountainLogic.onEnemyPad(team, root.Position.X, root.Position.Z)
+	local coreWalk = onEnemyPad and coreSiegeActive(team, brain.userId, root.Position)
+	if onEnemyPad and not coreWalk then
+		releaseCamp(brain)
+		brain.visitedLane = true
+		leaveEnemyPad(brain.userId, team, brain.lane, root.Position.Y, dt)
+		return
+	end
+
 	local hereTower = enemyTowerAt(team, root.Position)
-	if hereTower and not allowDive(tune, brain, team, root.Position, root.Position, nil) then
+	if hereTower and not coreWalk and not allowDive(tune, brain, team, root.Position, root.Position, nil) then
 		releaseCamp(brain)
 		stepToward(brain.userId, fountain, dt)
 		return
@@ -1296,11 +1367,13 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
-	-- Flee, dodge, and an empty-tower panic already returned. Shop, cleave, lens,
-	-- and Control Yarn stay above goals. Peel, Canal Levi, and a hurt camp beat
-	-- a Hard siege. An open yarn core uses that same siege walk when it is safe,
-	-- and it replaces a post. The siege beats a wounded-champion finish outside
-	-- face range. That finish beats a full-HP camp and last-hit farming.
+	-- Flee, dodge, an enemy-fountain step-out, and an empty-tower panic already
+	-- returned. Shop, cleave, lens, and Control Yarn stay above goals. Peel,
+	-- Canal Levi, and a hurt camp beat a Hard siege. An open yarn core uses
+	-- that same siege walk when it is safe, and it replaces a post. The siege
+	-- beats a wounded-champion finish outside face range. That finish beats a
+	-- full-HP camp and last-hit farming. A finish onto the enemy fountain pad
+	-- is not a goal; the bot falls through to lane, siege, or camp.
 	local peelGoal = hardPeelGoal(brain, team, tune, root, combat)
 	local siegeGoal = hardSiegeGoal(team, tune, root, combat, peelGoal)
 	local coreGoal = hardCoreGoal(brain, team, tune, root, combat, peelGoal)
@@ -1318,6 +1391,9 @@ local function think(brain: BotBrain, dt: number)
 	end
 
 	local hunt = nearestHunt(team, root.Position, brain.userId, tune)
+	if hunt and not fountainAllows(team, brain.userId, root.Position, hunt.position, hunt) then
+		hunt = nil
+	end
 	if hunt then
 		if not allowDive(tune, brain, team, root.Position, hunt.position, hunt) then
 			stepToward(brain.userId, fountain, dt)
@@ -1346,6 +1422,7 @@ local function think(brain: BotBrain, dt: number)
 
 	local follow = waveFollow(team, brain.lane)
 	local dest = follow or Vector3.new(lanePushX(team), 3, assignedZ(brain.lane))
+	dest = offEnemyPad(team, brain.userId, root.Position, dest)
 	if (dest - fountain).Magnitude > 40 then
 		brain.visitedLane = true
 	end
@@ -1448,22 +1525,45 @@ function BotService.start()
 							local walkTune = tunables(currentDifficulty)
 							local nowWalk = Workspace:GetServerTimeNow()
 							local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+							local onEnemyPad = matchPlayer
+								and BotFountainLogic.onEnemyPad(matchPlayer.team, root.Position.X, root.Position.Z)
+								and not coreSiegeActive(matchPlayer.team, brain.userId, root.Position)
 							if matchPlayer and hpRatio <= walkTune.RetreatHp then
 								stepToward(brain.userId, fountainPos(matchPlayer.team), dt)
 							elseif matchPlayer and brain.dodgeUntil > nowWalk and brain.dodgeDest then
 								stepToward(brain.userId, brain.dodgeDest, dt)
+							elseif onEnemyPad and matchPlayer then
+								leaveEnemyPad(brain.userId, matchPlayer.team, brain.lane, root.Position.Y, dt)
 							elseif matchPlayer and brain.navKind == "camp" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer and brain.navKind == "rotate" and brain.navX and brain.navZ then
-								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+								local dest = Vector3.new(brain.navX, root.Position.Y, brain.navZ)
+								if fountainAllows(matchPlayer.team, brain.userId, root.Position, dest, nil) then
+									stepToward(brain.userId, dest, dt)
+								else
+									leaveEnemyPad(brain.userId, matchPlayer.team, brain.lane, root.Position.Y, dt)
+								end
 							elseif matchPlayer and brain.navKind == "peel" and brain.navX and brain.navZ and not brain.closing then
-								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+								if BotFountainLogic.refuseChase(matchPlayer.team, brain.navX, brain.navZ, false) then
+									leaveEnemyPad(brain.userId, matchPlayer.team, brain.lane, root.Position.Y, dt)
+								else
+									stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+								end
 							elseif matchPlayer and brain.navKind == "finish" and brain.navX and brain.navZ and not brain.closing then
-								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+								if BotFountainLogic.refuseChase(matchPlayer.team, brain.navX, brain.navZ, false) then
+									leaveEnemyPad(brain.userId, matchPlayer.team, brain.lane, root.Position.Y, dt)
+								else
+									stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+								end
 							elseif matchPlayer and brain.navKind == "siege" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer then
 								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, walkTune)
+								local fountainChase = hunt
+									and not fountainAllows(matchPlayer.team, brain.userId, root.Position, hunt.position, hunt)
+								if fountainChase then
+									hunt = nil
+								end
 								if hunt and (hunt.position - root.Position).Magnitude > Config.AutoAttack.Range then
 									if allowDive(walkTune, brain, matchPlayer.team, root.Position, hunt.position, hunt) then
 										stepToward(brain.userId, hunt.position, dt)
@@ -1473,6 +1573,7 @@ function BotService.start()
 								elseif not hunt then
 									local follow = waveFollow(matchPlayer.team, brain.lane)
 									local dest = follow or Vector3.new(lanePushX(matchPlayer.team), 3, assignedZ(brain.lane))
+									dest = offEnemyPad(matchPlayer.team, brain.userId, root.Position, dest)
 									if allowDive(walkTune, brain, matchPlayer.team, root.Position, dest, nil) then
 										stepToward(brain.userId, dest, dt)
 									end

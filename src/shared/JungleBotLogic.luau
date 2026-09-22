@@ -15,8 +15,12 @@
 -- so a wounded cat in face range still wins and a full-HP camp still loses.
 -- Hard may also finish a wounded enemy the caller already chose. That loses
 -- to peel, Levi, a hurt camp, a cat in face range, and an active siege.
--- It beats a full-HP camp and soft lane farming. Easy and Normal ignore it.
+-- It beats a full-HP camp and soft lane farming. A finish whose cat or next
+-- step sits on the enemy fountain pad is dropped first (BotFountainLogic,
+-- the regen disk). An open yarn core stays a siege hint. Easy and Normal
+-- ignore the finish.
 
+local BotFountainLogic = require(script.Parent:WaitForChild("BotFountainLogic"))
 local RiverEpic = require(script.Parent:WaitForChild("RiverEpic"))
 
 local JungleBotLogic = {}
@@ -556,9 +560,27 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	end
 	-- Top and bot stay in lane. A Hard peel still beats that shove, then a siege,
 	-- then a wounded-champion finish. Easy never peels, sieges, or finish-hunts.
+	-- A chase onto the enemy fountain pad is not a peel or a finish. The open
+	-- yarn core is a siege and is not dropped for sitting inside that disk.
 	local peel = if query.difficulty == "Hard" then query.peel else nil
 	local siege = if query.difficulty == "Hard" then query.siege else nil
 	local finish = if query.difficulty == "Hard" then query.finish else nil
+	if peel and BotFountainLogic.refuseChase(query.team, peel.x, peel.z, false) then
+		peel = nil
+	elseif peel then
+		local stepX, stepZ = approach(query, peel.x, peel.z)
+		if BotFountainLogic.refuseChase(query.team, stepX, stepZ, false) then
+			peel = nil
+		end
+	end
+	if finish and BotFountainLogic.refuseChase(query.team, finish.x, finish.z, false) then
+		finish = nil
+	elseif finish then
+		local stepX, stepZ = approach(query, finish.x, finish.z)
+		if BotFountainLogic.refuseChase(query.team, stepX, stepZ, false) then
+			finish = nil
+		end
+	end
 	if not query.jungler or query.difficulty == "Easy" then
 		if peel then
 			return peelDecision(query, routeIndex)
