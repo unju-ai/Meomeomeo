@@ -61,6 +61,8 @@ Lobby hosts (same day, later slice): Luau compiled 130 sources; `tools/test-bran
 
 First-Practice tips (same day, later slice): the deck keeps move, scratch, abilities, the kit cards, recall, wards, and fog, and adds a short tail for the systems shipped after those cards. Purse gold/CS shares the Pawmart card with Yarn Cleave (**7**), Stall Fang, and Paper Charm. One card covers outer post → lantern stall → yarn core. Then death recap, Kitty Caster plus named **G** pings, Invite / party queue, and Closet unlocks plus **Mute me**. Hub **Live** stays on the **H / ?** Tips row, not a card. `MeoTutorial_v1` is still a boolean, so a player who already skipped or finished is not shown the new cards until lobby **Show tips**. See the live-pass under §3.
 
+Verified locally: Luau compiled 133 sources; `tools/test-tutorial.py` passed (17-card deck, **Next** / **Got it**, **Skip all** stays dismissed, **Show tips** replays after a finished flag, live matches and other modes stay quiet, hub **Live** stays on the Tips row). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to step **Show tips** in Play.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
