@@ -39,7 +39,9 @@ local LINES_MOBA: { { string } } = {
 	{ "H / ?", "This help (hold H or click ?)" },
 	{ "Minimap", "Fogged · click Attention ping (team-only)" },
 	{ "Talk", "Fountain / jungle cats" },
-	{ "Practice", "Easy / Normal / Hard (Hard dodges + lens)" },
+	{ "Practice", "Solo vs 3 bots · party shares Blue" },
+	{ "Invite", "Same-server Accept · leader queues" },
+	{ "Party", "Leader + members, or solo · 20s" },
 	{ "Tips", "First Practice cards · replay from lobby" },
 }
 

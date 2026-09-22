@@ -96,6 +96,11 @@ assert(lobby.difficulty() == "Hard", "Latest Hard difficulty must survive the me
 assert(lobby.root:FindFirstChild("Practice").Text == "Practice vs 3 bots (Hard)")
 assert(lobby.root:FindFirstChild("ShowTips") ~= nil, "Latest tutorial entry must survive")
 assert(lobby.root:FindFirstChild("Invite") ~= nil, "Latest party entry must survive")
+assert(lobby.root:FindFirstChild("Party").Text == "Party · solo")
+assert(lobby.root:FindFirstChild("LeaveParty").Visible == false)
+local card = lobby.root:FindFirstChild("InviteCard")
+assert(card and card.Visible == false, "Invite prompt stays hidden until someone invites you")
+assert(card:FindFirstChild("AcceptInvite") and card:FindFirstChild("DeclineInvite"))
 lobby.updateQueue({
 	phase = "Teleporting", mode = "Reserved", inQueue = true, count = 6,
 	needed = 6, estimatedSeconds = 0, party = { "Cat", "Friend" }, detail = "Joining match",
@@ -103,6 +108,33 @@ lobby.updateQueue({
 assert(lobby.root:FindFirstChild("Queue").Visible == false)
 assert(lobby.root:FindFirstChild("Leave").Visible == false)
 assert(lobby.root:FindFirstChild("Blurb").Text == "Joining match", "Live queue status must keep priority")
+lobby.setPeers({ { userId = 4, name = "Sam" }, { userId = 5, name = "Mo" } })
+assert(lobby.root:FindFirstChild("Invite").Text == "Invite Sam")
+assert(lobby.root:FindFirstChild("NextCat").Visible == true)
+lobby.root:FindFirstChild("NextCat").MouseButton1Click:Fire()
+assert(lobby.root:FindFirstChild("Invite").Text == "Invite Mo")
+lobby.updateQueue({
+	phase = "Idle", mode = "InPlace", inQueue = false, count = 0,
+	needed = 2, estimatedSeconds = 0, party = { "You (leader)", "Sam" },
+	partyRole = "leader", partyMemberIds = { 1, 4 }, detail = "Need 2",
+	incomingInvite = { fromUserId = 9, fromName = "Mo", expiresIn = 12 },
+})
+assert(lobby.root:FindFirstChild("Party").Text == "Party · You (leader) · Sam")
+assert(card.Visible == true)
+assert(card:FindFirstChild("InviteStatus").Text == "Mo invited you · 12s")
+assert(lobby.root:FindFirstChild("Queue").Visible == true)
+assert(lobby.root:FindFirstChild("Queue").Text == "Queue party")
+assert(lobby.root:FindFirstChild("Practice").Text == "Practice with party (Hard)")
+assert(lobby.root:FindFirstChild("LeaveParty").Visible == true)
+assert(lobby.root:FindFirstChild("Invite").Text == "Invite Mo")
+lobby.updateQueue({
+	phase = "Idle", mode = "InPlace", inQueue = false, count = 0,
+	needed = 2, estimatedSeconds = 0, party = {}, partyRole = "solo", detail = "solo again",
+})
+assert(lobby.root:FindFirstChild("Party").Text == "Party · solo")
+assert(card.Visible == false)
+assert(lobby.root:FindFirstChild("LeaveParty").Visible == false)
+assert(lobby.root:FindFirstChild("Practice").Text == "Practice vs 3 bots (Hard)")
 print("PASS: host dialogue, original roster/NPCs, safe substitutions, theme buttons, lobby copy and queue state")
 
 -- A yielded NPC request must never leak into a newly opened conversation.

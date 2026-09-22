@@ -240,6 +240,27 @@ local function toast(text: string)
 	hud.banner(text)
 end
 
+local lastPartyNotice = 0
+local function noteParty(queue: Types.QueueStatus)
+	if typeof(queue.noticeId) == "number" and typeof(queue.notice) == "string" and queue.notice ~= "" and queue.noticeId ~= lastPartyNotice then
+		lastPartyNotice = queue.noticeId
+		toast(queue.notice)
+	end
+end
+
+local function refreshRiftPeers()
+	local list = {}
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			table.insert(list, { userId = other.UserId, name = other.DisplayName })
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.userId < b.userId
+	end)
+	hud.lobby.setPeers(list)
+end
+
 local function refreshBars()
 	if not latestMatch then
 		return
@@ -351,6 +372,9 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		return
 	end
 	latestMatch = snapshot :: Types.MatchSnapshot
+	if latestMatch.queue then
+		noteParty(latestMatch.queue)
+	end
 	if not inMini() then
 		if latestMatch.phase ~= "Lobby" then
 			gameMode = "Moba"
@@ -516,9 +540,6 @@ hud.lobby.onQueue(function()
 	if result and result.ok == false then
 		hud.lobby.setQueued(false)
 		toast(result.error or "Queue failed")
-	else
-		hud.lobby.setQueued(true)
-		toast("Queued — waiting for more cats")
 	end
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 end)
@@ -534,16 +555,43 @@ hud.lobby.onLeave(function()
 end)
 
 hud.lobby.onInvite(function()
-	local result = Remotes.function_("InviteParty"):InvokeServer()
+	local result = Remotes.function_("InviteParty"):InvokeServer(hud.lobby.inviteUserId())
 	if result and result.ok == false then
 		toast(result.error or "Invite failed")
-	else
-		toast("Friend added to your party")
 	end
 	local queue = Remotes.function_("GetQueueStatus"):InvokeServer()
 	if typeof(queue) == "table" then
-		hud.lobby.updateQueue(queue :: Types.QueueStatus)
+		local status = queue :: Types.QueueStatus
+		hud.lobby.updateQueue(status)
+		noteParty(status)
 	end
+end)
+
+hud.lobby.onAcceptInvite(function()
+	local result = Remotes.function_("AcceptPartyInvite"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not accept")
+	end
+end)
+
+hud.lobby.onDeclineInvite(function()
+	local result = Remotes.function_("DeclinePartyInvite"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not decline")
+	end
+end)
+
+hud.lobby.onLeaveParty(function()
+	local result = Remotes.function_("LeaveParty"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not leave the party")
+	end
+end)
+
+refreshRiftPeers()
+Players.PlayerAdded:Connect(refreshRiftPeers)
+Players.PlayerRemoving:Connect(function()
+	task.defer(refreshRiftPeers)
 end)
 
 hud.lobby.onDifficulty(function(difficulty)
@@ -579,6 +627,7 @@ end)
 hud.hub.onPlayRift(function()
 	hubPage = "moba"
 	gameMode = "Hub"
+	refreshRiftPeers()
 	applyShellView()
 end)
 
@@ -1266,6 +1315,7 @@ Remotes.event("QueueUpdated").OnClientEvent:Connect(function(status)
 	end
 	local queue = status :: Types.QueueStatus
 	hud.lobby.updateQueue(queue)
+	noteParty(queue)
 	if queue.phase == "Found" then
 		Sfx.play("MatchFound")
 		Music.duck(1.8)

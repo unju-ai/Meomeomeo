@@ -6,6 +6,8 @@ local Workspace = game:GetService("Workspace")
 local Config = require(script.Parent.Parent.Config)
 local MatchService = require(script.Parent.MatchService)
 local MatchTeleport = require(script.Parent.MatchTeleport)
+local ModeService = require(script.Parent.Parent.Mode.ModeService)
+local CatRiftParty = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CatRiftParty"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -15,8 +17,9 @@ local queue: { Player } = {}
 local queuedAt: { [number]: number } = {}
 local lastDifficulty: Types.BotDifficulty = Config.Bots.DefaultDifficulty
 local queuePhase: Types.QueuePhase = "Idle"
-local parties: { [number]: { number } } = {}
+local partyState = CatRiftParty.empty()
 local pendingTeleport: Types.MatchTeleportData? = nil
+local NOTICE_FRESH_SECONDS = 12
 local arrivalDeadline = 0
 
 local function parseDifficulty(value: unknown): Types.BotDifficulty
@@ -58,28 +61,111 @@ local function snapshotQueue(): { Player }
 	return living
 end
 
-local function partyOf(userId: number): { number }
-	for leader, members in parties do
-		if leader == userId or table.find(members, userId) then
-			local all = { leader }
-			for _, member in members do
-				if member ~= leader then
-					table.insert(all, member)
-				end
-			end
-			return all
-		end
-	end
-	return { userId }
+local function now(): number
+	return Workspace:GetServerTimeNow()
 end
 
-local function partyNames(userId: number): { string }
-	local names = {}
-	for _, id in partyOf(userId) do
-		local player = Players:GetPlayerByUserId(id)
-		table.insert(names, if player then player.DisplayName else `Cat {id}`)
+local function displayName(userId: number): string
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		return player.DisplayName
+	end
+	return "Cat"
+end
+
+local function nameMap(): { [number]: string }
+	local names: { [number]: string } = {}
+	for _, player in Players:GetPlayers() do
+		names[player.UserId] = player.DisplayName
 	end
 	return names
+end
+
+local function partyOptions(): CatRiftParty.Options
+	return {
+		ttl = CatRiftParty.InviteSeconds,
+		maxSize = Config.Match.TeamSize,
+		names = nameMap(),
+		now = now(),
+	}
+end
+
+local function riftFree(member: Player): boolean
+	return ModeService.get(member) == "Hub"
+end
+
+local function partyEditsOpen(): (boolean, string?)
+	if queuePhase == "Found" or queuePhase == "Teleporting" then
+		return false, "A match is already forming."
+	end
+	if MatchService.isBusy() and not MatchService.isEnded() then
+		return false, "Wait until you're back in the lobby."
+	end
+	return true, nil
+end
+
+local function partyLabels(userId: number): { string }
+	if CatRiftParty.role(partyState, userId) == "solo" then
+		return {}
+	end
+	local leader = CatRiftParty.leaderOf(partyState, userId)
+	local labels = {}
+	for _, id in CatRiftParty.membersOf(partyState, userId) do
+		local name = if id == userId then "You" else displayName(id)
+		if id == leader then
+			name ..= " (leader)"
+		end
+		table.insert(labels, name)
+	end
+	return labels
+end
+
+local function partyMemberIds(userId: number): { number }
+	if CatRiftParty.role(partyState, userId) == "solo" then
+		return {}
+	end
+	return CatRiftParty.membersOf(partyState, userId)
+end
+
+local function inviteCard(invite: CatRiftParty.Invite?, at: number, incoming: boolean): Types.PartyInviteCard?
+	if not invite then
+		return nil
+	end
+	if incoming then
+		return {
+			fromUserId = invite.fromUserId,
+			fromName = displayName(invite.fromUserId),
+			expiresIn = math.max(0, invite.expiresAt - at),
+		}
+	end
+	return {
+		toUserId = invite.toUserId,
+		toName = displayName(invite.toUserId),
+		expiresIn = math.max(0, invite.expiresAt - at),
+	}
+end
+
+local function freshNotice(userId: number, at: number): (number?, string?)
+	local notice = partyState.notices[userId]
+	if notice and at - notice.at <= NOTICE_FRESH_SECONDS then
+		return notice.id, notice.text
+	end
+	return nil, nil
+end
+
+local function pickTarget(player: Player): Player?
+	local fallback: Player? = nil
+	for _, candidate in Players:GetPlayers() do
+		if candidate ~= player and not CatRiftParty.sameParty(partyState, player.UserId, candidate.UserId) then
+			if CatRiftParty.role(partyState, candidate.UserId) == "solo" then
+				return candidate
+			end
+			if not fallback then
+				fallback = candidate
+			end
+		end
+	end
+	return fallback
 end
 
 local function oldestWait(): number
@@ -123,6 +209,12 @@ function MatchmakingService.statusFor(player: Player?): Types.QueueStatus
 	else
 		detail = "Enough cats — forming a match."
 	end
+	local at = now()
+	local noticeId: number? = nil
+	local noticeText: string? = nil
+	if player then
+		noticeId, noticeText = freshNotice(player.UserId, at)
+	end
 	return {
 		phase = phase,
 		mode = MatchTeleport.mode(),
@@ -133,8 +225,14 @@ function MatchmakingService.statusFor(player: Player?): Types.QueueStatus
 		maxWaitSeconds = Config.Match.MaxWaitSeconds,
 		inQueue = inQueue,
 		detail = detail,
-		party = if player then partyNames(player.UserId) else {},
+		party = if player then partyLabels(player.UserId) else {},
 		canCancel = inQueue and phase ~= "Found" and phase ~= "Teleporting",
+		partyRole = if player then CatRiftParty.role(partyState, player.UserId) else "solo",
+		partyMemberIds = if player then partyMemberIds(player.UserId) else {},
+		incomingInvite = if player then inviteCard(CatRiftParty.incoming(partyState, player.UserId, at), at, true) else nil,
+		outgoingInvite = if player then inviteCard(CatRiftParty.outgoing(partyState, player.UserId, at), at, false) else nil,
+		noticeId = noticeId,
+		notice = noticeText,
 	}
 end
 
@@ -143,12 +241,17 @@ function MatchmakingService.queueCount(): number
 end
 
 local function assignSeats(players: { Player }): { Types.MatchTeleportSeat }
+	local ids = {}
+	for _, player in players do
+		table.insert(ids, player.UserId)
+	end
+	local teams = CatRiftParty.assignTeams(partyState, ids, Config.Match.TeamSize)
 	local seats = {}
-	for index, player in players do
+	for _, player in players do
 		table.insert(seats, {
 			userId = player.UserId,
 			displayName = player.DisplayName,
-			team = if index % 2 == 1 then "Blue" else "Red",
+			team = teams[player.UserId] or "Blue",
 			championId = nil,
 		})
 	end
@@ -216,24 +319,37 @@ local function tryForm(force: boolean?)
 	local players = snapshotQueue()
 	local need = neededHumans()
 	local waited = oldestWait()
-	local enough = #players >= need
+	local ids = {}
+	for _, player in players do
+		table.insert(ids, player.UserId)
+	end
+	local selectedIds = CatRiftParty.selectForMatch(partyState, ids, Config.Match.TeamSize * 2)
+	local enough = #selectedIds >= need
 	local timedOut = force
 		or (
 			Config.Match.PadQueueWithBots
-			and #players > 0
+			and #selectedIds > 0
 			and waited >= Config.Match.MaxWaitSeconds
 		)
 	if not enough and not timedOut then
 		return
 	end
+	if #selectedIds == 0 then
+		return
+	end
 
-	local take = math.min(#players, Config.Match.TeamSize * 2)
 	local taken = {}
-	for i = 1, take do
-		table.insert(taken, players[i])
+	for _, userId in selectedIds do
+		local player = Players:GetPlayerByUserId(userId)
+		if player then
+			table.insert(taken, player)
+		end
 	end
 	for _, player in taken do
 		remove(player)
+	end
+	if #taken == 0 then
+		return
 	end
 	local seats = assignSeats(taken)
 	task.spawn(function()
@@ -255,19 +371,53 @@ function MatchmakingService.queue(player: Player): Types.TradeResult
 	if queuePhase == "Found" or queuePhase == "Teleporting" then
 		return { ok = false, error = "A match is already forming." }
 	end
-	local invited = partyOf(player.UserId)
+	local options = partyOptions()
+	local roster, rosterError = CatRiftParty.queueRoster(partyState, player.UserId, options.names)
+	if not roster then
+		return { ok = false, error = rosterError }
+	end
 	local added = 0
-	for _, userId in invited do
+	local skipped = {}
+	local joined: { Player } = {}
+	for _, userId in roster do
 		local member = Players:GetPlayerByUserId(userId)
-		if member and not queued(member) then
+		if member and riftFree(member) and not queued(member) then
 			table.insert(queue, member)
-			queuedAt[member.UserId] = Workspace:GetServerTimeNow()
+			queuedAt[member.UserId] = options.now
 			added += 1
+			table.insert(joined, member)
+		elseif member and member ~= player and not riftFree(member) then
+			table.insert(skipped, member)
 		end
 	end
 	if added == 0 and queued(player) then
 		return { ok = false, error = "Already in queue." }
 	end
+	if added == 0 then
+		return { ok = false, error = "Nobody in the party could queue." }
+	end
+	for _, member in joined do
+		if member ~= player then
+			partyState = CatRiftParty.tell(partyState, member.UserId, `{player.DisplayName} queued the party.`, options.now)
+		end
+	end
+	for _, member in skipped do
+		partyState = CatRiftParty.tell(
+			partyState,
+			member.UserId,
+			`{player.DisplayName} queued the party. You're in another stall, so you stayed out.`,
+			options.now
+		)
+	end
+	local skippedNames = {}
+	for _, member in skipped do
+		table.insert(skippedNames, member.DisplayName)
+	end
+	local text = if #roster > 1 then "Party queued." else "Queued — waiting for more cats."
+	if #skippedNames > 0 then
+		text ..= ` {table.concat(skippedNames, ", ")} stayed in another stall.`
+	end
+	partyState = CatRiftParty.tell(partyState, player.UserId, text, options.now)
 	queuePhase = "Queued"
 	broadcastQueue()
 	tryForm(false)
@@ -281,7 +431,34 @@ function MatchmakingService.leave(player: Player): Types.TradeResult
 	if not queued(player) then
 		return { ok = false, error = "Not in queue." }
 	end
-	remove(player)
+	local options = partyOptions()
+	local role = CatRiftParty.role(partyState, player.UserId)
+	if role == "leader" and #CatRiftParty.membersOf(partyState, player.UserId) > 1 then
+		for _, userId in CatRiftParty.leaveQueueRoster(partyState, player.UserId) do
+			local member = Players:GetPlayerByUserId(userId)
+			if member and queued(member) then
+				remove(member)
+				if member ~= player then
+					partyState = CatRiftParty.tell(
+						partyState,
+						userId,
+						`{player.DisplayName} left the queue, so the party did too.`,
+						options.now
+					)
+				end
+			end
+		end
+		partyState = CatRiftParty.tell(partyState, player.UserId, "Party left the queue.", options.now)
+	else
+		remove(player)
+		if role == "member" then
+			local leaderId = CatRiftParty.leaderOf(partyState, player.UserId)
+			if leaderId then
+				partyState = CatRiftParty.tell(partyState, leaderId, `{player.DisplayName} left the queue.`, options.now)
+			end
+			partyState = CatRiftParty.tell(partyState, player.UserId, "You left the queue.", options.now)
+		end
+	end
 	if #snapshotQueue() == 0 then
 		queuePhase = "Idle"
 	end
@@ -290,60 +467,200 @@ function MatchmakingService.leave(player: Player): Types.TradeResult
 end
 
 function MatchmakingService.invite(player: Player, targetUserId: unknown): Types.TradeResult
-	if typeof(targetUserId) ~= "number" then
-		local other: Player? = nil
-		for _, candidate in Players:GetPlayers() do
-			if candidate ~= player then
-				other = candidate
-				break
-			end
+	local open, closed = partyEditsOpen()
+	if not open then
+		return { ok = false, error = closed }
+	end
+	local target: Player? = nil
+	if typeof(targetUserId) == "number" then
+		target = Players:GetPlayerByUserId(targetUserId)
+		if not target then
+			return { ok = false, error = "That cat is not in this lobby." }
 		end
-		if not other then
+	else
+		target = pickTarget(player)
+		if not target then
 			return { ok = false, error = "No friend in this server to invite." }
 		end
-		targetUserId = other.UserId
-	end
-	local target = Players:GetPlayerByUserId(targetUserId :: number)
-	if not target then
-		return { ok = false, error = "That cat is not in this lobby." }
 	end
 	if target == player then
 		return { ok = false, error = "You are already in your party." }
 	end
-	local leader = player.UserId
-	for otherLeader, members in parties do
-		if otherLeader ~= leader and (otherLeader == target.UserId or table.find(members, target.UserId)) then
-			return { ok = false, error = "They are already in another party." }
+	local result: CatRiftParty.Result
+	partyState, result = CatRiftParty.invite(partyState, player.UserId, target.UserId, partyOptions())
+	broadcastQueue()
+	if not result.ok then
+		return { ok = false, error = result.error }
+	end
+	return { ok = true }
+end
+
+function MatchmakingService.acceptInvite(player: Player): Types.TradeResult
+	local open, closed = partyEditsOpen()
+	if not open then
+		return { ok = false, error = closed }
+	end
+	local options = partyOptions()
+	local incoming = CatRiftParty.incoming(partyState, player.UserId, options.now)
+	if incoming and not Players:GetPlayerByUserId(incoming.fromUserId) then
+		partyState = CatRiftParty.disconnect(partyState, incoming.fromUserId, options)
+		broadcastQueue()
+		return { ok = false, error = "That cat left the lobby." }
+	end
+	local result: CatRiftParty.Result
+	partyState, result = CatRiftParty.accept(partyState, player.UserId, options)
+	if not result.ok then
+		broadcastQueue()
+		return { ok = false, error = result.error }
+	end
+	local leaderId = CatRiftParty.leaderOf(partyState, player.UserId)
+	local leader = if leaderId then Players:GetPlayerByUserId(leaderId) else nil
+	if leader and queued(leader) and riftFree(player) and not queued(player) then
+		table.insert(queue, player)
+		queuedAt[player.UserId] = options.now
+		if queuePhase == "Idle" then
+			queuePhase = "Queued"
+		end
+		partyState = CatRiftParty.tell(partyState, player.UserId, "You joined the party and the queue.", options.now)
+		partyState = CatRiftParty.tell(
+			partyState,
+			leader.UserId,
+			`{player.DisplayName} joined the party and the queue.`,
+			options.now
+		)
+	end
+	broadcastQueue()
+	tryForm(false)
+	return { ok = true }
+end
+
+function MatchmakingService.declineInvite(player: Player): Types.TradeResult
+	local result: CatRiftParty.Result
+	partyState, result = CatRiftParty.decline(partyState, player.UserId, partyOptions())
+	broadcastQueue()
+	if not result.ok then
+		return { ok = false, error = result.error }
+	end
+	return { ok = true }
+end
+
+function MatchmakingService.leaveParty(player: Player): Types.TradeResult
+	local open, closed = partyEditsOpen()
+	if not open then
+		return { ok = false, error = closed }
+	end
+	if CatRiftParty.role(partyState, player.UserId) == "solo" then
+		return { ok = false, error = "You are not in a party." }
+	end
+	local options = partyOptions()
+	local roster = CatRiftParty.membersOf(partyState, player.UserId)
+	local wasLeader = CatRiftParty.role(partyState, player.UserId) == "leader"
+	local wasQueued: { [number]: boolean } = {}
+	for _, userId in roster do
+		local member = Players:GetPlayerByUserId(userId)
+		wasQueued[userId] = member ~= nil and queued(member)
+	end
+	local result: CatRiftParty.Result
+	partyState, result = CatRiftParty.leave(partyState, player.UserId, options)
+	if not result.ok then
+		return { ok = false, error = result.error }
+	end
+	local pull = if wasLeader then roster else { player.UserId }
+	local pulled = false
+	for _, userId in pull do
+		if wasQueued[userId] then
+			local member = Players:GetPlayerByUserId(userId)
+			if member then
+				remove(member)
+			end
+			pulled = true
 		end
 	end
-	local bag = parties[leader]
-	if not bag then
-		bag = {}
-		parties[leader] = bag
+	if pulled then
+		if wasLeader then
+			for _, userId in roster do
+				if wasQueued[userId] then
+					local text = if userId == player.UserId
+						then "You left the party and the queue."
+						else `{player.DisplayName} left the party, so you left the queue.`
+					partyState = CatRiftParty.tell(partyState, userId, text, options.now)
+				end
+			end
+		else
+			partyState = CatRiftParty.tell(partyState, player.UserId, "You left the party and the queue.", options.now)
+			local oldLeader = roster[1]
+			if oldLeader and oldLeader ~= player.UserId then
+				partyState = CatRiftParty.tell(
+					partyState,
+					oldLeader,
+					`{player.DisplayName} left the party and the queue.`,
+					options.now
+				)
+			end
+		end
 	end
-	if table.find(bag, target.UserId) then
-		return { ok = true }
+	if #snapshotQueue() == 0 and queuePhase ~= "Found" and queuePhase ~= "Teleporting" then
+		queuePhase = "Idle"
 	end
-	if 1 + #bag >= Config.Match.TeamSize then
-		return { ok = false, error = "Party is full." }
-	end
-	table.insert(bag, target.UserId)
 	broadcastQueue()
 	return { ok = true }
 end
 
-function MatchmakingService.practice(player: Player, difficulty: unknown): Types.TradeResult
+function MatchmakingService.practice(player: Player, difficulty: unknown, anyMember: boolean?): Types.TradeResult
 	if not Config.Match.PracticeEnabled then
 		return { ok = false, error = "Practice is disabled." }
 	end
 	if MatchService.isBusy() then
 		return { ok = false, error = "A match is already running." }
 	end
-	remove(player)
+	local options = partyOptions()
+	local roster, rosterError = CatRiftParty.practiceRoster(partyState, player.UserId, options.names, anyMember == true)
+	if not roster then
+		return { ok = false, error = rosterError }
+	end
+	if not riftFree(player) then
+		return { ok = false, error = "Leave the other stall before Practice." }
+	end
+	local humans = {}
+	local skipped = {}
+	for _, userId in roster do
+		local member = Players:GetPlayerByUserId(userId)
+		if member and riftFree(member) then
+			remove(member)
+			table.insert(humans, member)
+		elseif member and member ~= player then
+			table.insert(skipped, member.DisplayName)
+		end
+	end
+	if not table.find(humans, player) then
+		return { ok = false, error = "Leave the other stall before Practice." }
+	end
 	lastDifficulty = parseDifficulty(difficulty)
-	local ok, err = MatchService.start({ player }, true, lastDifficulty)
+	-- In-place. Party humans share Blue; Practice fills Red with 3 bots. MatchPlaceId stays unused.
+	local ok, err = MatchService.start(humans, true, lastDifficulty)
 	if not ok then
 		return { ok = false, error = err }
+	end
+	if #humans > 1 then
+		local extra = if #skipped > 0 then ` {table.concat(skipped, ", ")} stayed in another stall.` else ""
+		for _, member in humans do
+			partyState = CatRiftParty.tell(
+				partyState,
+				member.UserId,
+				`Practice with your party — Blue team, 3 red bots.{extra}`,
+				options.now
+			)
+		end
+	elseif #skipped > 0 then
+		partyState = CatRiftParty.tell(
+			partyState,
+			player.UserId,
+			`{table.concat(skipped, ", ")} stayed in another stall.`,
+			options.now
+		)
+	end
+	if #snapshotQueue() == 0 then
+		queuePhase = "Idle"
 	end
 	broadcastQueue()
 	return { ok = true }
@@ -387,7 +704,7 @@ function MatchmakingService.playAgain(player: Player): Types.TradeResult
 		end
 		MatchService.returnToLobby(false)
 	end
-	return MatchmakingService.practice(player, lastDifficulty)
+	return MatchmakingService.practice(player, lastDifficulty, true)
 end
 
 local function tryStartArrivals()
@@ -416,12 +733,11 @@ end
 function MatchmakingService.init()
 	Players.PlayerRemoving:Connect(function(player)
 		remove(player)
-		parties[player.UserId] = nil
-		for _, members in parties do
-			local index = table.find(members, player.UserId)
-			if index then
-				table.remove(members, index)
-			end
+		local options = partyOptions()
+		options.names[player.UserId] = player.DisplayName
+		partyState = CatRiftParty.disconnect(partyState, player.UserId, options)
+		if #snapshotQueue() == 0 and queuePhase == "Queued" then
+			queuePhase = "Idle"
 		end
 		broadcastQueue()
 	end)
@@ -469,10 +785,14 @@ function MatchmakingService.init()
 			if MatchTeleport.isReservedInstance() then
 				continue
 			end
+			local options = partyOptions()
+			local swept
+			partyState, swept = CatRiftParty.sweep(partyState, options)
 			if not MatchService.isBusy() then
 				tryForm(false)
 			end
-			if #snapshotQueue() > 0 or queuePhase ~= "Idle" then
+			local pending = CatRiftParty.pendingCount(partyState, options.now)
+			if #snapshotQueue() > 0 or queuePhase ~= "Idle" or pending > 0 or swept then
 				broadcastQueue()
 			end
 		end

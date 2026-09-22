@@ -151,6 +151,18 @@ Remotes.function_("InviteParty").OnServerInvoke = function(player: Player, targe
 	return MatchmakingService.invite(player, targetUserId)
 end
 
+Remotes.function_("AcceptPartyInvite").OnServerInvoke = function(player: Player)
+	return MatchmakingService.acceptInvite(player)
+end
+
+Remotes.function_("DeclinePartyInvite").OnServerInvoke = function(player: Player)
+	return MatchmakingService.declineInvite(player)
+end
+
+Remotes.function_("LeaveParty").OnServerInvoke = function(player: Player)
+	return MatchmakingService.leaveParty(player)
+end
+
 Remotes.function_("StartPractice").OnServerInvoke = function(player: Player, difficulty: unknown)
 	local busy = miniBusy(player)
 	if busy then

@@ -118,6 +118,16 @@ export type CombatState = {
 	lensReadyAt: number,
 }
 
+export type PartyRole = "solo" | "leader" | "member"
+
+export type PartyInviteCard = {
+	fromUserId: number?,
+	toUserId: number?,
+	fromName: string?,
+	toName: string?,
+	expiresIn: number,
+}
+
 export type QueueStatus = {
 	phase: QueuePhase,
 	mode: QueueMode,
@@ -130,6 +140,12 @@ export type QueueStatus = {
 	detail: string,
 	party: { string },
 	canCancel: boolean,
+	partyRole: PartyRole?,
+	partyMemberIds: { number }?,
+	incomingInvite: PartyInviteCard?,
+	outgoingInvite: PartyInviteCard?,
+	noticeId: number?,
+	notice: string?,
 }
 
 export type MatchSnapshot = {
