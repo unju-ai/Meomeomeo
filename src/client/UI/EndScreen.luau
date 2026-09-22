@@ -1,6 +1,7 @@
 --!strict
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -33,7 +34,7 @@ function EndScreen.create(parent: Instance): EndApi
 	root.Name = "EndScreen"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.48)
-	root.Size = UDim2.fromOffset(640, 460)
+	root.Size = UDim2.fromOffset(680, 540)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 30
@@ -59,20 +60,32 @@ function EndScreen.create(parent: Instance): EndApi
 	mvp.TextXAlignment = Enum.TextXAlignment.Center
 	mvp.ZIndex = 31
 
+	local structures = Theme.text(root, "Structures", "", 13, Theme.cream, Theme.fontMono)
+	structures.Position = UDim2.fromOffset(0, 90)
+	structures.Size = UDim2.new(1, 0, 0, 32)
+	structures.TextXAlignment = Enum.TextXAlignment.Center
+	structures.ZIndex = 31
+
+	local timeline = Theme.text(root, "Timeline", "", 13, Theme.peach, Theme.fontMono)
+	timeline.Position = UDim2.fromOffset(0, 122)
+	timeline.Size = UDim2.new(1, 0, 0, 36)
+	timeline.TextXAlignment = Enum.TextXAlignment.Center
+	timeline.ZIndex = 31
+
 	local totals = Theme.text(root, "Totals", "", 13, Theme.cream, Theme.fontMono)
-	totals.Position = UDim2.fromOffset(0, 94)
+	totals.Position = UDim2.fromOffset(0, 160)
 	totals.Size = UDim2.new(1, 0, 0, 18)
 	totals.ZIndex = 31
 
 	local header = Theme.text(root, "Head", "Team   Cat                    K / D / A   CS    Gold   Dmg", 12, Theme.peach, Theme.fontMono)
-	header.Position = UDim2.fromOffset(0, 116)
+	header.Position = UDim2.fromOffset(0, 180)
 	header.Size = UDim2.new(1, 0, 0, 16)
 	header.ZIndex = 31
 
 	local list = Instance.new("ScrollingFrame")
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 136)
-	list.Size = UDim2.new(1, 0, 1, -196)
+	list.Position = UDim2.fromOffset(0, 200)
+	list.Size = UDim2.new(1, 0, 1, -258)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
@@ -142,17 +155,54 @@ function EndScreen.create(parent: Instance): EndApi
 				if mine.team == winner then
 					banner.Text = "VICTORY"
 					banner.TextColor3 = Theme.good
-					sub.Text = `{winner} takes the yarn`
+					sub.Text = `{winner} wins · enemy yarn core unplugged`
 				else
 					banner.Text = "DEFEAT"
 					banner.TextColor3 = Theme.coral
-					sub.Text = `{winner} scratched your nexus`
+					sub.Text = `{winner} wins · your yarn core fell`
 				end
 			else
 				banner.Text = `{winner or "??"} WINS`
 				banner.TextColor3 = Theme.amber
-				sub.Text = "Nexus down — match over"
+				sub.Text = "Yarn core down — match over"
 			end
+
+			local function structureTally(team: Types.TeamId): string
+				local posts, stalls, postN, stallN = 0, 0, 0, 0
+				local core = "up"
+				for _, objective in snapshot.objectives do
+					if objective.team ~= team then
+						continue
+					end
+					if objective.kind == "Nexus" then
+						if not objective.alive then
+							core = "down"
+						elseif objective.vulnerable then
+							core = "OPEN"
+						else
+							core = "gated"
+						end
+					elseif objective.tier == "Inner" then
+						stallN += 1
+						if not objective.alive then
+							stalls += 1
+						end
+					else
+						postN += 1
+						if not objective.alive then
+							posts += 1
+						end
+					end
+				end
+				return `{team} posts {posts}/{postN}  stalls {stalls}/{stallN}  core {core}`
+			end
+			structures.Text = `{structureTally("Blue")}    {structureTally("Red")}`
+
+			local bits: { string } = {}
+			for _, fall in snapshot.structureFalls or {} do
+				table.insert(bits, `{fall.team} {StructureLogic.fallLabel(fall.tier, fall.lane)}`)
+			end
+			timeline.Text = if #bits > 0 then `Timeline  {table.concat(bits, "  →  ")}` else "Timeline  no structures down"
 
 			local mvpPlayer: Types.MatchPlayer? = nil
 			if snapshot.mvpUserId then

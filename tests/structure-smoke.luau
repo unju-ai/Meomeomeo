@@ -1,0 +1,109 @@
+-- Cat Rift outer posts, inner lantern stalls, and yarn-core gates.
+-- Run through tools/test-structure.py.
+
+local function aliveUp(): { [string]: boolean }
+	local alive: { [string]: boolean } = {}
+	for _, def in StructureLogic.defs() do
+		alive[def.id] = true
+	end
+	return alive
+end
+
+local defs = StructureLogic.defs()
+assert(#defs == 14, "3 posts + 3 stalls + 1 core, each team")
+assert(StructureLogic.towersPerTeam() == 6, "six towers gate each yarn core")
+
+local seen: { [string]: boolean } = {}
+for _, def in defs do
+	assert(seen[def.id] ~= true, "structure ids are unique")
+	seen[def.id] = true
+	local sign = if def.team == "Blue" then -1 else 1
+	assert(def.x * sign > 0, "Blue stays west, Red stays east")
+	if def.kind == "Tower" then
+		assert(def.z == StructureLogic.LaneZ[def.lane], "towers sit on their lane")
+		assert(math.abs(def.x) < StructureLogic.MinionTurnX, "kittens reach the tower before cutting to the core")
+		assert(math.abs(def.x) < StructureLogic.KeepGateX, "towers stand outside the fountain yard")
+	end
+end
+
+for _, team in { "Blue", "Red" } do
+	for _, lane in StructureLogic.Lanes do
+		local outer = StructureLogic.get(`{team}{lane}Outer`)
+		local inner = StructureLogic.get(`{team}{lane}Inner`)
+		local core = StructureLogic.get(`{team}Nexus`)
+		assert(outer ~= nil and inner ~= nil and core ~= nil, "each lane has a post, a stall, and a core")
+		assert(outer.tier == "Outer" and inner.tier == "Inner" and core.tier == "Core")
+		assert(math.abs(inner.x) > math.abs(outer.x), "stall is closer to base than the post")
+		assert(math.abs(core.x) > math.abs(inner.x), "yarn core is behind the stall")
+		assert(outer.maxHealth == StructureLogic.OuterHealth)
+		assert(inner.maxHealth > outer.maxHealth, "stalls are tougher than posts")
+		assert(StructureLogic.damageFor("Tower", "Inner") > StructureLogic.damageFor("Tower", "Outer"))
+		assert(StructureLogic.rangeFor("Tower", "Inner") == StructureLogic.InnerRange)
+		assert(StructureLogic.rangeFor("Tower", "Outer") == StructureLogic.OuterRange)
+		assert(StructureLogic.rangeFor("Nexus", "Core") == StructureLogic.NexusRange)
+
+		-- River-side auto-attack on the post should not pull the stall.
+		local approach = if team == "Blue" then 1 else -1
+		local siegePost = outer.x + approach * StructureLogic.AttackRange
+		local postGap = math.abs(siegePost - inner.x)
+		assert(postGap > StructureLogic.InnerRange, `{team} {lane} stall does not cover a post siege`)
+
+		-- River-side auto-attack on the stall should not pull the yarn core.
+		local siegeStall = inner.x + approach * StructureLogic.AttackRange
+		local coreGap = math.abs(siegeStall - core.x)
+		assert(coreGap > StructureLogic.NexusRange, `{team} {lane} core does not cover a stall siege`)
+	end
+end
+
+local alive = aliveUp()
+local redMidStall = StructureLogic.get("RedMidInner")
+local redMidPost = StructureLogic.get("RedMidOuter")
+local redCore = StructureLogic.get("RedNexus")
+local redTopStall = StructureLogic.get("RedTopInner")
+assert(redMidStall and redMidPost and redCore and redTopStall)
+
+assert(StructureLogic.isVulnerable(redMidPost, alive) == true, "posts start open")
+assert(StructureLogic.isVulnerable(redMidStall, alive) == false, "stall stays dark while its post stands")
+assert(StructureLogic.isVulnerable(redCore, alive) == false, "core stays gated")
+assert(string.find(StructureLogic.billboard(redMidStall, false), "Lantern Stall", 1, true) ~= nil)
+assert(string.find(StructureLogic.billboard(redMidStall, false), "(gated)", 1, true) ~= nil)
+assert(string.find(StructureLogic.billboard(redMidStall, true), "(gated)", 1, true) == nil)
+assert(StructureLogic.billboard(redMidPost, true) == "Red Tower (Mid)")
+
+alive[redMidPost.id] = false
+assert(StructureLogic.isVulnerable(redMidStall, alive) == true, "mid stall lights when the mid post falls")
+assert(StructureLogic.isVulnerable(redTopStall, alive) == false, "top stall waits for the top post")
+assert(StructureLogic.isVulnerable(redCore, alive) == false, "one post does not open the core")
+
+local blueStall = StructureLogic.get("BlueMidInner")
+assert(blueStall ~= nil)
+assert(StructureLogic.isVulnerable(blueStall, alive) == false, "the other team's stall stays dark")
+
+for _, def in StructureLogic.defs() do
+	if def.team == "Red" and def.kind == "Tower" then
+		alive[def.id] = false
+	end
+end
+assert(StructureLogic.isVulnerable(redCore, alive) == true, "core opens after every post and stall")
+assert(StructureLogic.billboard(redCore, true) == "Red Nexus (OPEN)")
+assert(StructureLogic.billboard(redCore, false) == "Red Nexus (gated)")
+
+alive = aliveUp()
+alive["RedTopOuter"] = false
+alive["RedMidOuter"] = false
+alive["RedBotOuter"] = false
+assert(StructureLogic.isVulnerable(redCore, alive) == false, "posts alone do not open the core")
+
+assert(StructureLogic.deathLine("Miso", redMidPost) == "Miso knocked over the Red scratching post")
+assert(StructureLogic.deathLine("Miso", redMidStall) == "Miso snuffed the Red Mid lantern stall")
+assert(string.find(StructureLogic.deathLine("Miso", redCore), "yarn core", 1, true) ~= nil)
+assert(StructureLogic.pingName(redMidStall) == "Red Mid lantern stall")
+assert(StructureLogic.fallLabel("Inner", "Bot") == "Bot stall")
+assert(StructureLogic.fallLabel("Outer", "Top") == "Top post")
+assert(StructureLogic.fallLabel("Core", "Base") == "yarn core")
+
+-- A missing tower id still counts as standing.
+local partial: { [string]: boolean } = { RedNexus = true }
+assert(StructureLogic.isVulnerable(redCore, partial) == false, "unknown towers do not count as down")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate")

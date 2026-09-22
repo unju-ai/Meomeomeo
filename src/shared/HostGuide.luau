@@ -21,7 +21,7 @@ local ASIDES: { [string]: { [string]: string } } = {
 		MemeArcade = "My forecast is that I will stare at the chart.",
 	},
 	HostMe = {
-		CatRift = "All three enemy towers first. We wrote it down.",
+		CatRift = "Scratching posts, then lantern stalls, then the nexus. We wrote it down.",
 		YarnRun = "The dog is not a shortcut.",
 		KoiPond = "Patience. A concept MEO is still testing.",
 		YarnParty = "Read the round instruction before the chaos.",

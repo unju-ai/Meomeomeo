@@ -17,6 +17,8 @@
 
 export type VoiceMode = "Team" | "Proximity"
 
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
+
 local Config = {
 	Match = {
 		TeamSize = 5,
@@ -99,6 +101,7 @@ local Config = {
 	},
 
 	AutoAttack = {
+		-- Keep equal to StructureLogic.AttackRange. Stall spacing assumes this standoff.
 		Range = 26,
 		AcquireRange = 36,
 		Interval = 1.05,
@@ -119,17 +122,21 @@ local Config = {
 	},
 
 	Towers = {
-		Range = 44,
-		Damage = 50,
+		-- Outer scratching posts. Lantern stalls and the yarn core share this table.
+		Range = StructureLogic.OuterRange,
+		Damage = StructureLogic.OuterDamage,
 		Interval = 1.25,
-		NexusRange = 36,
-		NexusDamage = 58,
+		InnerRange = StructureLogic.InnerRange,
+		InnerDamage = StructureLogic.InnerDamage,
+		NexusRange = StructureLogic.NexusRange,
+		NexusDamage = StructureLogic.NexusDamage,
 		AggroSeconds = 4,
 	},
 
-	-- All 3 outer towers on a team must fall before that nexus takes damage.
+	-- Every scratching post and lantern stall must fall before that yarn core takes damage.
+	-- A stall stays gated until the post in its own lane falls (Shared.StructureLogic).
 	Nexus = {
-		TowersRequiredDown = 3,
+		TowersRequiredDown = StructureLogic.towersPerTeam(),
 	},
 
 	Vision = {

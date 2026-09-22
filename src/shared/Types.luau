@@ -51,16 +51,27 @@ export type ChampionDef = {
 }
 
 export type ObjectiveKind = "Tower" | "Nexus"
+export type StructureTier = "Outer" | "Inner" | "Core"
 
 export type ObjectiveState = {
 	id: string,
 	team: TeamId,
 	kind: ObjectiveKind,
+	tier: StructureTier,
 	lane: string,
 	health: number,
 	maxHealth: number,
 	alive: boolean,
 	vulnerable: boolean,
+}
+
+-- Match-lifetime order of structures that fell. Not a DataStore.
+export type StructureFall = {
+	team: TeamId,
+	lane: string,
+	tier: StructureTier,
+	kind: ObjectiveKind,
+	at: number,
 }
 
 export type MatchPlayer = {
@@ -133,6 +144,7 @@ export type MatchSnapshot = {
 	botDifficulty: BotDifficulty?,
 	players: { [string]: MatchPlayer },
 	objectives: { [string]: ObjectiveState },
+	structureFalls: { StructureFall }?,
 	queueCount: number,
 	queue: QueueStatus?,
 	lobbyPlaceId: number?,
@@ -238,6 +250,7 @@ export type CombatFxEvent = {
 	speed: number?,
 	id: number?,
 	structureKind: "Tower" | "Nexus"?,
+	tier: StructureTier?,
 }
 
 export type AbilityResult = {

@@ -21,12 +21,12 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Match lifecycle: **Lobby → Champion select → In progress → Ended**
 - Matchmaking stub (queue for 2+ players) plus **solo practice**
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
-- Lane minion waves, tower/nexus aggro, nexus gating, **fog of war**, Pawmart item shop
+- Lane minion waves, outer scratching posts + inner lantern stalls, tower/nexus aggro, nexus gating, **fog of war**, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, kill feed, jungle camps, scoreboard, fountain regen, minimap
-- **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP), clean return to lobby
+- **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP, post/stall/core counts, structure timeline), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
 - Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
-- 3-lane map placeholder: bases, towers, nexuses, river, jungle, fountain cats
+- 3-lane map placeholder: bases, outer scratching posts, inner lantern stalls, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
 - Three channel hosts (MEO / ME / MO) with shared identities, authored dialogue and non-colliding lobby stand-ins
@@ -70,7 +70,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Koi Pond** — Play from the hub tile (**Board** for today's catches). **Space / Click** casts a yarn bobber; wait for a nibble; reel in the **cream window** (lantern rail, not a stock fishing meter). Catch cream / peach / mint / cobalt / amber / **coral crown** cat-koi. Stall log + best catch. UTC daily board ranks the best **single catch** (`MeoKoiDaily_v1`). **LEGENDARY KOI** ticker on the crown. **Back to hub** exits like Yarn Run. Exclusive with the Rift and Yarn Run.
 - **Yarn Party** — Play from the hub. Bots fill empty seats. **WASD** + **Space** hop. Three rounds: Yarn Dodge, Stall Freeze (lit pillows), Dodge again. Scoreboard + **CROWNED** podium. Exclusive with other modes.
 - **Meme Arcade** — Play from the hub (**Board** for today's yarn profit). Timed yarn-tape round: tap **Buy / Sell** (or **1–5** / **Shift+1–5**) on LOAF / NYAN / CHNK / BRAIN / RUG. Candles, wallet, bust/boom events (**RUG PULL** / **TO THE MOON**). Score is yarn profit. UTC daily board (`MeoArcadeDaily_v1`) ranks that day's best settle (negatives allowed). **Play yarn only — not real money.** Isolated from in-match meme stocks. Exclusive with other modes.
-- **Practice match** — from the Cat Rift stall: one player on Blue vs **3 AI cats** on Red (top / mid / bot). Toggle **Easy / Normal / Hard**. Attack bots, towers, then the nexus.
+- **Practice match** — from the Cat Rift stall: one player on Blue vs **3 AI cats** on Red (top / mid / bot). Toggle **Easy / Normal / Hard**. Attack bots, then each lane's scratching post, its lantern stall, then the nexus.
 - **Queue** — lobby shows count / ETA / match-found. Default `MinPlayersToStart = 2` (set **6** or **10** for a real pop). With `MatchPlaceId = 0` the match starts **in this server**. Reserved servers need a published experience (see below).
 - **LMB** — lock a basic attack on an enemy kitten, champion, or structure. The server checks range, cadence, item damage, and vision (you cannot AA a fogged target). Confirmed swings show a claw flash + debounced hit spark. **X then click** is attack-move (walk + auto-acquire; into last-known brush, not a hidden body). **S** stops. **A** stays as strafe.
 - **Q W E R** — aim with the mouse; the server validates range, mana, cooldown, and deals damage to enemy cats, **minions**, wards, and (if ungated) structures.
@@ -89,7 +89,7 @@ Place binaries (`*.rbxl`) are gitignored — source of truth is this tree.
 - **Audio** (top-right, under voice) — SFX and Music sliders / mute, independent. **Hide my name** shows **Anonymous Cat** on Yarn / Koi / Arcade boards. Mix + hide-name + mute-others + last Practice difficulty persist (`MeoSettings_v1`). Sounds and beds are placeholders (`rbxasset://sounds/…`); swap ids in `SoundIds.luau` / `MusicIds.luau`.
 - **?** or hold **H** — in-game control sheet (same list as PLAYTEST.md). First Practice also shows a non-modal tip card (Next / Skip all). Lobby **Show tips** replays; dismiss persists on `MeoTutorialDone` / DataStore `MeoTutorial_v1` (memory fallback in Studio).
 - Walk up to a blocky fountain / jungle cat and use the **Talk** prompt.
-- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release a traveling bolt → ground kits: press then click → **4** trinket → **B** Control Yarn + **6** pink → **F** recall → Tab → 3 Red towers until `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
+- **Practice loop:** first Practice shows a **non-modal tip card** (Next / Skip all; lobby **Show tips** replays). Lock **Professor Whiskers** (or Bytekit / Nyan Rocket) → confirm silhouettes + nameplates → walk a gold-dotted lane and fight a bot + wave → hold **Q**, release a traveling bolt → ground kits: press then click → **4** trinket → **B** Control Yarn + **6** pink → **F** recall → Tab → each lane's scratching post, then its lantern stall, until the nexus reads `(OPEN)` → smash nexus. Two-player queue also pads empty slots with bots up to 3 per side.
 
 ## How the MOBA loop works
 
@@ -108,15 +108,15 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Queue / reserved servers:** `MatchmakingService` + `MatchTeleport`. Enough humans (or max-wait + bots) either start draft here or `ReserveServer(MatchPlaceId)` and teleport with seat/team data. The reserved instance reads `GetJoinData().TeleportData` and boots champion select. Failures (Studio, unpublished, bad PlaceId) **fall back in-place**. Party invite stub: add another player in this lobby server.
 - **Champions:** data in `src/shared/ChampionCatalog.luau`. Original six — Chairman Meow, Nyan Rocket, Chonk Knight, Professor Whiskers, Scammy McMittens, Grandma Fluff — plus **Bytekit** (Robot, Mage), **Chromeclaw** (Cyborg, Bruiser), **Oracle Paws** (Mystic, Support), **Archmeow** (Wizard, Mage), **Hexkit** (Sorcerer, Mage), **Sir Scratchalot** (Warrior, Bruiser), **Shadowpounce** (Rogue, Assassin), **Mindwhisker** (Esper, Mage). Same-team duplicate locks are rejected. Draft UI scrolls. Locked cats get a **readable silhouette** (see below).
 - **Combat extras:** shield absorb and a short WalkSpeed stun stub (server-authoritative) for the new kits.
-- **Map:** `src/server/World/MapBuilder.luau` builds a 3-lane rift with a night-market art pass (lane dots, indigo river, fountain kits, tower ears / yarn, jungle camp pedestals, soft brush). Same `MapBounds` / lane Z as the minimap. Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
+- **Map:** `src/server/World/MapBuilder.luau` builds a 3-lane rift with a night-market art pass (lane dots, indigo river, fountain kits, tower ears / yarn, **lantern stalls**, jungle camp pedestals, soft brush). Same `MapBounds` / lane Z as the minimap. Each lane has an outer scratching post (`x = ±90`) and an inner lantern stall (`x = ±132`) before the yarn core (`x = ±168`). Layout and gates live in `Shared.StructureLogic`. Structures are tagged parts; when a **nexus** hits 0 HP the other team wins.
 - **Combat:** `CombatService` applies heals, **direction dashes** (clamped to range), **traveling line skillshots** (`Shared.ProjectileLogic`, pooled, max 24 live), and ground AoE. `Shared.Targeting` picks the mode. Line hits tick every 0.05s along the bolt; damage is server-side. **Auto-attacks** tick on the server (range, windup, interval, AD from items). Abilities and AAs last-hit minions/wards and respect nexus gating + vision.
 - **Assists:** if an ally damaged a champion within 8s of the kill, they get assist gold/XP (`AssistGold = 60`, kill bounty stays `180`). Minion last-hits stay last-hit only.
 - **Levels 1–18:** shared `Progression.luau`. XP to next level = `40 + (level-1)*28`. Last-hits (`18` XP), nearby minion deaths (`10` XP in 42 studs), kills (`80`), assists (`30`). On level-up: +72 HP, +28 mana, +3 AD, +4 AP. **Ranks auto-assign** (Q then W then E, max 5). **R unlocks at 6**, ranks again at 11 and 16. No + buttons.
 - **Death:** soft-death (character stays, combat drops). Respawn = `6 + (level-1)*0.55` seconds at your fountain with full HP/mana. HUD shows the timer. Kill/assist gold unchanged.
 - **Kill feed:** top-of-screen cat copy for kills, towers, nexus, and level-ups (`KillFeed`).
 - **Minion waves:** every ~22s both teams spawn 3 kittens per lane. They walk toward the enemy nexus, fight, and grant last-hit gold.
-- **Tower AI:** living towers/nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion.
-- **Nexus gating:** a nexus is invulnerable until **all 3 towers on that team are down**. Billboard reads `(gated)` then `(OPEN)`.
+- **Tower AI:** living posts, lantern stalls, and the nexus shoot the champion who recently hit an ally, else the nearest enemy champ, else the nearest minion. Stalls hit harder (`InnerDamage`) and have more HP than posts. Shots use the same aggro window. Stall bolts are warm lantern gold.
+- **Structure gating:** a lantern stall ignores damage until **that lane's scratching post** is down (`(gated)` on the billboard). A nexus ignores damage until **all 3 posts and all 3 stalls** on that team are down. Billboard reads `(gated)` then `(OPEN)`. Same `TowerGold` for posts and stalls. Minions still cut toward the core at `|x| ≥ 145`, which is past the stall.
 - **Vision / fog of war:** server builds a visibility set every ~0.25s (`VisionUpdated` + packed `fogBits` + match-lifetime `exploredBits`). Living **ally champions**, **minions**, **towers/nexus**, **trinkets**, and **pink wards** each grant a radius bubble (`Config.Vision`). **Base walls** and **thick cover** (the four market drums between the lanes) block eye-height vision rays. The mid-lane gate stays open. Thin props, lanterns, brush volumes, and flat floors do not occlude. MeshParts tagged `MeoBlocksVision` are raycast on that same layer so a bounding box does not paint extra dark corners. The client darkens ground outside that mask (10-stud grid) and hides unseen enemies. Explored-but-unseen cells keep a lighter tint after you leave (match memory only — reconnect restores it; not DataStore). Dead cats do not grant vision. You cannot AA onto a fogged / in-brush target. Attack-move walks into last-known brush instead of locking the hidden body. When an enemy champion, kitten, or jungle camp leaves vision, the client fades a ghost at the last spot and facing it saw (~1.8s, `LastSeenGhostLogic`). The ghost is local juice: it does not track the live body, is not a minimap dot, and is not a new vision source. Enemy traveling bolts hide in unseen fog; your own stay visible.
 - **Brush:** six jungle pockets (`Shared.VisionLogic`) block vision of occupants until an ally source **enters that pocket**. You can still see out. Lanes stay open. Pink true-sight on trinkets is unchanged.
 - **Trinket ward (4):** free. Server places a stealthed team-colored pillar (`WardService`) that feeds `VisionService` for 60s. One trinket per player; 70s cooldown. Not shop — **B stays Pawmart**.
@@ -127,7 +127,7 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`.
 - **Scoreboard:** hold Tab. Client overlay on the match snapshot (includes `cs`).
-- **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP. **Ended counts as busy** so queue/practice cannot start underneath the screen. **Back to lobby** (`LeaveMatch`) or **Practice again** (`PlayAgain`) skip the 45s timer; the timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat).
+- **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP + post/stall/core counts and a match-lifetime structure timeline. **Ended counts as busy** so queue/practice cannot start underneath the screen. **Back to lobby** (`LeaveMatch`) or **Practice again** (`PlayAgain`) skip the 45s timer; the timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat).
 - **Minimap:** client paints the server fog mask (unexplored / explored-but-unseen / currently seen); click-to-ping is team-only (`PingReceived`). Unseen enemies never get a dot. Explored tint survives leaving vision and mid-match reconnect.
 - **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
@@ -382,7 +382,7 @@ Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/F
 | Dash | Streak along the path |
 | Heal / shield | Soft burst; shield also gets a ForceField bubble (~1.1s) |
 | Auto-attack | Claw flash + hit spark (spark debounced ~140ms) |
-| Tower / nexus shot | Team-colored bolt |
+| Tower / nexus shot | Team-colored bolt (lantern stalls shoot warm gold) |
 | Structure death | Puff of neon balls |
 | Stun | Three stars orbit the head for the stun duration |
 | Recall | Mint cylinder under feet for the 7s channel |
@@ -427,10 +427,10 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 
 1. Yarn Party 2-player join polish / more micro-round types. Optional weekly Koi/Arcade boards. Live name refresh for players whose settings are not cached on this server (today they keep the last submitted anon flag).
 2. Smarter bots: dive / dodge / lens / projectile lead are in. Next: multi-camp jungle, hold skillshots until the lead is clean, tower-dive with more allies.
-3. Mesh LoS is in (eye-height walls + thick cover, mesh raycast on `MeoBlocksVision`). Next: inner-tower vision.
+3. Mesh LoS is in (eye-height walls + thick cover, mesh raycast on `MeoBlocksVision`). Inner lantern stalls grant the existing tower vision radius.
 4. Replace placeholder SoundIds / emote cues / `MusicIds` beds with original meows and real loops. Uploaded emote poses instead of Part bob.
 5. Surrender vote + explicit “leave champ select” without tearing down a 5v5. Danger ping on low-HP allies; ping wheel on minimap right-click.
-6. Inner / inhibitor towers; richer post-match (damage graph, CS timeline).
+6. Richer post-match (damage graph, CS timeline). The end screen already lists post/stall/core counts and the structure fall order.
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`). Closet drip stays Parts-only unless you hang accessories on the same `MeoCosmetics` welds.
 8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
 9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.

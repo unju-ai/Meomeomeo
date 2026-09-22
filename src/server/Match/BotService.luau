@@ -334,7 +334,7 @@ local function nearestHunt(team: Types.TeamId, origin: Vector3, userId: number, 
 			if child:IsA("BasePart") then
 				local objTeam = child:GetAttribute(Constants.Attributes.Team)
 				local hp = child:GetAttribute("Health")
-				if objTeam ~= team and typeof(hp) == "number" and hp > 0 then
+				if objTeam ~= team and typeof(hp) == "number" and hp > 0 and child:GetAttribute("Vulnerable") ~= false then
 					local d = (child.Position - origin).Magnitude
 					if d <= bestDist + 8 then
 						local id = child:GetAttribute(Constants.Attributes.ObjectiveId)
@@ -366,7 +366,12 @@ local function enemyTowerAt(team: Types.TeamId, position: Vector3): (Vector3?, n
 		if state.alive and state.team ~= team then
 			local part = MapBuilder.getObjectivePart(state.id)
 			if part then
-				local range = if state.kind == "Nexus" then Config.Towers.NexusRange else Config.Towers.Range
+				local range = Config.Towers.Range
+				if state.kind == "Nexus" then
+					range = Config.Towers.NexusRange
+				elseif state.tier == "Inner" then
+					range = Config.Towers.InnerRange
+				end
 				if (part.Position - position).Magnitude <= range then
 					return part.Position, range, state.team
 				end

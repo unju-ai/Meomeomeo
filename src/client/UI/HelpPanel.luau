@@ -20,6 +20,7 @@ export type HelpApi = {
 
 local LINES_MOBA: { { string } } = {
 	{ "LMB", "Lock auto-attack on an enemy / minion / tower" },
+	{ "Towers", "Outer post, then lantern stall, then yarn core. Stalls gate per lane" },
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
 	{ "Q W E R", "Hold line/dash, release traveling bolt · ground: click or 2nd press" },

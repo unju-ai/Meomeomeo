@@ -3,6 +3,7 @@
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -114,7 +115,7 @@ local function march(minion: Minion, dt: number)
 	local pos = minion.part.Position
 	local goalX = if minion.team == "Blue" then 168 else -168
 	local laneZ = MapBuilder.laneZ(minion.lane)
-	local goalZ = if math.abs(pos.X) >= 145 then 0 else laneZ
+	local goalZ = if math.abs(pos.X) >= StructureLogic.MinionTurnX then 0 else laneZ
 	local dest = Vector3.new(goalX, pos.Y, goalZ)
 	local delta = dest - pos
 	if delta.Magnitude < 1 then

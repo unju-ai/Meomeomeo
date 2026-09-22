@@ -846,9 +846,8 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 	if health <= 0 then
 		return
 	end
-	local kind = part:GetAttribute("Kind")
 	local team = part:GetAttribute(Constants.Attributes.Team)
-	if kind == "Nexus" and (team == "Blue" or team == "Red") and not MapBuilder.isNexusVulnerable(team) then
+	if not MapBuilder.isObjectiveVulnerable(id) then
 		return
 	end
 	health = math.max(0, health - amount)
@@ -875,6 +874,7 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 					origin = part.Position,
 					team = if team == "Blue" or team == "Red" then team else nil,
 					structureKind = structureKind,
+					tier = objective.tier,
 				})
 			end
 		end
@@ -1075,7 +1075,7 @@ local function acquireNear(viewerUserId: number, team: Types.TeamId, origin: Vec
 			if child:IsA("BasePart") then
 				local objTeam = child:GetAttribute(Constants.Attributes.Team)
 				local hp = child:GetAttribute("Health")
-				if objTeam ~= team and typeof(hp) == "number" and hp > 0 then
+				if objTeam ~= team and typeof(hp) == "number" and hp > 0 and child:GetAttribute("Vulnerable") ~= false then
 					local d = (child.Position - origin).Magnitude
 					if d <= bestDist then
 						local id = child:GetAttribute(Constants.Attributes.ObjectiveId)
@@ -1153,10 +1153,7 @@ tickAutoAttack = function(userId: number)
 			return
 		end
 		if lock.kind == "objective" and lock.objectiveId then
-			local part = MapBuilder.getObjectivePart(lock.objectiveId)
-			local kind = if part then part:GetAttribute("Kind") else nil
-			local team = if part then part:GetAttribute(Constants.Attributes.Team) else nil
-			if kind == "Nexus" and (team == "Blue" or team == "Red") and not MapBuilder.isNexusVulnerable(team) then
+			if not MapBuilder.isObjectiveVulnerable(lock.objectiveId) then
 				lock.windupEnds = nil
 				return
 			end
@@ -1276,6 +1273,9 @@ function CombatService.issueAttackFor(userId: number, request: unknown): Types.A
 		local team = part:GetAttribute(Constants.Attributes.Team)
 		if team == matchPlayer.team then
 			return { ok = false, error = "That's your tower." }
+		end
+		if not MapBuilder.isObjectiveVulnerable(objectiveId) then
+			return { ok = false, error = "That structure is still gated." }
 		end
 		lock = { kind = "objective", objectiveId = objectiveId }
 	elseif kind == "ward" then
