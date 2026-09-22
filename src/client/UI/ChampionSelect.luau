@@ -202,13 +202,21 @@ function ChampionSelect.create(parent: Instance): SelectApi
 			title.TextColor3 = if urgent then Theme.coral else Theme.amber
 			if mine then
 				if snapshot.practice then
-					local bots = 0
+					local redBots = 0
+					local allyBots = 0
 					for _, other in snapshot.players do
 						if other.isBot then
-							bots += 1
+							if other.team == mine.team then
+								allyBots += 1
+							else
+								redBots += 1
+							end
 						end
 					end
-					hint.Text = `You are {mine.team}. Red is {bots} practice bots ({snapshot.botDifficulty or "Normal"}). Locked: {mine.championId or "none"}`
+					local roster = if allyBots > 0
+						then `{allyBots} ally bots, Red is {redBots} ({snapshot.botDifficulty or "Normal"})`
+						else `Red is {redBots} practice bots ({snapshot.botDifficulty or "Normal"})`
+					hint.Text = `You are {mine.team}. {roster}. Locked: {mine.championId or "none"}`
 				else
 					hint.Text = `You are {mine.team}. Locked: {mine.championId or "none"}`
 				end

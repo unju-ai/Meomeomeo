@@ -636,7 +636,8 @@ function MatchmakingService.practice(player: Player, difficulty: unknown, anyMem
 		return { ok = false, error = "Leave the other stall before Practice." }
 	end
 	lastDifficulty = parseDifficulty(difficulty)
-	-- In-place. Party humans share Blue; Practice fills Red with 3 bots. MatchPlaceId stays unused.
+	-- In-place. Party humans share Blue. Practice adds PracticeAllies Blue bots
+	-- and PracticeEnemies Red bots, all on lastDifficulty. MatchPlaceId stays unused.
 	local ok, err = MatchService.start(humans, true, lastDifficulty)
 	if not ok then
 		return { ok = false, error = err }
@@ -647,7 +648,7 @@ function MatchmakingService.practice(player: Player, difficulty: unknown, anyMem
 			partyState = CatRiftParty.tell(
 				partyState,
 				member.UserId,
-				`Practice with your party — Blue team, 3 red bots.{extra}`,
+				`Practice with your party — Blue team, {Config.Bots.PracticeAllies} ally bots, {Config.Bots.PracticeEnemies} red bots.{extra}`,
 				options.now
 			)
 		end

@@ -177,9 +177,11 @@ local Config = {
 	},
 
 	-- Practice / underfilled-queue AI. Finite state machine, not ML.
+	-- Solo Practice is 1 human + PracticeAllies on Blue vs PracticeEnemies on Red.
+	-- Ally bots use the same snapshot.botDifficulty as Red. Queue fill is QueueFillTo.
 	Bots = {
 		PracticeEnemies = 3,
-		PracticeAllies = 0,
+		PracticeAllies = 2,
 		QueueFillTo = 3,
 		DefaultDifficulty = "Normal" :: "Easy" | "Normal" | "Hard",
 		Pool = { "NyanRocket", "Bytekit", "Shadowpounce", "ChonkKnight", "SirScratchalot", "Chromeclaw" },

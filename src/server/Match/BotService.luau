@@ -1456,6 +1456,7 @@ function BotService.start()
 	if not snapshot then
 		return
 	end
+	-- Practice allies and Red enemies share this toggle. Hard Practice is Hard allies.
 	currentDifficulty = snapshot.botDifficulty or Config.Bots.DefaultDifficulty
 
 	local lanes = Constants.Lanes
@@ -1463,6 +1464,8 @@ function BotService.start()
 	local junglerAssigned: { [string]: boolean } = {}
 	local tune = tunables(currentDifficulty)
 
+	-- Round-robin per team, bots only. Two Blue allies land on Top then Mid
+	-- (Mid jungles when this difficulty jungles). Bot stays open for the human.
 	for _, matchPlayer in snapshot.players do
 		if matchPlayer.isBot and matchPlayer.championId then
 			laneIndex[matchPlayer.team] = (laneIndex[matchPlayer.team] or 0) + 1

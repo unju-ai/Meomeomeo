@@ -92,12 +92,14 @@ local function pickBotChampion(players: { [string]: Types.MatchPlayer }, team: T
 	return ChampionCatalog.defaultId()
 end
 
-local function addBot(players: { [string]: Types.MatchPlayer }, team: Types.TeamId)
-	local championId = pickBotChampion(players, team)
-	local champ = ChampionCatalog.get(championId)
+local function addBot(players: { [string]: Types.MatchPlayer }, team: Types.TeamId, deferChampion: boolean?)
+	-- Practice allies wait until humans lock so they do not take the human's cat.
+	local championId = if deferChampion then nil else pickBotChampion(players, team)
+	local champ = if championId then ChampionCatalog.get(championId) else nil
 	local userId = nextBotId
 	nextBotId -= 1
-	players[tostring(userId)] = blankPlayer(userId, `{(if champ then champ.name else championId)} (Bot)`, team, true, championId)
+	local label = if champ then champ.name else "Ally"
+	players[tostring(userId)] = blankPlayer(userId, `{label} (Bot)`, team, true, championId)
 end
 
 local function countTeam(players: { [string]: Types.MatchPlayer }, team: Types.TeamId, botsOnly: boolean?): number
@@ -122,7 +124,7 @@ local function fillBots(players: { [string]: Types.MatchPlayer }, practice: bool
 			addBot(players, "Red")
 		end
 		for _ = 1, Config.Bots.PracticeAllies do
-			addBot(players, "Blue")
+			addBot(players, "Blue", true)
 		end
 		return
 	end
@@ -291,6 +293,21 @@ function MatchService.returnToLobby(formQueue: boolean)
 	Remotes.event("MatchStateChanged"):FireAllClients(nil)
 end
 
+local function lockDeferredBots()
+	if not current then
+		return
+	end
+	for _, matchPlayer in current.players do
+		if matchPlayer.isBot and not matchPlayer.championId then
+			local championId = pickBotChampion(current.players, matchPlayer.team)
+			local champ = ChampionCatalog.get(championId)
+			matchPlayer.championId = championId
+			matchPlayer.displayName = `{(if champ then champ.name else championId)} (Bot)`
+			matchPlayer.ready = true
+		end
+	end
+end
+
 local function autoAssignChampions()
 	if not current then
 		return
@@ -302,6 +319,10 @@ local function autoAssignChampions()
 		end
 	end
 	for _, matchPlayer in current.players do
+		-- Deferred Practice allies lock after humans, from the bot pool.
+		if matchPlayer.isBot then
+			continue
+		end
 		if not matchPlayer.championId then
 			for _, id in ChampionCatalog.ids() do
 				if not used[id] then
@@ -316,6 +337,7 @@ local function autoAssignChampions()
 		end
 		matchPlayer.ready = true
 	end
+	lockDeferredBots()
 end
 
 local function beginFight()
@@ -519,14 +541,14 @@ function MatchService.selectChampion(player: Player, championId: unknown): Types
 	matchPlayer.ready = true
 	broadcast()
 
-	local allReady = true
+	local allHumansReady = true
 	for _, other in current.players do
-		if not other.championId then
-			allReady = false
+		if not other.isBot and not other.championId then
+			allHumansReady = false
 			break
 		end
 	end
-	if allReady then
+	if allHumansReady then
 		phaseToken += 1
 		autoAssignChampions()
 		beginFight()
