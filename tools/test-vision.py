@@ -1,4 +1,4 @@
-"""Fog-of-war grid + brush smoke. Usage: python3 tools/test-vision.py /path/to/luau"""
+"""Fog-of-war grid, brush, and last-seen ghost smoke. Usage: python3 tools/test-vision.py /path/to/luau"""
 from pathlib import Path
 import re
 import subprocess
@@ -15,7 +15,11 @@ def wrap(name: str, rel: str) -> str:
     return f"local {name} = (function()\n{source}\nend)()\n"
 
 
-script = wrap("VisionLogic", "src/shared/VisionLogic.luau") + (root / "tests/vision-smoke.luau").read_text()
+script = (
+    wrap("VisionLogic", "src/shared/VisionLogic.luau")
+    + wrap("LastSeenGhostLogic", "src/shared/LastSeenGhostLogic.luau")
+    + (root / "tests/vision-smoke.luau").read_text()
+)
 with tempfile.TemporaryDirectory(prefix="meo-vision-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
