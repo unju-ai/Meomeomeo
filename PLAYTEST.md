@@ -71,6 +71,8 @@ Match clock (same day, later slice): Cat Rift InProgress shows a top-left **mm:s
 
 Ability aim indicators (same day, later slice): client-only `TargetingIndicator` juice. Thin ForceField range ring; line skillshots show width from `radius`; ground AoE a clear circle at the clamped aim point; dash a short streak + tip (not a full bolt). Mint when valid, coral when clamped / out of range. Ground stays armed until click / second press / Esc / RMB / S. Instant heals and shields never leave a ghost ring. Fog still hides enemies — indicators do not reveal them. Kitty Caster, Canal Levi, and kit numbers are unchanged. Verified locally: Luau compiled 136 sources; `tools/test-combat.py` passed (Targeting.preview clamp / warn / instant hide). Rojo 7.4.4 built the place. Studio still has to hold Q, confirm a ground cast, and Esc-cancel (the live-pass below).
 
+Emote wheel + Closet flair (same day, later slice): hold **T** wheel gets clearer wedge highlight, release-to-cast, and **Esc** cancel. Server attaches Closet `emoteFlair` tint on `EmotePlayed`; EmoteFx paints a larger bob, stroke, and sparkle when Moon Dust / Canal Crown / Braincell Orbs / Stall Spark is equipped. Nearby hub + mode players still see the billboard (foes in Cat Rift too); cooldown stays ~2.6s. **G** pings unchanged outside the Rift. Combat / Levi / aim indicators untouched. Verified locally: Luau compiled 136 sources; `tools/test-emote.py` and `tools/test-cosmetics.py` passed. Rojo 7.4.4 built the place. Studio live-pass under §8e.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -401,7 +403,7 @@ Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn
    - **Lantern Cap** — last-hit an outer scratching post or a lantern stall in Cat Rift (Practice counts; minions and bots do not)
    - **Stall Spark** + emote flair — win a Cat Rift match (Practice counts)
    - **Scratch Tally** — **5** champion kills across Cat Rift matches
-5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Rare flair tints **T** emote bobs. Equip / unlock lines hit the ticker (`EQUIPPED ·` / `UNLOCKED ·`).
+5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Cosmetics marked **emoteFlair** (Canal Crown, Braincell Orbs, Moon Dust, Stall Spark) tint and sparkle the **T** emote bob + billboard for nearby players — the server sends the flair color on `EmotePlayed`. Equip / unlock lines hit the ticker (`EQUIPPED ·` / `UNLOCKED ·`).
 6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Cat Rift counters (`riftWins`, `riftTowerKills`, `riftKills`) live on that same row, so kills add up across matches. Bots do not wear closet drip and do not earn Rift drip.
 7. Match end pays closet yarn: **6** for a win, **2** for a loss. Play points, not Robux, and not in-match gold.
 
@@ -479,7 +481,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **7** | Yarn Cleave (buy at Pawmart). Circle slash, 12s cooldown. Stall Fang and Paper Charm are passives |
 | **B** | Pawmart — **fountain only**. Not recall |
 | **F** | Recall 7s → fountain. A new move, ground click, AA, attack-move, or cast cancels immediately. Damage still cancels. Camera, help, emote, ping, and **B** do not |
-| **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Release or click a slice. Server cooldown; no emote while down |
+| **T** (hold) | Emote wheel (Meow, Hiss, Purr, Flex, Dance, Laugh, Cry, GG). Aim a wedge, **release to cast**, or click. **Esc** cancels. Server cooldown (~2.6s); no emote while down. Closet **emoteFlair** (Moon Dust, Canal Crown, …) tints + sparkles the FX |
 | **G** (hold) | Smart ping wheel: Caution, On My Way, Assist, Enemy Missing, All Clear, Attack Here. Release or click. Team-only. ~2s cooldown. A visible cat, post, stall, yarn core, ward, or camp is named (`⚠ Caution · Nyan Rocket`). Ground stays generic |
 | **Clock** | Top-left during a Cat Rift fight only: match `mm:ss`, then the Canal Levi line (`Levi 1:24`, `Levi UP`, `Levi 0:47`, `Levi taken`). Hidden on the hub and the other stalls |
 | **Purse** | Above the ability bar during a Cat Rift match: your gold, CS, level, and whether Yarn Cleave (280g) fits. Same numbers as Tab. Hidden on the hub and the other stalls. After your side takes **Canal Levi**, the chip adds **+8% damage**. If the other side holds it, that same line names them |
@@ -617,7 +619,18 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 ## 8e. Cat emotes
 
-Hold **T** in lobby or Practice for the 8-slice wheel (Meow / Hiss / Purr / Flex / Dance / Laugh / Cry / GG). Release or click a slice. Nearby clients see a billboard + Part bob and hear a Sound-kit cue. Server cooldown (~2.6s); no emote while down. **SFX → Mute others' emotes** skips their cues (billboard still shows). No animation binaries.
+Hold **T** in the hub, Cat Rift lobby/match, Yarn Run, Koi Pond, Yarn Party, or Meme Arcade for the 8-slice wheel (Meow / Hiss / Purr / Flex / Dance / Laugh / Cry / GG). Aim a wedge (it scales + glows), **release to cast**, or click. **Esc** cancels without playing. Nearby clients (broadcast ~96 studs — teammates, hub neighbors, and Cat Rift foes) see an emoji billboard + neon Part bob and hear a Sound-kit cue. Server cooldown (~2.6s); no emote while down. **SFX → Mute others' emotes** skips their cues (billboard still shows). Closet **emoteFlair** drip (Canal Crown, Braincell Orbs, Moon Dust, Stall Spark) tints the bob, thickens the billboard stroke, and adds sparkle particles — wired from Closet loadout on the server (`EmotePlayed.flairTint`). **G** pings stay Cat Rift only. No animation binaries. No Robux emote shop.
+
+Smoke (catalog + flair helpers): `python3 tools/test-emote.py /path/to/luau` and `python3 tools/test-cosmetics.py /path/to/luau`.
+
+### Studio live-pass (T wheel + Closet flair)
+
+These are not covered by the Luau smoke:
+
+1. Hub pad: hold **T**, aim **Meow**, release. Billboard + bob appear above you. Hold **T** again and press **Esc** — wheel closes, nothing plays. Aim **Dance**, click the wedge — same juice.
+2. Closet → equip **Moon Dust** (or **Canal Crown**). Hold **T**, release **Purr**. The bob and billboard stroke read that flair color and sparkle. Unequip the flair piece; the next emote is plain emote color again.
+3. Cat Rift Practice: both sides within ~96 studs see each other's emotes. Spam **T** — second cast inside ~2.6s toasts cooldown. Die — wheel refuses while down.
+4. Yarn Run / Koi / Party / Arcade: **T** still opens the wheel. **G** does not ping. Combat aim / Levi / purse are unchanged.
 
 ## 8f. Smart pings
 
@@ -688,7 +701,7 @@ These are not covered by the Luau smoke:
 - No fading ghost when a bot walks into fog: Rojo-sync `Shared.LastSeenGhostLogic` + `Client.Juice.LastSeenGhosts`. Ghosts are client-only parts in `Workspace.MeoLastSeen` (not server entities). They only appear after you have seen that unit once this match.
 - Fog stays on after the match / in Yarn Run: leave Practice via **Back to lobby** first; hub modes call `FogOfWar.setEnabled(false)`.
 - No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start. A player who already finished will not see new cards until **Show tips**. That is intentional (`MeoTutorial_v1` stays a boolean).
-- No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
+- No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down). Closet flair: equip Moon Dust or Canal Crown and confirm the bob sparkles.
 - No ping wheel, or a ping never names the cat: Rojo-sync `PingCatalog`, `PingLogic`, and `MinimapPing`. Hold **G** in Practice (not lobby) on a visible bot. Minimap click is still generic Attention, including into fog. Attention on a hidden enemy says **No vision.**
 - Tape under the kill feed never moves, or the rift tape shows on the hub: Rojo-sync `Shared.MemeStockLogic`, `Server.Economy.MemeStockService`, and `Client.UI.MemeTape`. Champion kills and posts move it. Lane kitten last hits do not. Yarn Run, Koi Pond, Yarn Party, Meme Arcade, and the hub grid do not show it.
 - No death recap after a Practice death: Rojo-sync so `MeoRemotes.DeathRecap` exists, then die again in a new Practice. Hub, Yarn Run, Koi, Party, and Arcade do not show it.

@@ -322,10 +322,13 @@ function CosmeticCatalog.rarityTint(rarity: Rarity): Color3
 end
 
 function CosmeticCatalog.emoteTint(hatId: string?, trailId: string?): Color3?
+	-- Trail flair wins over hat when both are equipped (Moon Dust over Canal Crown).
 	for _, id in { trailId, hatId } do
-		local def = CosmeticCatalog.get(id)
-		if def and def.emoteFlair then
-			return def.color
+		if typeof(id) == "string" and id ~= "" then
+			local def = CosmeticCatalog.get(id)
+			if def and def.emoteFlair then
+				return def.color
+			end
 		end
 	end
 	return nil

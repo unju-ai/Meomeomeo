@@ -1,6 +1,6 @@
 --!strict
 
--- Hold-to-open radial emote wheel. Release or click a slice to play.
+-- Hold-to-open radial emote wheel. Release to cast; Esc cancels. Click a slice works too.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -21,9 +21,17 @@ export type WheelApi = {
 	onPick: ((emoteId: string) -> ()) -> (),
 }
 
-local RING = 118
-local DEADZONE = 36
-local SLICE = 72
+local RING = 126
+local DEADZONE = 40
+local SLICE = 78
+local HINT_IDLE = "😺  release to cast · Esc cancel"
+
+type SliceUi = {
+	btn: TextButton,
+	stroke: UIStroke,
+	defId: string,
+	color: Color3,
+}
 
 function EmoteWheel.create(parent: Instance): WheelApi
 	local catalog = EmoteCatalog.list()
@@ -43,19 +51,23 @@ function EmoteWheel.create(parent: Instance): WheelApi
 	local dim = Instance.new("Frame")
 	dim.Name = "Dim"
 	dim.BackgroundColor3 = Color3.new(0, 0, 0)
-	dim.BackgroundTransparency = 0.62
+	dim.BackgroundTransparency = 0.58
 	dim.Size = UDim2.fromScale(1, 1)
 	dim.ZIndex = 42
 	dim.Parent = root
 
-	local hub = Theme.text(root, "Hub", "😺  release / click", 14, Theme.cream, Theme.fontTitle)
+	local hub = Theme.text(root, "Hub", HINT_IDLE, 15, Theme.cream, Theme.fontTitle)
 	hub.AnchorPoint = Vector2.new(0.5, 0.5)
-	hub.Position = UDim2.new(0.5, 0, 0.5, 0)
-	hub.Size = UDim2.fromOffset(160, 36)
+	hub.Position = UDim2.fromScale(0.5, 0.5)
+	hub.Size = UDim2.fromOffset(220, 44)
+	hub.BackgroundColor3 = Theme.panel
+	hub.BackgroundTransparency = 0.12
 	hub.TextXAlignment = Enum.TextXAlignment.Center
 	hub.ZIndex = 44
+	Theme.corner(hub, 14)
+	Theme.stroke(hub, Theme.strokeColor, 2, 0.35)
 
-	local buttons: { TextButton } = {}
+	local slices: { SliceUi } = {}
 
 	local function angleOf(index: number): number
 		return -math.pi / 2 + (index - 1) * (math.pi * 2 / #catalog)
@@ -63,20 +75,24 @@ function EmoteWheel.create(parent: Instance): WheelApi
 
 	local function setHighlight(id: string?)
 		highlighted = id
-		for i, def in catalog do
-			local btn = buttons[i]
-			if not btn then
-				continue
-			end
-			local on = def.id == id
-			btn.BackgroundColor3 = if on then def.color else Theme.panel
-			btn.TextColor3 = if on then Theme.ink else Theme.cream
+		for _, slice in slices do
+			local on = slice.defId == id
+			slice.btn.BackgroundColor3 = if on then slice.color else Theme.panel
+			slice.btn.BackgroundTransparency = if on then 0.05 else 0.12
+			slice.btn.TextColor3 = if on then Theme.ink else Theme.cream
+			slice.btn.TextSize = if on then 16 else 14
+			slice.btn.Size = if on then UDim2.fromOffset(SLICE + 10, SLICE + 10) else UDim2.fromOffset(SLICE, SLICE)
+			slice.stroke.Color = if on then slice.color else Theme.strokeColor
+			slice.stroke.Thickness = if on then 3.5 else 2
+			slice.stroke.Transparency = if on then 0.05 else 0.4
 		end
 		if id then
 			local def = EmoteCatalog.get(id)
-			hub.Text = if def then `{def.emoji}  {def.label}` else "😺  release / click"
+			hub.Text = if def then `{def.emoji}  {def.label}` else HINT_IDLE
+			hub.TextColor3 = if def then def.color else Theme.cream
 		else
-			hub.Text = "😺  release / click"
+			hub.Text = HINT_IDLE
+			hub.TextColor3 = Theme.cream
 		end
 	end
 
@@ -102,9 +118,14 @@ function EmoteWheel.create(parent: Instance): WheelApi
 		local ang = angleOf(i)
 		btn.Position = UDim2.new(0.5, math.floor(math.cos(ang) * RING + 0.5), 0.5, math.floor(math.sin(ang) * RING + 0.5))
 		btn.Size = UDim2.fromOffset(SLICE, SLICE)
+		btn.BackgroundTransparency = 0.12
 		btn.TextColor3 = Theme.cream
 		btn.TextSize = 14
 		btn.ZIndex = 45
+		local stroke = btn:FindFirstChildOfClass("UIStroke")
+		if not stroke then
+			stroke = Theme.stroke(btn, Theme.strokeColor, 2, 0.4)
+		end
 		btn.MouseButton1Click:Connect(function()
 			if pickHandler then
 				pickHandler(def.id)
@@ -115,7 +136,12 @@ function EmoteWheel.create(parent: Instance): WheelApi
 				setHighlight(def.id)
 			end
 		end)
-		table.insert(buttons, btn)
+		table.insert(slices, {
+			btn = btn,
+			stroke = stroke,
+			defId = def.id,
+			color = def.color,
+		})
 	end
 
 	local function stopHeartbeat()
@@ -146,7 +172,18 @@ function EmoteWheel.create(parent: Instance): WheelApi
 		else
 			stopHeartbeat()
 			highlighted = nil
-			hub.Text = "😺  release / click"
+			hub.Text = HINT_IDLE
+			hub.TextColor3 = Theme.cream
+			for _, slice in slices do
+				slice.btn.Size = UDim2.fromOffset(SLICE, SLICE)
+				slice.btn.BackgroundColor3 = Theme.panel
+				slice.btn.BackgroundTransparency = 0.12
+				slice.btn.TextColor3 = Theme.cream
+				slice.btn.TextSize = 14
+				slice.stroke.Color = Theme.strokeColor
+				slice.stroke.Thickness = 2
+				slice.stroke.Transparency = 0.4
+			end
 		end
 	end
 

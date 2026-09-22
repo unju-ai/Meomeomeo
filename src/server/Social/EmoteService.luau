@@ -9,9 +9,11 @@ local Config = require(script.Parent.Parent.Config)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local EmoteCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("EmoteCatalog"))
+local CosmeticCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CosmeticCatalog"))
 
 local CombatService = require(script.Parent.Parent.Match.CombatService)
 local MatchService = require(script.Parent.Parent.Match.MatchService)
+local ClosetStore = require(script.Parent.Parent.Cosmetics.ClosetStore)
 
 local EmoteService = {}
 
@@ -69,11 +71,15 @@ function EmoteService.play(player: Player, emoteId: unknown): Types.TradeResult
 
 	lastAt[player.UserId] = now
 	local origin = rootOf(player)
+	local row = ClosetStore.get(player.UserId)
+	local flairTint = CosmeticCatalog.emoteTint(row.hat, row.trail)
 	local payload: Types.EmoteEvent = {
 		userId = player.UserId,
 		emoteId = def.id,
 		at = Workspace:GetServerTimeNow(),
+		flairTint = flairTint,
 	}
+	-- Nearby only (Config.Emotes.BroadcastRadius). Hub + every mode; includes foes in Cat Rift.
 	for _, other in nearbyPlayers(if origin then origin.Position else nil) do
 		Remotes.event("EmotePlayed"):FireClient(other, payload)
 	end

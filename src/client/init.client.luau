@@ -1535,13 +1535,16 @@ Remotes.event("EmotePlayed").OnClientEvent:Connect(function(payload)
 		return
 	end
 	local muteSfx = muteOthersEmotes and event.userId ~= player.UserId
-	local tint = nil
-	local who = if event.userId == player.UserId then player else Players:GetPlayerByUserId(event.userId)
-	if who then
-		tint = CosmeticCatalog.emoteTint(
-			who:GetAttribute(Constants.Attributes.CosmeticHat) :: any,
-			who:GetAttribute(Constants.Attributes.CosmeticTrail) :: any
-		)
+	-- Server Closet loadout is authoritative; attributes are a fallback for older payloads.
+	local tint: Color3? = if typeof(event.flairTint) == "Color3" then event.flairTint else nil
+	if tint == nil then
+		local who = if event.userId == player.UserId then player else Players:GetPlayerByUserId(event.userId)
+		if who then
+			tint = CosmeticCatalog.emoteTint(
+				who:GetAttribute(Constants.Attributes.CosmeticHat) :: any,
+				who:GetAttribute(Constants.Attributes.CosmeticTrail) :: any
+			)
+		end
 	end
 	EmoteFx.play(event, { muteSfx = muteSfx, tint = tint })
 end)
@@ -2529,6 +2532,20 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.H then
 		hud.help.setHeld(true)
 		return
+	end
+	if input.KeyCode == Enum.KeyCode.Escape then
+		if hud.emotes.isOpen() then
+			emoteHeld = false
+			emoteConsumed = true
+			hud.emotes.close()
+			return
+		end
+		if hud.pings.isOpen() then
+			pingHeld = false
+			pingConsumed = true
+			hud.pings.close()
+			return
+		end
 	end
 	if armedSlot and (input.KeyCode == Enum.KeyCode.Escape or input.UserInputType == Enum.UserInputType.MouseButton2) then
 		hideAim()
