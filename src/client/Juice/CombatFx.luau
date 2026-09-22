@@ -14,6 +14,7 @@ local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Sh
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
+local XpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("XpJuice"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FountainRegenJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
@@ -743,6 +744,128 @@ local function playBounty(event: Types.CombatFxEvent)
 	ensureLoop()
 end
 
+local function paintXp(pop: FloatPop)
+	local rgb = XpJuice.rgb()
+	local ink = XpJuice.Ink
+	pop.label.RichText = false
+	pop.label.Text = XpJuice.label(pop.amount)
+	pop.label.TextColor3 = Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+	pop.label.TextSize = XpJuice.TextSize
+	pop.label.Font = Theme.fontTitle
+	pop.label.TextXAlignment = Enum.TextXAlignment.Center
+	pop.label.TextStrokeColor3 = Color3.fromRGB(ink[1], ink[2], ink[3])
+	pop.stroke.Color = Color3.fromRGB(ink[1], ink[2], ink[3])
+	pop.stroke.Thickness = 1.1
+	pop.gui.Size = UDim2.fromOffset(124, 36)
+end
+
+local function spawnXp(amount: number, origin: Vector3, key: string, now: number)
+	local part = Instance.new("Part")
+	part.Name = "XpTick"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(origin + Vector3.new(0, XpJuice.Lift, 0))
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoXp"
+	gui.Size = UDim2.fromOffset(124, 36)
+	gui.StudsOffset = Vector3.new(0, 0, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 120
+	gui.Adornee = part
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Amount"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextStrokeTransparency = 0.4
+	label.Parent = gui
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Transparency = 0.5
+	stroke.Parent = label
+
+	local pop: FloatPop = {
+		key = key,
+		kind = "xp",
+		amount = amount,
+		bornAt = now,
+		origin = origin,
+		part = part,
+		gui = gui,
+		label = label,
+		stroke = stroke,
+	}
+	paintXp(pop)
+	table.insert(floatPops, pop)
+	local slotted = false
+	for _, slot in floatMergeSlots do
+		if slot.key == key and slot.kind == "xp" and (now - slot.bornAt) <= CombatFloat.MergeWindow then
+			slot.amount = amount
+			slotted = true
+			break
+		end
+	end
+	if not slotted then
+		table.insert(floatMergeSlots, {
+			key = key,
+			amount = amount,
+			kind = "xp",
+			bornAt = now,
+		})
+	end
+end
+
+-- Local XP grants only. The level-up banner stays on the combat level edge.
+local function playXp(event: Types.CombatFxEvent)
+	if not floatsEnabled then
+		return
+	end
+	local localPlayer = Players.LocalPlayer
+	if not localPlayer then
+		return
+	end
+	local xp = event.amount
+	if typeof(xp) ~= "number" or not XpJuice.wantsFloat(xp) then
+		return
+	end
+	if not XpJuice.isLocal(localPlayer.UserId, event.userId) then
+		return
+	end
+
+	local now = os.clock()
+	pruneFloatSlots(now)
+	local key = XpJuice.mergeKey(event.origin.X, event.origin.Z)
+	local merged = XpJuice.tryMerge(floatMergeSlots, key, xp, now)
+	if merged then
+		for _, pop in floatPops do
+			if pop.key == key and pop.kind == "xp" and (now - pop.bornAt) <= CombatFloat.MergeWindow then
+				pop.amount = merged.amount
+				paintXp(pop)
+				return
+			end
+		end
+		if XpJuice.canSpawn(#floatPops) then
+			spawnXp(merged.amount, event.origin, key, now)
+			ensureLoop()
+		end
+		return
+	end
+	if not XpJuice.canSpawn(#floatPops) then
+		return
+	end
+	local jitter = Vector3.new((math.random() - 0.5) * 0.7, 0, (math.random() - 0.5) * 0.7)
+	spawnXp(xp, event.origin + jitter, key, now)
+	ensureLoop()
+end
+
 ensureLoop = function()
 	if loopBound then
 		return
@@ -896,6 +1019,7 @@ ensureLoop = function()
 				local lift = if pop.kind == "gold"
 					then LastHitJuice.Lift
 					elseif pop.kind == "bounty" then BountyJuice.Lift
+					elseif pop.kind == "xp" then XpJuice.Lift
 					else 2.4
 				pop.part.CFrame = CFrame.new(pop.origin + Vector3.new(0, lift + rise, 0))
 				pop.label.TextTransparency = fade
@@ -2126,6 +2250,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		playLastHit(event)
 	elseif event.kind == "bounty" then
 		playBounty(event)
+	elseif event.kind == "xp" then
+		playXp(event)
 	end
 end
 
