@@ -607,6 +607,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	refreshBars()
 	if inMini() then
 		applyVision()
+		CombatFx.syncRiverEpic(latestMatch, player.UserId, gameMode, if latestCombat then latestCombat.alive else nil)
 		return
 	end
 	if latestMatch.phase == "InProgress" then
@@ -629,6 +630,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 		Sfx.stopLoop("RecallLoop")
 	end
 	applyVision()
+	CombatFx.syncRiverEpic(latestMatch, player.UserId, gameMode, if latestCombat then latestCombat.alive else nil)
 end
 
 -- WASD, arrows, jump, and the engine stick. W is also an ability; a fresh press is still a move order.
@@ -793,6 +795,7 @@ local function applyCombatJuice(state: Types.CombatState)
 	noteRecallChannel(rootedChannel(state))
 	local prev = juiceCombat
 	juiceCombat = state
+	CombatFx.syncRiverEpic(latestMatch, player.UserId, gameMode, state.alive)
 	local mine = if latestMatch then latestMatch.players[tostring(player.UserId)] else nil
 	local team: Types.TeamId? = if mine then mine.team else nil
 	local atFountain = FountainRegenJuice.modeAllows(gameMode, if latestMatch then latestMatch.phase else nil)
@@ -3384,12 +3387,14 @@ end)
 task.spawn(function()
 	while true do
 		task.wait(0.4)
+		CombatFx.syncRiverEpic(latestMatch, player.UserId, gameMode, if latestCombat then latestCombat.alive else nil)
 		if latestMatch and latestMatch.phase == "ChampionSelect" then
 			hud.respawn.hide()
 			hud.select.update(latestMatch, player.UserId)
 		elseif latestMatch and latestMatch.phase == "InProgress" then
 			refreshBars()
 			applyVision()
+			CombatFx.syncRiverEpic(latestMatch, player.UserId, gameMode, if latestCombat then latestCombat.alive else nil)
 			hud.minimap.update(latestMatch, lastVision, player.UserId)
 			-- Fountain regen juice: re-check pad position between CombatUpdated ticks.
 			if latestCombat and FountainRegenJuice.modeAllows(gameMode, latestMatch.phase) then

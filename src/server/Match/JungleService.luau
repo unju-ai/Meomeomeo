@@ -37,7 +37,9 @@ type Api = {
 	onClear: (userId: number, gold: number, xp: number) -> (),
 	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
 	onEpicPhase: (phase: string, respawnAt: number?) -> (),
-	onEpicTaken: (userId: number) -> (),
+	-- Death only. phase is the post-kill clock so the grant and the phase
+	-- land on one snapshot. Wakes stay on onEpicPhase.
+	onEpicTaken: (userId: number, phase: string, respawnAt: number?) -> (),
 }
 
 type CampDef = {
@@ -346,16 +348,17 @@ function JungleService.applyDamage(attackerUserId: number?, jungleId: string, am
 			local nextClock = RiverEpic.killed(epicClock, elapsed)
 			local changed = nextClock.phase ~= epicClock.phase
 			epicClock = nextClock
-			if changed then
+			-- One snapshot: phase leave + the non-stacking grant. The client
+			-- tints the pit burst from that diff. Spawn wakes stay on onEpicPhase.
+			if changed and attackerUserId then
+				api.onEpicTaken(attackerUserId, epicClock.phase, epicClock.respawnAt)
+			elseif changed then
 				api.onEpicPhase(epicClock.phase, epicClock.respawnAt)
 			end
 		end
 		if api then
 			if attackerUserId then
 				api.onClear(attackerUserId, monster.gold, monster.xp)
-				if takenEpic then
-					api.onEpicTaken(attackerUserId)
-				end
 			end
 			api.onDied(pos, attackerUserId)
 		end

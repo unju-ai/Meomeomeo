@@ -868,18 +868,26 @@ function MatchService.init(cleared: () -> ())
 			current.riverEpic.nextAt = nextAt
 			broadcast()
 		end,
-		onEpicTaken = function(userId: number)
+		onEpicTaken = function(userId: number, phase: string, respawnElapsed: number?)
 			if not current or not current.riverEpic then
 				return
 			end
 			local matchPlayer = current.players[tostring(userId)]
-			if not matchPlayer then
-				return
+			if matchPlayer then
+				local blue, red = RiverEpic.grant(current.riverEpic.blueBuff, current.riverEpic.redBuff, matchPlayer.team)
+				current.riverEpic.blueBuff = blue
+				current.riverEpic.redBuff = red
+				AnnouncerService.onEpic(matchPlayer.team, catLabel(matchPlayer))
 			end
-			local blue, red = RiverEpic.grant(current.riverEpic.blueBuff, current.riverEpic.redBuff, matchPlayer.team)
-			current.riverEpic.blueBuff = blue
-			current.riverEpic.redBuff = red
-			AnnouncerService.onEpic(matchPlayer.team, catLabel(matchPlayer))
+			-- Same broadcast as the grant. +8% still comes only from RiverEpic.grant.
+			local nextPhase: Types.RiverEpicPhase? = nil
+			if phase == "waiting" or phase == "alive" or phase == "returning" or phase == "spent" then
+				nextPhase = phase
+			end
+			if nextPhase then
+				current.riverEpic.phase = nextPhase
+				current.riverEpic.nextAt = RiverEpic.dueAt(current.startedAt, nextPhase, respawnElapsed)
+			end
 			broadcast()
 		end,
 	})

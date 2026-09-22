@@ -16,6 +16,7 @@ local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForC
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
 local RespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RespawnJuice"))
+local RiverEpicJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpicJuice"))
 local StructureDeathJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureDeathJuice"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -70,6 +71,8 @@ local floatsEnabled = false
 local activeAllowed = false
 local recallAllowed = false
 local structureJuiceAllowed = false
+local epicWatch: RiverEpicJuice.Watch = RiverEpicJuice.blank()
+local epicRims: { [number]: Highlight } = {}
 local suppressRecallUntil: { [number]: number } = {}
 local floatPops: { FloatPop } = {}
 local floatMergeSlots: { CombatFloat.MergeSlot } = {}
@@ -1399,6 +1402,75 @@ local function playGateOpen(at: Vector3)
 	release(glow, life)
 end
 
+local function playEpicTake(team: string)
+	local tint = rgbOf(RiverEpicJuice.tint(team))
+	local life = RiverEpicJuice.BurstSeconds
+	local at = Vector3.new(RiverEpicJuice.pitX(), RiverEpicJuice.GroundY, RiverEpicJuice.pitZ())
+	placeBurst(at, tint, RiverEpicJuice.BurstScale, life)
+	placeRing(at, RiverEpicJuice.RingRadius, tint, life)
+	local count = RiverEpicJuice.MoteCount
+	for i = 1, count do
+		local angle = (i / count) * math.pi * 2
+		local mote = takePart("LeviMote")
+		mote.Shape = Enum.PartType.Ball
+		mote.Size = Vector3.new(0.85, 1.55, 0.85)
+		mote.CFrame = CFrame.new(at + Vector3.new(math.cos(angle) * 2.4, 1.45 + (i % 2) * 1.05, math.sin(angle) * 2.4))
+		flashPart(mote, tint, 0.18)
+		release(mote, life)
+	end
+end
+
+local function clearEpicRims()
+	local drop: { number } = {}
+	for userId in epicRims do
+		table.insert(drop, userId)
+	end
+	for _, userId in drop do
+		local highlight = epicRims[userId]
+		if highlight then
+			highlight:Destroy()
+		end
+		epicRims[userId] = nil
+	end
+end
+
+local function paintEpicRim(userId: number, cue: string, team: string)
+	local existing = epicRims[userId]
+	if not RiverEpicJuice.shouldPaintRim(cue) then
+		if existing then
+			existing:Destroy()
+			epicRims[userId] = nil
+		end
+		return
+	end
+	local model = modelOf(userId)
+	if not model then
+		if existing then
+			existing:Destroy()
+			epicRims[userId] = nil
+		end
+		return
+	end
+	local highlight = existing
+	if not highlight or highlight.Parent ~= model then
+		if highlight then
+			highlight:Destroy()
+		end
+		highlight = Instance.new("Highlight")
+		highlight.Name = "LeviRim"
+		highlight.Adornee = model
+		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		highlight.Parent = model
+		epicRims[userId] = highlight
+	end
+	local color = rgbOf(RiverEpicJuice.tint(team))
+	highlight.OutlineColor = color
+	highlight.FillColor = color
+	highlight.OutlineTransparency = RiverEpicJuice.outlineTransparency(cue)
+	highlight.FillTransparency = RiverEpicJuice.fillTransparency(cue)
+	highlight.Enabled = true
+end
+
 local function playStructureDeath(event: Types.CombatFxEvent)
 	if not structureJuiceAllowed then
 		return
@@ -1703,6 +1775,56 @@ end
 
 function CombatFx.setStructureJuiceAllowed(on: boolean)
 	structureJuiceAllowed = on
+end
+
+-- Canal Levi. Snapshot diff paints one pit burst; living holders keep a calm rim.
+-- Kitty Caster already announces the take, so a lost flag stays a silent clear.
+function CombatFx.syncRiverEpic(
+	snapshot: Types.MatchSnapshot?,
+	localUserId: number,
+	gameMode: string,
+	localAlive: boolean?
+)
+	if snapshot == nil or not RiverEpicJuice.modeAllows(gameMode, snapshot.phase) or snapshot.riverEpic == nil then
+		epicWatch = RiverEpicJuice.blank()
+		clearEpicRims()
+		return
+	end
+	local epic = snapshot.riverEpic
+	local nextWatch, burstTeam = RiverEpicJuice.observe(epicWatch, snapshot.id, epic.phase, epic.blueBuff, epic.redBuff)
+	epicWatch = nextWatch
+	local mine = snapshot.players[tostring(localUserId)]
+	if burstTeam ~= nil then
+		local ally = mine ~= nil and burstTeam == mine.team
+		local pitX = RiverEpicJuice.pitX()
+		local pitZ = RiverEpicJuice.pitZ()
+		if RiverEpicJuice.shouldPaintTake(ally, FogOfWar.isLit(pitX, pitZ), FogOfWar.wasLit(pitX, pitZ)) then
+			playEpicTake(burstTeam)
+		end
+	end
+	local myTeam = if mine then mine.team else nil
+	local nowS = Workspace:GetServerTimeNow()
+	local keep: { [number]: boolean } = {}
+	for _, matchPlayer in snapshot.players do
+		keep[matchPlayer.userId] = true
+		local aliveFlag = if matchPlayer.userId == localUserId then localAlive else nil
+		local living = RiverEpicJuice.isLiving(aliveFlag, matchPlayer.respawnAt, nowS)
+		local holds = RiverEpicJuice.holds(matchPlayer.team, epic.blueBuff, epic.redBuff)
+		local root = rootOf(matchPlayer.userId)
+		local lit = if root then FogOfWar.isLit(root.Position.X, root.Position.Z) else false
+		local same = myTeam ~= nil and matchPlayer.team == myTeam
+		local cue = RiverEpicJuice.rimCue(localUserId, matchPlayer.userId, same, lit, living, holds)
+		paintEpicRim(matchPlayer.userId, cue, matchPlayer.team)
+	end
+	local stale: { number } = {}
+	for userId in epicRims do
+		if not keep[userId] then
+			table.insert(stale, userId)
+		end
+	end
+	for _, userId in stale do
+		paintEpicRim(userId, "none", "Blue")
+	end
 end
 
 function CombatFx.setFloatsEnabled(enabled: boolean)
