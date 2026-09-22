@@ -10,7 +10,9 @@
 -- unless that ally is critically low and the fight is nearby.
 -- Hard may also siege a post the caller already chose. That loses to peel,
 -- Levi, a hurt camp, and a cat in face range. It beats a wounded-champion
--- finish, a full-HP camp, and an idle rotate.
+-- finish, a full-HP camp, and an idle rotate. An open yarn core BotCoreLogic
+-- already accepted arrives as that same siege hint and keeps this ranking,
+-- so a wounded cat in face range still wins and a full-HP camp still loses.
 -- Hard may also finish a wounded enemy the caller already chose. That loses
 -- to peel, Levi, a hurt camp, a cat in face range, and an active siege.
 -- It beats a full-HP camp and soft lane farming. Easy and Normal ignore it.
@@ -81,7 +83,7 @@ export type PeelHint = {
 	enemyUserId: number?,
 }
 
--- Already chosen by BotSiegeLogic. Jungle only ranks it against camps, Levi, and peel.
+-- Already chosen by BotSiegeLogic or BotCoreLogic. Jungle only ranks it.
 export type SiegeHint = {
 	id: string,
 	x: number,

@@ -503,4 +503,54 @@ assert(StructureAggroJuice.lanternRgb()[1] > StructureAggroJuice.lanternRgb()[3]
 assert(StructureAggroJuice.LanternLift > 0)
 assert(StructureAggroJuice.FootSpan < StructureAggroJuice.RingSpan)
 
-print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure take juice, structure lock juice, structure/Levi/kitten/camp HP bars, champion plates")
+-- Hard core siege reads the same gate. A winning wave on a closed core is still not a walk.
+local function coreQuery(def: StructureLogic.Def, aliveMap: { [string]: boolean }, partial: {
+	health: number?,
+	alive: boolean?,
+	allyKittens: number?,
+	enemyKittens: number?,
+	allyHitters: number?,
+	x: number?,
+	difficulty: BotCoreLogic.Difficulty?,
+}): BotCoreLogic.CoreGoal?
+	return BotCoreLogic.pick({
+		difficulty = partial.difficulty or "Hard",
+		x = if partial.x == nil then def.x - 40 else partial.x,
+		z = def.z,
+		selfHp = 1,
+		retreatHp = 0.16,
+		peelCritical = false,
+		core = {
+			id = def.id,
+			x = def.x,
+			z = def.z,
+			health = if partial.health == nil then def.maxHealth else partial.health,
+			maxHealth = def.maxHealth,
+			vulnerable = StructureLogic.isVulnerable(def, aliveMap),
+			alive = if partial.alive == nil then true else partial.alive,
+			allyKittens = partial.allyKittens or 0,
+			enemyKittens = partial.enemyKittens or 0,
+			allyHitters = partial.allyHitters or 0,
+		},
+	})
+end
+
+local gatedCore = aliveUp()
+assert(StructureLogic.isVulnerable(redCore, gatedCore) == false)
+assert(coreQuery(redCore, gatedCore, { allyKittens = 3, health = 400, allyHitters = 2 }) == nil, "stalls up keep the core closed")
+local openCore = aliveUp()
+for _, def in StructureLogic.defs() do
+	if def.team == "Red" and def.kind == "Tower" then
+		openCore[def.id] = false
+	end
+end
+assert(StructureLogic.isVulnerable(redCore, openCore) == true, "stalls down open the yarn core")
+local withWave = coreQuery(redCore, openCore, { allyKittens = 2 })
+assert(withWave ~= nil and withWave.id == "RedNexus", "an open core with a winning wave is a Hard goal")
+assert(coreQuery(redCore, openCore, {}) == nil, "an open full-HP core with nobody under it stays back")
+assert(coreQuery(redCore, openCore, { health = 1100 }) ~= nil, "an open core at half HP is a goal")
+assert(coreQuery(redCore, openCore, { allyKittens = 2, difficulty = "Easy" }) == nil, "Easy still ignores an open core")
+assert(coreQuery(redCore, openCore, { allyKittens = 2, difficulty = "Normal" }) == nil, "Normal still ignores an open core")
+assert(StructureLogic.NexusHealth == 2200 and redCore.maxHealth == 2200, "core HP is unchanged")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate, hard core siege gate, structure take juice, structure lock juice, structure/Levi/kitten/camp HP bars, champion plates")

@@ -23,7 +23,8 @@ def wrap_deps(name: str, rel: str, deps: list[str]) -> str:
 
 
 script = (
-    wrap("StructureLogic", "src/shared/StructureLogic.luau")
+    wrap("BotCoreLogic", "src/shared/BotCoreLogic.luau")
+    + wrap("StructureLogic", "src/shared/StructureLogic.luau")
     + wrap("BillboardHp", "src/shared/BillboardHp.luau")
     + wrap_deps("ChampionPlate", "src/shared/ChampionPlate.luau", ["BillboardHp"])
     + wrap_deps("StructureDeathJuice", "src/shared/StructureDeathJuice.luau", ["StructureLogic"])
