@@ -5,8 +5,10 @@ local Workspace = game:GetService("Workspace")
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local JungleBotLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("JungleBotLogic"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
+local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 
 local CombatService = require(script.Parent.CombatService)
 local Config = require(script.Parent.Parent.Config)
@@ -49,6 +51,13 @@ type BotBrain = {
 	warded: boolean,
 	dodgeUntil: number,
 	dodgeDest: Vector3?,
+	-- Sticky jungle goal. The walk loop between thinks follows nav, not the lane.
+	campId: string?,
+	routeIndex: number,
+	navKind: string?,
+	navX: number?,
+	navZ: number?,
+	closing: boolean,
 }
 
 local BotService = {}
@@ -56,6 +65,18 @@ local BotService = {}
 local running = false
 local generation = 0
 local brains: { [number]: BotBrain } = {}
+-- team:userId → server time the enemy was last inside team vision. Rotate hints expire.
+local gankSeenAt: { [string]: number } = {}
+
+local BRUSH_BOXES: { JungleBotLogic.BrushBox } = {}
+for _, spec in VisionLogic.Brushes do
+	table.insert(BRUSH_BOXES, {
+		x = spec.x,
+		z = spec.z,
+		sx = spec.sx,
+		sz = spec.sz,
+	})
+end
 
 local function botsFolder(): Folder
 	local map = MapBuilder.get()
@@ -483,26 +504,155 @@ local function sidestepFromCast(cast: CombatService.AbilityCast)
 	end
 end
 
-local function nearbyCamp(team: Types.TeamId, origin: Vector3): Hunt?
-	local best: Hunt? = nil
-	local bestDist = 92
+local function gankKey(team: Types.TeamId, userId: number): string
+	return `{team}:{userId}`
+end
+
+local function aliveCamps(): { JungleBotLogic.CampView }
+	local list = {}
 	for _, monster in JungleService.list() do
-		local sameSide = (team == "Blue" and monster.spawn.X <= 24) or (team == "Red" and monster.spawn.X >= -24)
-		if sameSide then
-			local d = (monster.part.Position - origin).Magnitude
-			if d <= bestDist then
-				bestDist = d
-				best = {
-					kind = "jungle",
-					jungleId = monster.id,
-					position = monster.part.Position,
-					isChampion = false,
-					health = monster.health,
-				}
+		table.insert(list, {
+			id = monster.id,
+			x = monster.spawn.X,
+			z = monster.spawn.Z,
+			health = monster.health,
+			maxHealth = monster.maxHealth,
+		})
+	end
+	return list
+end
+
+local function laneViews(team: Types.TeamId, viewerUserId: number): { JungleBotLogic.LaneView }
+	local now = Workspace:GetServerTimeNow()
+	local hints: { [string]: { x: number, z: number, laneDist: number } } = {}
+	local snapshot = matchSnapshot()
+	if snapshot then
+		for _, other in snapshot.players do
+			if other.team ~= team and other.respawnAt == nil then
+				local key = gankKey(team, other.userId)
+				if VisionService.canSeeChampion(viewerUserId, other.userId) then
+					gankSeenAt[key] = now
+				end
+				local stamped = gankSeenAt[key]
+				local known = VisionService.lastKnownOf(team, other.userId)
+				local fresh = stamped ~= nil and (now - stamped) <= JungleBotLogic.GankMemorySeconds
+				if known and fresh then
+					local bestLane: string? = nil
+					local bestDist = 36
+					for _, name in Constants.Lanes do
+						local gap = math.abs(known.Z - assignedZ(name))
+						if gap <= bestDist then
+							bestDist = gap
+							bestLane = name
+						end
+					end
+					if bestLane then
+						local prev = hints[bestLane]
+						if not prev or bestDist < prev.laneDist then
+							hints[bestLane] = { x = known.X, z = known.Z, laneDist = bestDist }
+						end
+					end
+				end
 			end
 		end
 	end
-	return best
+	local lanes = {}
+	for _, name in Constants.Lanes do
+		local follow = waveFollow(team, name)
+		local hint = hints[name]
+		table.insert(lanes, {
+			name = name,
+			z = assignedZ(name),
+			waveX = if follow then follow.X else nil,
+			lastKnownX = if hint then hint.x else nil,
+			lastKnownZ = if hint then hint.z else nil,
+		})
+	end
+	return lanes
+end
+
+local function visibleEnemy(team: Types.TeamId, origin: Vector3, userId: number): JungleBotLogic.EnemyView?
+	local champ = nearestChampion(team, origin, Config.AutoAttack.AcquireRange + 8, userId)
+	if not champ then
+		return nil
+	end
+	return { x = champ.position.X, z = champ.position.Z }
+end
+
+local function clearJungleNav(brain: BotBrain)
+	brain.navKind = nil
+	brain.navX = nil
+	brain.navZ = nil
+	brain.closing = false
+end
+
+local function releaseCamp(brain: BotBrain)
+	if brain.closing or brain.navKind == "camp" then
+		CombatService.issueAttackFor(brain.userId, { kind = "stop" })
+	end
+	clearJungleNav(brain)
+end
+
+-- Returns true when the jungler should not fall through into lane combat this think.
+local function pursueJungle(brain: BotBrain, team: Types.TeamId, tune: Tune, root: BasePart, dt: number): boolean
+	if not tune.Jungle or not brain.jungler then
+		clearJungleNav(brain)
+		brain.campId = nil
+		return false
+	end
+	local decision = JungleBotLogic.decide({
+		difficulty = currentDifficulty,
+		team = team,
+		jungler = true,
+		x = root.Position.X,
+		z = root.Position.Z,
+		lanePushed = lanePushed(team, brain.lane),
+		attackRange = Config.AutoAttack.Range,
+		memory = { campId = brain.campId, routeIndex = brain.routeIndex },
+		camps = aliveCamps(),
+		enemy = visibleEnemy(team, root.Position, brain.userId),
+		lanes = laneViews(team, brain.userId),
+		brushes = BRUSH_BOXES,
+	})
+	brain.campId = decision.memory.campId
+	brain.routeIndex = decision.memory.routeIndex
+	if decision.action == "lane" or decision.action == "fight" then
+		releaseCamp(brain)
+		return false
+	end
+	if decision.action == "rotate" then
+		local dest = Vector3.new(decision.x or root.Position.X, root.Position.Y, decision.z or root.Position.Z)
+		if not allowDive(tune, brain, team, root.Position, dest, nil) then
+			releaseCamp(brain)
+			return false
+		end
+	end
+	local stepX = decision.stepX or decision.x or root.Position.X
+	local stepZ = decision.stepZ or decision.z or root.Position.Z
+	brain.navKind = decision.action
+	brain.navX = stepX
+	brain.navZ = stepZ
+	if (root.Position - fountainPos(team)).Magnitude > 40 then
+		brain.visitedLane = true
+	end
+	if decision.action == "camp" and decision.campId and decision.x and decision.z then
+		local atGoal = math.abs(stepX - decision.x) < 0.1 and math.abs(stepZ - decision.z) < 0.1
+		local monster = JungleService.get(decision.campId)
+		local aim = if monster then monster.part.Position else Vector3.new(decision.x, root.Position.Y, decision.z)
+		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+		if atGoal and flat.Magnitude <= Config.AutoAttack.Range then
+			local swung = CombatService.issueAttackFor(brain.userId, { kind = "jungle", jungleId = decision.campId })
+			if swung.ok then
+				brain.closing = true
+				return true
+			end
+			-- Fog or a drum is in the way. Creep to the spawn instead of standing in brush.
+			brain.closing = false
+		end
+	end
+	brain.closing = false
+	stepToward(brain.userId, Vector3.new(stepX, root.Position.Y, stepZ), dt)
+	return true
 end
 
 local function think(brain: BotBrain, dt: number)
@@ -528,6 +678,7 @@ local function think(brain: BotBrain, dt: number)
 	local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
 
 	if hpRatio <= tune.RetreatHp then
+		releaseCamp(brain)
 		stepToward(brain.userId, fountain, dt)
 		return
 	end
@@ -539,6 +690,7 @@ local function think(brain: BotBrain, dt: number)
 
 	local hereTower = enemyTowerAt(team, root.Position)
 	if hereTower and not allowDive(tune, brain, team, root.Position, root.Position, nil) then
+		releaseCamp(brain)
 		stepToward(brain.userId, fountain, dt)
 		return
 	end
@@ -553,6 +705,7 @@ local function think(brain: BotBrain, dt: number)
 			end
 		end
 		if hpRatio < 0.92 then
+			releaseCamp(brain)
 			return
 		end
 	end
@@ -583,18 +736,8 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
-	local threat = nearestChampion(team, root.Position, Config.AutoAttack.AcquireRange + 8, brain.userId)
-	if not threat and tune.Jungle and brain.jungler and lanePushed(team, brain.lane) then
-		local camp = nearbyCamp(team, root.Position)
-		if camp then
-			local dist = (camp.position - root.Position).Magnitude
-			if dist > Config.AutoAttack.Range then
-				stepToward(brain.userId, camp.position, dt)
-			else
-				CombatService.issueAttackFor(brain.userId, { kind = "jungle", jungleId = camp.jungleId })
-			end
-			return
-		end
+	if pursueJungle(brain, team, tune, root, dt) then
+		return
 	end
 
 	local hunt = nearestHunt(team, root.Position, brain.userId, tune)
@@ -662,6 +805,7 @@ function BotService.stop()
 	end
 	table.clear(brains)
 	table.clear(lastSeen)
+	table.clear(gankSeenAt)
 	local map = Workspace:FindFirstChild(Constants.MapFolderName)
 	local folder = if map then map:FindFirstChild("Bots") else nil
 	if folder then
@@ -710,6 +854,12 @@ function BotService.start()
 				warded = false,
 				dodgeUntil = 0,
 				dodgeDest = nil,
+				campId = nil,
+				routeIndex = 1,
+				navKind = nil,
+				navX = nil,
+				navZ = nil,
+				closing = false,
 			}
 		end
 	end
@@ -738,8 +888,15 @@ function BotService.start()
 							local matchPlayer = snapshotNow.players[tostring(brain.userId)]
 							local walkTune = tunables(currentDifficulty)
 							local nowWalk = Workspace:GetServerTimeNow()
-							if matchPlayer and brain.dodgeUntil > nowWalk and brain.dodgeDest then
+							local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+							if matchPlayer and hpRatio <= walkTune.RetreatHp then
+								stepToward(brain.userId, fountainPos(matchPlayer.team), dt)
+							elseif matchPlayer and brain.dodgeUntil > nowWalk and brain.dodgeDest then
 								stepToward(brain.userId, brain.dodgeDest, dt)
+							elseif matchPlayer and brain.navKind == "camp" and brain.navX and brain.navZ and not brain.closing then
+								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+							elseif matchPlayer and brain.navKind == "rotate" and brain.navX and brain.navZ then
+								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer then
 								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, walkTune)
 								if hunt and (hunt.position - root.Position).Magnitude > Config.AutoAttack.Range then
