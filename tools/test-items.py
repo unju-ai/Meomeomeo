@@ -1,4 +1,4 @@
-"""Pawmart item stack + night-market effect smoke. Usage: python3 tools/test-items.py /path/to/luau"""
+"""Pawmart item stack + night-market effect smoke (+ ShopPaint). Usage: python3 tools/test-items.py /path/to/luau"""
 from pathlib import Path
 import re
 import subprocess
@@ -7,6 +7,12 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 luau = Path(sys.argv[1] if len(sys.argv) > 1 else "luau")
+compiler = luau.with_name("luau-compile")
+if compiler.is_file():
+    sources = sorted((root / "src").rglob("*.luau"))
+    for source in sources:
+        subprocess.run([str(compiler), str(source)], check=True, stdout=subprocess.DEVNULL)
+    print(f"Compiled {len(sources)} Luau source files", flush=True)
 
 
 def wrap(name: str, rel: str) -> str:
@@ -34,13 +40,14 @@ script = (
     prelude
     + wrap("ItemKits", "src/shared/ItemKits.luau")
     + wrap("ItemCatalog", "src/shared/ItemCatalog.luau")
+    + wrap("ShopPaint", "src/shared/ShopPaint.luau")
     + (root / "tests/item-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-item-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
     result = subprocess.run([str(luau), str(entry)], check=True, capture_output=True, text=True)
-named = ("Yarn Cleave", "Stall Fang", "Paper Charm", "Control Yarn")
+named = ("Yarn Cleave", "Stall Fang", "Paper Charm", "Control Yarn", "ShopPaint")
 missing = [name for name in named if name not in result.stdout]
 if missing:
     sys.stderr.write(result.stdout)
