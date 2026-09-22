@@ -6,7 +6,8 @@
 --
 -- A goal ranks above a full-HP camp and soft lane last-hitting. It loses to
 -- low-HP flee, peel, Canal Levi, a camp that is already hurt, a cat already
--- in face range, and an active safe siege. Easy and Normal never take it.
+-- in face range, and an active safe siege (a post, a stall, or an open yarn
+-- core). Easy and Normal never take it.
 -- Damage, items, and cast chance stay elsewhere.
 
 local BotFinishLogic = {}

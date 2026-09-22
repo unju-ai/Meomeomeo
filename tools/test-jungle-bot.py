@@ -9,9 +9,13 @@ leftover camps and lane shove, and interrupts Levi only when the ally is
 critically low and the fight is nearby. Hard siege (BotSiegeLogic) hits a
 vulnerable post the wave is already under. It loses to peel, Levi, a hurt
 camp, and a face-range fight, and beats a wounded finish and a full-HP camp.
-Hard finish (BotFinishLogic) hunts a visible wounded champion over a full-HP
-camp and a lane shove. It loses to flee, peel, Levi, a hurt camp, a face-range
-fight, and an active siege. Easy and Normal ignore both.
+The yarn core is not that walk. Hard core (BotCoreLogic) hits an open yarn
+core with a winning wave, at half HP, or with two allies already on it. It
+uses the same siege ranking: peel, Levi, a hurt camp, and a wounded cat in
+face range still win, and a full-HP camp still loses. Hard finish
+(BotFinishLogic) hunts a visible wounded champion over a full-HP camp and a
+lane shove. It loses to flee, peel, Levi, a hurt camp, a face-range fight,
+and an active siege (post or open core). Easy and Normal ignore all three.
 """
 from pathlib import Path
 import re
@@ -41,6 +45,7 @@ script = (
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
+    + wrap("BotCoreLogic", "src/shared/BotCoreLogic.luau")
     + wrap("BotFinishLogic", "src/shared/BotFinishLogic.luau")
     + wrap("BotPeelLogic", "src/shared/BotPeelLogic.luau")
     + wrap("BotSiegeLogic", "src/shared/BotSiegeLogic.luau")

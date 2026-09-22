@@ -1286,4 +1286,204 @@ local normalFinishHunt = ask({
 })
 assert(normalFinishHunt.action ~= "finish", "Normal ignores a finish hint")
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, hard wounded finish, camp respawn chip, control yarn plant")
+-- Hard yarn core. Callers already applied StructureLogic's vulnerable bit.
+-- Outer/stall siege still refuses a nexus. This walk is separate.
+local function yarnCore(partial: {
+	id: string?,
+	x: number?,
+	z: number?,
+	health: number?,
+	maxHealth: number?,
+	vulnerable: boolean?,
+	alive: boolean?,
+	allyKittens: number?,
+	enemyKittens: number?,
+	allyHitters: number?,
+}): BotCoreLogic.CoreView
+	return {
+		id = partial.id or "RedNexus",
+		x = if partial.x == nil then 168 else partial.x,
+		z = if partial.z == nil then 0 else partial.z,
+		health = if partial.health == nil then 2200 else partial.health,
+		maxHealth = if partial.maxHealth == nil then 2200 else partial.maxHealth,
+		vulnerable = if partial.vulnerable == nil then true else partial.vulnerable,
+		alive = if partial.alive == nil then true else partial.alive,
+		allyKittens = partial.allyKittens or 0,
+		enemyKittens = partial.enemyKittens or 0,
+		allyHitters = partial.allyHitters or 0,
+	}
+end
+
+local function corePick(partial: {
+	difficulty: BotCoreLogic.Difficulty?,
+	x: number?,
+	z: number?,
+	selfHp: number?,
+	retreatHp: number?,
+	peelCritical: boolean?,
+	core: BotCoreLogic.CoreView?,
+}): BotCoreLogic.CoreGoal?
+	return BotCoreLogic.pick({
+		difficulty = partial.difficulty or "Hard",
+		x = if partial.x == nil then 120 else partial.x,
+		z = if partial.z == nil then 0 else partial.z,
+		selfHp = if partial.selfHp == nil then 1 else partial.selfHp,
+		retreatHp = if partial.retreatHp == nil then 0.16 else partial.retreatHp,
+		peelCritical = partial.peelCritical == true,
+		core = partial.core,
+	})
+end
+
+assert(BotCoreLogic.Range == 360 and BotCoreLogic.MinKittens == 2)
+assert(BotCoreLogic.LowRatio == 0.5 and BotCoreLogic.AllyHitters == 2)
+assert(corePick({ core = nil }) == nil, "no core is not a walk")
+assert(corePick({ difficulty = "Easy", core = yarnCore({ allyKittens = 3 }) }) == nil, "Easy does not take the core")
+assert(corePick({ difficulty = "Normal", core = yarnCore({ allyKittens = 3 }) }) == nil, "Normal does not take the core")
+assert(corePick({ core = yarnCore({ vulnerable = false, allyKittens = 3, health = 400, allyHitters = 2 }) }) == nil, "a gated core stays closed")
+assert(corePick({ core = yarnCore({ alive = false, allyKittens = 3 }) }) == nil, "a downed core is not a walk")
+assert(corePick({ core = yarnCore({ health = 0, allyKittens = 3 }) }) == nil, "an empty core bar is not a walk")
+assert(corePick({ core = yarnCore({}) }) == nil, "an empty full-HP core is not a solo walk")
+assert(corePick({ core = yarnCore({ allyKittens = 1 }) }) == nil, "one kitten on a full core stays back")
+assert(corePick({ core = yarnCore({ allyKittens = 2, enemyKittens = 2 }) }) == nil, "a tied wave is not a crash")
+assert(corePick({ core = yarnCore({ allyHitters = 1 }) }) == nil, "one ally on a full core is not enough")
+local winning = corePick({ core = yarnCore({ allyKittens = 2 }) })
+assert(winning ~= nil and winning.id == "RedNexus" and winning.x == 168, "a winning wave takes the open core")
+assert(corePick({ core = yarnCore({ allyKittens = 3, enemyKittens = 1 }) }) ~= nil, "more kittens than theirs")
+assert(corePick({ core = yarnCore({ health = 1100 }) }) ~= nil, "half HP is enough without a wave")
+assert(corePick({ core = yarnCore({ health = 1101 }) }) == nil, "just above half still needs a wave or allies")
+assert(corePick({ core = yarnCore({ health = 400, allyKittens = 0, enemyKittens = 4 }) }) ~= nil, "a low core is sane even if their wave is bigger")
+assert(corePick({ core = yarnCore({ allyHitters = 2 }) }) ~= nil, "two allies already on a full core")
+assert(corePick({ x = -176, core = yarnCore({ allyKittens = 2 }) }) ~= nil, "the fountain can still join a winning wave")
+assert(corePick({ x = -176, core = yarnCore({}) }) == nil, "the fountain does not solo a full core")
+assert(corePick({ x = -70, z = -100, core = yarnCore({ allyKittens = 2 }) }) ~= nil, "a back camp joins an open core")
+assert(corePick({ x = -193, core = yarnCore({ allyKittens = 3, health = 200, allyHitters = 3 }) }) == nil, "past the walk range stays put")
+assert(corePick({ selfHp = 0.16, core = yarnCore({ allyKittens = 3 }) }) == nil, "fleeing bot does not take the core")
+assert(corePick({ peelCritical = true, core = yarnCore({ allyKittens = 3 }) }) == nil, "a critical peel is not a core walk")
+
+local coreHint = { id = "RedNexus", x = 168, z = 0 }
+
+local coreOverCamp = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	siege = coreHint,
+})
+assert(coreOverCamp.action == "siege" and coreOverCamp.objectiveId == "RedNexus", "the open core beats a full-HP camp")
+assert(coreOverCamp.memory.campId == "YarnGolemNW", "the route waits")
+
+local hurtBeforeCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	camps = without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220)),
+	siege = coreHint,
+})
+assert(hurtBeforeCore.action == "camp" and hurtBeforeCore.campId == "YarnGolemNW", "a hurt camp still finishes before the core")
+
+local peelBeforeCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	campId = "PigeonsNW",
+	peel = hint,
+	siege = coreHint,
+})
+assert(peelBeforeCore.action == "peel" and peelBeforeCore.focusUserId == 9, "peel beats the core")
+
+local leviBeforeCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(ALL),
+	siege = coreHint,
+})
+assert(leviBeforeCore.action == "camp" and leviBeforeCore.campId == "CanalLevi", "Levi beats the core while it is up")
+
+local faceBeforeCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 140,
+	z = 0,
+	enemy = { x = 155, z = 0 },
+	camps = {},
+	siege = coreHint,
+	finish = { x = 155, z = 0, userId = 7, hpRatio = 0.2 },
+})
+assert(faceBeforeCore.action == "fight", "a wounded cat in face range beats the core")
+
+local coreBeforeFarFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 0,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	siege = coreHint,
+	finish = finishHint,
+})
+assert(coreBeforeFarFinish.action == "siege" and coreBeforeFarFinish.objectiveId == "RedNexus", "the open core beats a wounded cat outside face range")
+
+local coreRotate = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 10,
+	z = 0,
+	camps = {},
+	lanes = OPEN_LANES,
+	siege = coreHint,
+})
+assert(coreRotate.action == "siege" and coreRotate.objectiveId == "RedNexus", "the open core beats an idle rotate")
+
+local laneCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 140,
+	z = 0,
+	jungler = false,
+	siege = coreHint,
+})
+assert(laneCore.action == "siege" and laneCore.objectiveId == "RedNexus", "a lane bot hits the open core")
+
+local laneFaceCore = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 140,
+	z = 0,
+	jungler = false,
+	enemy = { x = 152, z = 0 },
+	siege = coreHint,
+	finish = { x = 152, z = 0, userId = 4, hpRatio = 0.25 },
+})
+assert(laneFaceCore.action == "fight", "a lane bot finishes the cat in its face before the core")
+
+local easyCore = ask({
+	difficulty = "Easy",
+	team = "Red",
+	x = 140,
+	z = 0,
+	jungler = true,
+	siege = coreHint,
+})
+assert(easyCore.action == "lane", "Easy ignores a core hint")
+
+local normalCore = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = 140,
+	z = 0,
+	lanePushed = true,
+	siege = coreHint,
+})
+assert(normalCore.action ~= "siege", "Normal ignores a core hint")
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, hard yarn core, hard wounded finish, camp respawn chip, control yarn plant")

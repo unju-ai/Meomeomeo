@@ -2,6 +2,7 @@
 
 local Workspace = game:GetService("Workspace")
 
+local BotCoreLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotCoreLogic"))
 local BotFinishLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotFinishLogic"))
 local BotPeelLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotPeelLogic"))
 local BotSiegeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotSiegeLogic"))
@@ -453,9 +454,60 @@ local function waveCountUnder(team: Types.TeamId, towerPos: Vector3, range: numb
 	return allies, enemies
 end
 
+-- Living allies already in scratch range of a point. This bot is not one of them.
+local function allyHittersNear(team: Types.TeamId, userId: number, point: Vector3): number
+	local snapshot = matchSnapshot()
+	if not snapshot then
+		return 0
+	end
+	local count = 0
+	local reach = StructureLogic.AttackRange
+	for _, other in snapshot.players do
+		if other.team == team and other.userId ~= userId then
+			local otherCombat = CombatService.get(other.userId)
+			local otherRoot = CombatService.rootOf(other.userId)
+			if otherCombat and otherRoot and otherCombat.alive then
+				local dx = otherRoot.Position.X - point.X
+				local dz = otherRoot.Position.Z - point.Z
+				if math.sqrt(dx * dx + dz * dz) <= reach then
+					count += 1
+				end
+			end
+		end
+	end
+	return count
+end
+
+local function coreView(team: Types.TeamId, userId: number): BotCoreLogic.CoreView?
+	for _, state in MapBuilder.objectiveStates() do
+		if state.alive and state.team ~= team and state.kind == "Nexus" then
+			local def = StructureLogic.get(state.id)
+			local part = MapBuilder.getObjectivePart(state.id)
+			if def and part then
+				local range = StructureLogic.rangeFor(def.kind, def.tier)
+				local allies, enemies = waveCountUnder(team, part.Position, range)
+				return {
+					id = state.id,
+					x = part.Position.X,
+					z = part.Position.Z,
+					health = state.health,
+					maxHealth = state.maxHealth,
+					vulnerable = state.vulnerable,
+					alive = true,
+					allyKittens = allies,
+					enemyKittens = enemies,
+					allyHitters = allyHittersNear(team, userId, part.Position),
+				}
+			end
+		end
+	end
+	return nil
+end
+
 local function siegeViews(team: Types.TeamId): { BotSiegeLogic.StructureView }
 	local list: { BotSiegeLogic.StructureView } = {}
 	for _, state in MapBuilder.objectiveStates() do
+		-- Posts and stalls only. The yarn core is BotCoreLogic.
 		if state.alive and state.team ~= team and state.kind ~= "Nexus" then
 			local def = StructureLogic.get(state.id)
 			local part = MapBuilder.getObjectivePart(state.id)
@@ -491,6 +543,17 @@ local function towerIsSiege(team: Types.TeamId, origin: Vector3, towerPos: Vecto
 	return false
 end
 
+local function coreIsSiege(team: Types.TeamId, userId: number, origin: Vector3, towerPos: Vector3): boolean
+	local view = coreView(team, userId)
+	if not view then
+		return false
+	end
+	if math.abs(view.x - towerPos.X) > 4 or math.abs(view.z - towerPos.Z) > 4 then
+		return false
+	end
+	return BotCoreLogic.eligible(origin.X, origin.Z, view)
+end
+
 local function targetHpRatio(hunt: Hunt): number
 	if hunt.kind == "player" and hunt.userId then
 		local combat = CombatService.get(hunt.userId)
@@ -512,10 +575,12 @@ local function allowDive(tune: Tune, brain: BotBrain, team: Types.TeamId, origin
 	if not tune.DiveIq then
 		return false
 	end
-	-- Hard may stand on a post the wave is already sieging, including after the
-	-- first scratch paints tower aggro on this bot. Champion hunts stay gated.
+	-- Hard may stand on a post the wave is already sieging, or on an open yarn
+	-- core BotCoreLogic already called safe, including after the first scratch
+	-- paints structure aggro on this bot. Champion hunts stay gated. An empty
+	-- full-HP core still falls through to the crashing-wave check.
 	if currentDifficulty == "Hard" and (hunt == nil or hunt.kind == "objective") then
-		if towerIsSiege(team, origin, towerPos) then
+		if towerIsSiege(team, origin, towerPos) or coreIsSiege(team, brain.userId, origin, towerPos) then
 			return true
 		end
 	end
@@ -853,8 +918,34 @@ local function hardFinishGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, r
 	})
 end
 
+-- Open yarn core with a winning wave, low HP, or allies already on it.
+-- Nil while fleeing or during a critical peel. Easy and Normal never get a goal.
+local function hardCoreGoal(
+	brain: BotBrain,
+	team: Types.TeamId,
+	tune: Tune,
+	root: BasePart,
+	combat: any,
+	peelGoal: BotPeelLogic.PeelGoal?
+): BotCoreLogic.CoreGoal?
+	if currentDifficulty ~= "Hard" then
+		return nil
+	end
+	local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+	return BotCoreLogic.pick({
+		difficulty = "Hard",
+		x = root.Position.X,
+		z = root.Position.Z,
+		selfHp = hpRatio,
+		retreatHp = tune.RetreatHp,
+		peelCritical = peelGoal ~= nil and peelGoal.critical,
+		core = coreView(team, brain.userId),
+	})
+end
+
 -- Vulnerable post or open stall the wave is already under. Nil while fleeing
--- or during a critical peel. Easy and Normal never get a goal.
+-- or during a critical peel. Easy and Normal never get a goal. The yarn core
+-- is never included here.
 local function hardSiegeGoal(
 	team: Types.TeamId,
 	tune: Tune,
@@ -1207,10 +1298,20 @@ local function think(brain: BotBrain, dt: number)
 
 	-- Flee, dodge, and an empty-tower panic already returned. Shop, cleave, lens,
 	-- and Control Yarn stay above goals. Peel, Canal Levi, and a hurt camp beat
-	-- a Hard siege. The siege beats a wounded-champion finish. That finish beats
-	-- a full-HP camp and last-hit farming.
+	-- a Hard siege. An open yarn core uses that same siege walk when it is safe,
+	-- and it replaces a post. The siege beats a wounded-champion finish outside
+	-- face range. That finish beats a full-HP camp and last-hit farming.
 	local peelGoal = hardPeelGoal(brain, team, tune, root, combat)
 	local siegeGoal = hardSiegeGoal(team, tune, root, combat, peelGoal)
+	local coreGoal = hardCoreGoal(brain, team, tune, root, combat, peelGoal)
+	if coreGoal then
+		siegeGoal = {
+			id = coreGoal.id,
+			x = coreGoal.x,
+			z = coreGoal.z,
+			tier = "Core",
+		}
+	end
 	local finishGoal = hardFinishGoal(brain, team, tune, root, combat)
 	if pursueJungle(brain, team, tune, root, dt, peelGoal, siegeGoal, finishGoal, combat, matchPlayer) then
 		return

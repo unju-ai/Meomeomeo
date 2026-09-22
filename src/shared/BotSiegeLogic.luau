@@ -9,7 +9,8 @@
 -- A healthy post needs two allied kittens and a winning wave. One kitten is
 -- enough when that structure is already focused or low. An empty post (no
 -- allied kitten) is never a walk, including a low one. The yarn core is never
--- a goal. Easy and Normal never siege.
+-- a goal here. Hard endgame core walks live in BotCoreLogic. Easy and Normal
+-- never siege.
 --
 -- Ranking against peel, Canal Levi, and camps lives in JungleBotLogic. This
 -- pick already refuses a fleeing bot and a critical peel. Damage, items, and
