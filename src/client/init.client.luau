@@ -1127,6 +1127,9 @@ hud.endScreen.onLobby(function()
 	if result and result.ok == false then
 		toast(result.error or "Could not return to lobby")
 	end
+	-- Stay on the Cat Rift stall (lobby), same as ← Hub from lobby returns to grid.
+	hubPage = "moba"
+	gameMode = "Hub"
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 end)
 
@@ -1135,6 +1138,16 @@ hud.endScreen.onPractice(function()
 	if result and result.ok == false then
 		toast(result.error or "Practice failed")
 	end
+	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+end)
+
+hud.endScreen.onHub(function()
+	local result = Remotes.function_("LeaveMatch"):InvokeServer()
+	if result and result.ok == false then
+		toast(result.error or "Could not return to hub")
+	end
+	hubPage = "grid"
+	gameMode = "Hub"
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 end)
 

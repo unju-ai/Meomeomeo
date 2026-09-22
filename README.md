@@ -23,7 +23,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Fourteen cat champions (original six plus Robot / Cyborg / Mystic / Wizard / Sorcerer / Warrior / Rogue / Esper archetypes) with Q / W / E / R stubs and **distinct Part silhouettes** (no mesh binaries)
 - Lane minion waves, outer scratching posts + inner lantern stalls, tower/nexus aggro, nexus gating, **fog of war**, Pawmart item shop
 - Champion auto-attack, assist gold, levels 1–18, death timers, death recap, kill feed, jungle camps, **Canal Levi** (one river epic) with a match clock, scoreboard, fountain regen, minimap
-- **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP, post/stall/core counts, structure timeline), clean return to lobby
+- **Recall (F)** to fountain (channel circle under feet), **match end screen** (punchy victory/defeat, CROWN MVP, your-row highlight, post/stall/core timeline + Levi take, Practice again / lobby / Hub), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **Yarn Cleave** (**7**), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
 - Hold **G** smart pings (team-only wheel + minimap Attention). A visible cat, post, lantern stall, yarn core, ward, or camp is named in the line. Attention refuses a fogged enemy body; ground and minimap pings into fog still land
 - 3-lane map placeholder: bases, outer scratching posts, inner lantern stalls, nexuses, river, jungle, fountain cats
@@ -134,7 +134,7 @@ Hub grid  →  Meme Arcade  →  tape round  →  settle  →  daily profit boar
 - **Fountain regen:** alive + inside fountain radius → `48` HP and `56` mana per second (server tick). Out in lane it's the slow combat regen.
 - **Jungle:** six neutral camps (Yarn Golems, Pigeon Packs, River Crabs). Aggro when hit, leash back if you run, last-hit gold/XP/CS, nearby allies get a little XP, then respawn. Fog applies. `JungleService`. Practice bot clears are described under **Practice bots** (Easy none, Normal nearest-when-pushed, Hard route then rotate).
 - **Farm:** `Shared.FarmCredit` is the CS rule. A last hit on a lane kitten or a jungle camp is +1 CS and that gold. Kill gold (180), assist gold (60), and tower gold (120) do not add CS. Pawmart spends gold and leaves CS alone. The purse chip above the ability bar and Tab both read `gold` / `cs` / `level` off the match snapshot. The chip is Cat Rift **InProgress** only.
-- **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP + post/stall/core counts and a match-lifetime structure timeline. **Ended counts as busy** so queue/practice cannot start underneath the screen. **Back to lobby** (`LeaveMatch`) or **Practice again** (`PlayAgain`) skip the 45s timer; the timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat).
+- **Match end:** nexus HP → 0 stops minion/jungle/tower/vision ticks, clears combat (including recall/death timers), and shows Victory/Defeat + team KDA + MVP + post/stall/core counts and a match-lifetime structure timeline (posts → stalls → core, plus Canal Levi take from `riverEpic` buffs). The end card paints a mint/amber or coral banner, a CROWN MVP chip, and highlights your row; **Practice again** / **Back to lobby** / **Hub** skip the 45s timer. **Ended counts as busy** so queue/practice cannot start underneath the screen. The timer still auto-returns so nobody soft-locks. Kitty Caster + kill-feed announce “Enemy nexus destroyed!” (per-team Victory/Defeat). Stats math and MVP pick are unchanged.
 - **Minimap:** client paints the server fog mask (unexplored / explored-but-unseen / currently seen); click-to-ping is team-only (`PingReceived`). Unseen enemies never get a dot. Explored tint survives leaving vision and mid-match reconnect.
 - **Camera:** optional locked follow (`V`). Does not change WASD. Disabled on the end screen and in lobby.
 
@@ -359,7 +359,7 @@ Those four `id`s are **placeholders** (one engine loop, four speeds). Replace ea
 
 Emote SFX still use `MeoSfx` — music mute does not silence them.
 
-Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, cream/amber **LEVEL UP** pop (local Cat Rift level edge), `CameraFollow.shake` on tower/nexus. Level-up also drives `CombatFx.localLevelUp` (silhouette ring + float) and an ability-bar rank pulse when `Progression.autoRanks` advances a slot.
+Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, cream/amber **LEVEL UP** pop (local Cat Rift level edge), soft mint/amber victory or coral defeat sting on the end screen, `CameraFollow.shake` on tower/nexus. Level-up also drives `CombatFx.localLevelUp` (silhouette ring + float) and an ability-bar rank pulse when `Progression.autoRanks` advances a slot.
 
 ## Champion looks (placeholders)
 
