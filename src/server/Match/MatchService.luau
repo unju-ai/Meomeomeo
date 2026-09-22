@@ -325,6 +325,7 @@ local function beginFight()
 		phase = "waiting",
 		blueBuff = false,
 		redBuff = false,
+		nextAt = RiverEpic.dueAt(current.startedAt, "waiting", nil),
 	}
 	MapBuilder.build()
 	current.objectives = MapBuilder.objectiveStates()
@@ -472,6 +473,7 @@ function MatchService.start(
 			phase = "waiting",
 			blueBuff = false,
 			redBuff = false,
+			nextAt = nil,
 		},
 		queueCount = 0,
 		lobbyPlaceId = if options then options.lobbyPlaceId else nil,
@@ -845,7 +847,7 @@ function MatchService.init(cleared: () -> ())
 				end
 			end
 		end,
-		onEpicPhase = function(phase: string)
+		onEpicPhase = function(phase: string, respawnAt: number?)
 			if not current or not current.riverEpic then
 				return
 			end
@@ -853,10 +855,15 @@ function MatchService.init(cleared: () -> ())
 			if phase == "waiting" or phase == "alive" or phase == "returning" or phase == "spent" then
 				nextPhase = phase
 			end
-			if not nextPhase or current.riverEpic.phase == nextPhase then
+			if not nextPhase then
+				return
+			end
+			local nextAt = RiverEpic.dueAt(current.startedAt, nextPhase, respawnAt)
+			if current.riverEpic.phase == nextPhase and current.riverEpic.nextAt == nextAt then
 				return
 			end
 			current.riverEpic.phase = nextPhase
+			current.riverEpic.nextAt = nextAt
 			broadcast()
 		end,
 		onEpicTaken = function(userId: number)

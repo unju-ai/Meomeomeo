@@ -1,8 +1,8 @@
 --!strict
 
 -- Canal Levi, the one river epic. Not a dragon, not a baron, not a herald.
--- JungleService spawns the body. MatchService stores the team buff.
--- This module is the clock, the credit, and the minimap rule.
+-- JungleService spawns the body. MatchService stores the team buff and the deadlines.
+-- The HUD paints mm:ss from those server times. This module does not read the clock.
 
 local RiverEpic = {}
 
@@ -36,6 +36,14 @@ export type Clock = {
 }
 
 export type Marker = "body" | "pit" | "down" | "none"
+
+export type HudTone = "wait" | "up" | "spent"
+
+export type HudRead = {
+	clock: string,
+	objective: string,
+	tone: HudTone,
+}
 
 function RiverEpic.blank(): Clock
 	return {
@@ -126,6 +134,118 @@ end
 -- Hard mid only, and only when they are not already committed to a camp.
 function RiverEpic.wantsHardPath(difficulty: string, jungler: boolean, holding: boolean): boolean
 	return difficulty == "Hard" and jungler == true and holding ~= true
+end
+
+local function mmss(total: number): string
+	local minutes = math.floor(total / 60)
+	local secs = total % 60
+	return string.format("%d:%02d", minutes, secs)
+end
+
+-- Match elapsed. Floors, so the first second stays 0:00.
+function RiverEpic.formatClock(seconds: number): string
+	return mmss(math.max(0, math.floor(seconds + 1e-6)))
+end
+
+-- Countdown. Ceils, so the line reaches 0:00 only at the deadline.
+function RiverEpic.formatCountdown(seconds: number): string
+	return mmss(math.max(0, math.ceil(seconds - 1e-6)))
+end
+
+function RiverEpic.elapsed(now: number, startedAt: number?): number
+	if startedAt == nil then
+		return 0
+	end
+	return math.max(0, now - startedAt)
+end
+
+function RiverEpic.secondsLeft(now: number, nextAt: number?): number?
+	if nextAt == nil then
+		return nil
+	end
+	return math.max(0, nextAt - now)
+end
+
+-- Absolute server time of the next body. Nil while it is up, spent, or before the fight starts.
+-- `respawnAt` is match-elapsed seconds from RiverEpic.killed, not a wall clock.
+function RiverEpic.dueAt(startedAt: number?, phase: string, respawnAt: number?): number?
+	if startedAt == nil then
+		return nil
+	end
+	if phase == "waiting" then
+		return startedAt + RiverEpic.SpawnSeconds
+	end
+	if phase == "returning" and respawnAt ~= nil then
+		return startedAt + respawnAt
+	end
+	return nil
+end
+
+function RiverEpic.objectiveTone(phase: string): HudTone
+	if phase == "alive" then
+		return "up"
+	end
+	if phase == "spent" then
+		return "spent"
+	end
+	return "wait"
+end
+
+-- `secondsLeft` is the server remainder. Nil means the deadline has not been published yet.
+function RiverEpic.objectiveLine(phase: string, secondsLeft: number?): string
+	if phase == "alive" then
+		return "Levi UP"
+	end
+	if phase == "spent" then
+		return "Levi taken"
+	end
+	if phase == "waiting" or phase == "returning" then
+		if secondsLeft == nil then
+			return "Levi"
+		end
+		return `Levi {RiverEpic.formatCountdown(secondsLeft)}`
+	end
+	return ""
+end
+
+-- Paint inputs are the snapshot fields. The client does not decide when Levi wakes.
+function RiverEpic.hudRead(now: number, startedAt: number?, phase: string?, nextAt: number?): HudRead
+	local clock = RiverEpic.formatClock(RiverEpic.elapsed(now, startedAt))
+	if phase == nil then
+		return {
+			clock = clock,
+			objective = "",
+			tone = "wait",
+		}
+	end
+	return {
+		clock = clock,
+		objective = RiverEpic.objectiveLine(phase, RiverEpic.secondsLeft(now, nextAt)),
+		tone = RiverEpic.objectiveTone(phase),
+	}
+end
+
+-- Your own buff keeps BuffChip. The other side is named on that same line.
+function RiverEpic.purseLine(team: string, blue: boolean, red: boolean): string?
+	local mine = (team == "Blue" and blue) or (team == "Red" and red)
+	if mine then
+		local otherName = if team == "Blue" then "Red" else "Blue"
+		local other = if team == "Blue" then red else blue
+		if other then
+			return `{RiverEpic.BuffChip} · {otherName} too`
+		end
+		return RiverEpic.BuffChip
+	end
+	if blue and red then
+		return "Blue + Red hold Levi"
+	end
+	if blue then
+		return "Blue holds Levi"
+	end
+	if red then
+		return "Red holds Levi"
+	end
+	return nil
 end
 
 return RiverEpic
