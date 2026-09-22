@@ -5,16 +5,17 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
 local FogOfWar = require(script.Parent.FogOfWar)
-
 local CombatFx = {}
 
 local FOLDER_NAME = "MeoFx"
@@ -476,6 +477,18 @@ ensureLoop = function()
 				if ring then
 					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.15, root.Position.Z)
 						* CFrame.Angles(0, 0, math.rad(90))
+				end
+			elseif follow.kind == "levelup" then
+				local ring = follow.parts[1]
+				local born = follow.bornAt or now
+				local life = math.max(follow.expiresAt - born, 0.2)
+				local alpha = math.clamp((now - born) / life, 0, 1)
+				local grow = 5.2 + alpha * 2.4
+				if ring then
+					ring.Size = Vector3.new(0.14, grow, grow)
+					ring.Transparency = 0.28 + alpha * 0.55
+					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.1, root.Position.Z)
+						* CFrame.Angles(0, now * 1.6, math.rad(90))
 				end
 			elseif follow.kind == "shield" then
 				local bubble = follow.parts[1]
@@ -1110,6 +1123,121 @@ function CombatFx.localRecall(userId: number, recalling: boolean, remain: number
 	else
 		followRecall(userId, 0)
 	end
+end
+
+local function flashSilhouette(userId: number)
+	local model = modelOf(userId)
+	if not model then
+		return
+	end
+	local amber = Color3.fromRGB(LevelUpJuice.Amber[1], LevelUpJuice.Amber[2], LevelUpJuice.Amber[3])
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" and child.Transparency < 0.95 then
+			local part = child :: BasePart
+			local baseColor = part.Color
+			local baseMaterial = part.Material
+			local baseTransparency = part.Transparency
+			part.Color = amber
+			if baseMaterial ~= Enum.Material.Neon and baseMaterial ~= Enum.Material.ForceField then
+				part.Material = Enum.Material.Neon
+			end
+			task.delay(0.22, function()
+				if not part.Parent then
+					return
+				end
+				part.Material = baseMaterial
+				TweenService:Create(part, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					Color = baseColor,
+					Transparency = baseTransparency,
+				}):Play()
+			end)
+		end
+	end
+end
+
+local function spawnLevelFloat(userId: number, level: number)
+	local root = rootOf(userId)
+	if not root then
+		return
+	end
+	local origin = root.Position + Vector3.new(0, 3.2, 0)
+	local part = Instance.new("Part")
+	part.Name = "LevelFloat"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(origin)
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoLevelUp"
+	gui.Size = UDim2.fromOffset(140, 40)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 90
+	gui.Adornee = part
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Theme.fontTitle
+	label.TextSize = 26
+	label.TextColor3 = Color3.fromRGB(LevelUpJuice.Cream[1], LevelUpJuice.Cream[2], LevelUpJuice.Cream[3])
+	label.TextStrokeColor3 = Color3.fromRGB(LevelUpJuice.Ink[1], LevelUpJuice.Ink[2], LevelUpJuice.Ink[3])
+	label.TextStrokeTransparency = 0.3
+	label.Text = LevelUpJuice.floatLabel(level)
+	label.Parent = gui
+
+	local born = os.clock()
+	local duration = LevelUpJuice.FloatSeconds
+	local conn: RBXScriptConnection? = nil
+	conn = RunService.Heartbeat:Connect(function()
+		local age = os.clock() - born
+		if age >= duration or not part.Parent then
+			if conn then
+				conn:Disconnect()
+			end
+			part:Destroy()
+			return
+		end
+		local liveRoot = rootOf(userId)
+		local base = if liveRoot then liveRoot.Position else origin
+		local alpha = age / duration
+		part.CFrame = CFrame.new(base + Vector3.new(0, 3.2 + alpha * 1.8, 0))
+		local fade = if alpha < 0.5 then 0 else (alpha - 0.5) / 0.5
+		label.TextTransparency = fade
+		label.TextStrokeTransparency = 0.3 + fade * 0.7
+	end)
+end
+
+local function followLevelUp(userId: number)
+	local key = `levelup:{userId}`
+	clearFollow(key)
+	local ring = takePart("LevelUp")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.14, 5.2, 5.2)
+	flashPart(ring, Theme.amber, 0.32)
+	follows[key] = {
+		kind = "levelup",
+		userId = userId,
+		parts = { ring },
+		expiresAt = os.clock() + LevelUpJuice.RingSeconds,
+		offset = 0,
+		bornAt = os.clock(),
+	}
+	ensureLoop()
+end
+
+-- Local-only silhouette ring + soft neon flash + optional floating LEVEL n.
+-- Driven from the combat level-change edge; teammates stay kill-feed only.
+function CombatFx.localLevelUp(userId: number, level: number)
+	followLevelUp(userId)
+	flashSilhouette(userId)
+	spawnLevelFloat(userId, level)
 end
 
 return CombatFx

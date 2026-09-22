@@ -359,7 +359,7 @@ Those four `id`s are **placeholders** (one engine loop, four speeds). Replace ea
 
 Emote SFX still use `MeoSfx` — music mute does not silence them.
 
-Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, `LEVEL n!` pop, `CameraFollow.shake` on tower/nexus.
+Screen juice (`src/client/Juice/ScreenJuice.luau`): coral damage flash, mint heal flash, cream/amber **LEVEL UP** pop (local Cat Rift level edge), `CameraFollow.shake` on tower/nexus. Level-up also drives `CombatFx.localLevelUp` (silhouette ring + float) and an ability-bar rank pulse when `Progression.autoRanks` advances a slot.
 
 ## Champion looks (placeholders)
 

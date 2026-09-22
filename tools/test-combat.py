@@ -57,6 +57,7 @@ script = (
     prelude
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("CombatFloat", "src/shared/CombatFloat.luau")
+    + wrap("LevelUpJuice", "src/shared/LevelUpJuice.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
     + wrap("ChampionCatalog", "src/shared/ChampionCatalog.luau")
@@ -88,6 +89,7 @@ named = (
     "Psi Mark",
     "Mind Nudge",
     "CombatFloat",
+    "LevelUpJuice",
     "draft teasers",
 )
 missing = [name for name in named if name not in result.stdout]

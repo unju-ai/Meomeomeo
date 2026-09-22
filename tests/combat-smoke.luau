@@ -803,4 +803,22 @@ assert(cream[1] == CombatFloat.DamageCream[1] and cream[3] == CombatFloat.Damage
 local mint = CombatFloat.rgb("heal")
 assert(mint[2] == CombatFloat.HealMint[2])
 
-print("PASS: targeting modes, aim preview clamp/warn, traveling projectile timing, sweep hits, flagship kit hooks, Golden Parachute, Encore, Office Hours, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi, CombatFloat, draft teasers")
+-- Local level-up juice helpers (banner copy + rank delta). XP curves untouched.
+assert(LevelUpJuice.bannerTitle() == "LEVEL UP")
+assert(LevelUpJuice.bannerLine(3) == "LEVEL 3")
+assert(LevelUpJuice.floatLabel(7) == "LEVEL 7")
+local cream = LevelUpJuice.rgbCream()
+assert(cream[1] == LevelUpJuice.Cream[1] and cream[3] == LevelUpJuice.Cream[3])
+local amber = LevelUpJuice.rgbAmber()
+assert(amber[1] == LevelUpJuice.Amber[1] and amber[2] == LevelUpJuice.Amber[2])
+local before = { Q = 1, W = 0, E = 0, R = 0 }
+local after = { Q = 1, W = 1, E = 0, R = 0 }
+local gained = LevelUpJuice.gainedSlots(before, after)
+assert(#gained == 1 and gained[1] == "W")
+assert(LevelUpJuice.hasRankGain(before, after) == true)
+assert(LevelUpJuice.hasRankGain(after, after) == false)
+local ult = LevelUpJuice.gainedSlots({ Q = 5, W = 5, E = 4, R = 0 }, { Q = 5, W = 5, E = 4, R = 1 })
+assert(#ult == 1 and ult[1] == "R")
+assert(LevelUpJuice.RingSeconds > 0 and LevelUpJuice.BannerHold > LevelUpJuice.RankFlashSeconds)
+
+print("PASS: targeting modes, aim preview clamp/warn, traveling projectile timing, sweep hits, flagship kit hooks, Golden Parachute, Encore, Office Hours, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi, CombatFloat, LevelUpJuice, draft teasers")
