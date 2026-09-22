@@ -12,6 +12,7 @@ local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
+local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -23,6 +24,7 @@ local CombatService = require(script.Parent.CombatService)
 local MatchTeleport = require(script.Parent.MatchTeleport)
 local Config = require(script.Parent.Parent.Config)
 local JungleService = require(script.Parent.JungleService)
+local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local MemeStockService = require(script.Parent.Parent.Economy.MemeStockService)
 local MinionService = require(script.Parent.MinionService)
@@ -579,6 +581,23 @@ function MatchService.init(cleared: () -> ())
 	AnnouncerService.init(MatchService.snapshot)
 
 	-- Tower and nexus gold only. Does not touch CS. Last hits go through FarmCredit.
+	-- A last-hit paint cue uses the same credit. It does not grant extra gold.
+	local function creditLastHit(userId: number, gold: number, position: Vector3): boolean
+		if not current then
+			return false
+		end
+		local matchPlayer = current.players[tostring(userId)]
+		if not matchPlayer then
+			return false
+		end
+		local credit = FarmCredit.lastHit(gold)
+		FarmCredit.apply(matchPlayer, credit)
+		if LastHitJuice.wantsFloat(credit.cs, credit.gold) then
+			FxRelay.lastHit(position, userId, credit.gold)
+		end
+		return true
+	end
+
 	local function addGold(userId: number, amount: number)
 		if not current then
 			return
@@ -763,15 +782,8 @@ function MatchService.init(cleared: () -> ())
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
 		-- Lane kitten last hits pay CS and gold only. They do not move meme tickers.
-		onLastHit = function(userId: number, gold: number)
-			local credited = false
-			if current then
-				local matchPlayer = current.players[tostring(userId)]
-				if matchPlayer then
-					FarmCredit.apply(matchPlayer, FarmCredit.lastHit(gold))
-					credited = true
-				end
-			end
+		onLastHit = function(userId: number, gold: number, position: Vector3)
+			local credited = creditLastHit(userId, gold, position)
 			grantXp(userId, Config.Match.MinionXp)
 			if credited then
 				broadcast()
@@ -818,15 +830,8 @@ function MatchService.init(cleared: () -> ())
 		damageUser = CombatService.applyDamageToUser,
 		rootOf = CombatService.rootOf,
 		-- Camp last hits stay off the meme tape. Canal Levi uses the same CS rule.
-		onClear = function(userId: number, gold: number, xp: number)
-			local credited = false
-			if current then
-				local matchPlayer = current.players[tostring(userId)]
-				if matchPlayer then
-					FarmCredit.apply(matchPlayer, FarmCredit.lastHit(gold))
-					credited = true
-				end
-			end
+		onClear = function(userId: number, gold: number, xp: number, position: Vector3)
+			local credited = creditLastHit(userId, gold, position)
 			grantXp(userId, xp)
 			if credited then
 				broadcast()

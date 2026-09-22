@@ -15,7 +15,12 @@ def wrap(name: str, rel: str) -> str:
     return f"local {name} = (function()\n{source}\nend)()\n"
 
 
-script = wrap("FarmCredit", "src/shared/FarmCredit.luau") + (root / "tests/farm-credit-smoke.luau").read_text()
+script = (
+    wrap("CombatFloat", "src/shared/CombatFloat.luau")
+    + wrap("FarmCredit", "src/shared/FarmCredit.luau")
+    + wrap("LastHitJuice", "src/shared/LastHitJuice.luau")
+    + (root / "tests/farm-credit-smoke.luau").read_text()
+)
 with tempfile.TemporaryDirectory(prefix="meo-farm-credit-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)

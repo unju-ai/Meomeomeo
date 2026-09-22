@@ -3,6 +3,7 @@
 -- Server-authoritative creep score and gold deltas for one match purse.
 -- MatchService applies these onto the match player (humans and bots share the record).
 -- Clients only read gold, cs, and level off the snapshot.
+-- LastHitJuice may paint a local +Ng when a lastHit credit lands. It does not grant gold.
 --
 -- CS counts a champion's last hit:
 --   lane kitten (MinionGold)
