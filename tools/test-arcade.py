@@ -1,4 +1,7 @@
-"""Meme Arcade catalog smoke. Usage: python3 tools/test-arcade.py /path/to/luau"""
+"""Meme Arcade catalog smoke (tape + trade/settle HUD helpers).
+
+Usage: python3 tools/test-arcade.py /path/to/luau
+"""
 from pathlib import Path
 import re
 import subprocess

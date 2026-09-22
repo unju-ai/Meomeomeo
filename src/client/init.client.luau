@@ -1066,6 +1066,10 @@ hud.arcade.onHub(function()
 	gameMode = "Hub"
 	hubPage = "grid"
 	latestArcade = nil
+	lastArcadeEvent = nil
+	lastArcadePhase = nil
+	lastArcadeProfit = nil
+	lastArcadeToast = nil
 	hud.arcadeBoard.setVisible(false)
 	applyShellView()
 	refreshArcadeBoard()
@@ -1469,6 +1473,7 @@ end)
 local lastArcadeEvent: string? = nil
 local lastArcadePhase: Types.ArcadePhase? = nil
 local lastArcadeProfit: number? = nil
+local lastArcadeToast: string? = nil
 
 Remotes.event("MemeArcadeUpdated").OnClientEvent:Connect(function(payload)
 	if typeof(payload) ~= "table" then
@@ -1482,12 +1487,12 @@ Remotes.event("MemeArcadeUpdated").OnClientEvent:Connect(function(payload)
 		applyShellView()
 	end
 	if snap.eventBanner ~= "" and snap.eventBanner ~= lastArcadeEvent then
-		if snap.eventKind == "rug" or string.find(snap.eventBanner, "RUG", 1, true) then
+		if snap.eventKind == "rug" or string.find(snap.eventBanner, "RUG", 1, true) or string.find(snap.eventBanner, "BUST", 1, true) then
 			Sfx.play("Kill")
 			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(255, 122, 98))
 			ScreenJuice.damageFlash()
 			hud.ticker(snap.eventBanner)
-		elseif snap.eventKind == "moon" or string.find(snap.eventBanner, "MOON", 1, true) then
+		elseif snap.eventKind == "moon" or string.find(snap.eventBanner, "MOON", 1, true) or string.find(snap.eventBanner, "BOOM", 1, true) then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(120, 196, 150))
 			ScreenJuice.powerFlash(Color3.fromRGB(96, 196, 120))
@@ -1495,10 +1500,23 @@ Remotes.event("MemeArcadeUpdated").OnClientEvent:Connect(function(payload)
 		elseif snap.eventKind == "sneeze" or string.find(snap.eventBanner, "WHALE", 1, true) then
 			Sfx.play("LevelUp")
 			ScreenJuice.banner(snap.eventBanner, Color3.fromRGB(255, 196, 74))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
 			hud.ticker(snap.eventBanner)
 		elseif snap.phase == "Settled" then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner(snap.eventBanner, if snap.profit >= 0 then Color3.fromRGB(96, 196, 120) else Color3.fromRGB(255, 122, 98))
+			if snap.profit >= 0 then
+				ScreenJuice.powerFlash(Color3.fromRGB(96, 196, 120))
+			else
+				ScreenJuice.damageFlash()
+			end
+		end
+	end
+	if snap.toast ~= "" and snap.toast ~= lastArcadeToast then
+		if string.find(snap.toast, "BOUGHT", 1, true) then
+			Sfx.play("LevelUp")
+		elseif string.find(snap.toast, "SOLD", 1, true) then
+			Sfx.play("AutoHit")
 		end
 	end
 	if lastArcadeProfit ~= nil and snap.profit ~= lastArcadeProfit then
@@ -1511,6 +1529,7 @@ Remotes.event("MemeArcadeUpdated").OnClientEvent:Connect(function(payload)
 	lastArcadeEvent = snap.eventBanner
 	lastArcadePhase = snap.phase
 	lastArcadeProfit = snap.profit
+	lastArcadeToast = snap.toast
 	local character = player.Character
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if root and root:IsA("BasePart") then

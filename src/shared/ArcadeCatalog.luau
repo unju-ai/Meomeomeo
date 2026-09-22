@@ -188,6 +188,29 @@ function ArcadeCatalog.signedYarn(value: number): string
 	return tostring(n)
 end
 
+-- Loud buy/sell confirm (HUD toast only — no price math).
+function ArcadeCatalog.tradeToast(action: "buy" | "sell", ticker: string, price: number): string
+	local p = ArcadeCatalog.roundPrice(price)
+	if action == "buy" then
+		return `BOUGHT {ticker}  ·  {p} yarn`
+	end
+	return `SOLD {ticker}  ·  {p} yarn`
+end
+
+-- One-glance settle / death-card lines (no scoring math).
+function ArcadeCatalog.settleScoreLine(profit: number, cash: number): string
+	local wallet = math.floor(cash * 10 + 0.5) / 10
+	return `{ArcadeCatalog.signedYarn(profit)} yarn  ·  wallet {wallet}`
+end
+
+function ArcadeCatalog.settleRankLine(dailyRank: number?, bestProfit: number): string
+	local high = ArcadeCatalog.signedYarn(bestProfit)
+	if typeof(dailyRank) == "number" then
+		return `Daily #{math.max(1, math.floor(dailyRank))}  ·  high {high}`
+	end
+	return `Daily —  ·  high {high}`
+end
+
 function ArcadeCatalog.utcDay(unix: number): number
 	return math.floor(unix / 86400)
 end

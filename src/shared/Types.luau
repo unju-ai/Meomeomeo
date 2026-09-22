@@ -731,6 +731,8 @@ export type ArcadeSnapshot = {
 	eventBanner: string,
 	eventKind: string,
 	toast: string,
+	tradeFlashId: string,
+	tradeAction: string,
 	disclaimer: string,
 	dayKey: string,
 	dailyRank: number?,
