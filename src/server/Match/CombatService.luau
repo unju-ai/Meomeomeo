@@ -15,6 +15,7 @@ local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChil
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local ActiveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ActiveJuice"))
+local StructureDeathJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureDeathJuice"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -1286,13 +1287,20 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 				-- Minions can melt a tower/nexus; the match still has to resolve.
 				matchApi.onObjectiveDestroyed(attackerUserId, objective)
 				MapBuilder.refreshNexusGate()
+				local aliveMap: { [string]: boolean } = {}
+				for objectiveId, state in states do
+					aliveMap[objectiveId] = state.alive
+				end
 				local structureKind: "Tower" | "Nexus" = if objective.kind == "Nexus" then "Nexus" else "Tower"
+				-- Same death event. gates are the structures isVulnerable just opened.
 				FxRelay.emit({
 					kind = "structureDeath",
 					origin = part.Position,
 					team = if team == "Blue" or team == "Red" then team else nil,
 					structureKind = structureKind,
 					tier = objective.tier,
+					objectiveId = id,
+					gates = StructureDeathJuice.openedIds(id, aliveMap),
 				})
 			end
 		end

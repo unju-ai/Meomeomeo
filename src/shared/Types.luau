@@ -392,6 +392,9 @@ export type CombatFxEvent = {
 	slot: AbilitySlot?,
 	structureKind: "Tower" | "Nexus"?,
 	tier: StructureTier?,
+	objectiveId: string?,
+	-- Structure ids this death unlocked via StructureLogic.isVulnerable. Paint only.
+	gates: { string }?,
 	-- Floating combat numbers (same CombatFx remote; no second channel).
 	amount: number?,
 	floatKind: CombatFloatKind?,

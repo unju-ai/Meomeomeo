@@ -354,4 +354,108 @@ local keyC = ChampionPlate.paintKey(50, 200, true, "A", "Mage", "Blue")
 assert(keyA == keyB, "unchanged plate paint key is stable")
 assert(keyA ~= keyC, "HP change dirties the plate paint key")
 
-print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi/kitten/camp HP bars, champion plates")
+-- Structure-take juice. Paint only: HP and isVulnerable stay the gate.
+assert(StructureLogic.OuterHealth == 1400, "post HP is unchanged")
+assert(StructureLogic.InnerHealth == 1850, "stall HP is unchanged")
+assert(StructureLogic.NexusHealth == 2200, "core HP is unchanged")
+assert(StructureDeathJuice.modeAllows("Moba", "InProgress") == true)
+assert(StructureDeathJuice.modeAllows("Moba", "Ended") == true, "yarn-core blow still paints as the match ends")
+assert(StructureDeathJuice.modeAllows("Moba", "Lobby") == false)
+assert(StructureDeathJuice.modeAllows("Moba", "ChampionSelect") == false)
+assert(StructureDeathJuice.modeAllows("Hub", "InProgress") == false)
+assert(StructureDeathJuice.modeAllows("YarnRun", "InProgress") == false)
+assert(StructureDeathJuice.modeAllows("KoiPond", "InProgress") == false)
+assert(StructureDeathJuice.modeAllows("YarnParty", "InProgress") == false)
+assert(StructureDeathJuice.modeAllows("MemeArcade", "InProgress") == false)
+assert(StructureDeathJuice.look("Tower", "Outer") == "post")
+assert(StructureDeathJuice.look("Tower", "Inner") == "stall")
+assert(StructureDeathJuice.look("Nexus", "Core") == "core")
+assert(StructureDeathJuice.look("Tower", nil) == "post")
+assert(StructureDeathJuice.shouldPaint(true, false, false) == true, "ally structure takes paint through fog")
+assert(StructureDeathJuice.shouldPaint(false, true, false) == true, "enemy take paints when the site is lit")
+assert(StructureDeathJuice.shouldPaint(false, false, true) == true, "enemy take paints if the site was just lit")
+assert(StructureDeathJuice.shouldPaint(false, false, false) == false, "fogged enemy takes stay quiet")
+assert(StructureDeathJuice.shouldPaint(false, false, nil) == false)
+
+local postPalette = StructureDeathJuice.palette("post")
+local stallPalette = StructureDeathJuice.palette("stall")
+local corePalette = StructureDeathJuice.palette("core")
+local gatePalette = StructureDeathJuice.gatePalette()
+assert(postPalette[1][1] == StructureDeathJuice.Wood[1], "posts shatter wood")
+assert(postPalette[2][1] == StructureDeathJuice.Cream[1], "posts collapse cream")
+assert(stallPalette[1][1] == StructureDeathJuice.Lantern[1], "stalls burst lantern")
+assert(stallPalette[1][2] < postPalette[2][2], "stall lantern is warmer than cream dust")
+assert(stallPalette[1][3] < StructureDeathJuice.Wood[3], "stall lantern is more orange than post wood")
+assert(corePalette[1][1] == StructureDeathJuice.Yarn[1] and corePalette[1][3] > 150, "core unravels pink yarn")
+assert(gatePalette[1][2] > gatePalette[1][1], "gate cue leads with mint")
+assert(gatePalette[2][1] == StructureDeathJuice.GateWood[1], "gate cue keeps a wood edge")
+assert(gatePalette[1][1] ~= StructureDeathJuice.Yarn[1], "a gate open is not another yarn burst")
+assert(StructureDeathJuice.pieceCount("post") == 7)
+assert(StructureDeathJuice.pieceCount("stall") == 6)
+assert(StructureDeathJuice.pieceCount("core") == 8)
+assert(StructureDeathJuice.pieceCount("post") ~= StructureDeathJuice.pieceCount("stall"))
+assert(StructureDeathJuice.pieceCount("stall") ~= StructureDeathJuice.pieceCount("core"))
+assert(StructureDeathJuice.life("core") > StructureDeathJuice.life("post"))
+assert(StructureDeathJuice.GateSeconds < StructureDeathJuice.life("post"), "gate open is the short calm cue")
+assert(StructureDeathJuice.thumpIsLocal() == true)
+assert(StructureDeathJuice.wantsThump(false, 8) == false)
+assert(StructureDeathJuice.wantsThump(true, nil) == false)
+assert(StructureDeathJuice.wantsThump(true, 20) == true)
+assert(StructureDeathJuice.wantsThump(true, StructureDeathJuice.ThumpRadius + 1) == false)
+assert(StructureDeathJuice.thumpAmp("post") < 0.28)
+assert(StructureDeathJuice.thumpAmp("core") > StructureDeathJuice.thumpAmp("stall"))
+
+local function sameIds(got, expect): boolean
+	if #got ~= #expect then
+		return false
+	end
+	for i, id in got do
+		if expect[i] ~= id then
+			return false
+		end
+	end
+	return true
+end
+
+local function aliveAfterFall(fallenId: string): { [string]: boolean }
+	local alive = aliveUp()
+	alive[fallenId] = false
+	return alive
+end
+
+local midPostDown = aliveAfterFall("RedMidOuter")
+assert(sameIds(StructureDeathJuice.openedIds("RedMidOuter", midPostDown), { "RedMidInner" }), "a post opens only its lane stall")
+assert(StructureLogic.isVulnerable(redMidStall, midPostDown) == true)
+assert(StructureLogic.isVulnerable(redCore, midPostDown) == false)
+
+local topOnly = aliveAfterFall("RedTopOuter")
+assert(sameIds(StructureDeathJuice.openedIds("RedTopOuter", topOnly), { "RedTopInner" }))
+local blueOnly = aliveAfterFall("BlueBotOuter")
+assert(sameIds(StructureDeathJuice.openedIds("BlueBotOuter", blueOnly), { "BlueBotInner" }))
+assert(StructureDeathJuice.openedIds("nope", midPostDown) ~= nil and #StructureDeathJuice.openedIds("nope", midPostDown) == 0)
+
+-- A stall that is already down does not get a second open cue.
+local postAndStall = aliveAfterFall("RedMidOuter")
+postAndStall["RedMidInner"] = false
+assert(#StructureDeathJuice.openedIds("RedMidOuter", postAndStall) == 0, "a fallen stall is not opened again")
+
+-- Last standing tower opens the core and nothing else.
+local lastStall = aliveUp()
+for _, def in StructureLogic.defs() do
+	if def.team == "Red" and def.kind == "Tower" and def.id ~= "RedBotInner" then
+		lastStall[def.id] = false
+	end
+end
+assert(StructureLogic.isVulnerable(redCore, lastStall) == false, "one stall still gates the core")
+lastStall["RedBotInner"] = false
+assert(sameIds(StructureDeathJuice.openedIds("RedBotInner", lastStall), { "RedNexus" }), "the last tower opens the yarn core")
+
+local coreDown = aliveUp()
+for _, def in StructureLogic.defs() do
+	if def.team == "Red" then
+		coreDown[def.id] = false
+	end
+end
+assert(#StructureDeathJuice.openedIds("RedNexus", coreDown) == 0, "the core opens nothing further")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure take juice, structure/Levi/kitten/camp HP bars, champion plates")
