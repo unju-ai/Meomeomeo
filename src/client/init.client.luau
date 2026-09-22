@@ -264,8 +264,8 @@ local function inMini(): boolean
 	return gameMode == "YarnRun" or gameMode == "KoiPond" or gameMode == "YarnParty" or gameMode == "MemeArcade"
 end
 
-local function toast(text: string)
-	hud.banner(text)
+local function toast(text: string, color: Color3?)
+	hud.banner(text, color)
 end
 
 local recentCallouts: { string } = {}
@@ -2776,8 +2776,20 @@ local function attackMovePoint(): Vector3
 	return dest
 end
 
-local function reportAttack(result: any, cue: string?)
+local function reportAttack(result: any, cue: string?, refuseSlot: string?)
 	if result and result.ok == false and result.error then
+		if refuseSlot then
+			local phase = if latestMatch then latestMatch.phase else nil
+			local handled, line = ScreenJuice.noteAbilityRefuse(gameMode, phase, refuseSlot, result.error)
+			if handled then
+				if line then
+					hud.abilities.pulseRefuse(refuseSlot)
+					toast(line, ScreenJuice.refuseColor())
+					ScreenJuice.abilityRefuse()
+				end
+				return
+			end
+		end
 		if os.clock() - lastErrorAt > 0.4 then
 			lastErrorAt = os.clock()
 			toast(result.error)
@@ -2876,7 +2888,15 @@ local function castAbility(slot: Types.AbilitySlot)
 		aimPosition = aimPoint(),
 	})
 	if result and result.ok == false and result.error then
-		if os.clock() - lastErrorAt > 0.4 then
+		local phase = if latestMatch then latestMatch.phase else nil
+		local handled, line = ScreenJuice.noteAbilityRefuse(gameMode, phase, slot, result.error)
+		if handled then
+			if line then
+				hud.abilities.pulseRefuse(slot)
+				toast(line, ScreenJuice.refuseColor())
+				ScreenJuice.abilityRefuse()
+			end
+		elseif os.clock() - lastErrorAt > 0.4 then
 			lastErrorAt = os.clock()
 			toast(result.error)
 		end
@@ -3273,25 +3293,25 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	if input.KeyCode == Enum.KeyCode.Four then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("PlaceWard"):InvokeServer(aimPoint()), "WardPlace")
+			reportAttack(Remotes.function_("PlaceWard"):InvokeServer(aimPoint()), "WardPlace", "4")
 		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.Five then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("UseLens"):InvokeServer(), "AbilityCast")
+			reportAttack(Remotes.function_("UseLens"):InvokeServer(), "AbilityCast", "5")
 		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.Six then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("PlaceControl"):InvokeServer(aimPoint()), "WardPlace")
+			reportAttack(Remotes.function_("PlaceControl"):InvokeServer(aimPoint()), "WardPlace", "6")
 		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.Seven then
 		if latestMatch and latestMatch.phase == "InProgress" then
-			reportAttack(Remotes.function_("UseCleave"):InvokeServer(), "AbilityCast")
+			reportAttack(Remotes.function_("UseCleave"):InvokeServer(), "AbilityCast", "7")
 		end
 		return
 	end

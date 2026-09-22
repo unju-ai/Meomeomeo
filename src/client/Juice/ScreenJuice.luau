@@ -5,11 +5,14 @@
 local TweenService = game:GetService("TweenService")
 
 local CameraFollow = require(script.Parent.Parent.CameraFollow)
+local AbilityRefuseJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AbilityRefuseJuice"))
 local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrushJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local ScreenJuice = {}
+
+local lastRefuseAt = 0
 
 local flash: Frame?
 local brushFrame: Frame?
@@ -162,6 +165,34 @@ end
 
 function ScreenJuice.damageFlash()
 	pulse(Theme.coral, 0.78)
+end
+
+function ScreenJuice.refuseColor(): Color3
+	local rgb = AbilityRefuseJuice.rgb()
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
+-- Local ability refuse. Fainter than a hit flash, and it does not banner.
+function ScreenJuice.abilityRefuse()
+	pulse(ScreenJuice.refuseColor(), AbilityRefuseJuice.tickPeak())
+end
+
+-- Server error in, paint decision out. Debounce lives here so the client script
+-- does not grow another top-level local. Success and unknown errors return false.
+function ScreenJuice.noteAbilityRefuse(gameMode: string, phase: string?, slot: string, err: string): (boolean, string?)
+	local kind = AbilityRefuseJuice.reason(err)
+	if kind == nil then
+		return false, nil
+	end
+	if not AbilityRefuseJuice.wantsCue(gameMode, phase, err) or not AbilityRefuseJuice.isBarSlot(slot) then
+		return true, nil
+	end
+	local nowClock = os.clock()
+	if not AbilityRefuseJuice.due(lastRefuseAt, nowClock) then
+		return true, nil
+	end
+	lastRefuseAt = nowClock
+	return true, AbilityRefuseJuice.line(kind)
 end
 
 function ScreenJuice.healFlash()
