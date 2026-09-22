@@ -14,6 +14,7 @@ export type EndApi = {
 	update: (snapshot: Types.MatchSnapshot, localUserId: number) -> (),
 	onLobby: (() -> ()) -> (),
 	onPractice: (() -> ()) -> (),
+	onQueue: (() -> ()) -> (),
 	onHub: (() -> ()) -> (),
 }
 
@@ -190,10 +191,11 @@ function EndScreen.create(parent: Instance): EndApi
 	timer.TextXAlignment = Enum.TextXAlignment.Center
 	timer.ZIndex = 31
 
-	local practiceBtn = Theme.button(root, "Again", "Practice again", Theme.mint)
+	local practiceBtn = Theme.button(root, "Replay", EndScreenCopy.queueLabel(), Theme.mint)
 	practiceBtn.AnchorPoint = Vector2.new(0, 1)
 	practiceBtn.Position = UDim2.fromScale(0, 1)
 	practiceBtn.Size = UDim2.new(0.32, -4, 0, 44)
+	practiceBtn.TextTruncate = Enum.TextTruncate.AtEnd
 	practiceBtn.ZIndex = 31
 	Theme.stroke(practiceBtn, Theme.foam, 2, 0.25)
 
@@ -212,7 +214,9 @@ function EndScreen.create(parent: Instance): EndApi
 
 	local lobbyHandler: (() -> ())? = nil
 	local practiceHandler: (() -> ())? = nil
+	local queueHandler: (() -> ())? = nil
 	local hubHandler: (() -> ())? = nil
+	local replayChip: EndScreenCopy.ReplayChip = "queue"
 	local stungKey: string? = nil
 
 	lobbyBtn.MouseButton1Click:Connect(function()
@@ -221,8 +225,12 @@ function EndScreen.create(parent: Instance): EndApi
 		end
 	end)
 	practiceBtn.MouseButton1Click:Connect(function()
-		if practiceHandler then
-			practiceHandler()
+		if replayChip == "again" then
+			if practiceHandler then
+				practiceHandler()
+			end
+		elseif queueHandler then
+			queueHandler()
 		end
 	end)
 	hubBtn.MouseButton1Click:Connect(function()
@@ -396,6 +404,9 @@ function EndScreen.create(parent: Instance): EndApi
 				rows[i].frame.Visible = false
 			end
 
+			replayChip = EndScreenCopy.replayChip(snapshot.practice)
+			practiceBtn.Text = EndScreenCopy.replayLabel(snapshot.practice, snapshot.botDifficulty)
+
 			if snapshot.phaseEndsAt then
 				local left = math.max(0, math.floor(snapshot.phaseEndsAt - workspace:GetServerTimeNow()))
 				timer.Text = `Returning to lobby in {left}s`
@@ -408,6 +419,9 @@ function EndScreen.create(parent: Instance): EndApi
 		end,
 		onPractice = function(fn)
 			practiceHandler = fn
+		end,
+		onQueue = function(fn)
+			queueHandler = fn
 		end,
 		onHub = function(fn)
 			hubHandler = fn

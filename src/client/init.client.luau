@@ -1393,6 +1393,24 @@ hud.endScreen.onPractice(function()
 	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
 end)
 
+hud.endScreen.onQueue(function()
+	-- Ended still counts as busy, so the seat clears before the lobby Queue join.
+	-- QueueMatch already requeues a party when the leader presses it.
+	local leave = Remotes.function_("LeaveMatch"):InvokeServer()
+	if leave and leave.ok == false then
+		toast(leave.error or "Could not leave the match")
+		applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+		return
+	end
+	hubPage = "moba"
+	gameMode = "Hub"
+	local queued = Remotes.function_("QueueMatch"):InvokeServer()
+	if queued and queued.ok == false then
+		toast(queued.error or "Queue failed")
+	end
+	applySnapshot(Remotes.function_("GetMatchSnapshot"):InvokeServer())
+end)
+
 hud.endScreen.onHub(function()
 	local result = Remotes.function_("LeaveMatch"):InvokeServer()
 	if result and result.ok == false then

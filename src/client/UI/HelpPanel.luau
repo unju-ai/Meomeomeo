@@ -71,6 +71,7 @@ local LINES_MOBA: { { string } } = {
 	{ "Clock", "Top-left match time + Canal Levi line" },
 	{ "HP bars", "Posts, stalls, core, Levi, damaged/aimed kits & camps · fog hides enemy bars" },
 	{ "Practice", "Solo + 2 Blue bots vs 3 Red · party caps Blue at 3" },
+	{ "End", "Practice: Again · difficulty. Live: Queue (leader queues the party)" },
 	{ "Closet", "Lantern Cap (post/stall) · Stall Spark (win) · Scratch Tally (5 kills)" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
@@ -272,7 +273,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 				label.Size = UDim2.new(1, -12, 1, 0)
 				label.TextWrapped = false
 			else
-				local tall = pair[1] == "F8" or pair[1] == "F7"
+				local tall = pair[1] == "F8" or pair[1] == "F7" or pair[1] == "End"
 				local rowH = if tall then 36 else 22
 				local row = Instance.new("Frame")
 				row.Name = `Bind{i}`

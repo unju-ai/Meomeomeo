@@ -54,6 +54,22 @@ local stallsAt = string.find(lined, "Stalls", 1, true) :: number
 local coreAt = string.find(lined, "Core", 1, true) :: number
 assert(postsAt < stallsAt and stallsAt < coreAt, "timeline reads posts → stalls → core")
 
+-- Practice (and a Practice remake) keeps Again, named with the difficulty it reuses.
+-- A live fight (and a remake of a live fight) offers Queue. The banner reason does not pick the chip.
+assert(EndScreenCopy.replayChip(true) == "again")
+assert(EndScreenCopy.replayChip(false) == "queue")
+assert(EndScreenCopy.replayChip(nil) == "queue")
+assert(EndScreenCopy.againLabel("Hard") == "Again · Hard")
+assert(EndScreenCopy.againLabel("Easy") == "Again · Easy")
+assert(EndScreenCopy.againLabel("Normal") == "Again · Normal")
+assert(EndScreenCopy.againLabel(nil) == "Again · Normal")
+assert(EndScreenCopy.againLabel("Nope") == "Again · Normal")
+assert(EndScreenCopy.queueLabel() == "Queue")
+assert(EndScreenCopy.replayLabel(true, "Hard") == "Again · Hard")
+assert(EndScreenCopy.replayLabel(true, nil) == "Again · Normal")
+assert(EndScreenCopy.replayLabel(false, "Hard") == "Queue")
+assert(EndScreenCopy.replayLabel(nil, "Easy") == "Queue")
+
 assert(EndScreenCopy.rowMark(true, true) == "*YOU")
 assert(EndScreenCopy.rowMark(false, true) == "*MVP")
 assert(EndScreenCopy.rowMark(true, false) == " YOU")
