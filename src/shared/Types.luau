@@ -282,6 +282,42 @@ export type FeedEvent = {
 	at: number,
 }
 
+-- Match-lifetime damage receipt. Not a replay and not a DataStore.
+export type DamageSourceKind = "champion" | "tower" | "minion" | "jungle" | "item"
+
+export type DamageNote = {
+	sourceKind: DamageSourceKind,
+	sourceName: string,
+	sourceId: string?,
+	label: string?,
+}
+
+export type DamageHit = {
+	at: number,
+	amount: number,
+	sourceKind: DamageSourceKind,
+	sourceName: string,
+	sourceId: string?,
+	label: string?,
+	killingBlow: boolean,
+}
+
+export type DamageLine = {
+	sourceKind: DamageSourceKind,
+	sourceName: string,
+	sourceId: string?,
+	label: string,
+	amount: number,
+	killingBlow: boolean,
+	at: number,
+}
+
+export type DeathRecap = {
+	victimUserId: number,
+	respawnAt: number?,
+	lines: { DamageLine },
+}
+
 export type CombatFxKind =
 	"ability"
 	| "aa"

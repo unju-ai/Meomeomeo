@@ -22,6 +22,7 @@ local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
+local DeathRecap = require(script.Parent.DeathRecap)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
 local HelpPanel = require(script.Parent.HelpPanel)
@@ -55,6 +56,7 @@ export type HudApi = {
 	minimap: Minimap.MinimapApi,
 	scoreboard: Scoreboard.BoardApi,
 	feed: KillFeed.FeedApi,
+	recap: DeathRecap.RecapApi,
 	endScreen: EndScreen.EndApi,
 	settings: SettingsPanel.SettingsApi,
 	help: HelpPanel.HelpApi,
@@ -131,6 +133,7 @@ function Hud.create(): HudApi
 	local shop = ShopPanel.create(gui)
 	local minimap = Minimap.create(gui)
 	local feed = KillFeed.create(gui)
+	local recap = DeathRecap.create(gui)
 	local scoreboard = Scoreboard.create(gui)
 	local endScreen = EndScreen.create(gui)
 	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
@@ -157,6 +160,7 @@ function Hud.create(): HudApi
 		abilities.setVisible(false)
 		minimap.setVisible(false)
 		feed.setVisible(false)
+		recap.hide()
 		endScreen.setVisible(false)
 		shop.setVisible(false)
 		scoreboard.setVisible(false)
@@ -181,6 +185,9 @@ function Hud.create(): HudApi
 		abilities.setVisible(phase == "InProgress")
 		minimap.setVisible(phase == "InProgress")
 		feed.setVisible(phase == "InProgress" or phase == "Ended")
+		if phase ~= "InProgress" then
+			recap.hide()
+		end
 		endScreen.setVisible(phase == "Ended")
 		if phase ~= "InProgress" then
 			shop.setVisible(false)
@@ -314,6 +321,7 @@ function Hud.create(): HudApi
 		minimap = minimap,
 		scoreboard = scoreboard,
 		feed = feed,
+		recap = recap,
 		endScreen = endScreen,
 		settings = settings,
 		help = help,

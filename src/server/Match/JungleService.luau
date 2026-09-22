@@ -26,7 +26,7 @@ export type Monster = {
 
 type Api = {
 	getPhase: () -> string?,
-	damageUser: (userId: number, amount: number) -> (),
+	damageUser: (userId: number, amount: number, note: Types.DamageNote?) -> (),
 	rootOf: (userId: number) -> BasePart?,
 	onClear: (userId: number, gold: number, xp: number) -> (),
 	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
@@ -251,7 +251,12 @@ local function tickMonster(monster: Monster, dt: number, now: number)
 			monster.part.CFrame = CFrame.new(monster.part.Position + delta.Unit * step)
 		elseif now >= monster.nextAttack then
 			monster.nextAttack = now + Config.Jungle.AttackInterval
-			api.damageUser(monster.aggroUserId, monster.damage)
+			api.damageUser(monster.aggroUserId, monster.damage, {
+				sourceKind = "jungle",
+				sourceName = monster.name,
+				sourceId = monster.id,
+				label = "Swipe",
+			})
 		end
 		return
 	end

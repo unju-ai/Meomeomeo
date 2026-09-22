@@ -21,7 +21,13 @@ export type Minion = {
 
 type Api = {
 	getPhase: () -> string?,
-	damagePlayerNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
+	damagePlayerNear: (
+		team: Types.TeamId,
+		position: Vector3,
+		range: number,
+		amount: number,
+		note: Types.DamageNote?
+	) -> (),
 	damageObjectiveNear: (team: Types.TeamId, position: Vector3, range: number, amount: number) -> (),
 	onLastHit: (userId: number, gold: number) -> (),
 	onMinionDied: (position: Vector3, minionTeam: Types.TeamId, lastHitterUserId: number?) -> (),
@@ -142,7 +148,12 @@ local function tickMinion(minion: Minion, dt: number, now: number)
 	if api then
 		if now >= minion.nextAttack then
 			minion.nextAttack = now + Config.Minions.AttackInterval
-			api.damagePlayerNear(minion.team, minion.part.Position, Config.Minions.AttackRange, Config.Minions.Damage)
+			api.damagePlayerNear(minion.team, minion.part.Position, Config.Minions.AttackRange, Config.Minions.Damage, {
+				sourceKind = "minion",
+				sourceName = "Kitten",
+				sourceId = "kitten",
+				label = "Nibble",
+			})
 			api.damageObjectiveNear(minion.team, minion.part.Position, Config.Minions.AttackRange + 6, Config.Minions.Damage)
 		end
 	end

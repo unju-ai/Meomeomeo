@@ -2,6 +2,7 @@
 
 local Workspace = game:GetService("Workspace")
 
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -11,7 +12,7 @@ local MinionService = require(script.Parent.MinionService)
 
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
-	damageUser: (userId: number, amount: number) -> (),
+	damageUser: (userId: number, amount: number, note: Types.DamageNote?) -> (),
 	rootOf: (userId: number) -> BasePart?,
 }
 
@@ -145,7 +146,13 @@ function TowerService.start()
 							tier = state.tier,
 						})
 					end
-					api.damageUser(userTarget, dmg)
+					local def = StructureLogic.get(state.id)
+					api.damageUser(userTarget, dmg, {
+						sourceKind = "tower",
+						sourceName = if def then StructureLogic.pingName(def) else "Scratching post",
+						sourceId = state.id,
+						label = "Bolt",
+					})
 				elseif minionId then
 					nextShot[state.id] = now + Config.Towers.Interval
 					local minion = MinionService.get(minionId)
