@@ -78,6 +78,10 @@ named = (
     "Foresight Veil",
     "Spell Charge",
     "Charged Meteor",
+    "Curse Stacks",
+    "Hex Zone",
+    "Psi Mark",
+    "Mind Nudge",
 )
 missing = [name for name in named if name not in result.stdout]
 if missing:

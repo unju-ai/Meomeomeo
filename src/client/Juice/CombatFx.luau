@@ -428,7 +428,7 @@ local function followChannel(userId: number, at: Vector3, duration: number)
 	ensureLoop()
 end
 
-local function followZone(event: Types.CombatFxEvent, duration: number)
+local function followZone(event: Types.CombatFxEvent, duration: number, color: Color3?)
 	local dest = event.dest or event.origin
 	local key = `zone:{event.id or event.userId or 0}:{math.floor(dest.X)}:{math.floor(dest.Z)}`
 	clearFollow(key)
@@ -437,7 +437,7 @@ local function followZone(event: Types.CombatFxEvent, duration: number)
 	local ring = takePart("QuizZone")
 	ring.Shape = Enum.PartType.Cylinder
 	ring.Size = Vector3.new(0.2, span, span)
-	flashPart(ring, Color3.fromRGB(126, 196, 255), 0.45)
+	flashPart(ring, color or Color3.fromRGB(126, 196, 255), 0.45)
 	ring.CFrame = CFrame.new(dest.X, dest.Y + 0.22, dest.Z) * CFrame.Angles(0, 0, math.rad(90))
 	follows[key] = {
 		kind = "zone",
@@ -568,6 +568,32 @@ local function placeCharge(at: Vector3)
 	spark.CFrame = CFrame.new(at + Vector3.new(0, 2.4, 0))
 	flashPart(spark, Color3.fromRGB(170, 190, 255), 0.08)
 	release(spark, 0.26)
+end
+
+local function placeCurse(at: Vector3)
+	local hex = Color3.fromRGB(168, 70, 200)
+	placeRing(at, 5.2, hex, 0.3)
+	for i = 1, 3 do
+		local tick = takePart(`Curse{i}`)
+		tick.Shape = Enum.PartType.Ball
+		tick.Size = Vector3.new(0.35, 0.35, 0.35)
+		local angle = (i / 3) * math.pi * 2
+		tick.CFrame = CFrame.new(at + Vector3.new(math.cos(angle) * 1.4, 1.6, math.sin(angle) * 1.4))
+		flashPart(tick, Color3.fromRGB(230, 140, 255), 0.12)
+		release(tick, 0.28)
+	end
+end
+
+local function placePsi(at: Vector3)
+	local mind = Color3.fromRGB(210, 120, 230)
+	placeRing(at, 6, Color3.fromRGB(86, 40, 120), 0.24)
+	placeRing(at, 3.1, mind, 0.42)
+end
+
+local function placeNudge(origin: Vector3, dest: Vector3)
+	local mind = Color3.fromRGB(210, 120, 230)
+	placeBeam(dest, origin, mind, 1.35, 0.26)
+	placeBurst(dest, mind, 1.7, 0.22)
 end
 
 local function placeMeteor(at: Vector3, radius: number)
@@ -720,6 +746,28 @@ local function playAbility(event: Types.CombatFxEvent)
 		return
 	elseif look == "meteor" then
 		placeMeteor(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "curse" then
+		placeCurse(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "hex" then
+		local seconds = math.max(event.duration or 2.4, 0.4)
+		followZone(event, seconds, Color3.fromRGB(168, 70, 200))
+		placeBurst(dest, Color3.fromRGB(210, 120, 255), 2.2, 0.24)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "psi" then
+		placePsi(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "nudge" then
+		placeNudge(origin, dest)
 		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
 		playKitSound(event, pitch, false)
 		return
