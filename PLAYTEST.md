@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-17: Luau compiled 108 sources; combat projectile + Control Yarn stacks + vision/fog (wall LoS, 10-stud grid) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 109 sources; combat projectile + Control Yarn stacks + vision/fog (wall LoS, 10-stud grid, match-lifetime explored OR) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -328,7 +328,7 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 108 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 109 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS + match-lifetime exploredBits**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
 
 ## Responsive hub (2026-09-18)
 
