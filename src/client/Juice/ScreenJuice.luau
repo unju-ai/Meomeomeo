@@ -103,16 +103,41 @@ function ScreenJuice.levelUp(level: number)
 end
 
 function ScreenJuice.comboBreak()
-	pulse(Theme.coral, 0.7)
+	pulse(Theme.coral, 0.62)
 	ScreenJuice.banner("COMBO BREAK", Theme.coral)
 end
 
 function ScreenJuice.nearMiss()
-	pulse(Theme.amber, 0.88)
+	pulse(Theme.amber, 0.78)
+	ScreenJuice.banner("CLOSE!", Theme.coral)
 end
 
+-- Equal readable hit for SPD / MAG / SHD / 2X (SHIELD POP already used damageFlash).
 function ScreenJuice.powerFlash(color: Color3)
-	pulse(color, 0.82)
+	pulse(color, 0.72)
+end
+
+-- Soft hold tint while a Yarn Run power is live (stream-readable, not a full flash).
+function ScreenJuice.powerTint(color: Color3, peakTransparency: number?)
+	local frame = flash
+	if not frame then
+		return
+	end
+	local peak = peakTransparency or 0.9
+	frame.BackgroundColor3 = color
+	TweenService:Create(frame, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = peak,
+	}):Play()
+end
+
+function ScreenJuice.clearTint()
+	local frame = flash
+	if not frame then
+		return
+	end
+	TweenService:Create(frame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		BackgroundTransparency = 1,
+	}):Play()
 end
 
 function ScreenJuice.shakeTower()

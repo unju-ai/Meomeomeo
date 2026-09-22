@@ -1287,22 +1287,28 @@ Remotes.event("YarnRunUpdated").OnClientEvent:Connect(function(payload)
 		elseif snap.event == "SPEED BURST" then
 			Sfx.play("LevelUp")
 			ScreenJuice.powerFlash(Color3.fromRGB(90, 220, 255))
+			ScreenJuice.banner("SPEED BURST", Color3.fromRGB(90, 220, 255))
 		elseif snap.event == "MAGNET ON" then
 			Sfx.play("ShopBuy")
 			ScreenJuice.powerFlash(Color3.fromRGB(220, 90, 210))
+			ScreenJuice.banner("MAGNET ON", Color3.fromRGB(220, 90, 210))
 		elseif snap.event == "MAGNET YARN" then
 			Sfx.play("ShopBuy")
 		elseif snap.event == "SHIELD UP" then
 			Sfx.play("LevelUp")
-			ScreenJuice.healFlash()
+			ScreenJuice.powerFlash(Color3.fromRGB(120, 220, 160))
+			ScreenJuice.banner("SHIELD UP", Color3.fromRGB(120, 220, 160))
 		elseif snap.event == "SHIELD POP" then
 			Sfx.play("Kill")
 			ScreenJuice.damageFlash()
+			ScreenJuice.banner("SHIELD POP", Color3.fromRGB(255, 122, 98))
 		elseif snap.event == "2X YARN" then
 			Sfx.play("LevelUp")
 			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
+			ScreenJuice.banner("2X YARN", Color3.fromRGB(255, 196, 74))
 		elseif snap.event == "CLOSE!" then
 			ScreenJuice.nearMiss()
+			YarnCamera.kick(0.55, 0.14)
 		elseif snap.event == "NEW PB" then
 			Sfx.play("MatchFound")
 			ScreenJuice.banner("NEW PB", Color3.fromRGB(255, 196, 74))

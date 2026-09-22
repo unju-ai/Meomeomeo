@@ -95,11 +95,18 @@ end
 
 local function paintDog(parent: Folder, lane: number, z: number)
 	local at = YarnTrackBuilder.world(lane, 1.6, z)
+	-- Soft hazard pad so brown dogs read against indigo floor on stream.
+	part(parent, "HazardPad", Vector3.new(5.2, 0.18, 5.6), CFrame.new(at + Vector3.new(0, -1.35, 0.2)), CORAL, {
+		Material = Enum.Material.Neon,
+		Transparency = 0.35,
+	})
 	part(parent, "DogBody", Vector3.new(3.2, 2.2, 3.6), CFrame.new(at), BROWN)
 	part(parent, "DogHead", Vector3.new(2.2, 1.8, 2.2), CFrame.new(at + Vector3.new(0, 1.4, 1.4)), BROWN)
 	part(parent, "EarL", Vector3.new(0.7, 1.2, 0.5), CFrame.new(at + Vector3.new(-0.8, 2.6, 1.3)), Color3.fromRGB(60, 36, 28))
 	part(parent, "EarR", Vector3.new(0.7, 1.2, 0.5), CFrame.new(at + Vector3.new(0.8, 2.6, 1.3)), Color3.fromRGB(60, 36, 28))
 	part(parent, "Nose", Vector3.new(0.5, 0.4, 0.5), CFrame.new(at + Vector3.new(0, 1.4, 2.4)), INK, { Material = Enum.Material.Neon })
+	part(parent, "EyeGlow", Vector3.new(0.35, 0.35, 0.35), CFrame.new(at + Vector3.new(-0.45, 1.7, 2.1)), CORAL, { Material = Enum.Material.Neon })
+	part(parent, "EyeGlowR", Vector3.new(0.35, 0.35, 0.35), CFrame.new(at + Vector3.new(0.45, 1.7, 2.1)), CORAL, { Material = Enum.Material.Neon })
 end
 
 local function paintSign(parent: Folder, lane: number, z: number)
@@ -132,6 +139,11 @@ local function paintWall(parent: Folder, lane: number, z: number)
 	local neon = part(parent, "BillboardFace", Vector3.new(7.4, 8.4, 0.4), CFrame.new(at + Vector3.new(0, 0.4, 0.5)), MAGENTA, { Material = Enum.Material.Neon })
 	part(parent, "EarL", Vector3.new(1.4, 2.2, 0.5), CFrame.new(at + Vector3.new(-2.2, 5.6, 0.4)), PEACH)
 	part(parent, "EarR", Vector3.new(1.4, 2.2, 0.5), CFrame.new(at + Vector3.new(2.2, 5.6, 0.4)), PEACH)
+	-- Ground telegraph so tall walls still read from chase cam.
+	part(parent, "WallPad", Vector3.new(8.8, 0.2, 2.4), CFrame.new(at + Vector3.new(0, -5.7, 0)), MAGENTA, {
+		Material = Enum.Material.Neon,
+		Transparency = 0.28,
+	})
 	labelOn(neon, "DODGE", CREAM)
 end
 
@@ -198,16 +210,33 @@ local function paintFloor(bag: Folder, index: number, kind: YarnRunCatalog.Segme
 		part(bag, "Floor", Vector3.new(36, 1.2, YarnRunCatalog.SegmentLength), CFrame.new(mid), INDIGO)
 	end
 	for _, x in YarnRunCatalog.LaneXs do
-		local dim = if kind == "bridge" and math.abs(x) > 1 then 0.15 else 0.25
+		local dim = if kind == "bridge" and math.abs(x) > 1 then 0.08 else 0.12
 		part(
 			bag,
 			"Lane",
-			Vector3.new(0.45, 0.2, YarnRunCatalog.SegmentLength - 2),
+			Vector3.new(0.55, 0.22, YarnRunCatalog.SegmentLength - 2),
 			CFrame.new(origin() + Vector3.new(x, if kind == "bridge" and math.abs(x) < 1 then 1.2 else 0.75, z0 + YarnRunCatalog.SegmentLength * 0.5)),
 			GOLD,
 			{ Material = Enum.Material.Neon, Transparency = dim }
 		)
 	end
+	-- Soft outer rails so the three lanes stay separable on stream.
+	part(
+		bag,
+		"RailOuterL",
+		Vector3.new(0.35, 0.55, YarnRunCatalog.SegmentLength - 4),
+		CFrame.new(origin() + Vector3.new(-15.2, 1.05, z0 + YarnRunCatalog.SegmentLength * 0.5)),
+		PEACH,
+		{ Material = Enum.Material.Neon, Transparency = 0.22 }
+	)
+	part(
+		bag,
+		"RailOuterR",
+		Vector3.new(0.35, 0.55, YarnRunCatalog.SegmentLength - 4),
+		CFrame.new(origin() + Vector3.new(15.2, 1.05, z0 + YarnRunCatalog.SegmentLength * 0.5)),
+		CORAL,
+		{ Material = Enum.Material.Neon, Transparency = 0.22 }
+	)
 	part(
 		bag,
 		"LanternL",
