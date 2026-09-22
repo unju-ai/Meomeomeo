@@ -69,7 +69,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "shop",
 		title = "Pawmart (B)",
-		body = "B opens the shop — only at your fountain. Spend match gold on claws and yarn. B is not recall.",
+		body = "B opens the shop — only at your fountain. Claws and yarn, plus Yarn Cleave (7), Stall Fang, and Paper Charm. B is not recall.",
 	},
 	{
 		id = "recall",
@@ -79,7 +79,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "ward",
 		title = "Ward (4 / 6)",
-		body = "4 drops a free team-tinted trinket (stealthed, one live, 70s cooldown). Buy Control Yarn at Pawmart and press 6 for a magenta pink ward (2 charges, visible, slows enemies, reveals nearby trinkets). 5 is Whisker Lens after you buy it.",
+		body = "4 drops a free team-tinted trinket (stealthed, one live, 70s cooldown). Buy Control Yarn at Pawmart and press 6 for a magenta pink ward (2 charges, visible, slows enemies, reveals nearby trinkets). 5 is Whisker Lens after you buy it. 7 is Yarn Cleave after you buy it.",
 	},
 	{
 		id = "fog",

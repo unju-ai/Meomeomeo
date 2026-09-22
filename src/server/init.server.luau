@@ -283,6 +283,10 @@ Remotes.function_("UseLens").OnServerInvoke = function(player: Player)
 	return CombatService.useLens(player)
 end
 
+Remotes.function_("UseCleave").OnServerInvoke = function(player: Player)
+	return CombatService.useCleave(player)
+end
+
 Remotes.function_("GetTutorialStatus").OnServerInvoke = function(player: Player)
 	local done = TutorialStore.isDone(player.UserId)
 	player:SetAttribute(Constants.Attributes.TutorialDone, done)

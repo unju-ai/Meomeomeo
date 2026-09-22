@@ -37,6 +37,7 @@ export type RemoteName =
 	| "PlaceWard"
 	| "PlaceControl"
 	| "UseLens"
+	| "UseCleave"
 	| "InviteParty"
 	| "AcceptPartyInvite"
 	| "DeclinePartyInvite"
@@ -123,6 +124,7 @@ local FUNCTION_NAMES = {
 	"PlaceWard",
 	"PlaceControl",
 	"UseLens",
+	"UseCleave",
 	"InviteParty",
 	"AcceptPartyInvite",
 	"DeclinePartyInvite",

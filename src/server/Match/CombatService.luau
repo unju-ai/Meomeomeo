@@ -12,6 +12,7 @@ local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
+local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -456,6 +457,9 @@ local function resetFor(userId: number, championId: string)
 		psiTarget = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
+		cleaveReadyAt = 0,
+		charmUntil = nil,
+		charmReadyAt = nil,
 	}
 	fillVitals(state, userId, champ, level, true)
 	combat[userId] = state
@@ -698,7 +702,20 @@ function CombatService.init(api: MatchApi)
 					local humanoid = if model then model:FindFirstChildOfClass("Humanoid") else nil
 					if root and matchPlayer and humanoid and humanoid.JumpPower > 0 then
 						local base = 16 + ShopService.bonuses(userId).walkSpeed
-						humanoid.WalkSpeed = base * WardService.slowMul(matchPlayer.team, root.Position)
+						local slow = WardService.slowMul(matchPlayer.team, root.Position)
+						local step = ItemKits.charmStep(
+							slow,
+							ShopService.has(userId, ItemKits.CharmId),
+							now(),
+							state.charmUntil,
+							state.charmReadyAt
+						)
+						state.charmUntil = step.untilAt
+						state.charmReadyAt = step.readyAt
+						humanoid.WalkSpeed = base * step.mul
+						if step.procced then
+							fireCombat(userId)
+						end
 					end
 				end
 				if channels[userId] and state.alive then
@@ -808,6 +825,7 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	state.curseEchoTarget = nil
 	state.psiUntil = nil
 	state.psiFrom = nil
+	state.charmUntil = nil
 	local ownedPsi = state.psiTarget
 	state.psiTarget = nil
 	local ownedMark = state.markTarget
@@ -949,10 +967,19 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	if not state or not state.alive then
 		return
 	end
+	local raw = amount
+	if attackerUserId and amount > 0 and matchApi then
+		local snapshot = matchApi.getSnapshot()
+		local attacker = if snapshot then snapshot.players[tostring(attackerUserId)] else nil
+		local victimMatch = if snapshot then snapshot.players[tostring(targetUserId)] else nil
+		if attacker and victimMatch and attacker.team ~= victimMatch.team then
+			raw += ItemKits.fangBonus(state.health, state.maxHealth, ShopService.has(attackerUserId, ItemKits.FangId))
+		end
+	end
 	local guarded = state.guardUntil ~= nil and now() < state.guardUntil
 	local plates = if state.plateUntil ~= nil and now() < state.plateUntil then state.plateStacks or 0 else 0
 	local omenLive = state.omenUntil ~= nil and now() < state.omenUntil and (state.omenCut or 0) > 0
-	local reduced = amount
+	local reduced = raw
 		* (1 - (state.armor or 0))
 		* ChampionKits.guardMultiplier(state.guardReduction or 0, guarded)
 		* ChampionKits.plateMultiplier(plates, state.platePer or 0)
@@ -3195,6 +3222,61 @@ end
 
 function CombatService.useLens(player: Player): Types.AbilityResult
 	return CombatService.useLensFor(player.UserId)
+end
+
+function CombatService.useCleave(player: Player): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local userId = player.UserId
+	local matchPlayer = snapshot.players[tostring(userId)]
+	local state = combat[userId]
+	if not matchPlayer or not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if not ShopService.has(userId, ItemKits.CleaveId) then
+		return { ok = false, error = "Buy Yarn Cleave at Pawmart." }
+	end
+	local t = now()
+	if not ItemKits.cleaveReady(t, state.cleaveReadyAt) then
+		return { ok = false, error = "Yarn Cleave is cooling down." }
+	end
+	local root = rootOf(userId)
+	if not root then
+		return { ok = false, error = "No character." }
+	end
+	breakRecall(player, "cleave")
+	interruptChannel(userId, "cleave")
+	state.cleaveReadyAt = ItemKits.cleaveReadyAt(t)
+	for _, otherMatch in snapshot.players do
+		if otherMatch.team ~= matchPlayer.team and otherMatch.userId ~= userId then
+			local otherRoot = rootOf(otherMatch.userId)
+			local otherState = combat[otherMatch.userId]
+			if otherRoot and otherState and otherState.alive and ItemKits.inCleave(root.Position, otherRoot.Position) then
+				if VisionService.canSeeChampion(userId, otherMatch.userId) then
+					damageUser(userId, otherMatch.userId, ItemKits.CLEAVE_DAMAGE)
+				end
+			end
+		end
+	end
+	for _, minion in MinionService.list() do
+		if minion.team ~= matchPlayer.team and minion.health > 0 and minion.part.Parent then
+			if ItemKits.inCleave(root.Position, minion.part.Position) and VisionService.canSeeMinion(userId, minion.id) then
+				MinionService.applyDamage(userId, minion.id, ItemKits.CLEAVE_DAMAGE)
+			end
+		end
+	end
+	FxRelay.emit({
+		kind = "cleave",
+		origin = root.Position,
+		userId = userId,
+		radius = ItemKits.CLEAVE_RADIUS,
+	})
+	state.trinketReadyAt = WardService.trinketReadyAt(userId)
+	state.lensReadyAt = WardService.lensReadyAt(userId)
+	fireCombat(userId)
+	return { ok = true, combat = state }
 end
 
 return CombatService

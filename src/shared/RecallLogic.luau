@@ -16,6 +16,7 @@ local BREAKS_CHANNEL: { [string]: boolean } = {
 	ward = true,
 	control = true,
 	lens = true,
+	cleave = true,
 	damage = true,
 }
 

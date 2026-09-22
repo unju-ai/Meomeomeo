@@ -2376,6 +2376,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.Seven then
+		if latestMatch and latestMatch.phase == "InProgress" then
+			reportAttack(Remotes.function_("UseCleave"):InvokeServer(), "AbilityCast")
+		end
+		return
+	end
 	local slot = SLOT_KEYS[input.KeyCode]
 	if not slot then
 		return
@@ -2514,4 +2520,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. Last-seen ghosts are client-only. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
+print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. Last-seen ghosts are client-only. 4 trinket, 5 lens, 6 Control Yarn, 7 Yarn Cleave, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")

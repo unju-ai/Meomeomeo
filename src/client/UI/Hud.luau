@@ -195,7 +195,7 @@ function Hud.create(): HudApi
 		elseif phase == "InProgress" then
 			local mine = snapshot.players[tostring(localUserId)]
 			banner.Text = if mine
-				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens`
+				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens · 7 cleave`
 				else "Spectating"
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
