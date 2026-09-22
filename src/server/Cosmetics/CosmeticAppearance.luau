@@ -144,6 +144,55 @@ local function buildHat(folder: Folder, head: BasePart, torso: BasePart, def: Co
 	elseif def.id == "TapeShades" then
 		addPart(folder, head, "Shades", Vector3.new(head.Size.X * 0.85, 0.22, 0.16), CFrame.new(0, 0.06, -head.Size.Z * 0.5), color, Enum.Material.SmoothPlastic)
 		addPart(folder, head, "LensGlow", Vector3.new(head.Size.X * 0.7, 0.08, 0.08), CFrame.new(0, 0.06, -head.Size.Z * 0.56), Color3.fromRGB(255, 220, 70), Enum.Material.Neon)
+	elseif def.id == "LanternCap" then
+		local lamp, weld = addPart(
+			folder,
+			head,
+			"Lantern",
+			Vector3.new(0.55, 0.72, 0.55),
+			CFrame.new(0, head.Size.Y * 0.78, 0),
+			color,
+			Enum.Material.SmoothPlastic
+		)
+		local glow = Instance.new("Part")
+		glow.Name = "LanternGlow"
+		glow.Shape = Enum.PartType.Ball
+		glow.Size = Vector3.new(0.28, 0.28, 0.28)
+		glow.Color = Color3.fromRGB(255, 220, 140)
+		glow.Material = Enum.Material.Neon
+		glow.Anchored = false
+		glow.CanCollide = false
+		glow.CanQuery = false
+		glow.CanTouch = false
+		glow.Massless = true
+		glow.CastShadow = false
+		glow:SetAttribute("MeoLook", true)
+		glow.CFrame = lamp.CFrame
+		glow.Parent = folder
+		local glowWeld = Instance.new("Weld")
+		glowWeld.Name = "MeoWeld"
+		glowWeld.Part0 = lamp
+		glowWeld.Part1 = glow
+		glowWeld.Parent = glow
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Brightness = 0.6
+		light.Range = 8
+		light.Parent = lamp
+		addIdle(items, weld, "bob", 0.6)
+	elseif def.id == "ScratchTally" then
+		addPart(folder, head, "TallyBand", Vector3.new(1.15, 0.14, 1.15), CFrame.new(0, head.Size.Y * 0.48, 0), color, Enum.Material.SmoothPlastic)
+		for index, side in { -0.28, 0, 0.28 } do
+			addPart(
+				folder,
+				head,
+				"Claw" .. index,
+				Vector3.new(0.08, 0.28, 0.08),
+				CFrame.new(side, head.Size.Y * 0.72, -0.08),
+				Color3.fromRGB(255, 220, 140),
+				Enum.Material.Neon
+			)
+		end
 	end
 end
 
@@ -218,6 +267,26 @@ local function buildTrail(folder: Folder, root: BasePart, def: CosmeticCatalog.C
 			Enum.PartType.Ball
 		)
 		addIdle(items, sparkWeld, "orbit", 2.1)
+	elseif def.id == "StallSpark" then
+		for index, side in { -1, 1 } do
+			local spark, weld = addPart(
+				folder,
+				root,
+				"StallSpark" .. index,
+				Vector3.new(0.42, 0.42, 0.42),
+				CFrame.new(side * 0.8, 1.15, 0.35),
+				Color3.fromRGB(255, 176, 72),
+				Enum.Material.Neon,
+				Enum.PartType.Ball
+			)
+			spark.Transparency = 0.12
+			local light = Instance.new("PointLight")
+			light.Color = color
+			light.Brightness = 0.45
+			light.Range = 7
+			light.Parent = spark
+			addIdle(items, weld, "orbit", side * 0.9)
+		end
 	end
 end
 

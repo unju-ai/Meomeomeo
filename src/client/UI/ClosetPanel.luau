@@ -60,10 +60,14 @@ function ClosetPanel.create(parent: Instance): ClosetApi
 	persist.Position = UDim2.fromOffset(0, 58)
 	persist.Size = UDim2.new(1, 0, 0, 16)
 
+	local riftHint = Theme.text(root, "RiftHint", "Rift: win · post or stall · 5 scratches", 11, Theme.muted, Theme.fontMono)
+	riftHint.Position = UDim2.fromOffset(0, 74)
+	riftHint.Size = UDim2.new(1, 0, 0, 16)
+
 	local preview = Instance.new("Frame")
 	preview.Name = "Preview"
 	preview.BackgroundColor3 = Theme.panelAlt
-	preview.Position = UDim2.fromOffset(0, 78)
+	preview.Position = UDim2.fromOffset(0, 94)
 	preview.Size = UDim2.new(1, 0, 0, 88)
 	preview.Parent = root
 	Theme.corner(preview, 14)
@@ -126,8 +130,8 @@ function ClosetPanel.create(parent: Instance): ClosetApi
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Items"
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 174)
-	list.Size = UDim2.new(1, 0, 1, -174)
+	list.Position = UDim2.fromOffset(0, 190)
+	list.Size = UDim2.new(1, 0, 1, -190)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)

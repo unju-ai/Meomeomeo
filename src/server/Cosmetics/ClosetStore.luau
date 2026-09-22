@@ -17,6 +17,10 @@ export type Record = {
 	hat: string?,
 	trail: string?,
 	yarn: number,
+	-- Cat Rift totals. Survive with the closet row (DataStore or this session's memory).
+	riftWins: number,
+	riftTowerKills: number,
+	riftKills: number,
 	persistMode: Types.PersistMode,
 }
 
@@ -44,6 +48,17 @@ local function clampYarn(value: number): number
 	return math.clamp(math.floor(value + 0.5), 0, 9999)
 end
 
+local function clampCount(value: number): number
+	return math.clamp(math.floor(value), 0, 9999)
+end
+
+local function readCount(value: any, key: string): number
+	if typeof(value) == "table" and typeof(value[key]) == "number" then
+		return clampCount(value[key])
+	end
+	return 0
+end
+
 local function sanitizeEquip(id: string?, slot: CosmeticCatalog.Slot, owned: { [string]: boolean }): string?
 	local def = CosmeticCatalog.get(id)
 	if not def or def.slot ~= slot or not owned[def.id] then
@@ -69,6 +84,9 @@ local function defaults(): Record
 		hat = hat,
 		trail = trail,
 		yarn = CosmeticCatalog.StartYarn,
+		riftWins = 0,
+		riftTowerKills = 0,
+		riftKills = 0,
 		persistMode = persistMode,
 	}
 end
@@ -93,6 +111,9 @@ local function hydrate(value: any): Record
 	if typeof(value.yarn) == "number" then
 		row.yarn = clampYarn(value.yarn)
 	end
+	row.riftWins = readCount(value, "riftWins")
+	row.riftTowerKills = readCount(value, "riftTowerKills")
+	row.riftKills = readCount(value, "riftKills")
 	row.persistMode = persistMode
 	return row
 end
@@ -107,6 +128,9 @@ local function persist(userId: number, row: Record)
 			hat = row.hat,
 			trail = row.trail,
 			yarn = row.yarn,
+			riftWins = row.riftWins,
+			riftTowerKills = row.riftTowerKills,
+			riftKills = row.riftKills,
 		})
 	end)
 	if not ok and RunService:IsStudio() then
@@ -141,6 +165,27 @@ function ClosetStore.get(userId: number): Record
 	local row = defaults()
 	cache[userId] = row
 	return row
+end
+
+function ClosetStore.addYarn(userId: number, amount: number): number
+	local row = ClosetStore.get(userId)
+	if amount == 0 then
+		return row.yarn
+	end
+	row.yarn = clampYarn(row.yarn + amount)
+	persist(userId, row)
+	return row.yarn
+end
+
+function ClosetStore.noteRift(userId: number, wins: number, towers: number, kills: number)
+	if wins <= 0 and towers <= 0 and kills <= 0 then
+		return
+	end
+	local row = ClosetStore.get(userId)
+	row.riftWins = clampCount(row.riftWins + math.max(0, wins))
+	row.riftTowerKills = clampCount(row.riftTowerKills + math.max(0, towers))
+	row.riftKills = clampCount(row.riftKills + math.max(0, kills))
+	persist(userId, row)
 end
 
 function ClosetStore.grant(userId: number, id: string): boolean

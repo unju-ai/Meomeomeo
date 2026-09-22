@@ -27,6 +27,7 @@ local TowerService = require(script.Parent.TowerService)
 local VisionService = require(script.Parent.VisionService)
 local VoiceService = require(script.Parent.Parent.Voice.VoiceService)
 local WardService = require(script.Parent.WardService)
+local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 
 local MatchService = {}
@@ -342,6 +343,17 @@ local function beginFight()
 	broadcast()
 end
 
+local function riftHuman(userId: number?): Player?
+	if typeof(userId) ~= "number" or not current then
+		return nil
+	end
+	local matchPlayer = current.players[tostring(userId)]
+	if not matchPlayer or matchPlayer.isBot then
+		return nil
+	end
+	return Players:GetPlayerByUserId(userId)
+end
+
 function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	if not current or current.phase == "Ended" then
 		return
@@ -370,6 +382,12 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	end
 	feed("announce", `{winner} destroyed the enemy nexus!`)
 	AiChatService.announce(`{winner} wins! {reason}`)
+	for _, matchPlayer in current.players do
+		local player = riftHuman(matchPlayer.userId)
+		if player then
+			CosmeticService.noteRiftMatchEnd(player, matchPlayer.team == winner)
+		end
+	end
 	-- Sides stay assigned through the end screen. Rewrite lists in case a
 	-- death at the nexus swapped the mic device.
 	VoiceService.onTeamsChanged()
@@ -588,6 +606,10 @@ function MatchService.init(cleared: () -> ())
 					k.kills += 1
 					FarmCredit.apply(k, FarmCredit.bounty(Config.Match.KillGold))
 					grantXp(killerUserId, Config.Match.KillXp)
+					local killer = riftHuman(killerUserId)
+					if killer then
+						CosmeticService.noteRiftKill(killer)
+					end
 					if k.championId then
 						MemeStockService.bumpChampion(k.championId, 0.12)
 					end
@@ -634,6 +656,12 @@ function MatchService.init(cleared: () -> ())
 			local line = if def
 				then StructureLogic.deathLine(who, def)
 				else `{who} knocked over the {objective.team} scratching post`
+			if objective.kind == "Tower" then
+				local attackerPlayer = if attackerUserId then riftHuman(attackerUserId) else nil
+				if attackerPlayer then
+					CosmeticService.noteRiftStructure(attackerPlayer)
+				end
+			end
 			if objective.kind == "Nexus" then
 				feed("nexus", line)
 			else

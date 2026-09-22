@@ -71,7 +71,7 @@ local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
 	{ "Board", "Yarn daily/weekly · Koi/Arcade dailies (UTC)" },
 	{ "Mint 404", "Hub chrome — same Meo404 panel" },
-	{ "Closet", "Hats + trails · yarn points, not Robux" },
+	{ "Closet", "Hats + trails · Rift unlocks · yarn points, not Robux" },
 	{ "T", "Hold emote wheel on the hub pad" },
 	{ "Voice", "Quiet until a match · Mute me is the mic" },
 	{ "Audio", "SFX + Music · Hide my name → Anonymous Cat" },

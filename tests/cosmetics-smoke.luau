@@ -1,7 +1,7 @@
 -- Run through tools/test-cosmetics.py against src/shared/CosmeticCatalog.luau.
 
-assert(#CosmeticCatalog.all() >= 6 and #CosmeticCatalog.all() <= 10, "Catalog should be 6–10 drip items")
-assert(#CosmeticCatalog.all() == 10, "This slice ships ten hats/trails")
+assert(#CosmeticCatalog.all() >= 12 and #CosmeticCatalog.all() <= 14, "Catalog stays a small night-market closet")
+assert(#CosmeticCatalog.all() == 13, "Ten stall pieces plus three Cat Rift unlocks")
 assert(CosmeticCatalog.StartYarn == 40)
 assert(string.find(string.lower(CosmeticCatalog.Disclaimer), "not real", 1, true)
 	or string.find(string.lower(CosmeticCatalog.Disclaimer), "not robux", 1, true))
@@ -45,48 +45,34 @@ assert(CosmeticCatalog.canBuy(gold, 40, false) == true)
 assert(CosmeticCatalog.canBuy(gold, 10, false) == false)
 assert(CosmeticCatalog.canBuy(gold, 40, true) == false)
 
-local none: CosmeticCatalog.Stats = {
-	runMeters = 0,
-	koiLegendary = false,
-	partyWins = 0,
-	arcadeProfit = 0,
-}
-local run200: CosmeticCatalog.Stats = {
-	runMeters = 200,
-	koiLegendary = false,
-	partyWins = 0,
-	arcadeProfit = 0,
-}
-local run400: CosmeticCatalog.Stats = {
-	runMeters = 400,
-	koiLegendary = false,
-	partyWins = 0,
-	arcadeProfit = 0,
-}
-local koi: CosmeticCatalog.Stats = {
-	runMeters = 0,
-	koiLegendary = true,
-	partyWins = 0,
-	arcadeProfit = 0,
-}
-local party: CosmeticCatalog.Stats = {
-	runMeters = 0,
-	koiLegendary = false,
-	partyWins = 1,
-	arcadeProfit = 0,
-}
-local arcade15: CosmeticCatalog.Stats = {
-	runMeters = 0,
-	koiLegendary = false,
-	partyWins = 0,
-	arcadeProfit = 15,
-}
-local arcade25: CosmeticCatalog.Stats = {
-	runMeters = 0,
-	koiLegendary = false,
-	partyWins = 0,
-	arcadeProfit = 25,
-}
+local function stats(patch: { [string]: any }): CosmeticCatalog.Stats
+	local row: CosmeticCatalog.Stats = {
+		runMeters = 0,
+		koiLegendary = false,
+		partyWins = 0,
+		arcadeProfit = 0,
+		riftWins = 0,
+		riftTowerKills = 0,
+		riftKills = 0,
+	}
+	for key, value in patch do
+		(row :: any)[key] = value
+	end
+	return row
+end
+
+local none = stats({})
+local run200 = stats({ runMeters = 200 })
+local run400 = stats({ runMeters = 400 })
+local koi = stats({ koiLegendary = true })
+local party = stats({ partyWins = 1 })
+local arcade15 = stats({ arcadeProfit = 15 })
+local arcade25 = stats({ arcadeProfit = 25 })
+local riftPost = stats({ riftTowerKills = 1 })
+local riftWin = stats({ riftWins = 1 })
+local riftKills4 = stats({ riftKills = 4 })
+local riftKills5 = stats({ riftKills = 5 })
+local riftPile = stats({ riftWins = 3, riftTowerKills = 4, riftKills = 9 })
 
 assert(CosmeticCatalog.meets(CosmeticCatalog.get("CreamCap"), none) == true)
 assert(CosmeticCatalog.meets(gold, none) == false, "Yarn shop items are bought, not scored")
@@ -101,6 +87,34 @@ assert(CosmeticCatalog.meets(CosmeticCatalog.get("TapeShades"), arcade15) == tru
 assert(CosmeticCatalog.meets(CosmeticCatalog.get("BraincellOrbs"), arcade15) == false)
 assert(CosmeticCatalog.meets(CosmeticCatalog.get("BraincellOrbs"), arcade25) == true)
 
+local lantern = CosmeticCatalog.get("LanternCap")
+local tally = CosmeticCatalog.get("ScratchTally")
+local spark = CosmeticCatalog.get("StallSpark")
+assert(lantern and lantern.slot == "hat" and lantern.unlock.kind == "riftTowerKills")
+assert(tally and tally.slot == "hat" and tally.unlock.kind == "riftKills" and tally.unlock.amount == 5)
+assert(spark and spark.slot == "trail" and spark.unlock.kind == "riftWin" and spark.emoteFlair)
+assert(CosmeticCatalog.yarnCost(lantern) == 0 and CosmeticCatalog.canBuy(lantern, 40, false) == false)
+assert(CosmeticCatalog.yarnCost(spark) == 0)
+assert(CosmeticCatalog.meets(lantern, none) == false)
+assert(CosmeticCatalog.meets(lantern, riftPost) == true)
+assert(CosmeticCatalog.meets(lantern, riftWin) == false)
+assert(CosmeticCatalog.meets(spark, none) == false)
+assert(CosmeticCatalog.meets(spark, riftWin) == true)
+assert(CosmeticCatalog.meets(spark, riftPost) == false)
+assert(CosmeticCatalog.meets(tally, riftKills4) == false)
+assert(CosmeticCatalog.meets(tally, riftKills5) == true)
+assert(CosmeticCatalog.meets(CosmeticCatalog.get("PartyTiara"), riftPile) == false, "Rift stats do not grant party drip")
+assert(CosmeticCatalog.meets(CosmeticCatalog.get("CoralBeanie"), riftPile) == false)
+assert(CosmeticCatalog.meets(CosmeticCatalog.get("TapeShades"), riftPile) == false)
+assert(CosmeticCatalog.meets(lantern, riftPile) == true)
+assert(CosmeticCatalog.meets(spark, riftPile) == true)
+assert(CosmeticCatalog.meets(tally, riftPile) == true)
+assert(CosmeticCatalog.RiftWinYarn > CosmeticCatalog.RiftLossYarn)
+assert(CosmeticCatalog.RiftLossYarn > 0)
+assert(CosmeticCatalog.RiftWinYarn <= 12, "Match yarn stays a tip, not a shop grind")
+assert(CosmeticCatalog.riftYarn(true) == CosmeticCatalog.RiftWinYarn)
+assert(CosmeticCatalog.riftYarn(false) == CosmeticCatalog.RiftLossYarn)
+
 local owned = CosmeticCatalog.ownedList({ "CanalCrown", "bogus" })
 assert(#owned == 3)
 local set = CosmeticCatalog.ownedSet({ "CanalCrown" })
@@ -110,5 +124,8 @@ assert(CosmeticCatalog.emoteTint("CreamCap", "YarnPuff") == nil)
 assert(CosmeticCatalog.emoteTint("CanalCrown", nil) ~= nil)
 assert(CosmeticCatalog.emoteTint(nil, "BraincellOrbs") ~= nil)
 assert(CosmeticCatalog.emoteTint(nil, "MoonDust") ~= nil)
+assert(CosmeticCatalog.emoteTint(nil, "StallSpark") ~= nil)
+assert(CosmeticCatalog.emoteTint("LanternCap", nil) == nil)
+assert(CosmeticCatalog.emoteTint("ScratchTally", "YarnPuff") == nil)
 
-print("PASS: closet catalog, yarn-only shop, score unlocks, starters, emote flair")
+print("PASS: closet catalog, yarn-only shop, score unlocks, Cat Rift drip, starters, emote flair")
