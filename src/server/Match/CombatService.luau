@@ -1614,6 +1614,16 @@ tickAutoAttack = function(userId: number)
 		end
 		if not lock.windupEnds then
 			lock.windupEnds = t + Config.AutoAttack.Windup
+			-- Windup used to return with no emit. Same aa remote; duration > 0 is the cue.
+			-- ScratchJuice.beat reads it. Range, interval, and damage stay on this swing.
+			FxRelay.emit({
+				kind = "aa",
+				origin = root.Position,
+				dest = pos,
+				userId = userId,
+				team = matchPlayer.team,
+				duration = Config.AutoAttack.Windup,
+			})
 			return
 		end
 		if t < lock.windupEnds then
@@ -1633,6 +1643,7 @@ tickAutoAttack = function(userId: number)
 			dest = pos,
 			userId = userId,
 			team = matchPlayer.team,
+			targetUserId = if lock.kind == "player" then lock.userId else nil,
 		})
 		return
 	end

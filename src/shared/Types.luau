@@ -403,6 +403,8 @@ export type CombatFxEvent = {
 	floatKind: CombatFloatKind?,
 	-- Dealer for "you deal" filter. userId stays the float target when set.
 	attackerUserId: number?,
+	-- Champion scratched by an auto-attack. Paint only. Nil for kittens, camps, structures, wards.
+	targetUserId: number?,
 }
 
 export type AbilityResult = {

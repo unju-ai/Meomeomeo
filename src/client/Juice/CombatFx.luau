@@ -21,6 +21,7 @@ local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("
 local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
 local RespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RespawnJuice"))
 local RiverEpicJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpicJuice"))
+local ScratchJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ScratchJuice"))
 local StructureAggroJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureAggroJuice"))
 local StructureDeathJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureDeathJuice"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
@@ -1693,35 +1694,6 @@ local function playAbility(event: Types.CombatFxEvent)
 	end
 end
 
-local function playAa(event: Types.CombatFxEvent)
-	local color = teamColor(event.team)
-	local dest = event.dest or event.origin
-	local claw = takePart("Claw")
-	claw.Shape = Enum.PartType.Block
-	claw.Size = Vector3.new(0.18, 0.7, 1.1)
-	local look = dest
-	if (dest - event.origin).Magnitude < 0.4 then
-		look = event.origin + Vector3.new(1, 0, 0)
-	end
-	claw.CFrame = CFrame.lookAt(event.origin + Vector3.new(0, 1.1, 0), look + Vector3.new(0, 1.1, 0))
-	flashPart(claw, color, 0.15)
-	release(claw, 0.12)
-
-	local key = `{event.userId or 0}:{math.floor(dest.X / 5)}:{math.floor(dest.Z / 5)}`
-	local now = os.clock()
-	if now - (lastAaAt[key] or 0) < AA_DEBOUNCE then
-		return
-	end
-	lastAaAt[key] = now
-	local spark = takePart("Hit")
-	spark.Shape = Enum.PartType.Ball
-	spark.Size = Vector3.new(0.55, 0.55, 0.55)
-	spark.CFrame = CFrame.new(dest + Vector3.new(0, 1.3, 0))
-	flashPart(spark, Theme.cream, 0.2)
-	emitSpark(spark, color, 8)
-	release(spark, 0.18)
-end
-
 local function playTowerLockHit(event: Types.CombatFxEvent)
 	if not aggroState.allowed or typeof(event.userId) ~= "number" then
 		return
@@ -2038,7 +2010,7 @@ local function placeSwipe(
 		local at = origin + aim * reach
 		local part = takePart(name)
 		part.Shape = Enum.PartType.Block
-		-- Wide flat swipe. Auto-attacks stay a thin team-colored claw.
+		-- Flat swipe. Cleave passes a wide slab; a scratch passes a narrower one.
 		part.Size = slab * scale
 		local ahead = at + aim
 		part.CFrame = CFrame.lookAt(
@@ -2048,6 +2020,81 @@ local function placeSwipe(
 		flashPart(part, color, transparency)
 		release(part, life)
 	end
+end
+
+local function scratchAim(origin: Vector3, dest: Vector3): Vector3
+	local flat = Vector3.new(dest.X - origin.X, 0, dest.Z - origin.Z)
+	if flat.Magnitude < 0.4 then
+		return Vector3.new(1, 0, 0)
+	end
+	return flat.Unit
+end
+
+local function playAa(event: Types.CombatFxEvent)
+	-- Same gate as Pawmart actives. Hub modes never set it.
+	if not activeAllowed then
+		return
+	end
+	local lp = Players.LocalPlayer
+	if not lp or event.userId == nil then
+		return
+	end
+	local beat = ScratchJuice.beat(event.duration)
+	local key = `{beat}:{event.userId}`
+	local nowClock = os.clock()
+	if nowClock - (lastAaAt[key] or 0) < AA_DEBOUNCE then
+		return
+	end
+	lastAaAt[key] = nowClock
+
+	local mine = localTeamId()
+	local same = event.team ~= nil and mine ~= nil and event.team == mine
+	local lit = FogOfWar.isLit(event.origin.X, event.origin.Z)
+	local cue = ScratchJuice.cueKind(lp.UserId, event.userId, same, lit)
+	local dest = event.dest or event.origin
+	local cream = rgbOf(ScratchJuice.Cream)
+	if ScratchJuice.shouldPaint(cue) then
+		local dir = scratchAim(event.origin, dest)
+		if beat == "windup" then
+			local slabX, slabY, slabZ = ScratchJuice.windupSlab()
+			placeSwipe(
+				event.origin,
+				dir,
+				ScratchJuice.windupReach(cue),
+				cue,
+				cream,
+				"ScratchWindup",
+				ScratchJuice.WindupSeconds,
+				ScratchJuice.windupCount(),
+				ScratchJuice.windupSpan(),
+				Vector3.new(slabX, slabY, slabZ)
+			)
+		else
+			local slabX, slabY, slabZ = ScratchJuice.arcSlab()
+			placeSwipe(
+				event.origin,
+				dir,
+				ScratchJuice.arcReach(cue),
+				cue,
+				cream,
+				"ScratchArc",
+				ScratchJuice.HitSeconds,
+				ScratchJuice.arcCount(cue),
+				ScratchJuice.arcSpan(cue),
+				Vector3.new(slabX, slabY, slabZ)
+			)
+		end
+	end
+	if not ScratchJuice.wantsImpact(beat, lp.UserId, event.targetUserId) then
+		return
+	end
+	local tick = takePart("ScratchTick")
+	tick.Shape = Enum.PartType.Ball
+	local scale = ScratchJuice.tickScale()
+	tick.Size = Vector3.new(scale, scale, scale)
+	tick.CFrame = CFrame.new(dest + Vector3.new(0, 1.35, 0))
+	flashPart(tick, cream, ScratchJuice.tickTransparency())
+	release(tick, ScratchJuice.TickSeconds)
 end
 
 local function playLens(event: Types.CombatFxEvent)

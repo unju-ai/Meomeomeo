@@ -161,7 +161,7 @@ function ActiveJuice.lensEyeLift(): number
 	return 2.35
 end
 
--- Wide cream swipe on the existing cleave circle. More than one segment, so it is not an auto-attack claw.
+-- Wide cream swipe on the existing cleave circle. A scratch arc is fewer segments and a shorter span.
 function ActiveJuice.arcCount(cue: string): number
 	if cue == "local" then
 		return 5
