@@ -209,7 +209,7 @@ function Hud.create(): HudApi
 		abilities.setVisible(phase == "InProgress")
 		economy.setVisible(phase == "InProgress" and mine ~= nil)
 		if phase == "InProgress" and mine then
-			economy.update(mine)
+			economy.update(mine, snapshot.riverEpic)
 		end
 		minimap.setVisible(phase == "InProgress")
 		feed.setVisible(phase == "InProgress" or phase == "Ended")

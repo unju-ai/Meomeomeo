@@ -350,4 +350,120 @@ end
 assert(reached, "Hard jungler reaches the pigeon pack")
 assert(math.sqrt((x + 100) * (x + 100) + (z + 88) * (z + 88)) <= 30)
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt")
+local function withEpic(list: { JungleBotLogic.CampView }, health: number?): { JungleBotLogic.CampView }
+	local copy = {}
+	for _, monster in list do
+		table.insert(copy, monster)
+	end
+	local body = camp("CanalLevi", RiverEpic.X, RiverEpic.Z, health or RiverEpic.Health, RiverEpic.Health)
+	body.epic = true
+	table.insert(copy, body)
+	return copy
+end
+
+-- Canal Levi is off the six-camp route. Hard may walk it when it is up.
+local levi = ask({
+	difficulty = "Hard",
+	team = "Red",
+	x = 70,
+	z = 100,
+	routeIndex = 3,
+	camps = withEpic(ALL),
+})
+assert(levi.action == "camp" and levi.campId == "CanalLevi", "Hard mid paths to Canal Levi when it is up")
+assert(levi.memory.routeIndex == 3, "the route index waits while they take the canal")
+
+local finishFirst = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	camps = withEpic(without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220))),
+})
+assert(finishFirst.action == "camp" and finishFirst.campId == "YarnGolemNW", "a started camp is finished before the canal")
+
+local afterClear = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(without("PigeonsNW", nil)),
+})
+assert(afterClear.campId == "CanalLevi")
+assert(afterClear.memory.routeIndex == 2, "clearing pigeons still advances, then the canal")
+
+local resume = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 24,
+	campId = "CanalLevi",
+	routeIndex = 2,
+	camps = without("PigeonsNW", nil),
+})
+assert(resume.campId == "YarnGolemNW", "after Levi the route resumes")
+assert(resume.memory.routeIndex == 2)
+
+local instead = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 0,
+	camps = withEpic({}),
+	lanes = {
+		lane("Top", -80, 15, nil, nil),
+		lane("Mid", 0, 20, nil, nil),
+		lane("Bot", 80, 70, nil, nil),
+	},
+})
+assert(instead.action == "camp" and instead.campId == "CanalLevi", "an up Levi beats pacing the river")
+
+local brawl = ask({
+	difficulty = "Hard",
+	team = "Red",
+	x = 0,
+	z = 24,
+	camps = withEpic(ALL),
+	enemy = { x = 8, z = 24 },
+})
+assert(brawl.action == "fight", "a cat in their face still comes before the canal")
+
+local normalIgnore = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = 0,
+	z = 20,
+	lanePushed = true,
+	camps = withEpic(ALL),
+})
+assert(normalIgnore.campId == "RiverCrabS", "Normal does not take Canal Levi")
+
+local easyLevi = ask({
+	difficulty = "Easy",
+	team = "Red",
+	x = 0,
+	z = 24,
+	lanePushed = true,
+	jungler = true,
+	camps = withEpic(ALL),
+})
+assert(easyLevi.action == "lane", "Easy ignores Canal Levi")
+
+local laneBot = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 24,
+	jungler = false,
+	camps = withEpic(ALL),
+})
+assert(laneBot.action == "lane", "top and bot do not path to Canal Levi")
+
+assert(RiverEpic.wantsHardPath("Hard", true, true) == false)
+assert(RiverEpic.wantsHardPath("Normal", true, false) == false)
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi")

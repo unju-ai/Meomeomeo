@@ -304,7 +304,7 @@ local function refreshBars()
 	end
 	hud.abilities.update(mine, latestCombat)
 	if latestMatch.phase == "InProgress" then
-		hud.economy.update(mine)
+		hud.economy.update(mine, latestMatch.riverEpic)
 	end
 	if hud.scoreboard.root.Visible then
 		hud.scoreboard.update(latestMatch, player.UserId)

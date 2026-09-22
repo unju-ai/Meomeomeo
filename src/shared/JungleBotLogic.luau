@@ -7,6 +7,8 @@
 -- Last-known lane hints score a rotate; they are never a hidden body to chase.
 -- Easy never clears.
 
+local RiverEpic = require(script.Parent:WaitForChild("RiverEpic"))
+
 local JungleBotLogic = {}
 
 -- How long a team last-known enemy still biases a post-clear rotate.
@@ -34,6 +36,7 @@ export type CampView = {
 	z: number,
 	health: number,
 	maxHealth: number,
+	epic: boolean?,
 }
 
 export type LaneView = {
@@ -346,13 +349,22 @@ local function betterNearest(team: TeamId, originX: number, originZ: number, can
 	return candidate.id < current.id
 end
 
+local function findEpic(camps: { CampView }): CampView?
+	for _, camp in camps do
+		if camp.epic == true then
+			return camp
+		end
+	end
+	return nil
+end
+
 local function nearestCamp(query: JungleQuery, sticky: CampView?): CampView?
 	if sticky and ownSide(query.team, sticky.x) then
 		local keep = dist(query.x, query.z, sticky.x, sticky.z)
 		if keep <= NEAREST + HYSTERESIS then
 			local challenger: CampView? = nil
 			for _, camp in query.camps do
-				if camp.id ~= sticky.id and ownSide(query.team, camp.x) then
+				if camp.id ~= sticky.id and camp.epic ~= true and ownSide(query.team, camp.x) then
 					local gap = dist(query.x, query.z, camp.x, camp.z)
 					if gap <= NEAREST and (not challenger or betterNearest(query.team, query.x, query.z, camp, challenger)) then
 						challenger = camp
@@ -366,7 +378,7 @@ local function nearestCamp(query: JungleQuery, sticky: CampView?): CampView?
 	end
 	local best: CampView? = nil
 	for _, camp in query.camps do
-		if ownSide(query.team, camp.x) and dist(query.x, query.z, camp.x, camp.z) <= NEAREST then
+		if camp.epic ~= true and ownSide(query.team, camp.x) and dist(query.x, query.z, camp.x, camp.z) <= NEAREST then
 			if not best or betterNearest(query.team, query.x, query.z, camp, best) then
 				best = camp
 			end
@@ -422,6 +434,9 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	if committed and not ownSide(query.team, committed.x) then
 		committed = nil
 	end
+	if committed and committed.epic == true and query.difficulty ~= "Hard" then
+		committed = nil
+	end
 
 	-- Hard sticks to the route camp until it dies. Normal only locks in once the
 	-- fight has started (hurt, or already in auto-attack range). A walk that has
@@ -442,6 +457,13 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 
 	if contesting(query, nil) then
 		return fightDecision(nil, routeIndex)
+	end
+
+	-- Canal Levi is not on the route. Hard mid may walk it when it is up and they
+	-- are not already holding a camp. Normal nearest-camp and Easy never see it.
+	local epic = findEpic(query.camps)
+	if epic and RiverEpic.wantsHardPath(query.difficulty, query.jungler, false) then
+		return campDecision(query, epic, routeIndex)
 	end
 
 	if query.difficulty == "Hard" then

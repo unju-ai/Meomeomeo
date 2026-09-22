@@ -101,6 +101,7 @@ local Config = {
 		AttackInterval = 1.2,
 		Speed = 15,
 		NearbyXp = 12,
+		-- Canal Levi is Shared.RiverEpic (one river epic). Not a second camp row here.
 	},
 
 	AutoAttack = {

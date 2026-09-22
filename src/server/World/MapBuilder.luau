@@ -11,6 +11,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local BrandCatalog = require(Shared:WaitForChild("BrandCatalog"))
 local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
 local StructureLogic = require(Shared:WaitForChild("StructureLogic"))
+local RiverEpic = require(Shared:WaitForChild("RiverEpic"))
 
 local MapBuilder = {}
 
@@ -485,6 +486,13 @@ function MapBuilder.build(): Folder
 	campPedestal(decorFolder, "PigeonsSE", Vector3.new(100, 0, 88), Color3.fromRGB(170, 168, 176), "Pigeons")
 	campPedestal(decorFolder, "RiverCrabN", Vector3.new(0, 0, -48), Color3.fromRGB(90, 170, 160), "River Crab")
 	campPedestal(decorFolder, "RiverCrabS", Vector3.new(0, 0, 48), Color3.fromRGB(90, 170, 160), "River Crab")
+	campPedestal(
+		decorFolder,
+		RiverEpic.Id,
+		Vector3.new(RiverEpic.X, 0, RiverEpic.Z),
+		Color3.fromRGB(196, 112, 48),
+		RiverEpic.Name
+	)
 
 	local blueTeam = Teams:FindFirstChild(Constants.Teams.BlueInstance) :: Team?
 	local redTeam = Teams:FindFirstChild(Constants.Teams.RedInstance) :: Team?

@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 local RecallLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallLogic"))
@@ -1267,10 +1268,28 @@ function CombatService.damageObjectiveNear(attackerTeam: Types.TeamId, position:
 	end
 end
 
+-- Canal Levi. Difficulty amp stays on outgoingAmp. This does not stack on a second take.
+local function epicOutgoing(userId: number): number
+	if not matchApi then
+		return 1
+	end
+	local snapshot = matchApi.getSnapshot()
+	local view = if snapshot then snapshot.riverEpic else nil
+	if not snapshot or not view then
+		return 1
+	end
+	local attacker = snapshot.players[tostring(userId)]
+	if not attacker then
+		return 1
+	end
+	local buffed = if attacker.team == "Blue" then view.blueBuff else view.redBuff
+	return RiverEpic.outgoingMul(buffed == true)
+end
+
 local function aaDamage(userId: number): number
 	local state = combat[userId]
 	local base = Config.AutoAttack.BaseDamage + if state then (state.bonusDamage or 0) else 0
-	return base * (outgoingAmp[userId] or 1)
+	return base * (outgoingAmp[userId] or 1) * epicOutgoing(userId)
 end
 
 local function pushCombat(userId: number)
@@ -3066,7 +3085,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	local ap = state.abilityPower or 0
 	local power = 0
 	if ability.damage > 0 then
-		power = (ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35) * (outgoingAmp[userId] or 1)
+		power = (ability.damage * scale + (state.bonusDamage or 0) + ap * 0.35) * (outgoingAmp[userId] or 1) * epicOutgoing(userId)
 	end
 	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
 	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0

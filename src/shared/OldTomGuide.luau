@@ -52,9 +52,11 @@ local GUIDE: { GuideTopic } = {
 			"rotate",
 			"past the river",
 			"jungle",
+			"canal levi",
+			"levi",
 		},
 		joke = "What do you call a pigeon with a watch, kitten? A 32-second appointment.",
-		fact = "Pigeon Pack pays 22 gold and returns in about 32 seconds. Yarn Golem pays 48 gold and returns in about 45 seconds. A river crab pays 36 gold and returns in about 50 seconds. The last hit adds 1 CS. Clear your own side once the wave is past the river, and finish a camp you already hurt — Hard stays on one under about 40% HP, Normal under about 55% HP. A healthy camp can wait if a cat is in your face (about 32 studs on Hard, about 22 on Normal). Drag one past about 38 studs and it resets. When they are down, rotate to the pushed lane. Do not pace the river.",
+		fact = "Pigeon Pack pays 22 gold and returns in about 32 seconds. Yarn Golem pays 48 gold and returns in about 45 seconds. A river crab pays 36 gold and returns in about 50 seconds. The last hit adds 1 CS. Clear your own side once the wave is past the river, and finish a camp you already hurt — Hard stays on one under about 40% HP, Normal under about 55% HP. A healthy camp can wait if a cat is in your face (about 32 studs on Hard, about 22 on Normal). Drag one past about 38 studs and it resets. When they are down, rotate to the pushed lane. Do not pace the river. Canal Levi wakes in the canal about 3 minutes in, pays 140 gold, and comes back once about 90 seconds later. The last hit's team keeps +8% damage for the rest of the match.",
 	},
 	{
 		id = "Wards",
@@ -85,7 +87,7 @@ local GUIDE: { GuideTopic } = {
 		title = "Route",
 		aliases = { "jungle route", "hard bot", "hard mid", "jungler", "route" },
 		joke = "Why did Hard mid bring a list, kitten? The pigeons would not form a line.",
-		fact = "Only mid jungles on Hard. Top and bot stay in lane. Blue walks pigeon pack NW, yarn golem NW, the north river crab, then the south river crab. Red — the Practice bots — walks pigeon pack SE, yarn golem SE, the south river crab, then the north river crab. They hold that camp until it dies and they do not flip between the crabs. Show yourself on a healthy camp and they turn, inside about 32 studs. Under about 40% HP they finish the camp first. Camps pop about 8 seconds in. After the four are down they rotate to the lane where the allied wave is furthest up. A sighting from about the last 8 seconds can pull that rotate. They will not path into brush just because a ghost stood there. Easy never clears. Normal mid takes the nearest own-side camp only after the wave is past the river. The Hard jungler plants one free pink and does not buy Control Yarn.",
+		fact = "Only mid jungles on Hard. Top and bot stay in lane. Blue walks pigeon pack NW, yarn golem NW, the north river crab, then the south river crab. Red — the Practice bots — walks pigeon pack SE, yarn golem SE, the south river crab, then the north river crab. They hold that camp until it dies and they do not flip between the crabs. Show yourself on a healthy camp and they turn, inside about 32 studs. Under about 40% HP they finish the camp first. Camps pop about 8 seconds in. After the four are down they rotate to the lane where the allied wave is furthest up. A sighting from about the last 8 seconds can pull that rotate. They will not path into brush just because a ghost stood there. Easy never clears. Normal mid takes the nearest own-side camp only after the wave is past the river. If Canal Levi is up and Hard mid is not already on a camp, they may walk the canal before the next one. Normal and Easy ignore it. The Hard jungler plants one free pink and does not buy Control Yarn.",
 	},
 }
 

@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
@@ -387,10 +388,22 @@ function Minimap.create(parent: Instance): MinimapApi
 			if jungle then
 				for _, child in jungle:GetChildren() do
 					if child:IsA("BasePart") and visibleJungle[child.Name] then
-						place(`j-{child.Name}`, child.Position, 5, Theme.amber)
+						local epicBody = child.Name == RiverEpic.Id
+						local color = if epicBody then Color3.fromRGB(255, 150, 64) else Theme.amber
+						place(`j-{child.Name}`, child.Position, if epicBody then 8 else 5, color)
 						seen[`j-{child.Name}`] = true
 					end
 				end
+			end
+
+			-- Pit is the known canal, not the leashed body. Fog still hides the living part.
+			local epicView = snapshot.riverEpic
+			local epicPhase = if epicView then epicView.phase else "waiting"
+			local epicMark = RiverEpic.marker(epicPhase, visibleJungle[RiverEpic.Id] == true)
+			if epicMark == "pit" or epicMark == "down" then
+				local pitColor = if epicMark == "down" then Color3.fromRGB(120, 78, 42) else Color3.fromRGB(255, 150, 64)
+				place("j-epic-pit", Vector3.new(RiverEpic.X, 0, RiverEpic.Z), if epicMark == "down" then 6 else 8, pitColor, true)
+				seen["j-epic-pit"] = true
 			end
 
 			local visibleWards: { [string]: boolean } = {}

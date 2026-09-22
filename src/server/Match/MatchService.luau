@@ -5,6 +5,7 @@ local Teams = game:GetService("Teams")
 local Workspace = game:GetService("Workspace")
 
 local AnnouncerLines = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AnnouncerLines"))
+local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingLogic"))
@@ -320,6 +321,11 @@ local function beginFight()
 	current.phase = "InProgress"
 	current.startedAt = Workspace:GetServerTimeNow()
 	current.phaseEndsAt = nil
+	current.riverEpic = {
+		phase = "waiting",
+		blueBuff = false,
+		redBuff = false,
+	}
 	MapBuilder.build()
 	current.objectives = MapBuilder.objectiveStates()
 	current.structureFalls = {}
@@ -462,6 +468,11 @@ function MatchService.start(
 		players = players,
 		objectives = MapBuilder.objectiveStates(),
 		structureFalls = {},
+		riverEpic = {
+			phase = "waiting",
+			blueBuff = false,
+			redBuff = false,
+		},
 		queueCount = 0,
 		lobbyPlaceId = if options then options.lobbyPlaceId else nil,
 		reserved = if options then options.reserved else false,
@@ -794,9 +805,15 @@ function MatchService.init(cleared: () -> ())
 		getPhase = function()
 			return if current then current.phase else nil
 		end,
+		matchElapsed = function()
+			if not current or not current.startedAt then
+				return 0
+			end
+			return math.max(0, Workspace:GetServerTimeNow() - current.startedAt)
+		end,
 		damageUser = CombatService.applyDamageToUser,
 		rootOf = CombatService.rootOf,
-		-- Camp last hits stay off the meme tape.
+		-- Camp last hits stay off the meme tape. Canal Levi uses the same CS rule.
 		onClear = function(userId: number, gold: number, xp: number)
 			local credited = false
 			if current then
@@ -827,6 +844,34 @@ function MatchService.init(cleared: () -> ())
 					end
 				end
 			end
+		end,
+		onEpicPhase = function(phase: string)
+			if not current or not current.riverEpic then
+				return
+			end
+			local nextPhase: Types.RiverEpicPhase? = nil
+			if phase == "waiting" or phase == "alive" or phase == "returning" or phase == "spent" then
+				nextPhase = phase
+			end
+			if not nextPhase or current.riverEpic.phase == nextPhase then
+				return
+			end
+			current.riverEpic.phase = nextPhase
+			broadcast()
+		end,
+		onEpicTaken = function(userId: number)
+			if not current or not current.riverEpic then
+				return
+			end
+			local matchPlayer = current.players[tostring(userId)]
+			if not matchPlayer then
+				return
+			end
+			local blue, red = RiverEpic.grant(current.riverEpic.blueBuff, current.riverEpic.redBuff, matchPlayer.team)
+			current.riverEpic.blueBuff = blue
+			current.riverEpic.redBuff = red
+			AnnouncerService.onEpic(matchPlayer.team, catLabel(matchPlayer))
+			broadcast()
 		end,
 	})
 

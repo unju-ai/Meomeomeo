@@ -55,6 +55,7 @@ end
 
 script = (
     prelude
+    + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
     + wrap("ChampionCatalog", "src/shared/ChampionCatalog.luau")

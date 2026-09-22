@@ -127,6 +127,10 @@ local LINES: { [string]: { string } } = {
 		"WE ARE LIVE. Posts, then stalls, then the yarn core.",
 		"Match is live. Six espressos in. Do not blink.",
 	},
+	CanalLevi = {
+		"CANAL LEVI is down. {who} cashed it. {team} claws hit 8% harder for the rest of the market.",
+		"CANAL LEVI fell to {who}. {team} keeps +8% claws until the yarn core.",
+	},
 }
 
 local function fill(template: string, vars: { [string]: string }): string
@@ -174,6 +178,7 @@ function AnnouncerLines.cueFor(beat: string): string?
 		or beat == "TripleKill"
 		or beat == "QuadraKill"
 		or beat == "PentaKill"
+		or beat == "CanalLevi"
 	then
 		return "Announcer"
 	end
@@ -390,6 +395,12 @@ end
 
 function AnnouncerLines.live(roll: number?): Callout
 	return spoken("MatchLive", {}, roll)
+end
+
+function AnnouncerLines.epic(team: string, who: string?, roll: number?): Callout
+	local side = if team ~= "" then team else "That side"
+	local taker = if typeof(who) == "string" and who ~= "" then who else "a cat"
+	return spoken("CanalLevi", { team = side, who = taker }, roll)
 end
 
 function AnnouncerLines.matchEnd(won: boolean, winner: string, roll: number?): Callout

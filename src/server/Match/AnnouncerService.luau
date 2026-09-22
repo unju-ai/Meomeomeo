@@ -165,6 +165,10 @@ function AnnouncerService.onStructure(info: {
 	end
 end
 
+function AnnouncerService.onEpic(team: string, who: string?)
+	deliver(AnnouncerLines.epic(team, who, roll))
+end
+
 function AnnouncerService.onMatchEnd(winner: Types.TeamId)
 	local snapshot = getSnapshot()
 	if not snapshot then
