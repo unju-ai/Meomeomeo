@@ -5,7 +5,16 @@
 export type Slot = "hat" | "trail"
 export type Attach = "head" | "neck" | "face" | "aura"
 export type Rarity = "Common" | "Uncommon" | "Rare" | "Epic"
-export type UnlockKind = "free" | "yarn" | "runMeters" | "koiLegendary" | "partyWin" | "arcadeProfit"
+export type UnlockKind =
+	"free"
+	| "yarn"
+	| "runMeters"
+	| "koiLegendary"
+	| "partyWin"
+	| "arcadeProfit"
+	| "riftWin"
+	| "riftTowerKills"
+	| "riftKills"
 
 export type Unlock = {
 	kind: UnlockKind,
@@ -30,6 +39,10 @@ export type Stats = {
 	koiLegendary: boolean,
 	partyWins: number,
 	arcadeProfit: number,
+	-- Cat Rift totals kept on MeoCloset_v1 (see ClosetStore). Practice counts.
+	riftWins: number,
+	riftTowerKills: number,
+	riftKills: number,
 }
 
 local ITEMS: { CosmeticDef } = {
@@ -153,10 +166,49 @@ local ITEMS: { CosmeticDef } = {
 		unlock = { kind = "partyWin", amount = 1 },
 		emoteFlair = true,
 	},
+	{
+		id = "LanternCap",
+		name = "Lantern Cap",
+		slot = "hat",
+		attach = "head",
+		rarity = "Rare",
+		blurb = "A stall lantern, worn after the post fell.",
+		hint = "Take an outer post or lantern stall",
+		color = Color3.fromRGB(255, 176, 72),
+		unlock = { kind = "riftTowerKills", amount = 1 },
+		emoteFlair = false,
+	},
+	{
+		id = "ScratchTally",
+		name = "Scratch Tally",
+		slot = "hat",
+		attach = "head",
+		rarity = "Uncommon",
+		blurb = "Five scratches, tallied across the rift.",
+		hint = "5 Cat Rift champion kills",
+		color = Color3.fromRGB(255, 92, 110),
+		unlock = { kind = "riftKills", amount = 5 },
+		emoteFlair = false,
+	},
+	{
+		id = "StallSpark",
+		name = "Stall Spark",
+		slot = "trail",
+		attach = "aura",
+		rarity = "Epic",
+		blurb = "Spark the market leaves when the yarn core goes dark.",
+		hint = "Win a Cat Rift match",
+		color = Color3.fromRGB(98, 72, 168),
+		unlock = { kind = "riftWin", amount = 1 },
+		emoteFlair = true,
+	},
 }
 
 local CosmeticCatalog = {
 	StartYarn = 40,
+	-- Match-end closet yarn. Win pays more than a loss. Play points, not Robux.
+	RiftWinYarn = 6,
+	RiftLossYarn = 2,
 	Disclaimer = "Closet yarn is play points — not real money, not Robux.",
 	Items = ITEMS,
 }
@@ -202,8 +254,18 @@ function CosmeticCatalog.meets(def: CosmeticDef, stats: Stats): boolean
 		return stats.partyWins >= math.max(1, amount)
 	elseif kind == "arcadeProfit" then
 		return stats.arcadeProfit >= amount
+	elseif kind == "riftWin" then
+		return stats.riftWins >= math.max(1, amount)
+	elseif kind == "riftTowerKills" then
+		return stats.riftTowerKills >= math.max(1, amount)
+	elseif kind == "riftKills" then
+		return stats.riftKills >= math.max(1, amount)
 	end
 	return false
+end
+
+function CosmeticCatalog.riftYarn(won: boolean): number
+	return if won then CosmeticCatalog.RiftWinYarn else CosmeticCatalog.RiftLossYarn
 end
 
 function CosmeticCatalog.yarnCost(def: CosmeticDef): number

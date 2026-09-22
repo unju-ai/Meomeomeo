@@ -1,6 +1,6 @@
 --!strict
 
--- Cross-mode drip. Unlocks from stall scores; apply on any player character.
+-- Cross-mode drip. Unlocks from stall scores and Cat Rift; apply on any player character.
 
 local Players = game:GetService("Players")
 
@@ -17,11 +17,15 @@ local CosmeticAppearance = require(script.Parent.CosmeticAppearance)
 local CosmeticService = {}
 
 local function statsOf(userId: number): CosmeticCatalog.Stats
+	local row = ClosetStore.get(userId)
 	return {
 		runMeters = ModeService.yarnMetersOf(userId),
 		koiLegendary = ModeService.koiLegendaryOf(userId),
 		partyWins = ModeService.partyWinsOf(userId),
 		arcadeProfit = ModeService.arcadeBestOf(userId),
+		riftWins = row.riftWins,
+		riftTowerKills = row.riftTowerKills,
+		riftKills = row.riftKills,
 	}
 end
 
@@ -88,7 +92,7 @@ function CosmeticService.dressModel(model: Model, userId: number)
 	CosmeticAppearance.apply(model, row.hat, row.trail)
 end
 
-function CosmeticService.refresh(player: Player): { string }
+local function grantFromStats(player: Player): { string }
 	local row = ClosetStore.get(player.UserId)
 	local owned = CosmeticCatalog.ownedSet(row.owned)
 	local stats = statsOf(player.UserId)
@@ -100,6 +104,11 @@ function CosmeticService.refresh(player: Player): { string }
 			end
 		end
 	end
+	return gained
+end
+
+function CosmeticService.refresh(player: Player): { string }
+	local gained = grantFromStats(player)
 	if #gained > 0 then
 		fire(player, `UNLOCKED · {gained[1]}`)
 	else
@@ -107,6 +116,36 @@ function CosmeticService.refresh(player: Player): { string }
 	end
 	CosmeticService.dress(player)
 	return gained
+end
+
+local function grantQuiet(player: Player): { string }
+	local gained = grantFromStats(player)
+	if #gained > 0 then
+		fire(player, `UNLOCKED · {gained[1]}`)
+		CosmeticService.dress(player)
+	end
+	return gained
+end
+
+function CosmeticService.noteRiftKill(player: Player)
+	ClosetStore.noteRift(player.UserId, 0, 0, 1)
+	grantQuiet(player)
+end
+
+function CosmeticService.noteRiftStructure(player: Player)
+	ClosetStore.noteRift(player.UserId, 0, 1, 0)
+	grantQuiet(player)
+end
+
+function CosmeticService.noteRiftMatchEnd(player: Player, won: boolean)
+	if won then
+		ClosetStore.noteRift(player.UserId, 1, 0, 0)
+	end
+	ClosetStore.addYarn(player.UserId, CosmeticCatalog.riftYarn(won))
+	local gained = CosmeticService.refresh(player)
+	if #gained == 0 then
+		fire(player, nil)
+	end
 end
 
 function CosmeticService.status(player: Player): Types.ClosetStatus

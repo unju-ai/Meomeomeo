@@ -49,6 +49,8 @@ Press **Play** to generate the map and host models; these are created by server 
 
 Build verification on 2026-09-22: Luau compiled 125 sources; team voice allow-lists and HUD copy (teammates only, bots silent, Studio / live / muted / not eligible, mic armed without a fake speaking pulse) + farm credit (kitten and camp last hits add CS, kill/assist/tower gold does not) + combat projectile + kit hooks (Meow guard/pull, Nyan reset/channel, Whiskers refund/zone, Chonk Settled Loaf/Charge Knock, Scammy Open Wick/Hype Candle, Grandma Second Helping/Sweater Aura, Bytekit Packet Buffer/Overclock, Sir Scratchalot Honor Bleed/Shield Fortify, Shadowpounce Alley Mark/Smoke Vanish, Chromeclaw Chrome Plate/Lunge Reload, Oracle Paws Ward Omen/Foresight Veil, Archmeow Spell Charge/Charged Meteor, Hexkit Curse Stacks/Hex Zone, Mindwhisker Psi Mark/Mind Nudge) + recall cancel-on-order + Control Yarn stacks + Pawmart Yarn Cleave / Stall Fang / Paper Charm + practice-bot Pawmart plans (Hard fountain build, cleave at two visible enemies, lens only when owned) + structure layout/gates (outer posts, inner lantern stalls, yarn-core gate) + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + jungle-bot route/commit/rotate + brand/lobby + cosmetics/arcade/koi/yarn/party (lobby seat takeover) smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio voice or playtest.
 
+Cat Rift closet (same day, later slice): Luau compiled 125 sources; `tools/test-cosmetics.py` passed (Lantern Cap / Stall Spark / Scratch Tally, win yarn 6 / loss yarn 2, older stall unlocks unchanged). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to take a post or win for the `UNLOCKED ·` ticker.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -92,7 +94,7 @@ rojo serve
 5. **F** recall (7s) — mint circle under your feet. Stand still and it finishes. A **new** WASD press, a **ground click**, attack, attack-move, a cast, or **7** (Yarn Cleave) cancels immediately and the circle and channel bar disappear. A direction you were already holding does not cancel until you release and press again. Damage still cancels. **B**, **T**, **G**, **H**, and **V** do not. A **purse chip** (above the ability bar) shows your gold, CS, and level. **Tab** scoreboard (bots tagged) uses the same numbers.
 6. Die to a bot or a scratching post. A **Death recap** card lists the recent scratches (cat, post, kitten, camp, or item; ability or **Scratch** when the server knows; approximate damage; killing blow marked). **✕** dismisses it, or it hides about 2.5s before the fountain timer. **Recap** brings it back while you are down. Kill feed and **Tab** stay. The card does not appear in Hub, Yarn Run, Koi, Party, or Arcade.
 7. Push one lane **outer scratching post → inner lantern stall → yarn core**. The stall billboard stays `(gated)` and takes no damage until that lane's post falls (death puff + kill feed). Stall shots are warm lantern gold and use the same aggro as posts. The nexus stays `(gated)` until all **3 posts and 3 stalls** are down, then `(OPEN)`. Scratch the nexus.
-8. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog.
+8. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog. Last-hitting a post or stall, or winning, can ticker `UNLOCKED ·` for Closet drip (see §3f).
 
 ### Studio live-pass (death recap)
 
@@ -282,8 +284,23 @@ Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn
    - **Party Tiara** + **Moon Dust** (emote flair) — win a Yarn Party (human, not a bot)
    - **Tape Shades** — Meme Arcade daily profit **+15**
    - **Braincell Orbs** + emote flair — Arcade daily **+25**
+   - **Lantern Cap** — last-hit an outer scratching post or a lantern stall in Cat Rift (Practice counts; minions and bots do not)
+   - **Stall Spark** + emote flair — win a Cat Rift match (Practice counts)
+   - **Scratch Tally** — **5** champion kills across Cat Rift matches
 5. Equipped drip welds onto the avatar in **hub idle**, **Yarn Run**, **Koi Pond**, **Yarn Party**, **Meme Arcade**, and **Cat Rift** lobby/match (on top of champion silhouettes). Rare flair tints **T** emote bobs. Equip / unlock lines hit the ticker (`EQUIPPED ·` / `UNLOCKED ·`).
-6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Bots do not wear closet drip.
+6. Loadout persists in DataStore `MeoCloset_v1` when Studio **API Services** are on. Off = **Save: Memory** (same pattern as settings / Meo404). Cat Rift counters (`riftWins`, `riftTowerKills`, `riftKills`) live on that same row, so kills add up across matches. Bots do not wear closet drip and do not earn Rift drip.
+7. Match end pays closet yarn: **6** for a win, **2** for a loss. Play points, not Robux, and not in-match gold.
+
+### Studio live-pass (Cat Rift closet)
+
+The cosmetics smoke checks the gates and the yarn tip. It does not walk a lane. Practice is the check.
+
+1. Hub or the Cat Rift stall → **Closet**. The line under the wallet reads **Rift: win · post or stall · 5 scratches**. **Lantern Cap**, **Stall Spark**, and **Scratch Tally** are **Locked**. Cream Cap, Yarn Puff, and Gold Bell behave as before.
+2. Practice. Last-hit an **outer scratching post** or, after it falls, that lane's **lantern stall**. Minion and bot last hits do not count. Ticker and banner: `UNLOCKED · Lantern Cap`.
+3. Win the match. Ticker: `UNLOCKED · Stall Spark`. Closet yarn goes up by **6** (a loss pays **2**). Five of your champion kills, including earlier matches this save, ticker `UNLOCKED · Scratch Tally` on the fifth.
+4. **Back to lobby**. Equip the new hat or trail. It stays on the hub cat and in Yarn Run, Koi Pond, Yarn Party, and Meme Arcade.
+
+Smoke (not a Studio substitute): `python3 tools/test-cosmetics.py /path/to/luau`.
 
 Help overlay lists Closet on the hub sheet. ModeService gates are unchanged.
 
