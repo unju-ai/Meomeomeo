@@ -461,6 +461,40 @@ local function placePull(dest: Vector3, radius: number)
 	end
 end
 
+local function placeKnock(origin: Vector3, dest: Vector3)
+	local chonk = Color3.fromRGB(232, 148, 64)
+	placeBeam(origin, dest, chonk, 2.6, 0.26)
+	local flat = Vector3.new(dest.X - origin.X, 0, dest.Z - origin.Z)
+	local dir = if flat.Magnitude > 0.5 then flat.Unit else Vector3.new(1, 0, 0)
+	placeBeam(dest, dest + dir * 10, chonk, 1.5, 0.22)
+	placeBurst(dest, chonk, 2.1, 0.22)
+end
+
+local function placeWick(at: Vector3)
+	local green = Color3.fromRGB(150, 220, 90)
+	placeRing(at, 5, green, 0.28)
+	local candle = takePart("Wick")
+	candle.Shape = Enum.PartType.Block
+	candle.Size = Vector3.new(0.35, 6.5, 0.35)
+	candle.CFrame = CFrame.new(at + Vector3.new(0, 3.4, 0))
+	flashPart(candle, Color3.fromRGB(255, 214, 96), 0.12)
+	release(candle, 0.28)
+end
+
+local function placeCandle(at: Vector3, radius: number)
+	local green = Color3.fromRGB(120, 200, 90)
+	local gold = Color3.fromRGB(255, 186, 72)
+	placeRing(at, radius, green, 0.34)
+	placeRing(at, math.max(radius * 0.45, 4), gold, 0.4)
+	placeBurst(at, gold, 2.2, 0.24)
+end
+
+local function placeSweater(at: Vector3, radius: number)
+	local yarn = Color3.fromRGB(245, 214, 186)
+	placeRing(at, radius, yarn, 0.4)
+	placeBurst(at, Color3.fromRGB(255, 236, 214), 2.1, 0.28)
+end
+
 local function followProjectile(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local duration = math.max(event.duration or 0.2, 0.08)
@@ -530,6 +564,26 @@ local function playAbility(event: Types.CombatFxEvent)
 		return
 	elseif look == "pull" then
 		placePull(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "knock" then
+		placeKnock(origin, dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "wick" then
+		placeWick(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "candle" then
+		placeCandle(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "sweater" then
+		placeSweater(dest, radius)
 		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
 		playKitSound(event, pitch, false)
 		return
@@ -634,8 +688,11 @@ function CombatFx.play(event: Types.CombatFxEvent)
 	elseif event.kind == "structureDeath" then
 		playStructureDeath(event)
 	elseif event.kind == "shield" then
-		local guard = kitLook(event) == "guard"
-		local tint = if guard then Color3.fromRGB(196, 148, 72) else nil
+		local look = kitLook(event)
+		local tint = if look == "guard"
+			then Color3.fromRGB(196, 148, 72)
+			elseif look == "sweater" then Color3.fromRGB(245, 214, 186)
+			else nil
 		followShield(event.userId or 0, event.origin, event.duration or 1.15, tint)
 	elseif event.kind == "stun" then
 		if event.userId then

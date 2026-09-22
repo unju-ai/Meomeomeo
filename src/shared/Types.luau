@@ -119,6 +119,8 @@ export type CombatState = {
 	channelStartedAt: number?,
 	guardUntil: number?,
 	guardReduction: number?,
+	wickStacks: number?,
+	wickUntil: number?,
 	trinketReadyAt: number,
 	lensReadyAt: number,
 }

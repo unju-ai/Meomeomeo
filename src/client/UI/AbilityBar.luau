@@ -176,9 +176,14 @@ function AbilityBar.create(parent: Instance): BarApi
 			if combat and combat.guardUntil and combat.guardUntil > workspace:GetServerTimeNow() then
 				guardBit = " · Guard"
 			end
+			local wickBit = ""
+			if combat and combat.wickUntil and combat.wickStacks and combat.wickUntil > workspace:GetServerTimeNow() and combat.wickStacks > 0 then
+				wickBit = ` · Wick {combat.wickStacks}`
+			end
 			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. guardBit
+				.. wickBit
 				.. aaBit
 			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
 			if combat then
