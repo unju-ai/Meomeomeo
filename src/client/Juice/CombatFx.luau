@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local ActiveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ActiveJuice"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
@@ -60,8 +61,10 @@ local pool: { BasePart } = {}
 local follows: { [string]: Follow } = {}
 local lastAaAt: { [string]: number } = {}
 local lastHealAt: { [string]: number } = {}
+local lastFangBiteAt: { [number]: number } = {}
 local loopBound = false
 local floatsEnabled = false
+local activeAllowed = false
 local recallAllowed = false
 local suppressRecallUntil: { [number]: number } = {}
 local floatPops: { FloatPop } = {}
@@ -608,6 +611,24 @@ local function rgbOf(triple: { number }): Color3
 	return Color3.fromRGB(triple[1], triple[2], triple[3])
 end
 
+local function flatLook(userId: number): Vector3
+	local root = rootOf(userId)
+	if root then
+		local look = root.CFrame.LookVector
+		local flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude > 0.2 then
+			return flat.Unit
+		end
+	end
+	return Vector3.new(0, 0, -1)
+end
+
+local function yawFlat(dir: Vector3, angle: number): Vector3
+	local c = math.cos(angle)
+	local s = math.sin(angle)
+	return Vector3.new(dir.X * c - dir.Z * s, 0, dir.X * s + dir.Z * c)
+end
+
 local function washModel(userId: number, triple: { number }, seconds: number, amount: number)
 	local model = modelOf(userId)
 	if not model then
@@ -627,6 +648,35 @@ local function washModel(userId: number, triple: { number }, seconds: number, am
 				TweenService:Create(part, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 					Color = baseColor,
 					Transparency = baseTransparency,
+				}):Play()
+			end)
+		end
+	end
+end
+
+-- Short neon bite on the body. Local fang proc only — allies keep the coral wedges.
+local function biteSilhouette(userId: number, triple: { number }, seconds: number, amount: number)
+	local model = modelOf(userId)
+	if not model or amount <= 0 then
+		return
+	end
+	local tint = rgbOf(triple)
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" and child.Transparency < 0.95 then
+			local part = child :: BasePart
+			local baseColor = part.Color
+			local baseMaterial = part.Material
+			part.Color = baseColor:Lerp(tint, amount)
+			if baseMaterial ~= Enum.Material.Neon and baseMaterial ~= Enum.Material.ForceField then
+				part.Material = Enum.Material.Neon
+			end
+			task.delay(seconds, function()
+				if not part.Parent then
+					return
+				end
+				part.Material = baseMaterial
+				TweenService:Create(part, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					Color = baseColor,
 				}):Play()
 			end)
 		end
@@ -1243,6 +1293,180 @@ local function playStructureDeath(event: Types.CombatFxEvent)
 	end
 end
 
+local function actorCue(event: Types.CombatFxEvent): ActiveJuice.CueKind?
+	if not activeAllowed then
+		return nil
+	end
+	local lp = Players.LocalPlayer
+	if not lp or event.userId == nil then
+		return nil
+	end
+	local mine = localTeamId()
+	local same = event.team ~= nil and mine ~= nil and event.team == mine
+	local lit = FogOfWar.isLit(event.origin.X, event.origin.Z)
+	local cue = ActiveJuice.cueKind(lp.UserId, event.userId, same, lit)
+	if not ActiveJuice.shouldPaint(cue) then
+		return nil
+	end
+	return cue
+end
+
+local function placeSwipe(
+	origin: Vector3,
+	dir: Vector3,
+	reach: number,
+	cue: string,
+	color: Color3,
+	name: string,
+	life: number,
+	count: number,
+	span: number,
+	slab: Vector3
+)
+	local scale = ActiveJuice.scale(cue)
+	local transparency = ActiveJuice.transparency(cue)
+	for i = 1, count do
+		local t = if count == 1 then 0 else ((i - 1) / (count - 1)) - 0.5
+		local aim = yawFlat(dir, t * span)
+		local at = origin + aim * reach
+		local part = takePart(name)
+		part.Shape = Enum.PartType.Block
+		-- Wide flat swipe. Auto-attacks stay a thin team-colored claw.
+		part.Size = slab * scale
+		local ahead = at + aim
+		part.CFrame = CFrame.lookAt(
+			Vector3.new(at.X, origin.Y + 1.15, at.Z),
+			Vector3.new(ahead.X, origin.Y + 1.15, ahead.Z)
+		)
+		flashPart(part, color, transparency)
+		release(part, life)
+	end
+end
+
+local function playLens(event: Types.CombatFxEvent)
+	local cue = actorCue(event)
+	if not cue or event.userId == nil then
+		return
+	end
+	local cream = rgbOf(ActiveJuice.Cream)
+	local dir = flatLook(event.userId)
+	placeSwipe(
+		event.origin,
+		dir,
+		ActiveJuice.lensSweepReach(cue),
+		cue,
+		cream,
+		"LensSweep",
+		ActiveJuice.LensSeconds,
+		ActiveJuice.lensCount(cue),
+		ActiveJuice.lensSpan(cue),
+		Vector3.new(0.85, 0.14, 1.45)
+	)
+	local eye = takePart("LensEye")
+	eye.Shape = Enum.PartType.Ball
+	local scale = ActiveJuice.scale(cue)
+	eye.Size = Vector3.new(0.72, 0.72, 0.72) * scale
+	eye.CFrame = CFrame.new(event.origin + Vector3.new(0, ActiveJuice.lensEyeLift(), 0))
+	flashPart(eye, cream, ActiveJuice.transparency(cue))
+	emitSpark(eye, cream, if cue == "local" then 6 else 3)
+	release(eye, ActiveJuice.LensSeconds)
+	if ActiveJuice.wantsWash(cue) then
+		washModel(event.userId, ActiveJuice.Cream, ActiveJuice.WashSeconds, ActiveJuice.washAmount(cue))
+	end
+end
+
+local function playCleave(event: Types.CombatFxEvent)
+	local cue = actorCue(event)
+	if not cue or event.userId == nil then
+		return
+	end
+	local radius = if typeof(event.radius) == "number" then event.radius else 12
+	local cream = rgbOf(ActiveJuice.Cream)
+	placeSwipe(
+		event.origin,
+		flatLook(event.userId),
+		ActiveJuice.swipeReach(radius, cue),
+		cue,
+		cream,
+		"CleaveArc",
+		ActiveJuice.CleaveSeconds,
+		ActiveJuice.arcCount(cue),
+		ActiveJuice.arcSpan(cue),
+		Vector3.new(1.55, 0.2, 2.6)
+	)
+	if ActiveJuice.wantsWash(cue) then
+		washModel(event.userId, ActiveJuice.Cream, ActiveJuice.WashSeconds, 0.28)
+	end
+end
+
+local function playFangBite(event: Types.CombatFxEvent)
+	if not activeAllowed or not ActiveJuice.isFangProc(event.floatKind) then
+		return
+	end
+	local lp = Players.LocalPlayer
+	if not lp then
+		return
+	end
+	local mine = localTeamId()
+	local lit = FogOfWar.isLit(event.origin.X, event.origin.Z)
+	local cue = ActiveJuice.fangCue(lp.UserId, event.attackerUserId, event.userId, event.team, mine, lit)
+	if not ActiveJuice.shouldPaint(cue) then
+		return
+	end
+	local targetId = event.userId or 0
+	local nowClock = os.clock()
+	if nowClock - (lastFangBiteAt[targetId] or 0) < ActiveJuice.FangGap then
+		return
+	end
+	lastFangBiteAt[targetId] = nowClock
+	local coral = rgbOf(ActiveJuice.Coral)
+	local scale = ActiveJuice.scale(cue)
+	local transparency = ActiveJuice.transparency(cue)
+	local y = event.origin.Y + 1.55
+	local left = takePart("FangBite")
+	local right = takePart("FangBite")
+	left.Shape = Enum.PartType.Block
+	right.Shape = Enum.PartType.Block
+	left.Size = Vector3.new(0.28, 0.95, 0.42) * scale
+	right.Size = left.Size
+	left.CFrame = CFrame.new(event.origin.X - 0.38 * scale, y, event.origin.Z) * CFrame.Angles(0, 0, math.rad(32))
+	right.CFrame = CFrame.new(event.origin.X + 0.38 * scale, y, event.origin.Z) * CFrame.Angles(0, 0, math.rad(-32))
+	flashPart(left, coral, transparency)
+	flashPart(right, coral, transparency)
+	release(left, ActiveJuice.FangSeconds)
+	release(right, ActiveJuice.FangSeconds)
+	if ActiveJuice.wantsWash(cue) and event.userId ~= nil then
+		biteSilhouette(event.userId, ActiveJuice.Coral, ActiveJuice.FangSeconds, ActiveJuice.washAmount(cue))
+	end
+end
+
+local function playCharm(event: Types.CombatFxEvent)
+	local cue = actorCue(event)
+	if not cue or event.userId == nil then
+		return
+	end
+	local beat = ActiveJuice.charmBeat(event.duration)
+	if beat == "none" then
+		return
+	end
+	local pink = rgbOf(ActiveJuice.Pink)
+	if beat == "apply" then
+		placeBurst(event.origin, pink, ActiveJuice.charmPuffScale(cue), ActiveJuice.CharmPuffSeconds)
+		if ActiveJuice.wantsWash(cue) then
+			washModel(event.userId, ActiveJuice.Pink, ActiveJuice.WashSeconds, ActiveJuice.washAmount(cue))
+		end
+		return
+	end
+	local pop = takePart("CharmPop")
+	pop.Shape = Enum.PartType.Ball
+	local scale = ActiveJuice.charmPopScale(cue)
+	pop.Size = Vector3.new(scale, scale, scale)
+	pop.CFrame = CFrame.new(event.origin + Vector3.new(0, 1.7, 0))
+	flashPart(pop, pink, math.clamp(ActiveJuice.transparency(cue) + 0.12, 0, 0.8))
+	emitSpark(pop, pink, if cue == "local" then 4 else 2)
+	release(pop, ActiveJuice.CharmPopSeconds)
+end
+
 function CombatFx.play(event: Types.CombatFxEvent)
 	if event.kind == "ability" then
 		playAbility(event)
@@ -1307,8 +1531,13 @@ function CombatFx.play(event: Types.CombatFxEvent)
 			finishRecall(event.userId, outcome, at)
 		end
 	elseif event.kind == "cleave" then
-		placeBurst(event.origin, Theme.pink, 3.4, 0.28)
+		playCleave(event)
+	elseif event.kind == "lens" then
+		playLens(event)
+	elseif event.kind == "charm" then
+		playCharm(event)
 	elseif event.kind == "float" then
+		playFangBite(event)
 		playFloat(event)
 	end
 end
@@ -1318,6 +1547,10 @@ function CombatFx.playUnknown(payload: any)
 		return
 	end
 	CombatFx.play(payload :: Types.CombatFxEvent)
+end
+
+function CombatFx.setActiveJuiceAllowed(on: boolean)
+	activeAllowed = on
 end
 
 function CombatFx.setFloatsEnabled(enabled: boolean)

@@ -60,6 +60,7 @@ script = (
     + wrap("LevelUpJuice", "src/shared/LevelUpJuice.luau")
     + wrap("FountainRegenJuice", "src/shared/FountainRegenJuice.luau")
     + wrap("RespawnJuice", "src/shared/RespawnJuice.luau")
+    + wrap("ActiveJuice", "src/shared/ActiveJuice.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("VisionLogic", "src/shared/VisionLogic.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
@@ -95,6 +96,7 @@ named = (
     "LevelUpJuice",
     "FountainRegenJuice",
     "RespawnJuice",
+    "ActiveJuice",
     "draft teasers",
     "wall clip",
 )

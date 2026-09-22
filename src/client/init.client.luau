@@ -1913,6 +1913,7 @@ Remotes.event("AnnouncerMessage").OnClientEvent:Connect(function(payload)
 end)
 
 Remotes.event("CombatFx").OnClientEvent:Connect(function(payload)
+	CombatFx.setActiveJuiceAllowed(gameMode == "Moba" and recallPhase() == "InProgress")
 	if typeof(payload) == "table" and (payload :: any).kind == "recall" then
 		local duration = (payload :: any).duration
 		local origin = (payload :: any).origin
@@ -2094,6 +2095,7 @@ applyVision = function()
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
 		CombatFx.setFloatsEnabled(false)
+		CombatFx.setActiveJuiceAllowed(false)
 		CombatFx.setRecallAllowed(false)
 		WardFx.clear()
 		Sfx.stopLoop("RecallLoop")
@@ -2113,6 +2115,7 @@ applyVision = function()
 	visionArmed = true
 	FogOfWar.setEnabled(true)
 	CombatFx.setFloatsEnabled(true)
+	CombatFx.setActiveJuiceAllowed(true)
 	CombatFx.setRecallAllowed(true)
 	FogOfWar.apply(lastVision.fogBits, lastVision.exploredBits)
 

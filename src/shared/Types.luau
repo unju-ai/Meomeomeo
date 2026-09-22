@@ -372,6 +372,8 @@ export type CombatFxKind =
 	| "projectile"
 	| "projectileHit"
 	| "cleave"
+	| "lens"
+	| "charm"
 	| "float"
 
 export type CombatFxEvent = {
