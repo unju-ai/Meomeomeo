@@ -52,6 +52,92 @@ assert(Targeting.hits("line", origin, dest, Vector3.new(18, 2, 4), 8) == true)
 assert(Targeting.hits("line", origin, dest, Vector3.new(18, 2, 20), 8) == false)
 assert(Targeting.hits("ground", origin, dest, dest, 10) == true)
 
+local lineAbility = {
+	slot = "Q",
+	name = "Laser",
+	description = "",
+	kind = "damage",
+	cooldown = 4,
+	manaCost = 30,
+	range = 42,
+	radius = 8,
+	damage = 80,
+	heal = 0,
+	shield = 0,
+	stunSeconds = 0,
+	targeting = "line",
+}
+local lineFar = Targeting.preview(lineAbility, origin, Vector3.new(80, 2, 0))
+assert(lineFar.mode == "line" and lineFar.showAim == true and lineFar.valid == true)
+assert(lineFar.clamped == true)
+assert(math.abs(lineFar.dest.X - 42) < 0.01)
+
+local lineNear = Targeting.preview(lineAbility, origin, Vector3.new(20, 2, 0))
+assert(lineNear.clamped == false and math.abs(lineNear.dest.X - 20) < 0.01)
+
+local groundAbility = {
+	slot = "E",
+	name = "Slam",
+	description = "",
+	kind = "damage",
+	cooldown = 5,
+	manaCost = 40,
+	range = 28,
+	radius = 14,
+	damage = 70,
+	heal = 0,
+	shield = 0,
+	stunSeconds = 0,
+}
+local groundOk = Targeting.preview(groundAbility, origin, Vector3.new(20, 2, 0))
+assert(groundOk.mode == "ground" and groundOk.valid == true and groundOk.clamped == false)
+assert(math.abs(groundOk.dest.X - 20) < 0.01)
+
+local groundSoft = Targeting.preview(groundAbility, origin, Vector3.new(32, 2, 0))
+assert(groundSoft.valid == true and groundSoft.clamped == true)
+assert(math.abs(groundSoft.dest.X - 28) < 0.01)
+assert(math.abs(groundSoft.dest.Y - 2) < 0.01)
+
+local groundHard = Targeting.preview(groundAbility, origin, Vector3.new(50, 2, 0))
+assert(groundHard.valid == false and groundHard.clamped == true)
+assert(math.abs(groundHard.dest.X - 28) < 0.01)
+assert(math.abs(groundHard.dest.Y - 2) < 0.01)
+assert(Targeting.groundSlack() == 6)
+
+local healAbility = {
+	slot = "W",
+	name = "Mend",
+	description = "",
+	kind = "heal",
+	cooldown = 10,
+	manaCost = 50,
+	range = 8,
+	radius = 8,
+	damage = 0,
+	heal = 90,
+	shield = 0,
+	stunSeconds = 0,
+}
+local instant = Targeting.preview(healAbility, origin, Vector3.new(40, 2, 0))
+assert(instant.mode == "instant" and instant.showAim == false)
+
+local dashAbility = {
+	slot = "E",
+	name = "Pounce",
+	description = "",
+	kind = "dash",
+	cooldown = 8,
+	manaCost = 35,
+	range = 36,
+	radius = 8,
+	damage = 40,
+	heal = 0,
+	shield = 0,
+	stunSeconds = 0,
+}
+local dashFar = Targeting.preview(dashAbility, origin, Vector3.new(80, 2, 10))
+assert(dashFar.mode == "dash" and dashFar.clamped == true and dashFar.showAim == true)
+
 assert(ProjectileLogic.Speed == 72)
 local seconds = ProjectileLogic.travelSeconds(origin, dest, ProjectileLogic.Speed)
 assert(seconds > 0.4 and seconds < 0.6, "42-stud line at 72 studs/s is ~0.5s")
@@ -662,4 +748,4 @@ assert(RiverEpic.purseLine("Red", true, false) == "Blue holds Levi")
 assert(RiverEpic.purseLine("Blue", false, false) == nil)
 assert(RiverEpic.purseLine("Spectator", true, true) == "Blue + Red hold Levi")
 
-print("PASS: targeting modes, traveling projectile timing, sweep hits, flagship kit hooks, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi")
+print("PASS: targeting modes, aim preview clamp/warn, traveling projectile timing, sweep hits, flagship kit hooks, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge, Canal Levi")

@@ -2098,6 +2098,11 @@ local function clickRayParams(): RaycastParams
 			table.insert(ignore, cover)
 		end
 	end
+	-- Aim juice is CanQuery=false; keep it ignored so a future change cannot steal ground clicks.
+	local targeting = Workspace:FindFirstChild("MeoTargeting")
+	if targeting then
+		table.insert(ignore, targeting)
+	end
 	if #ignore > 0 then
 		params.FilterDescendantsInstances = ignore
 	end
@@ -2810,6 +2815,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		toast("Click or press again to cast · Esc / RMB cancel")
 		return
 	end
+	-- Instant heals/shields: fire once, never leave a ghost ring.
+	TargetingIndicator.hide()
 	castAbility(slot)
 end)
 
@@ -2891,19 +2898,30 @@ task.spawn(function()
 				end
 				hud.tips.tickContextual(atFountain, if mine then mine.gold else 0, hud.shop.root.Visible)
 			end
-			if armedSlot then
-				local ability = currentAbility(armedSlot)
-				local character = player.Character
-				local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-				if ability and root and root:IsA("BasePart") then
-					TargetingIndicator.show(ability, root.Position, aimPoint())
-				end
-			end
 		elseif latestMatch and latestMatch.phase == "Ended" then
 			applyVision()
 			hud.endScreen.update(latestMatch, player.UserId)
 		end
 	end
+end)
+
+-- Smooth aim follow while a line/dash is held or a ground AoE is armed.
+RunService.RenderStepped:Connect(function()
+	if not armedSlot or not latestMatch or latestMatch.phase ~= "InProgress" then
+		return
+	end
+	local ability = currentAbility(armedSlot)
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not ability or not root or not root:IsA("BasePart") then
+		return
+	end
+	local mode = Targeting.of(ability)
+	if mode == "instant" then
+		hideAim()
+		return
+	end
+	TargetingIndicator.show(ability, root.Position, aimPoint())
 end)
 
 print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. Last-seen ghosts are client-only. 4 trinket, 5 lens, 6 Control Yarn, 7 Yarn Cleave, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
