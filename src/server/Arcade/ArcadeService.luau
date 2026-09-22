@@ -40,6 +40,9 @@ type Session = {
 	eventUntil: number,
 	toast: string,
 	toastUntil: number,
+	tradeFlashId: string,
+	tradeAction: string,
+	tradeFlashUntil: number,
 	profit: number,
 	bestProfit: number,
 	dayKey: string,
@@ -68,12 +71,19 @@ end
 local function shout(session: Session, text: string, kind: string, hold: number?)
 	session.eventBanner = text
 	session.eventKind = kind
-	session.eventUntil = clockNow() + (hold or 1.6)
+	local defaultHold = if kind == "rug" or kind == "moon" then 2.35 elseif kind == "sneeze" then 1.9 else 1.6
+	session.eventUntil = clockNow() + (hold or defaultHold)
 end
 
 local function toast(session: Session, text: string, hold: number?)
 	session.toast = text
 	session.toastUntil = clockNow() + (hold or 1.1)
+end
+
+local function tradePulse(session: Session, tickerId: string, action: "buy" | "sell")
+	session.tradeFlashId = tickerId
+	session.tradeAction = action
+	session.tradeFlashUntil = clockNow() + 0.9
 end
 
 local function pricesOf(session: Session): { [string]: number }
@@ -129,6 +139,8 @@ local function snapshotOf(session: Session): Types.ArcadeSnapshot
 		eventBanner = if t < session.eventUntil then session.eventBanner else "",
 		eventKind = if t < session.eventUntil then session.eventKind else "",
 		toast = if t < session.toastUntil then session.toast else "",
+		tradeFlashId = if t < session.tradeFlashUntil then session.tradeFlashId else "",
+		tradeAction = if t < session.tradeFlashUntil then session.tradeAction else "",
 		disclaimer = ArcadeCatalog.Disclaimer,
 		dayKey = session.dayKey,
 		dailyRank = session.dailyRank,
@@ -256,8 +268,8 @@ local function driftTick(session: Session)
 			pick.change = pick.price - pick.last
 			pick.candles = ArcadeCatalog.pushCandle(pick.candles, pick.price)
 			pick.eventKind = kind
-			pick.eventUntil = clockNow() + 2.1
-			shout(session, ArcadeCatalog.eventLabel(kind, pick.def.ticker), kind, 1.85)
+			pick.eventUntil = clockNow() + 2.45
+			shout(session, ArcadeCatalog.eventLabel(kind, pick.def.ticker), kind)
 		end
 	end
 	if clockNow() >= session.phaseEnds then
@@ -361,6 +373,9 @@ function ArcadeService.start(player: Player): Types.TradeResult
 		eventUntil = clockNow() + 1.5,
 		toast = "",
 		toastUntil = 0,
+		tradeFlashId = "",
+		tradeAction = "",
+		tradeFlashUntil = 0,
 		profit = 0,
 		bestProfit = ModeService.arcadeBestOf(player.UserId),
 		dayKey = ArcadeCatalog.dayKey(unix),
@@ -428,17 +443,19 @@ function ArcadeService.input(player: Player, payload: unknown): Types.TradeResul
 		local nextCash, nextShares = ArcadeCatalog.afterBuy(session.cash, shares, live.price)
 		session.cash = nextCash
 		session.holdings[live.def.id] = nextShares
-		toast(session, `BUY {live.def.ticker}  {live.price}`, 0.7)
+		tradePulse(session, live.def.id, "buy")
+		toast(session, ArcadeCatalog.tradeToast("buy", live.def.ticker, live.price), 1.35)
 	else
 		if not ArcadeCatalog.canSell(shares) then
-			toast(session, "No shares", 0.9)
+			toast(session, "No bags to sell", 0.9)
 			fire(session)
 			return { ok = false, error = "No shares to sell." }
 		end
 		local nextCash, nextShares = ArcadeCatalog.afterSell(session.cash, shares, live.price)
 		session.cash = nextCash
 		session.holdings[live.def.id] = nextShares
-		toast(session, `SELL {live.def.ticker}  {live.price}`, 0.7)
+		tradePulse(session, live.def.id, "sell")
+		toast(session, ArcadeCatalog.tradeToast("sell", live.def.ticker, live.price), 1.35)
 	end
 	fire(session)
 	return { ok = true }

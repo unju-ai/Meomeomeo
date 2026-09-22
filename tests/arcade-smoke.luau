@@ -55,6 +55,13 @@ assert(ArcadeCatalog.profit(90, 100) == -10)
 assert(ArcadeCatalog.signedYarn(12) == "+12")
 assert(ArcadeCatalog.signedYarn(-3) == "-3")
 
+assert(ArcadeCatalog.tradeToast("buy", "LOAF", 8.5) == "BOUGHT LOAF  ·  8.5 yarn")
+assert(ArcadeCatalog.tradeToast("sell", "RUG", 9.8) == "SOLD RUG  ·  9.8 yarn")
+assert(ArcadeCatalog.settleScoreLine(12, 112) == "+12 yarn  ·  wallet 112")
+assert(ArcadeCatalog.settleScoreLine(-4.5, 95.5) == "-4.5 yarn  ·  wallet 95.5")
+assert(ArcadeCatalog.settleRankLine(3, 15) == "Daily #3  ·  high +15")
+assert(ArcadeCatalog.settleRankLine(nil, -2) == "Daily —  ·  high -2")
+
 local candles = ArcadeCatalog.pushCandle({}, 8)
 for i = 1, 10 do
 	candles = ArcadeCatalog.pushCandle(candles, 8 + i)
@@ -70,4 +77,4 @@ assert(typeof(ArcadeCatalog.dayKey(day)) == "string")
 assert(string.find(string.lower(ArcadeCatalog.Disclaimer), "yarn", 1, true))
 assert(string.find(string.lower(ArcadeCatalog.Disclaimer), "not real", 1, true) or string.find(string.lower(ArcadeCatalog.Disclaimer), "not a broker", 1, true))
 
-print("PASS: arcade catalog, yarn-only tape, moon/rug events, candles, daily seed")
+print("PASS: arcade catalog, yarn-only tape, moon/rug events, candles, trade/settle lines, daily seed")
