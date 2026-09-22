@@ -17,6 +17,7 @@ local folder: Folder? = nil
 local cells: { BasePart } = {}
 local explored: { boolean } = table.create(VisionLogic.CellCount, false)
 local lastMask: { number }? = nil
+local prevMask: { number }? = nil
 local enabled = false
 local built = false
 
@@ -95,6 +96,7 @@ function FogOfWar.resetExplored()
 		flags[i] = false
 	end
 	lastMask = nil
+	prevMask = nil
 end
 
 function FogOfWar.isExplored(index: number): boolean
@@ -128,6 +130,7 @@ function FogOfWar.apply(words: { number }?, exploredWords: { number }?)
 		end
 	end
 	local mask = words
+	prevMask = lastMask
 	lastMask = mask
 	for index = 1, VisionLogic.CellCount do
 		local part = cells[index]
@@ -152,6 +155,18 @@ function FogOfWar.isLit(x: number, z: number): boolean
 	local mask = lastMask
 	if typeof(mask) ~= "table" then
 		return true
+	end
+	return VisionLogic.bitOn(mask, VisionLogic.indexOf(x, z))
+end
+
+-- Previous vision mask. A death that arrives just after a cell goes dark can still paint.
+function FogOfWar.wasLit(x: number, z: number): boolean
+	if not enabled then
+		return false
+	end
+	local mask = prevMask
+	if typeof(mask) ~= "table" then
+		return false
 	end
 	return VisionLogic.bitOn(mask, VisionLogic.indexOf(x, z))
 end

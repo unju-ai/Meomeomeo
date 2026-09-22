@@ -16,8 +16,11 @@ local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForC
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local RecallJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallJuice"))
 local RespawnJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RespawnJuice"))
+local StructureDeathJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureDeathJuice"))
+local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
+local CameraFollow = require(script.Parent.Parent.CameraFollow)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
 local FogOfWar = require(script.Parent.FogOfWar)
 local CombatFx = {}
@@ -66,6 +69,7 @@ local loopBound = false
 local floatsEnabled = false
 local activeAllowed = false
 local recallAllowed = false
+local structureJuiceAllowed = false
 local suppressRecallUntil: { [number]: number } = {}
 local floatPops: { FloatPop } = {}
 local floatMergeSlots: { CombatFloat.MergeSlot } = {}
@@ -1278,18 +1282,162 @@ local function playTowerShot(event: Types.CombatFxEvent)
 	release(bolt, 0.2)
 end
 
-local function playStructureDeath(event: Types.CombatFxEvent)
-	local scale = if event.structureKind == "Nexus" then 1.5 elseif event.tier == "Inner" then 1.2 else 1
-	local puffColor = if event.tier == "Inner" then Color3.fromRGB(255, 176, 72) else Theme.peach
-	placeBurst(event.origin, puffColor, 3.2 * scale, 0.4)
+local function siteReadable(x: number, z: number, allySide: boolean): boolean
+	return StructureDeathJuice.shouldPaint(allySide, FogOfWar.isLit(x, z), FogOfWar.wasLit(x, z))
+end
+
+local function playPostFall(origin: Vector3)
+	local wood = rgbOf(StructureDeathJuice.Wood)
+	local cream = rgbOf(StructureDeathJuice.Cream)
+	local lantern = rgbOf(StructureDeathJuice.Lantern)
+	local life = StructureDeathJuice.life("post")
+	local foot = Vector3.new(origin.X, StructureDeathJuice.GroundY, origin.Z)
+	placeBurst(origin, cream, 2.4, life)
+	for i = 1, 4 do
+		local angle = (i - 1) * (math.pi / 2)
+		local at = origin + Vector3.new(math.cos(angle) * 2.4, 1.2 + (i % 2) * 0.8, math.sin(angle) * 2.4)
+		local plank = takePart("PostPlank")
+		plank.Shape = Enum.PartType.Block
+		plank.Size = Vector3.new(1.6, 0.28, 0.48)
+		plank.CFrame = CFrame.new(at) * CFrame.Angles(0.4, angle, 0.6)
+		flashPart(plank, wood, 0.08)
+		plank.Material = Enum.Material.Wood
+		release(plank, life)
+	end
+	for i = 1, 2 do
+		local dust = takePart("PostDust")
+		dust.Shape = Enum.PartType.Ball
+		dust.Size = Vector3.new(1.5, 1.1, 1.5)
+		dust.CFrame = CFrame.new(foot + Vector3.new((i - 1.5) * 1.6, 0.6, 0))
+		flashPart(dust, cream, 0.28)
+		dust.Material = Enum.Material.SmoothPlastic
+		release(dust, life)
+	end
+	local lamp = takePart("PostLantern")
+	lamp.Shape = Enum.PartType.Ball
+	lamp.Size = Vector3.new(0.9, 0.9, 0.9)
+	lamp.CFrame = CFrame.new(origin + Vector3.new(0.6, 2.2, -0.4))
+	flashPart(lamp, lantern, 0.12)
+	emitSpark(lamp, lantern, 6)
+	release(lamp, life * 0.85)
+end
+
+local function playStallFall(origin: Vector3)
+	local lantern = rgbOf(StructureDeathJuice.Lantern)
+	local wood = rgbOf(StructureDeathJuice.GateWood)
+	local life = StructureDeathJuice.life("stall")
+	placeBurst(origin, lantern, 3.4, life)
+	for i = 1, 5 do
+		local angle = (i / 5) * math.pi * 2
+		local lamp = takePart("StallLantern")
+		lamp.Shape = Enum.PartType.Ball
+		lamp.Size = Vector3.new(1.15, 1.35, 1.15)
+		lamp.CFrame = CFrame.new(origin + Vector3.new(math.cos(angle) * 2.6, 1.4, math.sin(angle) * 2.6))
+		flashPart(lamp, lantern, 0.1)
+		emitSpark(lamp, lantern, 4)
+		release(lamp, life)
+	end
+	local awning = takePart("StallAwning")
+	awning.Shape = Enum.PartType.Block
+	awning.Size = Vector3.new(3.2, 0.22, 1.4)
+	awning.CFrame = CFrame.new(origin + Vector3.new(0, 2.6, 0)) * CFrame.Angles(0.35, 0.2, 0)
+	flashPart(awning, wood, 0.15)
+	awning.Material = Enum.Material.Wood
+	release(awning, life)
+end
+
+local function playCoreFall(origin: Vector3)
+	local yarn = rgbOf(StructureDeathJuice.Yarn)
+	local cream = rgbOf(StructureDeathJuice.Cream)
+	local life = StructureDeathJuice.life("core")
+	placeBurst(origin, yarn, 4.2, life)
 	for i = 1, 6 do
-		local puff = takePart(`Puff{i}`)
 		local angle = (i / 6) * math.pi * 2
-		puff.Shape = Enum.PartType.Ball
-		puff.Size = Vector3.new(1.1, 1.1, 1.1) * scale
-		puff.CFrame = CFrame.new(event.origin + Vector3.new(math.cos(angle) * 3 * scale, 2, math.sin(angle) * 3 * scale))
-		flashPart(puff, puffColor, 0.25)
-		release(puff, 0.42)
+		local dir = Vector3.new(math.cos(angle), 0.15, math.sin(angle))
+		local mid = origin + dir * 2.2 + Vector3.new(0, 1.2, 0)
+		local strand = takePart("YarnStrand")
+		strand.Shape = Enum.PartType.Block
+		strand.Size = Vector3.new(0.22, 0.22, 2.8)
+		strand.CFrame = CFrame.lookAt(mid, mid + dir)
+		flashPart(strand, yarn, 0.12)
+		release(strand, life)
+	end
+	for i = 1, 2 do
+		local knot = takePart("YarnKnot")
+		knot.Shape = Enum.PartType.Ball
+		knot.Size = Vector3.new(1.2, 1.2, 1.2)
+		local angle = i * 2.2
+		local tint = if i == 1 then yarn else cream
+		knot.CFrame = CFrame.new(origin + Vector3.new(math.cos(angle) * 1.4, 2.4, math.sin(angle) * 1.4))
+		flashPart(knot, tint, 0.18)
+		emitSpark(knot, yarn, 5)
+		release(knot, life)
+	end
+end
+
+local function playGateOpen(at: Vector3)
+	local mint = rgbOf(StructureDeathJuice.Mint)
+	local wood = rgbOf(StructureDeathJuice.GateWood)
+	local life = StructureDeathJuice.GateSeconds
+	local ground = Vector3.new(at.X, StructureDeathJuice.GroundY, at.Z)
+	placeRing(ground, 4.2, mint, life)
+	for _, side in { -1, 1 } do
+		local post = takePart("GatePost")
+		post.Shape = Enum.PartType.Block
+		post.Size = Vector3.new(0.45, 2.4, 0.45)
+		post.CFrame = CFrame.new(ground + Vector3.new(side * 2.1, 1.2, 0))
+		flashPart(post, wood, 0.12)
+		post.Material = Enum.Material.Wood
+		release(post, life)
+	end
+	local glow = takePart("GateMint")
+	glow.Shape = Enum.PartType.Ball
+	glow.Size = Vector3.new(0.7, 0.7, 0.7)
+	glow.CFrame = CFrame.new(ground + Vector3.new(0, 1.4, 0))
+	flashPart(glow, mint, 0.35)
+	emitSpark(glow, mint, 3)
+	release(glow, life)
+end
+
+local function playStructureDeath(event: Types.CombatFxEvent)
+	if not structureJuiceAllowed then
+		return
+	end
+	local look = StructureDeathJuice.look(event.structureKind, event.tier)
+	local mine = localTeamId()
+	local ally = event.team ~= nil and mine ~= nil and event.team == mine
+	if not siteReadable(event.origin.X, event.origin.Z, ally) then
+		return
+	end
+	if look == "stall" then
+		playStallFall(event.origin)
+	elseif look == "core" then
+		playCoreFall(event.origin)
+	else
+		playPostFall(event.origin)
+	end
+	local lp = Players.LocalPlayer
+	local root = if lp then rootOf(lp.UserId) else nil
+	if root and CameraFollow.isEnabled() then
+		local flat = Vector3.new(event.origin.X - root.Position.X, 0, event.origin.Z - root.Position.Z)
+		if StructureDeathJuice.wantsThump(true, flat.Magnitude) then
+			CameraFollow.shake(StructureDeathJuice.thumpAmp(look), StructureDeathJuice.ThumpSeconds)
+		end
+	end
+	local gates = event.gates
+	if gates == nil then
+		return
+	end
+	for _, gateId in gates do
+		if typeof(gateId) == "string" then
+			local def = StructureLogic.get(gateId)
+			if def then
+				local gateAlly = mine ~= nil and def.team == mine
+				if siteReadable(def.x, def.z, gateAlly) then
+					playGateOpen(Vector3.new(def.x, def.y, def.z))
+				end
+			end
+		end
 	end
 end
 
@@ -1551,6 +1699,10 @@ end
 
 function CombatFx.setActiveJuiceAllowed(on: boolean)
 	activeAllowed = on
+end
+
+function CombatFx.setStructureJuiceAllowed(on: boolean)
+	structureJuiceAllowed = on
 end
 
 function CombatFx.setFloatsEnabled(enabled: boolean)

@@ -64,8 +64,20 @@ function CameraFollow.isEnabled(): boolean
 end
 
 function CameraFollow.shake(amplitude: number, duration: number)
-	shakeAmp = math.max(0, amplitude)
-	shakeUntil = os.clock() + math.max(0, duration)
+	local amp = math.max(0, amplitude)
+	local untilAt = os.clock() + math.max(0, duration)
+	if os.clock() >= shakeUntil then
+		shakeAmp = amp
+		shakeUntil = untilAt
+		return
+	end
+	-- Overlapping cues keep the stronger thump (kill feed, then a close structure take).
+	if amp > shakeAmp then
+		shakeAmp = amp
+	end
+	if untilAt > shakeUntil then
+		shakeUntil = untilAt
+	end
 end
 
 return CameraFollow

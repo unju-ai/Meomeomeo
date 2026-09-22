@@ -1914,6 +1914,9 @@ end)
 
 Remotes.event("CombatFx").OnClientEvent:Connect(function(payload)
 	CombatFx.setActiveJuiceAllowed(gameMode == "Moba" and recallPhase() == "InProgress")
+	-- Same gate as StructureDeathJuice.modeAllows. No extra local: this script is at the register cap.
+	local structurePhase = recallPhase()
+	CombatFx.setStructureJuiceAllowed(gameMode == "Moba" and (structurePhase == "InProgress" or structurePhase == "Ended"))
 	if typeof(payload) == "table" and (payload :: any).kind == "recall" then
 		local duration = (payload :: any).duration
 		local origin = (payload :: any).origin
