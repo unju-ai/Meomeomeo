@@ -20,6 +20,7 @@ local StallBoardPanel = require(script.Parent.StallBoardPanel)
 local MintPanel = require(script.Parent.MintPanel)
 local ClosetPanel = require(script.Parent.ClosetPanel)
 local NpcChatPanel = require(script.Parent.NpcChatPanel)
+local EconomyChip = require(script.Parent.EconomyChip)
 local EndScreen = require(script.Parent.EndScreen)
 local KillFeed = require(script.Parent.KillFeed)
 local DeathRecap = require(script.Parent.DeathRecap)
@@ -55,6 +56,7 @@ export type HudApi = {
 	shop: ShopPanel.ShopApi,
 	minimap: Minimap.MinimapApi,
 	scoreboard: Scoreboard.BoardApi,
+	economy: EconomyChip.ChipApi,
 	feed: KillFeed.FeedApi,
 	recap: DeathRecap.RecapApi,
 	endScreen: EndScreen.EndApi,
@@ -135,6 +137,7 @@ function Hud.create(): HudApi
 	local feed = KillFeed.create(gui)
 	local recap = DeathRecap.create(gui)
 	local scoreboard = Scoreboard.create(gui)
+	local economy = EconomyChip.create(gui)
 	local endScreen = EndScreen.create(gui)
 	local startVolume = player:GetAttribute(Constants.Attributes.SfxVolume)
 	local startMuted = player:GetAttribute(Constants.Attributes.SfxMuted)
@@ -164,6 +167,7 @@ function Hud.create(): HudApi
 		endScreen.setVisible(false)
 		shop.setVisible(false)
 		scoreboard.setVisible(false)
+		economy.setVisible(false)
 	end
 
 	local function applyPhase(snapshot: Types.MatchSnapshot, localUserId: number)
@@ -182,7 +186,12 @@ function Hud.create(): HudApi
 			closet.setVisible(false)
 		end
 		select.setVisible(phase == "ChampionSelect")
+		local mine = snapshot.players[tostring(localUserId)]
 		abilities.setVisible(phase == "InProgress")
+		economy.setVisible(phase == "InProgress" and mine ~= nil)
+		if phase == "InProgress" and mine then
+			economy.update(mine)
+		end
 		minimap.setVisible(phase == "InProgress")
 		feed.setVisible(phase == "InProgress" or phase == "Ended")
 		if phase ~= "InProgress" then
@@ -200,7 +209,6 @@ function Hud.create(): HudApi
 			select.update(snapshot, localUserId)
 			banner.Text = if snapshot.practice then "Practice draft" else "Champion select"
 		elseif phase == "InProgress" then
-			local mine = snapshot.players[tostring(localUserId)]
 			banner.Text = if mine
 				then `{mine.team} · H help · Tab · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens · 7 cleave`
 				else "Spectating"
@@ -320,6 +328,7 @@ function Hud.create(): HudApi
 		shop = shop,
 		minimap = minimap,
 		scoreboard = scoreboard,
+		economy = economy,
 		feed = feed,
 		recap = recap,
 		endScreen = endScreen,

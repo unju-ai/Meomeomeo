@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -515,13 +516,14 @@ end
 function MatchService.init(cleared: () -> ())
 	onMatchCleared = cleared
 
+	-- Tower and nexus gold only. Does not touch CS. Last hits go through FarmCredit.
 	local function addGold(userId: number, amount: number)
 		if not current then
 			return
 		end
 		local matchPlayer = current.players[tostring(userId)]
 		if matchPlayer then
-			matchPlayer.gold += amount
+			FarmCredit.apply(matchPlayer, FarmCredit.bounty(amount))
 			broadcast()
 		end
 	end
@@ -581,7 +583,7 @@ function MatchService.init(cleared: () -> ())
 				local k = current.players[tostring(killerUserId)]
 				if k then
 					k.kills += 1
-					k.gold += Config.Match.KillGold
+					FarmCredit.apply(k, FarmCredit.bounty(Config.Match.KillGold))
 					grantXp(killerUserId, Config.Match.KillXp)
 					if k.championId then
 						MemeStockService.bumpChampion(k.championId, 0.12)
@@ -592,7 +594,7 @@ function MatchService.init(cleared: () -> ())
 					local helperMatch = current.players[tostring(helperId)]
 					if helperMatch then
 						helperMatch.assists += 1
-						helperMatch.gold += Config.Match.AssistGold
+						FarmCredit.apply(helperMatch, FarmCredit.bounty(Config.Match.AssistGold))
 						grantXp(helperId, Config.Match.AssistXp)
 						table.insert(assistNames, helperMatch.displayName)
 					end
@@ -657,15 +659,20 @@ function MatchService.init(cleared: () -> ())
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
 		onLastHit = function(userId: number, gold: number)
+			local credited = false
 			if current then
 				local matchPlayer = current.players[tostring(userId)]
 				if matchPlayer then
-					matchPlayer.cs += 1
+					FarmCredit.apply(matchPlayer, FarmCredit.lastHit(gold))
+					credited = true
 				end
 			end
 			grantXp(userId, Config.Match.MinionXp)
-			addGold(userId, gold)
+			if credited then
+				broadcast()
+			end
 		end,
+		-- Nearby allies get XP only. The last hitter already took CS and gold.
 		onMinionDied = function(position: Vector3, minionTeam: Types.TeamId, lastHitterUserId: number?)
 			if not current then
 				return
@@ -700,14 +707,18 @@ function MatchService.init(cleared: () -> ())
 		damageUser = CombatService.applyDamageToUser,
 		rootOf = CombatService.rootOf,
 		onClear = function(userId: number, gold: number, xp: number)
+			local credited = false
 			if current then
 				local matchPlayer = current.players[tostring(userId)]
 				if matchPlayer then
-					matchPlayer.cs += 1
+					FarmCredit.apply(matchPlayer, FarmCredit.lastHit(gold))
+					credited = true
 				end
 			end
 			grantXp(userId, xp)
-			addGold(userId, gold)
+			if credited then
+				broadcast()
+			end
 		end,
 		onDied = function(position: Vector3, lastHitterUserId: number?)
 			if not current then
