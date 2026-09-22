@@ -27,6 +27,7 @@ export type Cue =
 	| "EmoteGG"
 	| "PingSoft"
 	| "PingWarn"
+	| "CoinTick"
 
 export type CueDef = {
 	id: string,
@@ -146,6 +147,12 @@ local SoundIds: { [Cue]: CueDef } = {
 		id = "rbxasset://sounds/snap.wav",
 		volume = 0.3,
 		playbackSpeed = 1.15,
+	},
+	-- Soft last-hit tick. Quieter and shorter than a Pawmart buy.
+	CoinTick = {
+		id = "rbxasset://sounds/switch.wav",
+		volume = 0.16,
+		playbackSpeed = 1.42,
 	},
 }
 

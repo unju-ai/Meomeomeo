@@ -375,6 +375,7 @@ export type CombatFxKind =
 	| "lens"
 	| "charm"
 	| "float"
+	| "lastHit"
 
 export type CombatFxEvent = {
 	kind: CombatFxKind,

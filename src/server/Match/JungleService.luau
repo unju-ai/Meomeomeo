@@ -34,7 +34,7 @@ type Api = {
 	matchElapsed: () -> number,
 	damageUser: (userId: number, amount: number, note: Types.DamageNote?) -> (),
 	rootOf: (userId: number) -> BasePart?,
-	onClear: (userId: number, gold: number, xp: number) -> (),
+	onClear: (userId: number, gold: number, xp: number, position: Vector3) -> (),
 	onDied: (position: Vector3, lastHitterUserId: number?) -> (),
 	onEpicPhase: (phase: string, respawnAt: number?) -> (),
 	-- Death only. phase is the post-kill clock so the grant and the phase
@@ -358,7 +358,7 @@ function JungleService.applyDamage(attackerUserId: number?, jungleId: string, am
 		end
 		if api then
 			if attackerUserId then
-				api.onClear(attackerUserId, monster.gold, monster.xp)
+				api.onClear(attackerUserId, monster.gold, monster.xp, pos)
 			end
 			api.onDied(pos, attackerUserId)
 		end

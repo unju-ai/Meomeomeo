@@ -17,8 +17,10 @@ CombatFloat.DamageCoral = { 255, 122, 98 }
 CombatFloat.HealMint = { 120, 196, 150 }
 CombatFloat.ShieldMint = { 150, 214, 180 }
 CombatFloat.Ink = { 52, 36, 32 }
+-- Last-hit gold only. Damage numbers stay cream / coral.
+CombatFloat.GoldAmber = { 255, 196, 74 }
 
-export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute"
+export type FloatKind = "damage" | "heal" | "shield" | "crit" | "execute" | "gold"
 
 function CombatFloat.format(amount: number): string
 	if amount <= 0 then
@@ -54,7 +56,7 @@ function CombatFloat.textSize(kind: FloatKind): number
 	if kind == "crit" or kind == "execute" then
 		return 28
 	end
-	if kind == "heal" or kind == "shield" then
+	if kind == "heal" or kind == "shield" or kind == "gold" then
 		return 20
 	end
 	return 22
@@ -70,21 +72,25 @@ function CombatFloat.rgb(kind: FloatKind): { number }
 	if kind == "crit" or kind == "execute" then
 		return CombatFloat.DamageCoral
 	end
+	if kind == "gold" then
+		return CombatFloat.GoldAmber
+	end
 	return CombatFloat.DamageCream
 end
 
 function CombatFloat.prefix(kind: FloatKind): string
-	if kind == "heal" then
-		return "+"
-	end
-	if kind == "shield" then
+	if kind == "heal" or kind == "shield" or kind == "gold" then
 		return "+"
 	end
 	return ""
 end
 
 function CombatFloat.label(kind: FloatKind, amount: number): string
-	return `{CombatFloat.prefix(kind)}{CombatFloat.format(amount)}`
+	local body = `{CombatFloat.prefix(kind)}{CombatFloat.format(amount)}`
+	if kind == "gold" then
+		return `{body}g`
+	end
+	return body
 end
 
 -- Snap near-simultaneous hits on the same body/cell so Yarn Cleave does not carpet.
@@ -100,13 +106,26 @@ export type MergeSlot = {
 	amount: number,
 	kind: FloatKind,
 	bornAt: number,
+	-- Last-hit pops only. Damage merges leave this unset.
+	count: number?,
 }
 
 -- Merge into an existing open slot, or nil if a new pop should spawn.
-function CombatFloat.tryMerge(slots: { MergeSlot }, key: string, kind: FloatKind, amount: number, now: number): MergeSlot?
+-- count, when passed, sums a second tally (CS) without touching damage merges.
+function CombatFloat.tryMerge(
+	slots: { MergeSlot },
+	key: string,
+	kind: FloatKind,
+	amount: number,
+	now: number,
+	count: number?
+): MergeSlot?
 	for _, slot in slots do
 		if slot.key == key and slot.kind == kind and (now - slot.bornAt) <= CombatFloat.MergeWindow then
 			slot.amount += amount
+			if count ~= nil and count > 0 then
+				slot.count = (slot.count or 0) + count
+			end
 			return slot
 		end
 	end
