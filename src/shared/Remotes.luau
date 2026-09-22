@@ -38,6 +38,9 @@ export type RemoteName =
 	| "PlaceControl"
 	| "UseLens"
 	| "InviteParty"
+	| "AcceptPartyInvite"
+	| "DeclinePartyInvite"
+	| "LeaveParty"
 	| "GetQueueStatus"
 	| "GetTutorialStatus"
 	| "SetTutorialDone"
@@ -121,6 +124,9 @@ local FUNCTION_NAMES = {
 	"PlaceControl",
 	"UseLens",
 	"InviteParty",
+	"AcceptPartyInvite",
+	"DeclinePartyInvite",
+	"LeaveParty",
 	"GetQueueStatus",
 	"GetTutorialStatus",
 	"SetTutorialDone",

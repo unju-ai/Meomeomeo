@@ -191,14 +191,25 @@ Hats, collars, shades, and trails/auras. **Parts only** (no meshes). **Play yarn
 
 Help overlay lists Closet on the hub sheet. ModeService gates are unchanged.
 
-## 4. Queue (2+ clients)
+## 4. Queue and same-server party (2+ clients)
 
-Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this server**), `PadQueueWithBots = true` (fill to 3 per side).
+Defaults: `MinPlayersToStart = 2`, `MatchPlaceId = 0` (match starts **in this server**), `PadQueueWithBots = true` (fill to 3 per side). Party queue does not change those defaults and does not require a reserved server.
 
 1. Two Studio clients (Team Test / local server + players) or two published clients.
-2. Both hit **Queue**. HUD shows count / ETA.
+2. With no party, both hit **Queue**. HUD shows count / ETA. Two solos can land on opposite teams.
 3. On **Match found** you should hear the stinger. With `MatchPlaceId = 0` (or Studio), draft starts **in place**.
-4. Optional lobby **Invite** adds another player in this same server to your party stub.
+4. **Invite** is same-server only (not Roblox friends, not cross-server):
+   - Cat Rift stall → **Invite {name}** (Next cycles when more than one other cat is here).
+   - The other cat gets **Accept** / **Decline** for 20 seconds, including a toast if they are still on the hub grid.
+   - **Accept** makes one party. The line reads `Party · You (leader) · Sam` or `Party · Alex (leader) · You`. Solo reads `Party · solo`.
+   - **Decline**, **Leave party**, or letting the invite expire clears it. A disconnect clears it too. Nobody stays stuck on an old party card.
+5. **Queue together:** only the leader's **Queue party** enters every party member who is free in the hub. A member who hits **Leader queues** gets a clear no and does not solo-queue. Leader **Cancel queue** pulls the whole party and tells them. A member can leave the queue alone; the leader is told. If the leader is already queued when someone accepts, that cat joins the queue too.
+6. **Practice:** leader **Practice with party** starts one in-place Practice. Party humans share **Blue**. Three red bots are the enemy (`PracticeAllies` stays 0, so a party of two is 2v3). Solo **Practice vs 3 bots** is unchanged while the line says solo. **Practice again** on the end screen brings the same party. `MatchPlaceId` can stay `0`. Practice never reserves a server.
+7. Someone in Yarn Run, Koi Pond, Yarn Party, or Meme Arcade is not pulled into the queue or Practice. The leader is told they stayed in that stall.
+
+A party that queues into a real match shares one team. The other side is the other party, solos, or bots. Two unpartied cats still split Blue / Red.
+
+Smoke for the decision layer (not a Studio substitute): `python3 tools/test-rift-party.py /path/to/luau`.
 
 Reserved teleports need a **published** experience and a real `MatchPlaceId` — see §7. Studio `ReserveServer` fails closed and starts in-place.
 
@@ -224,6 +235,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **V** | Toggle locked follow camera |
 | **Audio** (top-right) | SFX slider + mute, Music slider + mute (independent, quieter default), mute others' emotes, **Hide my name** (boards show **Anonymous Cat**). Mix + hide-name + last Practice difficulty persist (`MeoSettings_v1`) |
 | **Closet** | Hub / Cat Rift wardrobe — hats + trails, yarn points (not Robux) |
+| **Invite** (Cat Rift) | Same server. They **Accept** within 20s. Leader **Queue party** or **Practice with party**. **Decline**, **Leave party**, or expiry returns the line to solo |
 | **?** or hold **H** | This help overlay |
 | Minimap click | Generic **Attention** ping (team-only). History dots linger on the map |
 | Talk prompt | Fountain / jungle NPC chat (Kitty Caster, clerks, Old Tom) |
@@ -237,7 +249,7 @@ Same list as the in-game **?** / hold **H** panel.
 | **1–5** (Meme Arcade) | Buy 1 yarn bag of LOAF / NYAN / CHNK / BRAIN / RUG |
 | **Shift+1–5** (Meme Arcade) | Sell 1 bag at the listed yarn price |
 
-Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Closet**, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue**, **Leave queue**, **Practice**, **Invite**, **Closet**, **← Hub**.
+Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade** tiles, **Closet**, **Mint 404**, Audio, **T** emotes, **?**. Cat Rift stall: **Queue** / **Queue party**, **Leave queue**, **Practice**, **Invite**, **Accept** / **Decline**, **Leave party**, **Closet**, **← Hub**. Party line shows the leader and members, or **solo**.
 
 ### Combat notes (Cat Rift)
 
