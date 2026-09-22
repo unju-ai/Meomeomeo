@@ -4,6 +4,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -14,6 +15,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
 local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
+local RecallLogic = require(Shared:WaitForChild("RecallLogic"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
@@ -389,7 +391,94 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	applyVision()
 end
 
+-- WASD, arrows, jump, and the engine stick. W is also an ability; a fresh press is still a move order.
+local MOVE_KEYS: { Enum.KeyCode } = {
+	Enum.KeyCode.W,
+	Enum.KeyCode.A,
+	Enum.KeyCode.S,
+	Enum.KeyCode.D,
+	Enum.KeyCode.Up,
+	Enum.KeyCode.Down,
+	Enum.KeyCode.Left,
+	Enum.KeyCode.Right,
+	Enum.KeyCode.Space,
+}
+
+local recallLatch = {
+	active = false,
+	heldAtStart = false,
+	sawRest = false,
+}
+local recallMoveSent = false
+local stickControls: any = nil
+local stickLookup = false
+
+local function stickMoving(): boolean
+	if not stickLookup then
+		local scripts = player:FindFirstChild("PlayerScripts")
+		if not scripts then
+			return false
+		end
+		stickLookup = true
+		local moduleScript = scripts:FindFirstChild("PlayerModule")
+		if moduleScript and moduleScript:IsA("ModuleScript") then
+			local ok, result = pcall(require, moduleScript)
+			if ok and type(result) == "table" and type((result :: any).GetControls) == "function" then
+				local okControls, controls = pcall(function()
+					return (result :: any):GetControls()
+				end)
+				if okControls then
+					stickControls = controls
+				end
+			end
+		end
+	end
+	if type(stickControls) ~= "table" or type(stickControls.GetMoveVector) ~= "function" then
+		return false
+	end
+	local ok, vec = pcall(function()
+		return stickControls:GetMoveVector()
+	end)
+	if not ok or typeof(vec) ~= "Vector3" then
+		return false
+	end
+	return vec.Magnitude > 0.2
+end
+
+local function keyboardMoving(): boolean
+	if UserInputService:GetFocusedTextBox() then
+		return false
+	end
+	for _, key in MOVE_KEYS do
+		if UserInputService:IsKeyDown(key) then
+			return true
+		end
+	end
+	return false
+end
+
+local function movementIntent(): boolean
+	return keyboardMoving() or stickMoving()
+end
+
+local function noteRecallChannel(recalling: boolean)
+	if recalling then
+		if not recallLatch.active then
+			recallLatch.active = true
+			recallLatch.heldAtStart = movementIntent()
+			recallLatch.sawRest = false
+			recallMoveSent = false
+		end
+	else
+		recallLatch.active = false
+		recallLatch.heldAtStart = false
+		recallLatch.sawRest = false
+		recallMoveSent = false
+	end
+end
+
 local function applyCombatJuice(state: Types.CombatState)
+	noteRecallChannel(state.recalling)
 	local prev = juiceCombat
 	juiceCombat = state
 	if not prev then
@@ -1771,6 +1860,53 @@ local function reportAttack(result: any, cue: string?)
 	end
 end
 
+local recallMoveBusy = false
+
+-- Nil position: cancel and let WASD / stick drive. A ground point walks there without attacking.
+local function requestMove(position: Vector3?)
+	if recallMoveSent or recallMoveBusy or gameMode ~= "Moba" then
+		return
+	end
+	if not latestMatch or latestMatch.phase ~= "InProgress" then
+		return
+	end
+	if not latestCombat or not latestCombat.recalling then
+		return
+	end
+	recallMoveSent = true
+	recallMoveBusy = true
+	local ok, result = pcall(function()
+		return Remotes.function_("IssueMove"):InvokeServer(position)
+	end)
+	recallMoveBusy = false
+	local accepted = ok and typeof(result) == "table" and (result :: any).ok ~= false
+	if accepted then
+		reportAttack(result)
+	end
+	if not accepted or (latestCombat and latestCombat.recalling) then
+		recallMoveSent = false
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	if not recallLatch.active or recallMoveSent or recallMoveBusy or gameMode ~= "Moba" then
+		return
+	end
+	if UserInputService:GetFocusedTextBox() then
+		return
+	end
+	local moving = movementIntent()
+	if not moving then
+		if recallLatch.heldAtStart then
+			recallLatch.sawRest = true
+		end
+		return
+	end
+	if RecallLogic.isNewMoveOrder(recallLatch.heldAtStart, true, recallLatch.sawRest) then
+		requestMove(nil)
+	end
+end)
+
 local attackMoveArmed = false
 
 local function currentAbility(slot: Types.AbilitySlot): Types.AbilityDef?
@@ -2129,6 +2265,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		elseif attackMoveArmed then
 			attackMoveArmed = false
 			reportAttack(Remotes.function_("AttackMove"):InvokeServer(attackMovePoint()))
+		elseif latestCombat and latestCombat.recalling then
+			requestMove(aimPoint())
 		end
 		return
 	end

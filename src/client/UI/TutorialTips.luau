@@ -48,7 +48,7 @@ local SEQUENCE: { Tip } = {
 	{
 		id = "recall",
 		title = "Recall (F)",
-		body = "F channels 7s back to fountain. Damage, moving too far, attacks, or S / F again cancel it.",
+		body = "F channels 7s back to fountain. A new move, ground click, attack, or cast cancels it right away. Damage cancels too.",
 	},
 	{
 		id = "ward",

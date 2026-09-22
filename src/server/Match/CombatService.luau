@@ -7,6 +7,7 @@ local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChil
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
+local RecallLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RecallLogic"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
@@ -34,7 +35,7 @@ type MatchApi = {
 }
 
 type AttackLock = {
-	kind: "player" | "minion" | "objective" | "jungle" | "ward",
+	kind: "player" | "minion" | "objective" | "jungle" | "ward" | "move",
 	userId: number?,
 	minionId: string?,
 	objectiveId: string?,
@@ -58,6 +59,7 @@ local boundModels: { [number]: Model } = {}
 local tickAutoAttack: (userId: number) -> ()
 local tickShots: () -> ()
 local interruptRecall: (player: Player) -> ()
+local breakRecall: (player: Player?, order: string) -> ()
 
 export type AbilityCast = {
 	userId: number,
@@ -216,6 +218,13 @@ interruptRecall = function(player: Player)
 		userId = player.UserId,
 		duration = 0,
 	})
+end
+
+-- Orders that break the channel. F-again, death, and the shove check call interruptRecall directly.
+breakRecall = function(player: Player?, order: string)
+	if player and RecallLogic.breaksChannel(order) then
+		interruptRecall(player)
+	end
 end
 
 local function completeRecall(player: Player)
@@ -562,7 +571,8 @@ function CombatService.init(api: MatchApi)
 				if player and state.recalling and state.alive then
 					local root = rootOf(userId)
 					local origin = recallOrigin[userId]
-					if root and origin and (root.Position - origin).Magnitude > Config.Combat.RecallMoveCancel then
+					-- Orders cancel immediately. This only catches a shove while rooted.
+					if root and origin and RecallLogic.movedTooFar((root.Position - origin).Magnitude, Config.Combat.RecallMoveCancel) then
 						interruptRecall(player)
 					end
 				end
@@ -705,10 +715,7 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	end
 	local reduced = amount * (1 - (state.armor or 0))
 	if reduced > 0 then
-		local targetPlayer = playerOf(targetUserId)
-		if targetPlayer then
-			interruptRecall(targetPlayer)
-		end
+		breakRecall(playerOf(targetUserId), "damage")
 	end
 	local remaining = reduced
 	if (state.shield or 0) > 0 then
@@ -916,6 +923,8 @@ local function pushCombat(userId: number)
 			state.attackTarget = lock.objectiveId or "structure"
 		elseif lock.kind == "ward" then
 			state.attackTarget = "ward"
+		elseif lock.kind == "move" then
+			state.attackTarget = nil
 		end
 	else
 		state.attackTarget = nil
@@ -1104,7 +1113,8 @@ tickAutoAttack = function(userId: number)
 	end
 
 	local lock = locks[userId]
-	if lock and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId and not lock.wardId then
+	-- Pure move orders walk. They do not auto-acquire (that is attack-move).
+	if lock and lock.kind ~= "move" and not lock.userId and not lock.minionId and not lock.objectiveId and not lock.jungleId and not lock.wardId then
 		local acquired = acquireNear(userId, matchPlayer.team, root.Position)
 		if acquired then
 			acquired.moveTo = lock.moveTo
@@ -1208,9 +1218,7 @@ function CombatService.issueAttackFor(userId: number, request: unknown): Types.A
 	local kind = (request :: any).kind
 	local player = playerOf(userId)
 	if kind == "stop" then
-		if player then
-			interruptRecall(player)
-		end
+		breakRecall(player, "stop")
 		locks[userId] = nil
 		pushCombat(userId)
 		return { ok = true, combat = state }
@@ -1290,9 +1298,7 @@ function CombatService.issueAttackFor(userId: number, request: unknown): Types.A
 		return { ok = false, error = "Unknown attack." }
 	end
 
-	if player then
-		interruptRecall(player)
-	end
+	breakRecall(player, "attack")
 	locks[userId] = lock
 	pushCombat(userId)
 	tickAutoAttack(userId)
@@ -1352,10 +1358,40 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 			dest = best
 		end
 	end
-	interruptRecall(player)
+	breakRecall(player, "attackMove")
 	locks[player.UserId] = { kind = "player", moveTo = dest }
 	pushCombat(player.UserId)
 	tickAutoAttack(player.UserId)
+	return { ok = true, combat = state }
+end
+
+-- WASD / stick passes nil (engine locomotion resumes). A ground click passes a point
+-- and walks there without acquiring a target. Ignored once the channel is already down.
+function CombatService.issueMove(player: Player, position: unknown): Types.AbilityResult
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	if not snapshot or snapshot.phase ~= "InProgress" then
+		return { ok = false, error = "Match is not in progress." }
+	end
+	local state = combat[player.UserId]
+	if not state or not state.alive then
+		return { ok = false, error = "You are down. Wait for respawn." }
+	end
+	if not state.recalling then
+		return { ok = true, combat = state }
+	end
+	breakRecall(player, "move")
+	if typeof(position) == "Vector3" then
+		local dest = position :: Vector3
+		local bounds = Constants.MapBounds
+		dest = Vector3.new(
+			math.clamp(dest.X, bounds.MinX, bounds.MaxX),
+			2,
+			math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
+		)
+		locks[player.UserId] = { kind = "move", moveTo = dest }
+		pushCombat(player.UserId)
+		tickAutoAttack(player.UserId)
+	end
 	return { ok = true, combat = state }
 end
 
@@ -1672,10 +1708,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		end
 	end
 
-	local player = playerOf(userId)
-	if player then
-		interruptRecall(player)
-	end
+	breakRecall(playerOf(userId), "ability")
 	state.mana -= ability.manaCost
 	state.cooldowns[slot] = t + ability.cooldown
 	local scale = Progression.rankScale(rank)
@@ -1761,7 +1794,7 @@ function CombatService.placeWard(player: Player, position: unknown): Types.Abili
 	if typeof(position) ~= "Vector3" then
 		return { ok = false, error = "Need a ground point." }
 	end
-	interruptRecall(player)
+	breakRecall(player, "ward")
 	local result = WardService.placeTrinket(player, matchPlayer.team, position :: Vector3)
 	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
 	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
@@ -1783,7 +1816,7 @@ function CombatService.placeControl(player: Player, position: unknown): Types.Ab
 	if typeof(position) ~= "Vector3" then
 		return { ok = false, error = "Need a ground point." }
 	end
-	interruptRecall(player)
+	breakRecall(player, "control")
 	local result = WardService.placeControl(player, matchPlayer.team, position :: Vector3)
 	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
 	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
@@ -1806,10 +1839,8 @@ function CombatService.useLensFor(userId: number): Types.AbilityResult
 	if not root then
 		return { ok = false, error = "No character." }
 	end
+	breakRecall(playerOf(userId), "lens")
 	local player = playerOf(userId)
-	if player then
-		interruptRecall(player)
-	end
 	local result = WardService.useLensFor(userId, matchPlayer.team, root)
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)
 	state.lensReadyAt = WardService.lensReadyAt(userId)

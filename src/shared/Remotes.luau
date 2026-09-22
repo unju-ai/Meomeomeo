@@ -29,6 +29,7 @@ export type RemoteName =
 	| "GetShopStatus"
 	| "IssueAttack"
 	| "AttackMove"
+	| "IssueMove"
 	| "MinimapPing"
 	| "StartRecall"
 	| "LeaveMatch"
@@ -111,6 +112,7 @@ local FUNCTION_NAMES = {
 	"GetShopStatus",
 	"IssueAttack",
 	"AttackMove",
+	"IssueMove",
 	"MinimapPing",
 	"StartRecall",
 	"LeaveMatch",

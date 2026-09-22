@@ -239,6 +239,10 @@ Remotes.function_("AttackMove").OnServerInvoke = function(player: Player, positi
 	return CombatService.attackMove(player, position)
 end
 
+Remotes.function_("IssueMove").OnServerInvoke = function(player: Player, position: unknown)
+	return CombatService.issueMove(player, position)
+end
+
 Remotes.function_("MinimapPing").OnServerInvoke = function(player: Player, position: unknown)
 	return MatchService.ping(player, position)
 end
