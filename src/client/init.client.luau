@@ -38,6 +38,7 @@ local EmoteFx = require(script.Juice.EmoteFx)
 local FogOfWar = require(script.Juice.FogOfWar)
 local LastSeenGhosts = require(script.Juice.LastSeenGhosts)
 local PingFx = require(script.Juice.PingFx)
+local CosmeticJuice = require(script.Juice.CosmeticJuice)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
 local TargetingIndicator = require(script.TargetingIndicator)
@@ -864,10 +865,19 @@ local function applyClosetToast(status: Types.ClosetStatus)
 	end
 	hud.ticker(line)
 	toast(line)
-	if string.find(line, "UNLOCKED", 1, true) then
-		ScreenJuice.banner(line, Color3.fromRGB(255, 196, 74))
+	local tint = CosmeticCatalog.toastTint(line)
+	local loud = CosmeticCatalog.isUnlockToast(line)
+		or CosmeticCatalog.isEquipToast(line)
+		or CosmeticCatalog.isBuyToast(line)
+	if loud then
+		ScreenJuice.banner(line, tint)
+		ScreenJuice.powerFlash(tint)
+		hud.closet.flashPreview(tint)
+		CosmeticJuice.flashAvatar(player.Character, tint)
+	end
+	if CosmeticCatalog.isUnlockToast(line) then
 		Sfx.play("LevelUp")
-	elseif string.find(line, "EQUIPPED", 1, true) or string.find(line, "BOUGHT", 1, true) then
+	elseif CosmeticCatalog.isEquipToast(line) or CosmeticCatalog.isBuyToast(line) then
 		Sfx.play("ShopBuy")
 	end
 end
