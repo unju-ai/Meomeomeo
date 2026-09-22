@@ -23,6 +23,7 @@ export type HelpApi = {
 local LINES_MOBA: { { string } } = {
 	{ "LMB", "Lock auto-attack on an enemy / minion / tower" },
 	{ "Towers", "Outer post, then lantern stall, then yarn core. Stalls gate per lane · HP bar when damaged or aimed" },
+	{ "HP bars", "Posts, stalls, core, Levi, damaged/aimed kittens, camps in combat · fog hides enemy / camp bars" },
 	{ "X + click", "Attack-move (walk and auto-acquire)" },
 	{ "S", "Stop attack · cancel recall orders" },
 	{ "Q W E R", "Hold line/dash (mint/coral aim), release bolt · ground: click or 2nd press" },

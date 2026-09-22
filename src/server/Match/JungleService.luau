@@ -169,8 +169,10 @@ end
 
 local function stamp(monster: Monster)
 	monster.part:SetAttribute(Constants.Attributes.JungleId, monster.id)
+	monster.part:SetAttribute("CampName", monster.name)
 	monster.part:SetAttribute("Health", monster.health)
 	monster.part:SetAttribute("MaxHealth", monster.maxHealth)
+	monster.part:SetAttribute("InCombat", monster.aggroUserId ~= nil)
 	local label = monster.part:FindFirstChild("Label")
 	if label and label:IsA("BillboardGui") then
 		local text = label:FindFirstChildWhichIsA("TextLabel")
