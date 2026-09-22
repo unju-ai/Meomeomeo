@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 local AnnouncerLines = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AnnouncerLines"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
+local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingLogic"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
@@ -850,6 +851,113 @@ function MatchService.init(cleared: () -> ())
 		end,
 	})
 
+	local SNAP_CHAMPION = 16
+	local SNAP_STRUCTURE = 18
+	local SNAP_WARD = 8
+	local SNAP_CAMP = 10
+
+	local function flatNear(a: Vector3, b: Vector3, limit: number): boolean
+		local dx = a.X - b.X
+		local dz = a.Z - b.Z
+		return dx * dx + dz * dz <= limit * limit
+	end
+
+	-- Confirm the client's ray hit against the live map, then name it.
+	-- A bare world position (ground or minimap) stays a generic line.
+	local function resolveTarget(
+		player: Player,
+		matchPlayer: Types.MatchPlayer,
+		kind: string,
+		point: Vector3,
+		body: any
+	): (PingLogic.Decision, string?, Vector3, Types.TeamId?)
+		local hit: PingLogic.HitKind = "ground"
+		local visible = false
+		local tier: string? = nil
+		local alive: boolean? = nil
+		local name: string? = nil
+		local snap: Vector3? = nil
+		local markerTeam: Types.TeamId? = nil
+
+		local objectiveId = body.objectiveId
+		local targetUserId = body.targetUserId
+		local jungleId = body.jungleId
+		local wardId = body.wardId
+		local hinted = typeof(objectiveId) == "string"
+			or typeof(targetUserId) == "number"
+			or typeof(jungleId) == "string"
+			or typeof(wardId) == "string"
+		-- A minimap click has no body. An entity id is a world ray, even if source was spoofed.
+		local source = if body.source == "minimap" and not hinted then "minimap" else "world"
+
+		if current and typeof(objectiveId) == "string" then
+			local objective = current.objectives[objectiveId]
+			local def = StructureLogic.get(objectiveId)
+			local part = MapBuilder.getObjectivePart(objectiveId)
+			if objective and def and part and flatNear(point, part.Position, SNAP_STRUCTURE) then
+				hit = "structure"
+				tier = def.tier
+				alive = objective.alive
+				markerTeam = objective.team
+				if objective.alive then
+					name = StructureLogic.pingName(def)
+					snap = part.Position
+					visible = true
+				end
+			end
+		elseif current and typeof(targetUserId) == "number" then
+			local other = current.players[tostring(targetUserId)]
+			local root = CombatService.rootOf(targetUserId)
+			if other and other.respawnAt == nil and root and flatNear(point, root.Position, SNAP_CHAMPION) then
+				local enemy = other.team ~= matchPlayer.team
+				local seen = (not enemy) or VisionService.canSeeChampion(player.UserId, other.userId)
+				hit = if enemy then "enemy" else "ally"
+				visible = seen
+				if seen then
+					local champ = if other.championId then ChampionCatalog.get(other.championId) else nil
+					name = if champ then champ.name else other.displayName
+					snap = root.Position
+				end
+			end
+		elseif typeof(jungleId) == "string" then
+			local monster = JungleService.get(jungleId)
+			if monster and monster.health > 0 and monster.part.Parent and flatNear(point, monster.part.Position, SNAP_CAMP) then
+				hit = "camp"
+				alive = true
+				visible = VisionService.canSeeJungle(player.UserId, monster.id)
+				if visible then
+					name = monster.name
+					snap = monster.part.Position
+				end
+			end
+		elseif typeof(wardId) == "string" then
+			local ward = WardService.get(wardId)
+			local viewer = CombatService.rootOf(player.UserId)
+			if ward and ward.part.Parent and flatNear(point, ward.part.Position, SNAP_WARD) then
+				hit = "ward"
+				alive = true
+				visible = WardService.canSee(matchPlayer.team, ward.id, if viewer then viewer.Position else nil)
+				if visible then
+					name = if ward.kind == "control" then "pink" else "ward"
+					snap = ward.part.Position
+				end
+			end
+		end
+
+		local decision = PingLogic.resolve({
+			kind = kind,
+			source = source,
+			hit = hit,
+			visible = visible,
+			tier = tier,
+			alive = alive,
+		})
+		local named = if decision.named then name else nil
+		local at = if decision.named and snap then snap else point
+		local teamMark = if decision.named then markerTeam else nil
+		return decision, named, at, teamMark
+	end
+
 	function MatchService.ping(player: Player, request: unknown): Types.TradeResult
 		if not current or current.phase ~= "InProgress" then
 			return { ok = false, error = "Ping during a match." }
@@ -861,80 +969,49 @@ function MatchService.init(cleared: () -> ())
 
 		local now = os.clock()
 		local previous = lastPingAt[player.UserId]
-		local cooldown = Config.Pings.CooldownSeconds
-		if previous and now - previous < cooldown then
+		if previous and PingLogic.cooling(now - previous) then
 			return { ok = false, error = "Ping cooling down." }
 		end
 
 		local kind = "Attention"
 		local dest: Vector3? = nil
-		local objectiveId: string? = nil
-		local targetUserId: number? = nil
+		local body: any = {}
 		if typeof(request) == "Vector3" then
 			dest = request :: Vector3
+			body = { source = "minimap" }
 		elseif typeof(request) == "table" then
-			local body = request :: any
+			body = request :: any
 			if PingCatalog.get(body.kind) then
 				kind = body.kind
 			end
 			if typeof(body.position) == "Vector3" then
 				dest = body.position
 			end
-			if typeof(body.objectiveId) == "string" then
-				objectiveId = body.objectiveId
-			end
-			if typeof(body.targetUserId) == "number" then
-				targetUserId = body.targetUserId
-			end
 		else
 			return { ok = false, error = "Need a map point." }
-		end
-
-		local targetName: string? = nil
-		if objectiveId then
-			local objective = current.objectives[objectiveId]
-			if objective then
-				local def = StructureLogic.get(objective.id)
-				targetName = if def then StructureLogic.pingName(def) else `{objective.team} {objective.lane} {objective.kind}`
-				local part = MapBuilder.getObjectivePart(objectiveId)
-				if part then
-					dest = part.Position
-				end
-			end
-		end
-		if targetUserId then
-			if VisionService.canSeeChampion(player.UserId, targetUserId) then
-				local other = current.players[tostring(targetUserId)]
-				if other then
-					local champ = if other.championId then ChampionCatalog.get(other.championId) else nil
-					targetName = if champ then champ.name else other.displayName
-					local root = CombatService.rootOf(targetUserId)
-					if root then
-						dest = root.Position
-					end
-				end
-			else
-				-- Fog: do not name or snap to an unseen champ.
-				targetUserId = nil
-			end
 		end
 
 		if typeof(dest) ~= "Vector3" then
 			return { ok = false, error = "Need a map point." }
 		end
+
+		local decision, targetName, resolved, markerTeam = resolveTarget(player, matchPlayer, kind, dest :: Vector3, body)
+		if not decision.ok then
+			return { ok = false, error = decision.error or "No vision." }
+		end
+
 		local bounds = Constants.MapBounds
-		local point = dest :: Vector3
-		point = Vector3.new(
-			math.clamp(point.X, bounds.MinX, bounds.MaxX),
+		local point = Vector3.new(
+			math.clamp(resolved.X, bounds.MinX, bounds.MaxX),
 			4,
-			math.clamp(point.Z, bounds.MinZ, bounds.MaxZ)
+			math.clamp(resolved.Z, bounds.MinZ, bounds.MaxZ)
 		)
 
 		local def = PingCatalog.get(kind)
+		local emoji = if def then def.emoji else "📍"
+		local label = if def then def.label else "Attention"
 		local line = if def then def.line else "Attention"
-		local text = if targetName
-			then `{matchPlayer.displayName}: {line} · {targetName}`
-			else `{matchPlayer.displayName}: {line}`
+		local text = PingLogic.ticker(matchPlayer.displayName, emoji, label, line, targetName)
 
 		lastPingAt[player.UserId] = now
 		local payload: Types.PingPayload = {
@@ -945,6 +1022,8 @@ function MatchService.init(cleared: () -> ())
 			at = Workspace:GetServerTimeNow(),
 			text = text,
 			targetName = targetName,
+			marker = decision.marker,
+			markerTeam = markerTeam,
 		}
 		for _, other in Players:GetPlayers() do
 			local otherMatch = current.players[tostring(other.UserId)]

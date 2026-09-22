@@ -25,7 +25,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Champion auto-attack, assist gold, levels 1–18, death timers, death recap, kill feed, jungle camps, scoreboard, fountain regen, minimap
 - **Recall (F)** to fountain (channel circle under feet), **match end screen** (victory/defeat, team KDA, MVP, post/stall/core counts, structure timeline), clean return to lobby
 - Trinket wards (**4**), Pawmart **Whisker Lens** (**5**), buyable **Control Yarn / pink** (**6**, 2 charges), **Yarn Cleave** (**7**), **traveling line skillshots**, hold-to-aim dashes, click-to-confirm ground AoE, destroyable enemy wards
-- Hold **G** smart pings (team-only wheel + minimap Attention); visible tower/champ names in the line
+- Hold **G** smart pings (team-only wheel + minimap Attention). A visible cat, post, lantern stall, yarn core, ward, or camp is named in the line. Attention refuses a fogged enemy body; ground and minimap pings into fog still land
 - 3-lane map placeholder: bases, outer scratching posts, inner lantern stalls, nexuses, river, jungle, fountain cats
 - Voice module wrapping `VoiceChatService` (team access lists, safe Studio fallback)
 - AI NPC talk stubs (Pawmart clerks, Old Tom, Kitty Caster) with mock + HTTP hook
@@ -405,7 +405,7 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **recall cancel rules**, **vision/fog grid**, emote catalog, ping catalog
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **recall cancel rules**, **vision/fog grid**, emote catalog, ping catalog, **ping line / fog rules**
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders

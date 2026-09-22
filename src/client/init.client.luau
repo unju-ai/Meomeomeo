@@ -20,6 +20,7 @@ local ChampionKits = require(Shared:WaitForChild("ChampionKits"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
+local PingLogic = require(Shared:WaitForChild("PingLogic"))
 local SoundIds = require(script.Audio.SoundIds)
 
 local Music = require(script.Audio.Music)
@@ -1750,32 +1751,59 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 end)
 
 local lastPingSend = 0
+local lastPingAttempt = 0
+local lastPingRefuse = 0
 
-local function sendPing(kind: string, position: Vector3, target: Types.AttackRequest?)
-	if os.clock() - lastPingSend < 0.25 then
+local function sendPing(kind: string, position: Vector3, target: Types.AttackRequest?, source: string)
+	if PingLogic.cooling(os.clock() - lastPingSend) then
+		hud.pings.close()
 		return
 	end
-	lastPingSend = os.clock()
+	if os.clock() - lastPingAttempt < 0.4 then
+		hud.pings.close()
+		return
+	end
+	lastPingAttempt = os.clock()
 	local body: Types.PingRequest = {
 		kind = kind,
 		position = position,
+		source = source,
 	}
 	if target then
 		if target.kind == "objective" and typeof(target.objectiveId) == "string" then
 			body.objectiveId = target.objectiveId
 		elseif target.kind == "player" and typeof(target.userId) == "number" then
 			body.targetUserId = target.userId
+		elseif target.kind == "jungle" and typeof(target.jungleId) == "string" then
+			body.jungleId = target.jungleId
+		elseif target.kind == "ward" and typeof(target.wardId) == "string" then
+			body.wardId = target.wardId
 		end
 	end
 	local result = Remotes.function_("MinimapPing"):InvokeServer(body)
 	if result and result.ok == false then
-		toast(result.error or "Ping failed")
+		local reason = result.error or "Ping failed"
+		if reason == "Ping cooling down." then
+			return
+		end
+		if reason == "No vision." then
+			if os.clock() - lastPingRefuse > 0.8 then
+				lastPingRefuse = os.clock()
+				hud.aside("No vision.")
+			end
+			hud.pings.close()
+			return
+		end
+		toast(reason)
+		hud.pings.close()
+		return
 	end
+	lastPingSend = os.clock()
 	hud.pings.close()
 end
 
 hud.minimap.onPing(function(position: Vector3)
-	sendPing("Attention", position, nil)
+	sendPing("Attention", position, nil, "minimap")
 end)
 
 Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
@@ -1792,7 +1820,14 @@ Remotes.event("PingReceived").OnClientEvent:Connect(function(payload)
 	if def then
 		Sfx.play(def.cue :: SoundIds.Cue)
 	end
-	toast(if typeof(ping.text) == "string" and ping.text ~= "" then ping.text else "Ping")
+	local line = if typeof(ping.text) == "string" and ping.text ~= "" then ping.text else "Ping"
+	hud.feed.push({
+		kind = "ping",
+		text = line,
+		at = os.clock(),
+	})
+	-- Yields the banner while Kitty Caster is holding it. The feed still shows the line.
+	hud.aside(line)
 end)
 
 Remotes.event("MarketUpdated").OnClientEvent:Connect(function(payload)
@@ -1900,18 +1935,17 @@ local function visibleAttack(req: Types.AttackRequest): boolean
 	return false
 end
 
-local function pickAttack(): Types.AttackRequest?
+local function cursorHit(): RaycastResult?
 	local camera = Workspace.CurrentCamera
 	if not camera then
 		return nil
 	end
 	local mouse = UserInputService:GetMouseLocation()
 	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, clickRayParams())
-	if not hit then
-		return nil
-	end
-	local inst = hit.Instance
+	return Workspace:Raycast(ray.Origin, ray.Direction * 400, clickRayParams())
+end
+
+local function classifyInstance(inst: Instance): Types.AttackRequest?
 	local model = inst:FindFirstAncestorOfClass("Model")
 	local req: Types.AttackRequest? = nil
 	if model then
@@ -1956,7 +1990,29 @@ local function pickAttack(): Types.AttackRequest?
 			req = { kind = "ward", wardId = wardId }
 		end
 	end
+	return req
+end
+
+local function pickAttack(): Types.AttackRequest?
+	local hit = cursorHit()
+	if not hit then
+		return nil
+	end
+	local req = classifyInstance(hit.Instance)
 	if req and lastVision.fogBits and #lastVision.fogBits > 0 and not visibleAttack(req) then
+		return nil
+	end
+	return req
+end
+
+-- Includes a fogged enemy body so the server can refuse Attention. Minions stay ground pings.
+local function pickPingTarget(): Types.AttackRequest?
+	local hit = cursorHit()
+	if not hit then
+		return nil
+	end
+	local req = classifyInstance(hit.Instance)
+	if not req or req.kind == "minion" then
 		return nil
 	end
 	return req
@@ -2182,7 +2238,7 @@ local pendingPingPos = Vector3.zero
 local pendingPingTarget: Types.AttackRequest? = nil
 
 local function requestPing(kind: string)
-	sendPing(kind, pendingPingPos, pendingPingTarget)
+	sendPing(kind, pendingPingPos, pendingPingTarget, "world")
 end
 
 hud.pings.onPick(function(kind: string)
@@ -2407,7 +2463,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		pingHeld = true
 		pingConsumed = false
 		pendingPingPos = aimPoint()
-		pendingPingTarget = pickAttack()
+		pendingPingTarget = pickPingTarget()
 		hud.pings.open()
 		return
 	end

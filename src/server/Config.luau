@@ -18,6 +18,7 @@
 export type VoiceMode = "Team" | "Proximity"
 export type VoiceOutsideMatch = "Off" | "Proximity"
 
+local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingLogic"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 
 local Config = {
@@ -64,7 +65,7 @@ local Config = {
 	},
 
 	Pings = {
-		CooldownSeconds = 1.25,
+		CooldownSeconds = PingLogic.CooldownSeconds,
 		MarkerSeconds = 2.6,
 		HistorySeconds = 4.5,
 	},

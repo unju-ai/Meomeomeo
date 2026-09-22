@@ -190,6 +190,51 @@ function Minimap.create(parent: Instance): MinimapApi
 	history.Name = "PingHistory"
 	history.Parent = root
 
+	local LANTERN = Color3.fromRGB(255, 176, 72)
+	local WOOD = Color3.fromRGB(122, 74, 46)
+	local YARN = Color3.fromRGB(255, 196, 90)
+
+	-- Posts stay square and stalls stay lantern-amber so a structure ping is not a bare dot in fog.
+	local function paintMarker(frame: Frame, marker: string?, team: string?, pingColor: Color3, size: number)
+		local shape = marker or "dot"
+		local cornerInst = frame:FindFirstChildOfClass("UICorner")
+		local corner = if cornerInst and cornerInst:IsA("UICorner") then cornerInst else nil
+		local strokeInst = frame:FindFirstChildOfClass("UIStroke")
+		local stroke = if strokeInst and strokeInst:IsA("UIStroke")
+			then strokeInst
+			else Theme.stroke(frame, Theme.cream, 1.5, 0.1)
+		frame.Size = UDim2.fromOffset(size, size)
+		if shape == "post" then
+			frame.BackgroundColor3 = if team == "Blue" then Theme.blue elseif team == "Red" then Theme.red else LANTERN
+			if corner then
+				corner.CornerRadius = UDim.new(0, 2)
+			end
+			stroke.Color = LANTERN
+			stroke.Thickness = 2
+		elseif shape == "stall" then
+			frame.BackgroundColor3 = LANTERN
+			if corner then
+				corner.CornerRadius = UDim.new(1, 0)
+			end
+			stroke.Color = WOOD
+			stroke.Thickness = 2
+		elseif shape == "core" then
+			frame.BackgroundColor3 = Theme.pink
+			if corner then
+				corner.CornerRadius = UDim.new(1, 0)
+			end
+			stroke.Color = YARN
+			stroke.Thickness = 2
+		else
+			frame.BackgroundColor3 = pingColor
+			if corner then
+				corner.CornerRadius = UDim.new(0, 99)
+			end
+			stroke.Color = Theme.cream
+			stroke.Thickness = 1
+		end
+	end
+
 	local pingHandler: ((Vector3) -> ())? = nil
 
 	root.MouseButton1Click:Connect(function()
@@ -378,15 +423,13 @@ function Minimap.create(parent: Instance): MinimapApi
 			local def = PingCatalog.get(payload.kind)
 			local color = if def then def.color else Theme.amber
 			local sx, sy = worldToScale(payload.position)
-			pingDot.BackgroundColor3 = color
+			local marker = payload.marker
+			local team = payload.markerTeam
+			local activeSize = if marker == "core" then 16 else 14
+			paintMarker(pingDot, marker, team, color, activeSize)
 			pingDot.Position = UDim2.fromScale(sx, sy)
 			pingDot.Visible = true
-			pingDot.Size = UDim2.fromOffset(16, 16)
-			task.delay(0.12, function()
-				if pingDot.Parent then
-					pingDot.Size = UDim2.fromOffset(14, 14)
-				end
-			end)
+			pingDot.BackgroundTransparency = 0
 
 			local kids = history:GetChildren()
 			while #kids >= 4 do
@@ -394,8 +437,9 @@ function Minimap.create(parent: Instance): MinimapApi
 				kids = history:GetChildren()
 			end
 			local ghost = mark(history, `H{os.clock()}`, 9, color)
+			paintMarker(ghost, marker, team, color, if marker == "core" then 12 elseif marker == "post" or marker == "stall" then 11 else 9)
 			ghost.Position = UDim2.fromScale(sx, sy)
-			ghost.BackgroundTransparency = 0.2
+			ghost.BackgroundTransparency = 0.15
 			ghost.ZIndex = 5
 			task.delay(4.5, function()
 				if ghost.Parent then
