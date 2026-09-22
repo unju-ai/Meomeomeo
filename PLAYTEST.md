@@ -111,6 +111,8 @@ Champion nameplate HP (same day, later slice): Cat Rift `MeoNameplate` billboard
 
 Skillshot wall collision (same day, later slice): traveling line bolts (`CombatService` + `ProjectileLogic.clipAgainstWalls`) stop on the same solids fog uses — keep walls, market drums, and other `MeoBlocksVision` volumes that pass vision thickness. Mid gate, brush, and thin props stay open. Ally and enemy bolts both collide; units beyond the wall are not hit. Enemy bolt fog show/hide is unchanged. Kits / damage numbers / HP bars / nameplates / Pawmart untouched. Verified locally: Luau compiled 150 sources; `tools/test-combat.py` + `tools/test-vision.py` passed (wallHitT / clipAgainstWalls); Rojo 7.4.4 built the place. Studio live-pass under skillshot wall collision.
 
+Fountain regen juice (same day, later slice): existing `CombatService` fountain HP/mana ticks (`ShopService.nearFountain` → `FountainHpRegen` / `FountainManaRegen`) stay authoritative. Client paints calm night-market juice when the local cat is regenerating on the pad — soft mint foot ring + silhouette wash, occasional mint `+HP` / `+MP` floats (`CombatFx.fountainTick`), and a subtle mint stroke glow on regenerating AbilityBar HP/mana tracks. Fountain pad ticks suppress the loud heal flash / Heal SFX (kit heals still flash). Allies on their pad get a faint shared ring when missing HP; enemies stay fog-gated. Hub / Yarn Run / Koi / Party / Arcade quiet. Regen rates, fountain radius, Pawmart, kits, nameplates, and structure bars untouched. Verified locally: Luau compiled 151 sources; `tools/test-combat.py` passed (FountainRegenJuice detect / fog / mode / glow); Rojo 7.4.4 built the place. Studio live-pass under fountain regen juice.
+
 Pawmart clerk shop tips (same day, later slice): `Shared.PawmartGuide` teaches both fountain clerks (`PawmartBlue` / `PawmartRed`) with authored facts and Blue tired-retail / Red upseller asides. Chips: **Shop**, **Actives**, **Wards**, **Builds**, **Help**. Covers **B** fountain-only, start gold 500 / purse CS, Longclaw / Yarnplate / Mana Treat / Pounce Boots, Lens **5** / Control Yarn **6** / Cleave **7**, Stall Fang, Paper Charm, and a Hard bot buy one-liner. Rare Cat Rift ambient on the Talk prompt. Old Tom, hosts, and Kitty Caster unchanged. Mock / HTTP both gate on the guide before generic lines. No API key. Verified locally: Luau compiled 139 sources; `tools/test-pawmart-guide.py` passed; `tools/test-brand.py` and `tools/test-old-tom.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart clerks.
 
 Match clock (same day, later slice): Cat Rift InProgress shows a top-left **mm:ss** clock and a Canal Levi line. The server publishes `startedAt` and `riverEpic.nextAt` on the match snapshot. The client only paints: a countdown from **Levi 3:00** (`Levi 1:24` on the way), **Levi UP** while it is alive, **Levi 0:47** for the one return, **Levi taken** after the second death. The purse chip still uses **Canal Levi · +8% damage**, and names the other side on that same line when they hold the buff. The minimap pit marker stays. Kitty Caster's take line stays. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the clock. Verified locally: Luau compiled 136 sources; `tools/test-combat.py` and `tools/test-jungle-bot.py` passed (mm:ss, countdown, UP, respawn, taken, purse holder line). `tools/test-announcer.py` still passed with the take line unchanged. The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to watch the countdown, the wake, the take, and the respawn timer (the live-pass below).
@@ -485,7 +487,7 @@ Client-only paint on the Cat Rift ability bar. Cooldown numbers and CombatServic
 Client-only Cat Rift AbilityBar paints from existing `combat.health` / `mana` / match `xp`. Regen formulas and max values stay server-owned. Smoke: `python3 tools/test-resource-bars.py /path/to/luau`.
 
 1. Lock in Practice. Above QWER: a **coral** HP fill and **cobalt** mana fill each show **current / max**. The thin **amber** XP bar under them reads **Lv n · into / need** (or **MAX** at 18). The purse chip still sits clear above the bar; the Levi clock stays top-left.
-2. Take damage until under **30%** HP — the HP track warn-pulses coral. Dump mana until a ready QWER slot goes coral — the mana track pulses the same gate. Fountain regen clears both pulses without changing the numbers' meaning.
+2. Take damage until under **30%** HP — the HP track warn-pulses coral. Dump mana until a ready QWER slot goes coral — the mana track pulses the same gate. Fountain regen clears both pulses without changing the numbers' meaning; while topping up on the pad, regenerating tracks also get a soft **mint** stroke glow (see fountain regen juice).
 3. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade never show these Cat Rift resource bars. End screen and level-up juice behave as before.
 
 ### Studio live-pass (bot Pawmart)
@@ -861,6 +863,16 @@ Combat feel. Same walls as fog LoS (keep walls + market drums / `MeoBlocksVision
 6. Stand a bot beyond a wall and fire through the wall: the bot behind it is **not** damaged; a bot on your side of the wall still can be.
 
 Smoke: `python3 tools/test-combat.py /path/to/luau` and `python3 tools/test-vision.py /path/to/luau` (wallHitT / clipAgainstWalls).
+
+### Studio live-pass (fountain regen juice)
+
+Client juice only. Server still owns fountain HP/mana ticks (`CombatService` + `ShopService.nearFountain`). Rates and fountain radius stay unchanged. Smoke: `python3 tools/test-combat.py /path/to/luau` (FountainRegenJuice helpers).
+
+1. Hub → Cat Rift → Practice. Take damage (or dump mana), then stand on the **Blue fountain** pad. While HP and/or mana are below max: a soft **mint foot ring** sits under you, the AbilityBar HP/mana strokes get a calm mint glow, and about once a second a mint **+HP** / **+MP** float rises (occasional soft silhouette wash). No **LEVEL UP**-style banner.
+2. Fountain pad ticks should **not** spam the loud full-screen heal flash / Heal ping every second (kit heals off the pad still can). Numbers on the resource bars still climb at the usual fountain rate.
+3. Walk off the pad: ring, bar glow, and floats stop even if you still have slow lane regen. Fill to full on the pad: juice stops when both bars are topped.
+4. Optional: watch an ally bot limp home — a very faint mint ring may show while they are missing HP on their fountain. A Red bot on the Red fountain stays quiet in fog and only shows a faint ring when you have vision.
+5. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade stay quiet. Pawmart, kits, nameplates, and structure bars are unchanged.
 
 ### Studio live-pass (level-up juice)
 

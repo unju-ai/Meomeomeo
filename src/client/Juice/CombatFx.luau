@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FountainRegenJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
@@ -33,6 +34,8 @@ type Follow = {
 	dest: Vector3?,
 	bornAt: number?,
 	width: number?,
+	cue: string?,
+	baseTransparency: number?,
 }
 
 type FloatPop = {
@@ -489,6 +492,25 @@ ensureLoop = function()
 					ring.Transparency = 0.28 + alpha * 0.55
 					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.1, root.Position.Z)
 						* CFrame.Angles(0, now * 1.6, math.rad(90))
+				end
+			elseif follow.kind == "fountain" then
+				local ring = follow.parts[1]
+				if ring then
+					local cue = (follow.cue :: FountainRegenJuice.CueKind?) or "local"
+					local size = FountainRegenJuice.ringSize(cue)
+					local baseT = follow.baseTransparency or FountainRegenJuice.ringTransparency(cue)
+					local pulse = 0.04 * math.sin(now * 2.4)
+					ring.Size = Vector3.new(0.11, size, size)
+					ring.Transparency = math.clamp(baseT + pulse, 0.4, 0.88)
+					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.18, root.Position.Z)
+						* CFrame.Angles(0, now * 0.9, math.rad(90))
+					-- Fog-gate enemy fountain rings like other combat FX.
+					if cue == "enemy" then
+						local show = FogOfWar.isLit(root.Position.X, root.Position.Z)
+						ring.LocalTransparencyModifier = if show then 0 else 1
+					else
+						ring.LocalTransparencyModifier = 0
+					end
 				end
 			elseif follow.kind == "shield" then
 				local bubble = follow.parts[1]
@@ -1247,6 +1269,149 @@ function CombatFx.localLevelUp(userId: number, level: number)
 	followLevelUp(userId)
 	flashSilhouette(userId)
 	spawnLevelFloat(userId, level)
+end
+
+local function softMintWash(userId: number)
+	local model = modelOf(userId)
+	if not model then
+		return
+	end
+	local mint = Color3.fromRGB(FountainRegenJuice.Mint[1], FountainRegenJuice.Mint[2], FountainRegenJuice.Mint[3])
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" and child.Transparency < 0.95 then
+			local part = child :: BasePart
+			local baseColor = part.Color
+			local baseTransparency = part.Transparency
+			-- Soft wash: tint toward mint without neon punch (fountain rest).
+			part.Color = baseColor:Lerp(mint, 0.35)
+			task.delay(FountainRegenJuice.WashSeconds, function()
+				if not part.Parent then
+					return
+				end
+				TweenService:Create(part, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					Color = baseColor,
+					Transparency = baseTransparency,
+				}):Play()
+			end)
+		end
+	end
+end
+
+local function followFountain(userId: number, cue: FountainRegenJuice.CueKind, active: boolean)
+	local key = `fountain:{userId}`
+	if not active or not FountainRegenJuice.shouldPaint(cue) then
+		clearFollow(key)
+		return
+	end
+	local existing = follows[key]
+	if existing and existing.kind == "fountain" then
+		existing.expiresAt = os.clock() + FountainRegenJuice.RingRefresh
+		existing.cue = cue
+		existing.baseTransparency = FountainRegenJuice.ringTransparency(cue)
+		ensureLoop()
+		return
+	end
+	clearFollow(key)
+	local size = FountainRegenJuice.ringSize(cue)
+	local ring = takePart("FountainRegen")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.11, size, size)
+	flashPart(ring, Theme.mint, FountainRegenJuice.ringTransparency(cue))
+	follows[key] = {
+		kind = "fountain",
+		userId = userId,
+		parts = { ring },
+		expiresAt = os.clock() + FountainRegenJuice.RingRefresh,
+		offset = 0,
+		cue = cue,
+		baseTransparency = FountainRegenJuice.ringTransparency(cue),
+	}
+	ensureLoop()
+end
+
+local function spawnFountainFloat(userId: number, kind: FountainRegenJuice.FloatKind, amount: number)
+	if not floatsEnabled then
+		return
+	end
+	local root = rootOf(userId)
+	if not root then
+		return
+	end
+	local origin = root.Position + Vector3.new(0, 2.8, 0)
+	local part = Instance.new("Part")
+	part.Name = "FountainFloat"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(origin)
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoFountainRegen"
+	gui.Size = UDim2.fromOffset(100, 32)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 72
+	gui.Adornee = part
+	gui.Parent = part
+
+	local rgb = FountainRegenJuice.rgb(kind)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Theme.fontTitle
+	label.TextSize = 18
+	label.TextColor3 = Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+	label.TextStrokeColor3 = Color3.fromRGB(FountainRegenJuice.Ink[1], FountainRegenJuice.Ink[2], FountainRegenJuice.Ink[3])
+	label.TextStrokeTransparency = 0.4
+	label.Text = FountainRegenJuice.floatLabel(kind, amount)
+	label.Parent = gui
+
+	local born = os.clock()
+	local duration = 0.85
+	local lateral = if kind == "mana" then 0.55 else -0.35
+	local conn: RBXScriptConnection? = nil
+	conn = RunService.Heartbeat:Connect(function()
+		local age = os.clock() - born
+		if age >= duration or not part.Parent then
+			if conn then
+				conn:Disconnect()
+			end
+			part:Destroy()
+			return
+		end
+		local liveRoot = rootOf(userId)
+		local base = if liveRoot then liveRoot.Position else origin
+		local alpha = age / duration
+		part.CFrame = CFrame.new(base + Vector3.new(lateral, 2.8 + alpha * 1.6, 0))
+		local fade = if alpha < 0.45 then 0 else (alpha - 0.45) / 0.55
+		label.TextTransparency = fade
+		label.TextStrokeTransparency = 0.4 + fade * 0.6
+	end)
+end
+
+-- Sustained soft mint foot ring while regenerating in fountain.
+-- cue = local (clear) / ally (faint) / enemy (fog-gated).
+function CombatFx.fountainRegen(userId: number, cue: FountainRegenJuice.CueKind, active: boolean)
+	followFountain(userId, cue, active)
+end
+
+-- Occasional mint +HP / +mana float + soft silhouette wash on a fountain tick.
+function CombatFx.fountainTick(userId: number, kind: FountainRegenJuice.FloatKind, amount: number, wash: boolean?)
+	if amount <= 0 then
+		return
+	end
+	spawnFountainFloat(userId, kind, amount)
+	if wash == true then
+		softMintWash(userId)
+	end
+end
+
+function CombatFx.clearFountainRegen(userId: number)
+	clearFollow(`fountain:{userId}`)
 end
 
 return CombatFx

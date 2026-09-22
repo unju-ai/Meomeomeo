@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local FountainRegenJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FountainRegenJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local ResourceBars = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ResourceBars"))
@@ -24,6 +25,7 @@ export type BarApi = {
 	setVisible: (visible: boolean) -> (),
 	update: (matchPlayer: Types.MatchPlayer, combat: Types.CombatState?) -> (),
 	flashRanks: (slots: { string }) -> (),
+	setFountainRegen: (hpActive: boolean, manaActive: boolean) -> (),
 }
 
 local FLASH_SECONDS = 0.38
@@ -44,6 +46,7 @@ local MANA_TRACK = Color3.fromRGB(ResourceBars.ManaTrack[1], ResourceBars.ManaTr
 local MANA_OK_STROKE = Color3.fromRGB(ResourceBars.ManaOkStroke[1], ResourceBars.ManaOkStroke[2], ResourceBars.ManaOkStroke[3])
 local XP_FILL = Color3.fromRGB(ResourceBars.XpFill[1], ResourceBars.XpFill[2], ResourceBars.XpFill[3])
 local XP_TRACK = Color3.fromRGB(ResourceBars.XpTrack[1], ResourceBars.XpTrack[2], ResourceBars.XpTrack[3])
+local REGEN_MINT = Color3.fromRGB(FountainRegenJuice.Mint[1], FountainRegenJuice.Mint[2], FountainRegenJuice.Mint[3])
 
 type ResourcePaint = {
 	track: Frame,
@@ -51,6 +54,7 @@ type ResourcePaint = {
 	label: TextLabel,
 	stroke: UIStroke,
 	warn: boolean,
+	regen: boolean,
 }
 
 type SlotPaint = {
@@ -250,6 +254,7 @@ local function makeResource(parent: Instance, name: string, y: number, height: n
 		label = label,
 		stroke = stroke,
 		warn = false,
+		regen = false,
 	}
 end
 
@@ -348,10 +353,16 @@ function AbilityBar.create(parent: Instance): BarApi
 		if pulse > 0 then
 			paint.stroke.Color = warnColor
 			paint.stroke.Transparency = math.clamp(0.55 - 0.4 * pulse, 0.08, 0.55)
-		else
-			paint.stroke.Color = calmColor
-			paint.stroke.Transparency = calmTransparency
+			return
 		end
+		local regen = FountainRegenJuice.regenGlowPulse(now, paint.regen)
+		if regen > 0 then
+			paint.stroke.Color = REGEN_MINT
+			paint.stroke.Transparency = math.clamp(0.62 - 0.38 * regen, 0.12, 0.62)
+			return
+		end
+		paint.stroke.Color = calmColor
+		paint.stroke.Transparency = calmTransparency
 	end
 
 	local function tickFrames()
@@ -379,6 +390,8 @@ function AbilityBar.create(parent: Instance): BarApi
 				death.Visible = false
 				recallBar.Visible = false
 				recallLabel.Visible = false
+				hp.regen = false
+				mp.regen = false
 			end
 		end,
 		flashRanks = function(slots: { string })
@@ -390,6 +403,10 @@ function AbilityBar.create(parent: Instance): BarApi
 				end
 			end
 			tickFrames()
+		end,
+		setFountainRegen = function(hpActive: boolean, manaActive: boolean)
+			hp.regen = hpActive == true
+			mp.regen = manaActive == true
 		end,
 		update = function(matchPlayer: Types.MatchPlayer, combat: Types.CombatState?)
 			local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
@@ -523,6 +540,8 @@ function AbilityBar.create(parent: Instance): BarApi
 					death.Text = `Respawn at fountain · {string.format("%.1f", left)}s`
 					recallBar.Visible = false
 					recallLabel.Visible = false
+					hp.regen = false
+					mp.regen = false
 				elseif combat.channelEndsAt and combat.channelEndsAt > t then
 					death.Visible = false
 					local ends = combat.channelEndsAt
@@ -629,6 +648,8 @@ function AbilityBar.create(parent: Instance): BarApi
 				mp.label.Text = ""
 				hp.warn = false
 				mp.warn = false
+				hp.regen = false
+				mp.regen = false
 				for _, slotName in Constants.Slots do
 					local paint = abilitySlots[slotName]
 					paint.usable = false
