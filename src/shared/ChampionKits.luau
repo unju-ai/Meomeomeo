@@ -4,7 +4,8 @@
 -- Flagship three: guard, pull, takedown reset, channel, refund, zone.
 -- Original three: Settled Loaf + Charge Knock, Open Wick + Hype Candle, Second Helping + Sweater Aura.
 -- Expansion three: Packet Buffer + Overclock, Honor Bleed + Shield Fortify, Alley Mark + Smoke Vanish.
--- Chromeclaw, Oracle Paws, Archmeow, Hexkit, and Mindwhisker stay on the zero plan.
+-- Expansion three more: Chrome Plate + Lunge Reload, Ward Omen + Foresight Veil, Spell Charge + Charged Meteor.
+-- Hexkit and Mindwhisker stay on the zero plan.
 
 local Types = require(script.Parent.Types)
 
@@ -25,6 +26,11 @@ export type Look =
 	| "fortify"
 	| "mark"
 	| "vanish"
+	| "plate"
+	| "reload"
+	| "omen"
+	| "charge"
+	| "meteor"
 
 export type CastPlan = {
 	guardSeconds: number,
@@ -61,6 +67,22 @@ export type CastPlan = {
 	vanishBonus: number,
 	markBonus: number,
 	vanishSeconds: number,
+	plateGain: number,
+	plateCap: number,
+	plateSeconds: number,
+	platePer: number,
+	plateSpend: number,
+	plateBonus: number,
+	plateReload: number,
+	wardRange: number,
+	wardAmp: number,
+	omenSeconds: number,
+	omenCut: number,
+	chargeGain: number,
+	chargeCap: number,
+	chargeSeconds: number,
+	chargeSpend: number,
+	chargeBonus: number,
 }
 
 export type Identity = {
@@ -101,6 +123,18 @@ local SHADOW_MARK_SECONDS = 6
 local SHADOW_VANISH_SECONDS = 2.5
 local SHADOW_VANISH_BONUS = 0.4
 local SHADOW_MARK_BONUS = 0.55
+local CHROME_PLATE_CAP = 3
+local CHROME_PLATE_SECONDS = 7
+local CHROME_PLATE_PER = 0.06
+local CHROME_LUNGE_BONUS = 0.22
+local CHROME_LUNGE_RELOAD = 1.4
+local ORACLE_WARD_RANGE = 24
+local ORACLE_WARD_AMP = 0.28
+local ORACLE_OMEN_SECONDS = 3.2
+local ORACLE_OMEN_CUT = 0.3
+local ARCH_CHARGE_CAP = 3
+local ARCH_CHARGE_SECONDS = 8
+local ARCH_METEOR_BONUS = 0.3
 
 local ChampionKits = {}
 
@@ -140,6 +174,22 @@ local function zero(): CastPlan
 		vanishBonus = 0,
 		markBonus = 0,
 		vanishSeconds = 0,
+		plateGain = 0,
+		plateCap = 0,
+		plateSeconds = 0,
+		platePer = 0,
+		plateSpend = 0,
+		plateBonus = 0,
+		plateReload = 0,
+		wardRange = 0,
+		wardAmp = 0,
+		omenSeconds = 0,
+		omenCut = 0,
+		chargeGain = 0,
+		chargeCap = 0,
+		chargeSeconds = 0,
+		chargeSpend = 0,
+		chargeBonus = 0,
 	}
 end
 
@@ -255,6 +305,48 @@ function ChampionKits.plan(championId: string, slot: Types.AbilitySlot, stunSeco
 		plan.vanishSeconds = SHADOW_VANISH_SECONDS
 		return plan
 	end
+	if championId == "Chromeclaw" and slot == "Q" then
+		local plan = zero()
+		plan.plateGain = 1
+		plan.plateCap = CHROME_PLATE_CAP
+		plan.plateSeconds = CHROME_PLATE_SECONDS
+		plan.platePer = CHROME_PLATE_PER
+		return plan
+	end
+	if championId == "Chromeclaw" and slot == "E" then
+		local plan = zero()
+		plan.plateSpend = 1
+		plan.plateBonus = CHROME_LUNGE_BONUS
+		plan.plateReload = CHROME_LUNGE_RELOAD
+		return plan
+	end
+	if championId == "OraclePaws" and (slot == "W" or slot == "R") then
+		local plan = zero()
+		plan.wardRange = ORACLE_WARD_RANGE
+		plan.wardAmp = ORACLE_WARD_AMP
+		return plan
+	end
+	if championId == "OraclePaws" and slot == "E" then
+		local plan = zero()
+		plan.wardRange = ORACLE_WARD_RANGE
+		plan.wardAmp = ORACLE_WARD_AMP
+		plan.omenSeconds = ORACLE_OMEN_SECONDS
+		plan.omenCut = ORACLE_OMEN_CUT
+		return plan
+	end
+	if championId == "Archmeow" and slot == "Q" then
+		local plan = zero()
+		plan.chargeGain = 1
+		plan.chargeCap = ARCH_CHARGE_CAP
+		plan.chargeSeconds = ARCH_CHARGE_SECONDS
+		return plan
+	end
+	if championId == "Archmeow" and slot == "R" then
+		local plan = zero()
+		plan.chargeSpend = 1
+		plan.chargeBonus = ARCH_METEOR_BONUS
+		return plan
+	end
 	return zero()
 end
 
@@ -276,6 +368,15 @@ function ChampionKits.identity(championId: string): Identity?
 	end
 	if championId == "Shadowpounce" then
 		return { passive = "Alley Mark", signature = "Smoke Vanish" }
+	end
+	if championId == "Chromeclaw" then
+		return { passive = "Chrome Plate", signature = "Lunge Reload" }
+	end
+	if championId == "OraclePaws" then
+		return { passive = "Ward Omen", signature = "Foresight Veil" }
+	end
+	if championId == "Archmeow" then
+		return { passive = "Spell Charge", signature = "Charged Meteor" }
 	end
 	return nil
 end
@@ -393,6 +494,76 @@ function ChampionKits.marksFromBrush(markGain: number, inBrush: boolean): boolea
 	return markGain > 0 and inBrush
 end
 
+function ChampionKits.addPlate(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+-- Each live plate shaves a slice of incoming damage. Capped so it stays under a real guard.
+function ChampionKits.plateMultiplier(stacks: number, per: number): number
+	if stacks <= 0 or per <= 0 then
+		return 1
+	end
+	return 1 - math.clamp(stacks * per, 0, 0.45)
+end
+
+function ChampionKits.platePower(stacks: number, bonus: number): number
+	if stacks <= 0 or bonus <= 0 then
+		return 1
+	end
+	return 1 + stacks * bonus
+end
+
+function ChampionKits.plateRefund(stacks: number, per: number): number
+	if stacks <= 0 or per <= 0 then
+		return 0
+	end
+	return stacks * per
+end
+
+function ChampionKits.shortenReady(readyAt: number, at: number, refund: number): number
+	if refund <= 0 then
+		return readyAt
+	end
+	return math.max(at, readyAt - refund)
+end
+
+-- Flat distance to the nearest allied ward. math.huge means none.
+function ChampionKits.wardNear(distance: number, range: number): boolean
+	return range > 0 and distance >= 0 and distance <= range
+end
+
+function ChampionKits.wardPower(bonus: number): number
+	if bonus <= 0 then
+		return 1
+	end
+	return 1 + bonus
+end
+
+-- One hit, then the veil is gone. Not a damage-cut window.
+function ChampionKits.omenMultiplier(cut: number): number
+	if cut <= 0 then
+		return 1
+	end
+	return 1 - math.clamp(cut, 0, 0.6)
+end
+
+function ChampionKits.addCharge(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+function ChampionKits.chargePower(stacks: number, bonus: number): number
+	if stacks <= 0 or bonus <= 0 then
+		return 1
+	end
+	return 1 + stacks * bonus
+end
+
 function ChampionKits.ambushPower(vanishBonus: number, markBonus: number): number
 	local bonus = 0
 	if vanishBonus > 0 then
@@ -466,6 +637,21 @@ function ChampionKits.look(championId: string, slot: Types.AbilitySlot): Look?
 	if championId == "Shadowpounce" and slot == "W" then
 		return "vanish"
 	end
+	if championId == "Chromeclaw" and slot == "Q" then
+		return "plate"
+	end
+	if championId == "Chromeclaw" and slot == "E" then
+		return "reload"
+	end
+	if championId == "OraclePaws" and slot == "E" then
+		return "omen"
+	end
+	if championId == "Archmeow" and slot == "Q" then
+		return "charge"
+	end
+	if championId == "Archmeow" and slot == "R" then
+		return "meteor"
+	end
 	return nil
 end
 
@@ -497,6 +683,16 @@ function ChampionKits.castPitch(championId: string, slot: Types.AbilitySlot): nu
 		return 1.16
 	elseif look == "vanish" then
 		return 0.62
+	elseif look == "plate" then
+		return 0.8
+	elseif look == "reload" then
+		return 1.24
+	elseif look == "omen" then
+		return 0.88
+	elseif look == "charge" then
+		return 1.34
+	elseif look == "meteor" then
+		return 0.64
 	end
 	return 1
 end
@@ -519,6 +715,9 @@ function ChampionKits.helpRows(): { { string } }
 		{ "Byte", "Q: data · W: overclock" },
 		{ "Scratch", "Q: bleed · E: fortify" },
 		{ "Shadow", "Brush Q: mark · W: vanish" },
+		{ "Chrome", "Q: plate · E: reload" },
+		{ "Oracle", "Near ward: amp · E: omen" },
+		{ "Arch", "Q: charge · R: meteor" },
 	}
 end
 
@@ -532,6 +731,10 @@ end
 
 function ChampionKits.practiceTipExpansion(): string
 	return "Byte — Packet Buffer: Q on a cat stores Data (max 3). Overclock: W spends it as a shield. Scratch — Honor Bleed: Q stacks a cut (max 3). Shield Fortify: E cashes it and you take less. Shadow — Alley Mark: Q from brush. Smoke Vanish: W, then the next cat hit hits harder."
+end
+
+function ChampionKits.practiceTipExpansionMore(): string
+	return "Chrome — Chrome Plate: Q on a cat stores Plate (max 3) and you take less. Lunge Reload: E spends it, hits harder, and the dash returns sooner. Oracle — Ward Omen: heals and shields are stronger beside your ward. Foresight Veil: E, then the next hit is lighter. Arch — Spell Charge: Q stores Charge (max 3). Charged Meteor: R spends it."
 end
 
 return ChampionKits

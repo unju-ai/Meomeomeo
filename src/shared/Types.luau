@@ -133,6 +133,13 @@ export type CombatState = {
 	markFrom: number?,
 	markTarget: number?,
 	vanishUntil: number?,
+	plateStacks: number?,
+	plateUntil: number?,
+	platePer: number?,
+	omenUntil: number?,
+	omenCut: number?,
+	chargeStacks: number?,
+	chargeUntil: number?,
 	trinketReadyAt: number,
 	lensReadyAt: number,
 }

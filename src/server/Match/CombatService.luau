@@ -435,6 +435,13 @@ local function resetFor(userId: number, championId: string)
 		markFrom = nil,
 		markTarget = nil,
 		vanishUntil = nil,
+		plateStacks = nil,
+		plateUntil = nil,
+		platePer = nil,
+		omenUntil = nil,
+		omenCut = nil,
+		chargeStacks = nil,
+		chargeUntil = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
@@ -771,6 +778,13 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	state.markUntil = nil
 	state.markFrom = nil
 	state.vanishUntil = nil
+	state.plateStacks = nil
+	state.plateUntil = nil
+	state.platePer = nil
+	state.omenUntil = nil
+	state.omenCut = nil
+	state.chargeStacks = nil
+	state.chargeUntil = nil
 	local ownedMark = state.markTarget
 	state.markTarget = nil
 	if ownedMark then
@@ -878,7 +892,17 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 		return
 	end
 	local guarded = state.guardUntil ~= nil and now() < state.guardUntil
-	local reduced = amount * (1 - (state.armor or 0)) * ChampionKits.guardMultiplier(state.guardReduction or 0, guarded)
+	local plates = if state.plateUntil ~= nil and now() < state.plateUntil then state.plateStacks or 0 else 0
+	local omenLive = state.omenUntil ~= nil and now() < state.omenUntil and (state.omenCut or 0) > 0
+	local reduced = amount
+		* (1 - (state.armor or 0))
+		* ChampionKits.guardMultiplier(state.guardReduction or 0, guarded)
+		* ChampionKits.plateMultiplier(plates, state.platePer or 0)
+		* (if omenLive then ChampionKits.omenMultiplier(state.omenCut or 0) else 1)
+	if omenLive and amount > 0 then
+		state.omenUntil = nil
+		state.omenCut = nil
+	end
 	if reduced > 0 then
 		breakRecall(playerOf(targetUserId), "damage")
 		interruptChannel(targetUserId, "damage")
@@ -1816,6 +1840,110 @@ local function applyFortify(
 	fireCombat(userId)
 end
 
+local function livePlate(casterUserId: number): number
+	local state = combat[casterUserId]
+	if not state or state.plateUntil == nil or now() >= state.plateUntil then
+		return 0
+	end
+	return state.plateStacks or 0
+end
+
+local function gainPlate(casterUserId: number, cap: number, seconds: number, per: number)
+	if cap <= 0 or seconds <= 0 or per <= 0 then
+		return
+	end
+	local state = combat[casterUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.plateUntil ~= nil and now() < state.plateUntil then state.plateStacks or 0 else 0
+	state.plateStacks = ChampionKits.addPlate(current, cap)
+	state.plateUntil = now() + seconds
+	state.platePer = per
+	fireCombat(casterUserId)
+end
+
+local function clearPlate(casterUserId: number)
+	local state = combat[casterUserId]
+	if not state or ((state.plateStacks or 0) <= 0 and state.plateUntil == nil) then
+		return
+	end
+	state.plateStacks = nil
+	state.plateUntil = nil
+	state.platePer = nil
+	fireCombat(casterUserId)
+end
+
+local function shortenCooldown(userId: number, slot: Types.AbilitySlot, seconds: number)
+	if seconds <= 0 then
+		return
+	end
+	local state = combat[userId]
+	if not state then
+		return
+	end
+	state.cooldowns[slot] = ChampionKits.shortenReady(state.cooldowns[slot], now(), seconds)
+	fireCombat(userId)
+end
+
+local function allyWardDistance(team: Types.TeamId, origin: Vector3): number
+	local best = math.huge
+	for _, ward in WardService.list() do
+		if ward.team == team and ward.part then
+			local flat = Vector3.new(ward.part.Position.X - origin.X, 0, ward.part.Position.Z - origin.Z)
+			if flat.Magnitude < best then
+				best = flat.Magnitude
+			end
+		end
+	end
+	return best
+end
+
+local function applyOmen(targetUserId: number, seconds: number, cut: number)
+	if seconds <= 0 or cut <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	state.omenUntil = now() + seconds
+	state.omenCut = cut
+	fireCombat(targetUserId)
+end
+
+local function liveCharge(casterUserId: number): number
+	local state = combat[casterUserId]
+	if not state or state.chargeUntil == nil or now() >= state.chargeUntil then
+		return 0
+	end
+	return state.chargeStacks or 0
+end
+
+local function gainCharge(casterUserId: number, cap: number, seconds: number)
+	if cap <= 0 or seconds <= 0 then
+		return
+	end
+	local state = combat[casterUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.chargeUntil ~= nil and now() < state.chargeUntil then state.chargeStacks or 0 else 0
+	state.chargeStacks = ChampionKits.addCharge(current, cap)
+	state.chargeUntil = now() + seconds
+	fireCombat(casterUserId)
+end
+
+local function clearCharge(casterUserId: number)
+	local state = combat[casterUserId]
+	if not state or ((state.chargeStacks or 0) <= 0 and state.chargeUntil == nil) then
+		return
+	end
+	state.chargeStacks = nil
+	state.chargeUntil = nil
+	fireCombat(casterUserId)
+end
+
 local function applyAuraGuard(
 	targetUserId: number,
 	seconds: number,
@@ -1860,6 +1988,16 @@ local function applyStrikes(ctx: StrikeCtx)
 	if healAmount > 0 and ctx.championId then
 		healAmount *= ChampionKits.healMultiplier(ctx.championId)
 	end
+	local shieldAmount = ctx.shieldAmount
+	if kit and kit.wardAmp > 0 and ChampionKits.wardNear(allyWardDistance(ctx.team, ctx.origin), kit.wardRange) then
+		local woven = ChampionKits.wardPower(kit.wardAmp)
+		if healAmount > 0 then
+			healAmount *= woven
+		end
+		if shieldAmount > 0 then
+			shieldAmount *= woven
+		end
+	end
 	if healAmount > 0 then
 		local healed = false
 		for _, otherMatch in snapshot.players do
@@ -1890,13 +2028,16 @@ local function applyStrikes(ctx: StrikeCtx)
 			end
 		end
 	end
-	if ctx.shieldAmount > 0 then
+	if shieldAmount > 0 then
 		for _, otherMatch in snapshot.players do
 			local otherRoot = rootOf(otherMatch.userId)
 			if otherMatch.team == ctx.team and otherRoot then
 				local selfCast = otherMatch.userId == ctx.caster and ctx.lastPos == nil
 				if (pointHits(ctx, otherRoot.Position, 0) or selfCast) and consumeHit(ctx.hit, `s:{otherMatch.userId}`) then
-					shieldUser(otherMatch.userId, ctx.shieldAmount)
+					shieldUser(otherMatch.userId, shieldAmount)
+					if kit and kit.omenSeconds > 0 and kit.omenCut > 0 then
+						applyOmen(otherMatch.userId, kit.omenSeconds, kit.omenCut)
+					end
 				end
 			end
 		end
@@ -1930,6 +2071,10 @@ local function applyStrikes(ctx: StrikeCtx)
 	local vanishLive = kit ~= nil and kit.ambushSpend > 0 and liveVanish(ctx.caster)
 	local spentAmbush = false
 	local spentMark = false
+	local plateStacks = if kit and kit.plateSpend > 0 then livePlate(ctx.caster) else 0
+	local spentPlate = false
+	local chargeStacks = if kit and kit.chargeSpend > 0 then liveCharge(ctx.caster) else 0
+	local spentCharge = false
 	for _, otherMatch in snapshot.players do
 		local otherRoot = rootOf(otherMatch.userId)
 		if otherMatch.team ~= ctx.team and otherRoot then
@@ -1968,6 +2113,14 @@ local function applyStrikes(ctx: StrikeCtx)
 						spentMark = true
 					end
 				end
+				if plateStacks > 0 and kit and kit.plateSpend > 0 then
+					dealt *= ChampionKits.platePower(plateStacks, kit.plateBonus)
+					spentPlate = true
+				end
+				if chargeStacks > 0 and kit and kit.chargeSpend > 0 then
+					dealt *= ChampionKits.chargePower(chargeStacks, kit.chargeBonus)
+					spentCharge = true
+				end
 				damageUser(ctx.caster, otherMatch.userId, dealt)
 				if kit and kit.wickGain > 0 and not hit["kit:wick"] then
 					hit["kit:wick"] = true
@@ -1979,6 +2132,14 @@ local function applyStrikes(ctx: StrikeCtx)
 				end
 				if kit and kit.bleedGain > 0 then
 					gainBleed(otherMatch.userId, ctx.caster, kit.bleedCap, kit.bleedSeconds)
+				end
+				if kit and kit.plateGain > 0 and not hit["kit:plate"] then
+					hit["kit:plate"] = true
+					gainPlate(ctx.caster, kit.plateCap, kit.plateSeconds, kit.platePer)
+				end
+				if kit and kit.chargeGain > 0 and not hit["kit:charge"] then
+					hit["kit:charge"] = true
+					gainCharge(ctx.caster, kit.chargeCap, kit.chargeSeconds)
 				end
 				if kit and kit.fortifySeconds > 0 and ctx.championId and ctx.slot and not hit["kit:fortify"] then
 					hit["kit:fortify"] = true
@@ -2009,6 +2170,14 @@ local function applyStrikes(ctx: StrikeCtx)
 	end
 	if spentAmbush then
 		clearVanish(ctx.caster)
+	end
+	if spentPlate and kit and ctx.slot then
+		local refundSeconds = ChampionKits.plateRefund(plateStacks, kit.plateReload)
+		clearPlate(ctx.caster)
+		shortenCooldown(ctx.caster, ctx.slot, refundSeconds)
+	end
+	if spentCharge then
+		clearCharge(ctx.caster)
 	end
 	local minionHit = false
 	for _, minion in MinionService.list() do

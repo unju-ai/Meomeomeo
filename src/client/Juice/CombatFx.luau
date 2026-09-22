@@ -535,6 +535,48 @@ local function placeVanish(origin: Vector3, dest: Vector3)
 	placeBurst(dest, Color3.fromRGB(120, 110, 160), 1.6, 0.2)
 end
 
+local function placePlate(at: Vector3)
+	local chrome = Color3.fromRGB(90, 210, 200)
+	placeRing(at, 5.5, chrome, 0.32)
+	local shard = takePart("Plate")
+	shard.Shape = Enum.PartType.Block
+	shard.Size = Vector3.new(0.35, 3.2, 1.4)
+	shard.CFrame = CFrame.new(at + Vector3.new(0, 1.8, 0))
+	flashPart(shard, chrome, 0.12)
+	release(shard, 0.28)
+end
+
+local function placeReload(origin: Vector3, dest: Vector3)
+	local chrome = Color3.fromRGB(90, 210, 200)
+	placeBeam(origin, dest, chrome, 2.2, 0.28)
+	placeRing(dest, 4.5, Color3.fromRGB(210, 255, 246), 0.36)
+	placeBurst(dest, chrome, 1.6, 0.2)
+end
+
+local function placeOmen(at: Vector3, radius: number)
+	local lilac = Color3.fromRGB(186, 140, 220)
+	placeRing(at, radius, lilac, 0.38)
+	placeRing(at, math.max(radius * 0.45, 3.5), Color3.fromRGB(236, 214, 255), 0.44)
+end
+
+local function placeCharge(at: Vector3)
+	local ink = Color3.fromRGB(70, 90, 190)
+	placeRing(at, 4.2, ink, 0.3)
+	local spark = takePart("Charge")
+	spark.Shape = Enum.PartType.Ball
+	spark.Size = Vector3.new(0.7, 0.7, 0.7)
+	spark.CFrame = CFrame.new(at + Vector3.new(0, 2.4, 0))
+	flashPart(spark, Color3.fromRGB(170, 190, 255), 0.08)
+	release(spark, 0.26)
+end
+
+local function placeMeteor(at: Vector3, radius: number)
+	local ink = Color3.fromRGB(70, 90, 190)
+	placeRing(at, radius, ink, 0.4)
+	placeBeam(at + Vector3.new(0, 18, 0), at, Color3.fromRGB(140, 160, 255), 1.6, 0.3)
+	placeBurst(at, ink, 2.4, 0.26)
+end
+
 local function followProjectile(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local duration = math.max(event.duration or 0.2, 0.08)
@@ -653,6 +695,31 @@ local function playAbility(event: Types.CombatFxEvent)
 		return
 	elseif look == "vanish" then
 		placeVanish(origin, dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "plate" then
+		placePlate(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "reload" then
+		placeReload(origin, dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "omen" then
+		placeOmen(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "charge" then
+		placeCharge(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "meteor" then
+		placeMeteor(dest, radius)
 		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
 		playKitSound(event, pitch, false)
 		return
