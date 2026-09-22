@@ -49,7 +49,7 @@ local LINES_MOBA: { { string } } = {
 	{ "Practice", "Solo vs 3 bots · party shares Blue" },
 	{ "Invite", "Same-server Accept · leader queues" },
 	{ "Party", "Leader + members, or solo · 20s" },
-	{ "Tips", "First Practice cards · replay from lobby" },
+	{ "Tips", "Hub Live is the checklist, not a card · Show tips replays" },
 }
 
 local function withKitRows(lines: { { string } }): { { string } }

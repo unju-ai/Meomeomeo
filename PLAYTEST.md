@@ -59,6 +59,10 @@ Meme tape (same day, later slice): Luau compiled 130 sources; `tools/test-meme-s
 
 Lobby hosts (same day, later slice): Luau compiled 130 sources; `tools/test-brand.py` passed (Closet / Lantern Cap / Stall Spark, fog and last-seen ghosts, Invite / party queue, Pawmart Yarn Cleave on **7** / Stall Fang / Paper Charm, Kitty Caster, smart pings on **G**, death recap, purse chip, **Mute me**, meme tape as a side system, six topic chips, a rare idle line). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to talk to MEO, ME, and MO (the live-pass below). No API key.
 
+First-Practice tips (same day, later slice): the deck keeps move, scratch, abilities, the kit cards, recall, wards, and fog, and adds a short tail for the systems shipped after those cards. Purse gold/CS shares the Pawmart card with Yarn Cleave (**7**), Stall Fang, and Paper Charm. One card covers outer post → lantern stall → yarn core. Then death recap, Kitty Caster plus named **G** pings, Invite / party queue, and Closet unlocks plus **Mute me**. Hub **Live** stays on the **H / ?** Tips row, not a card. `MeoTutorial_v1` is still a boolean, so a player who already skipped or finished is not shown the new cards until lobby **Show tips**. See the live-pass under §3.
+
+Verified locally: Luau compiled 133 sources; `tools/test-tutorial.py` passed (17-card deck, **Next** / **Got it**, **Skip all** stays dismissed, **Show tips** replays after a finished flag, live matches and other modes stay quiet, hub **Live** stays on the Tips row). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to step **Show tips** in Play.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -112,7 +116,7 @@ rojo serve
 
 ## 3. First session — Practice (solo)
 
-1. Hub → **Cat Rift → Play** → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**. **← Hub** returns to the grid. After lock-in, a cream/coral **tip card** (top-left) walks move/AA/QWER/shop/recall/ward/fog/Tab/nexus. **Next** or **Skip all**. Combat still works — the card is not a modal. Lobby **Show tips** replays anytime. Skip/finish persists (`MeoTutorial_v1` DataStore, memory fallback in Studio).
+1. Hub → **Cat Rift → Play** → bot difficulty **Easy**, **Normal**, or **Hard** → **Practice match**. **← Hub** returns to the grid. After lock-in, a cream/coral **tip card** (top-left) walks move, scratch, abilities, the kit cards, **purse + Pawmart** (Yarn Cleave on **7**, Stall Fang, Paper Charm), recall, wards, fog, **outer post → lantern stall → yarn core**, death recap, Kitty Caster + named **G** pings, Invite / party queue, then Closet (Lantern Cap / Stall Spark) and **Mute me**. **Next** or **Skip all**. Combat still works — the card is not a modal. Lobby **Show tips** replays the current deck anytime. Skip/finish persists (`MeoTutorial_v1` boolean, memory fallback in Studio). Players who already skipped or finished stay dismissed until they press **Show tips**. Hub **Live** is on **H / ?** (Tips row), not a card. Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the card.
    - **Easy** — slow, panicky, sloppy CS, 0.88× damage. Leaves the fountain naked. A later fountain visit buys at most one **Mana Treat**. No dodge; will not dive towers. Does not take jungle camps.
    - **Normal** — last-hits, leads traveling skillshots (72 studs/s), sidesteps incoming bolts/AoEs (hang uses travel time), dives only with a crashing wave or a short low-HP chase. Leaves naked; a fountain return buys two stat items (bruiser: Yarnplate then boots, assassin: Longclaw then boots, mage: Mana Treat then Longclaw). Mid, once the allied wave is past the river, clears the nearest own-side camp and finishes it. A champion in their face can pull a healthy camp; a hurt camp is finished anyway.
    - **Hard** — faster, 1.22× damage, tighter CS, a short role build bought at the opening fountain (bruiser/tank: Yarnplate + Paper Charm, assassin: Longclaw + Pounce Boots, mage: Mana Treat + Longclaw). Stall Fang, Yarn Cleave, and Whisker Lens wait until a later visit can pay for the next one. One early **magenta control (pink)** ward once they have left the fountain (still free — they do not buy Control Yarn). Presses **7** when two visible enemy cats are inside the cleave circle. Uses Whisker Lens when an enemy pink or trinket is inside the lens radius, and only after they own it. Kill-dives. Mid runs pigeon pack → yarn golem → near river crab → far river crab, then rotates to the pushed lane. Top and bot stay in lane.
@@ -123,6 +127,17 @@ rojo serve
 6. Die to a bot or a scratching post. A **Death recap** card lists the recent scratches (cat, post, kitten, camp, or item; ability or **Scratch** when the server knows; approximate damage; killing blow marked). **✕** dismisses it, or it hides about 2.5s before the fountain timer. **Recap** brings it back while you are down. Kill feed and **Tab** stay. The card does not appear in Hub, Yarn Run, Koi, Party, or Arcade.
 7. Push one lane **outer scratching post → inner lantern stall → yarn core**. The stall billboard stays `(gated)` and takes no damage until that lane's post falls (death puff + kill feed). Stall shots are warm lantern gold and use the same aggro as posts. The nexus stays `(gated)` until all **3 posts and 3 stalls** are down, then `(OPEN)`. Scratch the nexus. Kitty Caster names the post, the stall, the open yarn core, and the unplug (see the callout live-pass).
 8. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. The kill feed also gets her sting (**VICTORY** if you won, **DEFEAT** if your core fell). **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog, never play rift callouts, and never show the rift meme tape. Last-hitting a post or stall, or winning, can ticker `UNLOCKED ·` for Closet drip (see §3f).
+
+### Studio live-pass (first-Practice tips)
+
+The Luau smoke steps **Next** and **Skip all**, and checks lobby **Show tips** still replays after a dismiss. It does not move a character. Do this in Play.
+
+1. Use a player who has not dismissed tips (a fresh Studio memory store, or a DataStore user who is not done). Hub → **Cat Rift** → **Practice**. After lock-in the cream/coral card sits top-left. Walk, scratch, and cast while it is open. The card does not block the rift.
+2. **Next** until the tail: **Purse & Pawmart** (gold, CS, Tab, **7**, Stall Fang, Paper Charm), **Posts, stalls, yarn core**, **Death recap**, **Caster & pings**, **Party queue**, **Closet & voice**. **Got it** on the last card.
+3. **Practice again**. The card stays hidden. **Back to lobby** (the Cat Rift stall) and press **Show tips**. The deck starts again at **Move & look**, including those new cards. **Skip all**, then **Show tips** once more. It replays.
+4. Open **H / ?** during Cat Rift. The **Tips** row says hub **Live** is the checklist, not a card. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the tip card.
+
+Smoke (not a Studio substitute): `python3 tools/test-tutorial.py /path/to/luau`.
 
 ### Studio live-pass (death recap)
 
@@ -623,7 +638,7 @@ These are not covered by the Luau smoke:
 - Whole rift stays fully bright in Practice: Rojo-sync `Shared.VisionLogic` + `Client.Juice.FogOfWar`. Overlay is client-only Parts named `MeoFog`.
 - No fading ghost when a bot walks into fog: Rojo-sync `Shared.LastSeenGhostLogic` + `Client.Juice.LastSeenGhosts`. Ghosts are client-only parts in `Workspace.MeoLastSeen` (not server entities). They only appear after you have seen that unit once this match.
 - Fog stays on after the match / in Yarn Run: leave Practice via **Back to lobby** first; hub modes call `FogOfWar.setEnabled(false)`.
-- No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
+- No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start. A player who already finished will not see new cards until **Show tips**. That is intentional (`MeoTutorial_v1` stays a boolean).
 - No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
 - No ping wheel, or a ping never names the cat: Rojo-sync `PingCatalog`, `PingLogic`, and `MinimapPing`. Hold **G** in Practice (not lobby) on a visible bot. Minimap click is still generic Attention, including into fog. Attention on a hidden enemy says **No vision.**
 - Tape under the kill feed never moves, or the rift tape shows on the hub: Rojo-sync `Shared.MemeStockLogic`, `Server.Economy.MemeStockService`, and `Client.UI.MemeTape`. Champion kills and posts move it. Lane kitten last hits do not. Yarn Run, Koi Pond, Yarn Party, Meme Arcade, and the hub grid do not show it.

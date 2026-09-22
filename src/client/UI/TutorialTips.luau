@@ -1,6 +1,9 @@
 --!strict
 
 -- Non-modal first-match tips. Play continues underneath. Help (H/?) is separate.
+-- The list below is what lobby Show tips replays. MeoTutorial_v1 stays a
+-- boolean dismiss flag, so a longer deck does not reopen for someone who
+-- already skipped or finished.
 
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local Theme = require(script.Parent.Parent.Theme)
@@ -68,8 +71,8 @@ local SEQUENCE: { Tip } = {
 	},
 	{
 		id = "shop",
-		title = "Pawmart (B)",
-		body = "B opens the shop — only at your fountain. Claws and yarn, plus Yarn Cleave (7), Stall Fang, and Paper Charm. B is not recall.",
+		title = "Purse & Pawmart",
+		body = "B opens Pawmart at the fountain — not recall. The purse chip shows gold, CS, and level; Tab matches (bots are tagged). Last hits add CS; kills do not. After you buy them, press 7 for Yarn Cleave. Stall Fang bites low cats. Paper Charm shrugs an enemy pink.",
 	},
 	{
 		id = "recall",
@@ -87,14 +90,29 @@ local SEQUENCE: { Tip } = {
 		body = "The rift stays dark until an ally cat, kitten, living tower/nexus, or ward lights it. Ground you have already seen stays a dim explored tint after you leave (same match only). Base walls and thick cover block sight (mid gate stays open; thin props do not). Jungle brush hides cats until someone steps in — you cannot AA an unseen brush target; attack-move walks toward last-known. When an enemy cat, kitten, or camp leaves sight, a ghost fades at the last spot you saw them and does not follow. Enemy traveling bolts hide in fog; yours stay visible. Minimap hides unseen enemies. Pinks (6) stay visible to everyone.",
 	},
 	{
-		id = "tab",
-		title = "Scoreboard (Tab)",
-		body = "A purse chip above the ability bar shows your gold, CS, and level, including whether you can buy Yarn Cleave. Hold Tab for the whole rift: KDA, CS, gold, and items. Bots are tagged (Bot). The chip and Tab match.",
+		id = "nexus",
+		title = "Posts, stalls, yarn core",
+		body = "Each lane is an outer scratching post, then a lantern stall. The stall stays (gated) until that post falls. The yarn core (the nexus) stays (gated) until all 3 posts and all 3 stalls are down.",
 	},
 	{
-		id = "nexus",
-		title = "Posts, stalls, then nexus",
-		body = "Each lane has a scratching post, then a lantern stall. The stall stays (gated) until that lane's post falls. The nexus stays (gated) until all 3 posts and all 3 stalls are down.",
+		id = "recap",
+		title = "Death recap",
+		body = "When you fall, Death recap lists recent scratches — a cat, post, kitten, camp, or item — and marks the killing blow. Close it, or it hides before the fountain. Recap brings it back while you are down.",
+	},
+	{
+		id = "signals",
+		title = "Caster & pings",
+		body = "Kitty Caster calls first blood, streaks, posts, stalls, the yarn core, and victory or defeat. Hold G to name a visible cat, post, stall, ward, or camp. Attention refuses a hidden cat.",
+	},
+	{
+		id = "party",
+		title = "Party queue",
+		body = "On the Cat Rift stall, Invite a friend in this server. Accept or Decline lasts about 20 seconds. The leader presses Queue party or Practice with party, and you share Blue.",
+	},
+	{
+		id = "closet",
+		title = "Closet & voice",
+		body = "Hub Closet spends yarn points, not Robux. Lantern Cap unlocks after an outer post or lantern stall. Stall Spark unlocks after a win. Mute me on the voice pill mutes your mic only. Bots stay silent.",
 	},
 }
 
@@ -106,8 +124,8 @@ local SHOP_TIP: Tip = {
 
 local GATE_TIP: Tip = {
 	id = "gateNow",
-	title = "Nexus still gated",
-	body = "A structure fell. A lantern stall opens only after its own lane's scratching post. The nexus stays invulnerable until every post and stall on that side is down.",
+	title = "Yarn core still gated",
+	body = "A structure fell. A lantern stall opens only after its own lane's outer post. The yarn core stays invulnerable until every post and stall on that side is down.",
 }
 
 function TutorialTips.create(parent: Instance): TipsApi
@@ -125,7 +143,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	Theme.stroke(root, Theme.coral, 2, 0.2)
 	Theme.pad(root, 12)
 
-	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 13", 11, Theme.coral, Theme.fontMono)
+	local kicker = Theme.text(root, "Kicker", `Practice tip  1 / {#SEQUENCE}`, 11, Theme.coral, Theme.fontMono)
 	kicker.Size = UDim2.new(1, -8, 0, 16)
 
 	local title = Theme.text(root, "Title", "", 18, Theme.cream, Theme.fontTitle)
