@@ -64,4 +64,18 @@ script = (
 with tempfile.TemporaryDirectory(prefix="meo-combat-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
-    subprocess.run([str(luau), str(entry)], check=True)
+    result = subprocess.run([str(luau), str(entry)], check=True, capture_output=True, text=True)
+named = (
+    "Packet Buffer",
+    "Overclock",
+    "Honor Bleed",
+    "Shield Fortify",
+    "Alley Mark",
+    "Smoke Vanish",
+)
+missing = [name for name in named if name not in result.stdout]
+if missing:
+    sys.stderr.write(result.stdout)
+    sys.stderr.write(result.stderr)
+    raise SystemExit("combat smoke did not name: " + ", ".join(missing))
+sys.stdout.write(result.stdout)
