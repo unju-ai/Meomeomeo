@@ -1,12 +1,13 @@
 --!strict
 
--- Per-champion combat hooks for the three flagship cats.
--- CombatService is the only applier. Other champions get a zero plan.
--- Numbers here are the identity pass: guard, pull, takedown reset, channel, refund, zone.
+-- Per-champion combat hooks. CombatService is the only applier.
+-- Flagship three: guard, pull, takedown reset, channel, refund, zone.
+-- Original three: Settled Loaf + Charge Knock, Open Wick + Hype Candle, Second Helping + Sweater Aura.
+-- The eight expansion champions stay on the zero plan.
 
 local Types = require(script.Parent.Types)
 
-export type Look = "guard" | "pull" | "channel" | "rainbow" | "laser" | "zone"
+export type Look = "guard" | "pull" | "channel" | "rainbow" | "laser" | "zone" | "knock" | "wick" | "candle" | "sweater"
 
 export type CastPlan = {
 	guardSeconds: number,
@@ -18,6 +19,19 @@ export type CastPlan = {
 	zoneSeconds: number,
 	zoneTick: number,
 	zonePulses: number,
+	knockStuds: number,
+	knockStun: number,
+	wickGain: number,
+	wickCap: number,
+	wickSeconds: number,
+	wickBonus: number,
+	auraGuardSeconds: number,
+	auraGuardReduction: number,
+}
+
+export type Identity = {
+	passive: string,
+	signature: string,
 }
 
 local MEOW_GUARD_SECONDS = 2.5
@@ -30,6 +44,16 @@ local WHISK_REFUND = 22
 local WHISK_ZONE_SECONDS = 2.4
 local WHISK_ZONE_TICK = 0.8
 local WHISK_ZONE_PULSES = 3
+local CHONK_GUARD_SECONDS = 2.2
+local CHONK_GUARD_CUT = 0.3
+local CHONK_KNOCK_STUDS = 10
+local CHONK_KNOCK_STUN = 0.45
+local SCAMMY_WICK_CAP = 3
+local SCAMMY_WICK_SECONDS = 8
+local SCAMMY_WICK_BONUS = 0.4
+local GRANDMA_HEAL_AMP = 1.22
+local GRANDMA_AURA_SECONDS = 2.4
+local GRANDMA_AURA_CUT = 0.22
 
 local ChampionKits = {}
 
@@ -44,6 +68,14 @@ local function zero(): CastPlan
 		zoneSeconds = 0,
 		zoneTick = 0,
 		zonePulses = 0,
+		knockStuds = 0,
+		knockStun = 0,
+		wickGain = 0,
+		wickCap = 0,
+		wickSeconds = 0,
+		wickBonus = 0,
+		auraGuardSeconds = 0,
+		auraGuardReduction = 0,
 	}
 end
 
@@ -75,7 +107,50 @@ function ChampionKits.plan(championId: string, slot: Types.AbilitySlot, stunSeco
 		plan.zonePulses = WHISK_ZONE_PULSES
 		return plan
 	end
+	if championId == "ChonkKnight" and slot == "E" then
+		local plan = zero()
+		plan.guardSeconds = CHONK_GUARD_SECONDS
+		plan.guardReduction = CHONK_GUARD_CUT
+		return plan
+	end
+	if championId == "ChonkKnight" and slot == "Q" then
+		local plan = zero()
+		plan.knockStuds = CHONK_KNOCK_STUDS
+		plan.knockStun = CHONK_KNOCK_STUN
+		return plan
+	end
+	if championId == "ScammyMcMittens" and slot == "Q" then
+		local plan = zero()
+		plan.wickGain = 1
+		plan.wickCap = SCAMMY_WICK_CAP
+		plan.wickSeconds = SCAMMY_WICK_SECONDS
+		return plan
+	end
+	if championId == "ScammyMcMittens" and slot == "E" then
+		local plan = zero()
+		plan.wickBonus = SCAMMY_WICK_BONUS
+		return plan
+	end
+	if championId == "GrandmaFluff" and slot == "W" then
+		local plan = zero()
+		plan.auraGuardSeconds = GRANDMA_AURA_SECONDS
+		plan.auraGuardReduction = GRANDMA_AURA_CUT
+		return plan
+	end
 	return zero()
+end
+
+function ChampionKits.identity(championId: string): Identity?
+	if championId == "ChonkKnight" then
+		return { passive = "Settled Loaf", signature = "Charge Knock" }
+	end
+	if championId == "ScammyMcMittens" then
+		return { passive = "Open Wick", signature = "Hype Candle" }
+	end
+	if championId == "GrandmaFluff" then
+		return { passive = "Second Helping", signature = "Sweater Aura" }
+	end
+	return nil
 end
 
 function ChampionKits.refundMana(championId: string, slot: Types.AbilitySlot): number
@@ -83,6 +158,13 @@ function ChampionKits.refundMana(championId: string, slot: Types.AbilitySlot): n
 		return WHISK_REFUND
 	end
 	return 0
+end
+
+function ChampionKits.healMultiplier(championId: string): number
+	if championId == "GrandmaFluff" then
+		return GRANDMA_HEAL_AMP
+	end
+	return 1
 end
 
 function ChampionKits.onTakedown(championId: string): { Types.AbilitySlot }?
@@ -99,6 +181,17 @@ function ChampionKits.guardMultiplier(reduction: number, active: boolean): numbe
 	return 1 - math.clamp(reduction, 0, 0.75)
 end
 
+-- Keep a stronger guard that is still up. An equal cut refreshes.
+function ChampionKits.preferGuard(currentReduction: number, active: boolean, nextReduction: number): boolean
+	if nextReduction <= 0 then
+		return false
+	end
+	if not active then
+		return true
+	end
+	return nextReduction + 1e-4 >= currentReduction
+end
+
 -- Flat pull toward the decree center. Stops short of the point so targets do not stack inside it.
 function ChampionKits.pullPosition(origin: Vector3, center: Vector3, studs: number): Vector3
 	if studs <= 0 then
@@ -112,6 +205,33 @@ function ChampionKits.pullPosition(origin: Vector3, center: Vector3, studs: numb
 	local step = math.min(studs, mag - 0.5)
 	local unit = flat.Unit
 	return Vector3.new(origin.X + unit.X * step, origin.Y, origin.Z + unit.Z * step)
+end
+
+-- Shove along the charge, from the target, by a fixed step. A tiny roll does not move anyone.
+function ChampionKits.knockPosition(from: Vector3, origin: Vector3, dest: Vector3, studs: number): Vector3
+	if studs <= 0 then
+		return from
+	end
+	local flat = Vector3.new(dest.X - origin.X, 0, dest.Z - origin.Z)
+	if flat.Magnitude < 0.5 then
+		return from
+	end
+	local unit = flat.Unit
+	return Vector3.new(from.X + unit.X * studs, from.Y, from.Z + unit.Z * studs)
+end
+
+function ChampionKits.addWick(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+function ChampionKits.wickPower(stacks: number, bonus: number): number
+	if stacks <= 0 or bonus <= 0 then
+		return 1
+	end
+	return 1 + stacks * bonus
 end
 
 function ChampionKits.pulsePower(total: number, pulses: number): number
@@ -140,6 +260,21 @@ function ChampionKits.look(championId: string, slot: Types.AbilitySlot): Look?
 	if championId == "ProfessorWhiskers" and slot == "E" then
 		return "zone"
 	end
+	if championId == "ChonkKnight" and slot == "Q" then
+		return "knock"
+	end
+	if championId == "ChonkKnight" and slot == "E" then
+		return "guard"
+	end
+	if championId == "ScammyMcMittens" and slot == "Q" then
+		return "wick"
+	end
+	if championId == "ScammyMcMittens" and slot == "E" then
+		return "candle"
+	end
+	if championId == "GrandmaFluff" and slot == "W" then
+		return "sweater"
+	end
 	return nil
 end
 
@@ -151,6 +286,14 @@ function ChampionKits.castPitch(championId: string, slot: Types.AbilitySlot): nu
 		return 1.42
 	elseif look == "zone" then
 		return 0.86
+	elseif look == "knock" then
+		return 0.72
+	elseif look == "wick" then
+		return 1.28
+	elseif look == "candle" then
+		return 1.12
+	elseif look == "sweater" then
+		return 0.82
 	end
 	return 1
 end
@@ -167,11 +310,18 @@ function ChampionKits.helpRows(): { { string } }
 		{ "Meow", "W: guard · R: pull stun" },
 		{ "Nyan", "Kill resets QWE · R can break" },
 		{ "Whisk", "Q mana back · E zone ticks" },
+		{ "Chonk", "E: loaf · Q: knock" },
+		{ "Scammy", "Q: wick · E: candle" },
+		{ "Grandma", "Heals amp · W: aura" },
 	}
 end
 
 function ChampionKits.practiceTip(): string
 	return "Meow — W: short damage cut. R: pull + stun. Nyan — a takedown resets Q W E. R: beam you can cancel. Whiskers — Q hit refunds mana. E: zone that keeps ticking."
+end
+
+function ChampionKits.practiceTipMore(): string
+	return "Chonk — Settled Loaf: E cuts damage after the flop. Charge Knock: Q bowls champs. Scammy — Open Wick stacks on Q (max 3). Hype Candle spends them. Grandma — Second Helping boosts heals. Sweater Aura on W cuts damage."
 end
 
 return ChampionKits

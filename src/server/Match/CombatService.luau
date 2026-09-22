@@ -420,6 +420,8 @@ local function resetFor(userId: number, championId: string)
 		channelStartedAt = nil,
 		guardUntil = nil,
 		guardReduction = nil,
+		wickStacks = nil,
+		wickUntil = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
@@ -743,6 +745,8 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	state.health = 0
 	state.guardUntil = nil
 	state.guardReduction = nil
+	state.wickStacks = nil
+	state.wickUntil = nil
 	locks[victimUserId] = nil
 	interruptChannel(victimUserId, "death")
 	local victimPlayer = playerOf(victimUserId)
@@ -1547,19 +1551,92 @@ local function pointHits(ctx: StrikeCtx, position: Vector3, extra: number): bool
 	return Targeting.hits(ctx.mode, ctx.origin, ctx.dest, position, radius)
 end
 
+local function liveWick(casterUserId: number): number
+	local state = combat[casterUserId]
+	if not state or state.wickUntil == nil or now() >= state.wickUntil then
+		return 0
+	end
+	return state.wickStacks or 0
+end
+
+local function gainWick(casterUserId: number, cap: number, seconds: number)
+	if cap <= 0 or seconds <= 0 then
+		return
+	end
+	local state = combat[casterUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.wickUntil ~= nil and now() < state.wickUntil then state.wickStacks or 0 else 0
+	state.wickStacks = ChampionKits.addWick(current, cap)
+	state.wickUntil = now() + seconds
+	fireCombat(casterUserId)
+end
+
+local function clearWick(casterUserId: number)
+	local state = combat[casterUserId]
+	if not state or ((state.wickStacks or 0) <= 0 and state.wickUntil == nil) then
+		return
+	end
+	state.wickStacks = nil
+	state.wickUntil = nil
+	fireCombat(casterUserId)
+end
+
+local function applyAuraGuard(
+	targetUserId: number,
+	seconds: number,
+	reduction: number,
+	championId: string,
+	slot: Types.AbilitySlot
+)
+	if seconds <= 0 or reduction <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	local active = state.guardUntil ~= nil and now() < state.guardUntil
+	if not ChampionKits.preferGuard(state.guardReduction or 0, active, reduction) then
+		return
+	end
+	state.guardUntil = now() + seconds
+	state.guardReduction = reduction
+	local root = rootOf(targetUserId)
+	if root then
+		FxRelay.emit({
+			kind = "shield",
+			origin = root.Position,
+			userId = targetUserId,
+			duration = seconds,
+			championId = championId,
+			slot = slot,
+		})
+	end
+end
+
 local function applyStrikes(ctx: StrikeCtx)
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot then
 		return
 	end
 	local player = playerOf(ctx.caster)
-	if ctx.healAmount > 0 then
+	local kit = if ctx.championId and ctx.slot then ChampionKits.plan(ctx.championId, ctx.slot, ctx.stunSeconds) else nil
+	local healAmount = ctx.healAmount
+	if healAmount > 0 and ctx.championId then
+		healAmount *= ChampionKits.healMultiplier(ctx.championId)
+	end
+	if healAmount > 0 then
 		for _, otherMatch in snapshot.players do
 			local otherRoot = rootOf(otherMatch.userId)
 			if otherMatch.team == ctx.team and otherRoot then
 				local selfCast = otherMatch.userId == ctx.caster and ctx.lastPos == nil
 				if (pointHits(ctx, otherRoot.Position, 0) or selfCast) and consumeHit(ctx.hit, `h:{otherMatch.userId}`) then
-					healUser(otherMatch.userId, ctx.healAmount)
+					if kit and kit.auraGuardSeconds > 0 and ctx.championId and ctx.slot then
+						applyAuraGuard(otherMatch.userId, kit.auraGuardSeconds, kit.auraGuardReduction, ctx.championId, ctx.slot)
+					end
+					healUser(otherMatch.userId, healAmount)
 				end
 			end
 		end
@@ -1575,10 +1652,7 @@ local function applyStrikes(ctx: StrikeCtx)
 			end
 		end
 	end
-	local pullStuds = 0
-	if ctx.stunSeconds > 0 and ctx.championId and ctx.slot then
-		pullStuds = ChampionKits.plan(ctx.championId, ctx.slot, ctx.stunSeconds).pullStuds
-	end
+	local pullStuds = if kit and ctx.stunSeconds > 0 then kit.pullStuds else 0
 	if ctx.stunSeconds > 0 then
 		for _, otherMatch in snapshot.players do
 			local otherRoot = rootOf(otherMatch.userId)
@@ -1597,13 +1671,36 @@ local function applyStrikes(ctx: StrikeCtx)
 	if ctx.power <= 0 then
 		return
 	end
+	local hit = ctx.hit
+	if not hit then
+		hit = {}
+		ctx.hit = hit
+	end
+	local wickStacks = if kit and kit.wickBonus > 0 then liveWick(ctx.caster) else 0
+	local spentWick = false
 	for _, otherMatch in snapshot.players do
 		local otherRoot = rootOf(otherMatch.userId)
 		if otherMatch.team ~= ctx.team and otherRoot then
-			if pointHits(ctx, otherRoot.Position, 0) and consumeHit(ctx.hit, `p:{otherMatch.userId}`) then
-				damageUser(ctx.caster, otherMatch.userId, ctx.power)
-				if refund > 0 and ctx.hit and not ctx.hit["kit:refund"] then
-					ctx.hit["kit:refund"] = true
+			if pointHits(ctx, otherRoot.Position, 0) and consumeHit(hit, `p:{otherMatch.userId}`) then
+				if kit and kit.knockStuds > 0 then
+					local knocked = ChampionKits.knockPosition(otherRoot.Position, ctx.origin, ctx.dest, kit.knockStuds)
+					otherRoot.CFrame = CFrame.new(knocked.X, otherRoot.Position.Y, knocked.Z)
+				end
+				if kit and kit.knockStun > 0 then
+					stunUser(otherMatch.userId, kit.knockStun)
+				end
+				local dealt = ctx.power
+				if wickStacks > 0 and kit and kit.wickBonus > 0 then
+					dealt = ctx.power * ChampionKits.wickPower(wickStacks, kit.wickBonus)
+					spentWick = true
+				end
+				damageUser(ctx.caster, otherMatch.userId, dealt)
+				if kit and kit.wickGain > 0 and not hit["kit:wick"] then
+					hit["kit:wick"] = true
+					gainWick(ctx.caster, kit.wickCap, kit.wickSeconds)
+				end
+				if refund > 0 and not hit["kit:refund"] then
+					hit["kit:refund"] = true
 					local casterState = combat[ctx.caster]
 					if casterState and casterState.alive then
 						casterState.mana = math.min(casterState.maxMana, casterState.mana + refund)
@@ -1612,6 +1709,9 @@ local function applyStrikes(ctx: StrikeCtx)
 				end
 			end
 		end
+	end
+	if spentWick then
+		clearWick(ctx.caster)
 	end
 	local minionHit = false
 	for _, minion in MinionService.list() do
@@ -2251,6 +2351,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			healAmount = healAmount,
 			shieldAmount = shieldAmount,
 			stunSeconds = stunSeconds,
+			hit = {},
 			championId = champ.id,
 			slot = slot,
 		})
