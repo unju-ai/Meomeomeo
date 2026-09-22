@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
+local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local Theme = require(script.Parent.Parent.Theme)
@@ -33,12 +34,27 @@ type Follow = {
 	width: number?,
 }
 
+type FloatPop = {
+	key: string,
+	kind: CombatFloat.FloatKind,
+	amount: number,
+	bornAt: number,
+	origin: Vector3,
+	part: BasePart,
+	gui: BillboardGui,
+	label: TextLabel,
+	stroke: UIStroke,
+}
+
 local folder: Folder? = nil
 local pool: { BasePart } = {}
 local follows: { [string]: Follow } = {}
 local lastAaAt: { [string]: number } = {}
 local lastHealAt: { [string]: number } = {}
 local loopBound = false
+local floatsEnabled = false
+local floatPops: { FloatPop } = {}
+local floatMergeSlots: { CombatFloat.MergeSlot } = {}
 
 local function fxFolder(): Folder
 	if folder and folder.Parent then
@@ -252,7 +268,155 @@ local function clearFollow(key: string)
 	end
 end
 
-local function ensureLoop()
+local ensureLoop: () -> ()
+
+local function clearFloat(pop: FloatPop)
+	if pop.gui.Parent then
+		pop.gui:Destroy()
+	end
+	if pop.part.Parent then
+		pop.part:Destroy()
+	end
+end
+
+local function pruneFloatSlots(now: number)
+	local keep: { CombatFloat.MergeSlot } = {}
+	for _, slot in floatMergeSlots do
+		if (now - slot.bornAt) <= CombatFloat.MergeWindow then
+			table.insert(keep, slot)
+		end
+	end
+	floatMergeSlots = keep
+end
+
+local function paintFloat(pop: FloatPop)
+	local rgb = CombatFloat.rgb(pop.kind)
+	local color = Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+	pop.label.Text = CombatFloat.label(pop.kind, pop.amount)
+	pop.label.TextColor3 = color
+	pop.label.TextSize = CombatFloat.textSize(pop.kind)
+	pop.label.Font = if CombatFloat.isBold(pop.kind) then Theme.fontTitle else Theme.fontMono
+	pop.stroke.Thickness = if CombatFloat.isBold(pop.kind) then 2.2 else 1.4
+end
+
+local function spawnFloat(kind: CombatFloat.FloatKind, amount: number, origin: Vector3, key: string, now: number)
+	local part = Instance.new("Part")
+	part.Name = "Float"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(origin + Vector3.new(0, 2.4, 0))
+	part.Parent = fxFolder()
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "MeoFloat"
+	gui.Size = UDim2.fromOffset(88, 36)
+	gui.StudsOffset = Vector3.new(0, 0, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 120
+	gui.Adornee = part
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Amount"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextStrokeTransparency = 0.35
+	label.TextStrokeColor3 = Color3.fromRGB(CombatFloat.Ink[1], CombatFloat.Ink[2], CombatFloat.Ink[3])
+	label.Parent = gui
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(CombatFloat.Ink[1], CombatFloat.Ink[2], CombatFloat.Ink[3])
+	stroke.Transparency = 0.45
+	stroke.Parent = label
+
+	local pop: FloatPop = {
+		key = key,
+		kind = kind,
+		amount = amount,
+		bornAt = now,
+		origin = origin,
+		part = part,
+		gui = gui,
+		label = label,
+		stroke = stroke,
+	}
+	paintFloat(pop)
+	table.insert(floatPops, pop)
+	local slotted = false
+	for _, slot in floatMergeSlots do
+		if slot.key == key and slot.kind == kind and (now - slot.bornAt) <= CombatFloat.MergeWindow then
+			slot.amount = amount
+			slotted = true
+			break
+		end
+	end
+	if not slotted then
+		table.insert(floatMergeSlots, {
+			key = key,
+			amount = amount,
+			kind = kind,
+			bornAt = now,
+		})
+	end
+end
+
+local function playFloat(event: Types.CombatFxEvent)
+	if not floatsEnabled then
+		return
+	end
+	local amount = event.amount
+	local kind = event.floatKind
+	if typeof(amount) ~= "number" or typeof(kind) ~= "string" or amount <= 0 then
+		return
+	end
+	local floatKind = kind :: CombatFloat.FloatKind
+	local localPlayer = Players.LocalPlayer
+	if not localPlayer then
+		return
+	end
+	local localId = localPlayer.UserId
+	if not CombatFloat.caresAbout(localId, event.attackerUserId, event.userId) then
+		return
+	end
+	local inVision = FogOfWar.isLit(event.origin.X, event.origin.Z)
+	if not CombatFloat.fogAllows(localId, event.userId, inVision) then
+		return
+	end
+
+	local now = os.clock()
+	pruneFloatSlots(now)
+	local key = CombatFloat.mergeKey(floatKind, event.origin.X, event.origin.Z, event.userId)
+	local merged = CombatFloat.tryMerge(floatMergeSlots, key, floatKind, amount, now)
+	if merged then
+		for _, pop in floatPops do
+			if pop.key == key and pop.kind == floatKind and (now - pop.bornAt) <= CombatFloat.MergeWindow then
+				pop.amount = merged.amount
+				paintFloat(pop)
+				return
+			end
+		end
+		if CombatFloat.canSpawn(#floatPops) then
+			local jitter = Vector3.new((math.random() - 0.5) * 0.9, 0, (math.random() - 0.5) * 0.9)
+			spawnFloat(floatKind, merged.amount, event.origin + jitter, key, now)
+			ensureLoop()
+		end
+		return
+	end
+	if not CombatFloat.canSpawn(#floatPops) then
+		return
+	end
+	-- Slight scatter so stacked new pops don't sit on one pixel.
+	local jitter = Vector3.new((math.random() - 0.5) * 0.9, 0, (math.random() - 0.5) * 0.9)
+	spawnFloat(floatKind, amount, event.origin + jitter, key, now)
+	ensureLoop()
+end
+
+ensureLoop = function()
 	if loopBound then
 		return
 	end
@@ -326,6 +490,24 @@ local function ensureLoop()
 				end
 			end
 		end
+
+		local keepFloats: { FloatPop } = {}
+		for _, pop in floatPops do
+			local age = now - pop.bornAt
+			if age >= CombatFloat.Duration then
+				clearFloat(pop)
+			else
+				local alpha = age / CombatFloat.Duration
+				local rise = CombatFloat.RiseStuds * alpha
+				local fade = if alpha < 0.55 then 0 else (alpha - 0.55) / 0.45
+				pop.part.CFrame = CFrame.new(pop.origin + Vector3.new(0, 2.4 + rise, 0))
+				pop.label.TextTransparency = fade
+				pop.label.TextStrokeTransparency = 0.35 + fade * 0.65
+				pop.stroke.Transparency = 0.45 + fade * 0.55
+				table.insert(keepFloats, pop)
+			end
+		end
+		floatPops = keepFloats
 	end)
 end
 
@@ -899,6 +1081,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		end
 	elseif event.kind == "cleave" then
 		placeBurst(event.origin, Theme.pink, 3.4, 0.28)
+	elseif event.kind == "float" then
+		playFloat(event)
 	end
 end
 
@@ -907,6 +1091,17 @@ function CombatFx.playUnknown(payload: any)
 		return
 	end
 	CombatFx.play(payload :: Types.CombatFxEvent)
+end
+
+function CombatFx.setFloatsEnabled(enabled: boolean)
+	floatsEnabled = enabled
+	if not enabled then
+		for _, pop in floatPops do
+			clearFloat(pop)
+		end
+		table.clear(floatPops)
+		table.clear(floatMergeSlots)
+	end
 end
 
 function CombatFx.localRecall(userId: number, recalling: boolean, remain: number)

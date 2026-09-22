@@ -1749,6 +1749,7 @@ applyVision = function()
 	local snapshot = latestMatch
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
+		CombatFx.setFloatsEnabled(false)
 		if visionArmed then
 			FogOfWar.setEnabled(false)
 			FogOfWar.resetExplored()
@@ -1761,6 +1762,7 @@ applyVision = function()
 	end
 	visionArmed = true
 	FogOfWar.setEnabled(true)
+	CombatFx.setFloatsEnabled(true)
 	FogOfWar.apply(lastVision.fogBits, lastVision.exploredBits)
 
 	local mine = snapshot.players[tostring(player.UserId)]

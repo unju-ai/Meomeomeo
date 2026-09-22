@@ -33,7 +33,7 @@ This repo is a playable **scaffold** (architecture + stubs), not a finished live
 - Optional yarn / meme-stock ticker on champions
 - Playful HUD: hub grid, Cat Rift lobby, Yarn Run HUD, Koi Pond HUD, Yarn Party HUD, Meme Arcade HUD, **Closet** wardrobe, draft, ability bar, kill feed, **death recap**, **Tab scoreboard**, minimap, voice pill, NPC chat, **Mint Meo 404** panel, **Audio** (SFX + Music + Hide my name), hold **T** emote wheel, **?** / hold **H** help, first-Practice **tip cards**
 - Lightweight client SFX + phase music beds (crossfade) + screen juice (hit flash, level-up pop, tower/nexus shake)
-- Combat VFX stubs: **pooled traveling bolts** for line Qs, ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle
+- Combat VFX stubs: **pooled traveling bolts** for line Qs, ability beams/rings, AA claw + hit spark (debounced), tower bolts, structure death puffs, shield bubble, stun stars, recall circle, **floating damage/heal numbers** (CombatFx float; merge + fog gated)
 - ERC-404-style Solidity collection (`contracts/`) + Foundry tests
 - Purchase → entitlement → hosted claim bridge stubs (`src/server/Mint`, `bridge/`)
 
@@ -382,15 +382,16 @@ Rules the builder keeps:
 
 ## Combat VFX (placeholders)
 
-Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/FxRelay.luau`). The client pools short-lived Parts / Beams / one-shot `ParticleEmitter`s in `src/client/Juice/CombatFx.luau` — no mesh binaries.
+Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/FxRelay.luau`). The client pools short-lived Parts / Beams / one-shot `ParticleEmitter`s in `src/client/Juice/CombatFx.luau` — no mesh binaries. Damage / heal / shield amounts the local player cares about also ride that remote as `kind = "float"` (cream/coral damage, mint heals/shields, bold Stall Fang execute), with client merge + spam caps and fog gating.
 
 | Cue | What you see |
 | --- | --- |
 | Line skillshot | Pooled neon bolt travels origin→dest; burst at the end |
 | Ground / instant AoE | Expanding ring (after click-to-confirm) |
 | Dash | Streak along the path |
-| Heal / shield | Soft burst; shield also gets a ForceField bubble (~1.1s) |
-| Auto-attack | Claw flash + hit spark (spark debounced ~140ms) |
+| Heal / shield | Soft burst; shield also gets a ForceField bubble (~1.1s); mint float when you receive one |
+| Auto-attack | Claw flash + hit spark (spark debounced ~140ms); cream float on deal/take |
+| Floating number | Short rising BillboardGui at the target (merge / soft-cap; fogged enemies quiet) |
 | Tower / nexus shot | Team-colored bolt (lantern stalls shoot warm gold) |
 | Structure death | Puff of neon balls |
 | Stun | Three stars orbit the head for the stun duration |

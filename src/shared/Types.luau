@@ -358,6 +358,8 @@ export type DeathRecap = {
 	lines: { DamageLine },
 }
 
+export type CombatFloatKind = "damage" | "heal" | "shield" | "crit" | "execute"
+
 export type CombatFxKind =
 	"ability"
 	| "aa"
@@ -370,6 +372,7 @@ export type CombatFxKind =
 	| "projectile"
 	| "projectileHit"
 	| "cleave"
+	| "float"
 
 export type CombatFxEvent = {
 	kind: CombatFxKind,
@@ -387,6 +390,11 @@ export type CombatFxEvent = {
 	slot: AbilitySlot?,
 	structureKind: "Tower" | "Nexus"?,
 	tier: StructureTier?,
+	-- Floating combat numbers (same CombatFx remote; no second channel).
+	amount: number?,
+	floatKind: CombatFloatKind?,
+	-- Dealer for "you deal" filter. userId stays the float target when set.
+	attackerUserId: number?,
 }
 
 export type AbilityResult = {
