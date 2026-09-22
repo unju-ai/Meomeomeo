@@ -25,6 +25,7 @@ local CameraFollow = require(script.CameraFollow)
 local CombatFx = require(script.Juice.CombatFx)
 local EmoteFx = require(script.Juice.EmoteFx)
 local FogOfWar = require(script.Juice.FogOfWar)
+local LastSeenGhosts = require(script.Juice.LastSeenGhosts)
 local PingFx = require(script.Juice.PingFx)
 local ScreenJuice = require(script.Juice.ScreenJuice)
 local Hud = require(script.UI.Hud)
@@ -1304,6 +1305,25 @@ local function hideTree(root: Instance, hidden: boolean)
 	end
 end
 
+-- Enemy left the visible set: ghost uses the last seen() pose and is not parented
+-- to the live model. Coming back into vision clears that ghost immediately.
+local function presentEnemy(key: string, source: Instance, show: boolean)
+	if show then
+		LastSeenGhosts.seen(key, source)
+		hideTree(source, false)
+	else
+		LastSeenGhosts.lost(key, source)
+		hideTree(source, true)
+	end
+end
+
+local function rememberChampion(userId: number, model: Model)
+	local rootPart = model:FindFirstChild("HumanoidRootPart")
+	if rootPart and rootPart:IsA("BasePart") then
+		lastKnownPos[userId] = rootPart.Position
+	end
+end
+
 local function restoreAllVision()
 	for _, other in Players:GetPlayers() do
 		if other.Character then
@@ -1331,6 +1351,7 @@ applyVision = function()
 		if visionArmed then
 			FogOfWar.setEnabled(false)
 			FogOfWar.resetExplored()
+			LastSeenGhosts.clear()
 			table.clear(lastKnownPos)
 			restoreAllVision()
 			visionArmed = false
@@ -1349,12 +1370,15 @@ applyVision = function()
 	for _, other in Players:GetPlayers() do
 		if other ~= player and other.Character then
 			local show = visiblePlayers[other.UserId] == true
-			hideTree(other.Character, not show)
+			local otherMatch = snapshot.players[tostring(other.UserId)]
+			local enemy = mine ~= nil and otherMatch ~= nil and otherMatch.team ~= mine.team
+			if enemy then
+				presentEnemy(`p:{other.UserId}`, other.Character, show)
+			else
+				hideTree(other.Character, not show)
+			end
 			if show then
-				local rootPart = other.Character:FindFirstChild("HumanoidRootPart")
-				if rootPart and rootPart:IsA("BasePart") then
-					lastKnownPos[other.UserId] = rootPart.Position
-				end
+				rememberChampion(other.UserId, other.Character)
 			end
 		end
 	end
@@ -1369,12 +1393,14 @@ applyVision = function()
 				local otherMatch = if typeof(userId) == "number" then snapshot.players[tostring(userId)] else nil
 				local ally = mine ~= nil and otherMatch ~= nil and otherMatch.team == mine.team
 				local show = ally or (typeof(userId) == "number" and visiblePlayers[userId] == true)
-				hideTree(child, not show)
+				local enemy = typeof(userId) == "number" and mine ~= nil and otherMatch ~= nil and otherMatch.team ~= mine.team
+				if enemy and typeof(userId) == "number" then
+					presentEnemy(`p:{userId}`, child, visiblePlayers[userId] == true)
+				else
+					hideTree(child, not show)
+				end
 				if show and typeof(userId) == "number" then
-					local rootPart = child:FindFirstChild("HumanoidRootPart")
-					if rootPart and rootPart:IsA("BasePart") then
-						lastKnownPos[userId] = rootPart.Position
-					end
+					rememberChampion(userId, child)
 				end
 			end
 		end
@@ -1390,8 +1416,11 @@ applyVision = function()
 			if child:IsA("BasePart") then
 				local team = child:GetAttribute(Constants.Attributes.Team)
 				local ally = mine ~= nil and team == mine.team
-				local show = ally or visibleMinions[child.Name] == true
-				hideTree(child, not show)
+				if ally then
+					hideTree(child, false)
+				else
+					presentEnemy(`m:{child.Name}`, child, visibleMinions[child.Name] == true)
+				end
 			end
 		end
 	end
@@ -1404,8 +1433,7 @@ applyVision = function()
 		end
 		for _, child in jungle:GetChildren() do
 			if child:IsA("BasePart") then
-				local show = visibleJungle[child.Name] == true
-				hideTree(child, not show)
+				presentEnemy(`j:{child.Name}`, child, visibleJungle[child.Name] == true)
 			end
 		end
 	end
@@ -1687,6 +1715,7 @@ local function attackMovePoint(): Vector3
 		if player.Character then
 			params.FilterDescendantsInstances = { player.Character }
 		end
+		-- Last-seen ghosts are CanQuery false, so this ray still hits the live hidden body.
 		local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
 		if hit then
 			local hiddenId = championIdFromHit(hit.Instance)
@@ -2262,4 +2291,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
+print("[Meo Meo Meo] Client HUD ready. Fog of war is server-authored. Last-seen ghosts are client-only. 4 trinket, 5 lens, 6 Control Yarn, hold Q for skillshots, click to confirm ground AoE, F recall, B shop.")
