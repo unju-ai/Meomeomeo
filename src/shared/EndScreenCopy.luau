@@ -13,6 +13,10 @@ export type FallBit = {
 
 export type OutcomeTone = "win" | "loss" | "neutral"
 
+-- Left chip on the end card. Practice (including a Practice remake) offers Again.
+-- A live fight (including a remake of a live fight) offers Queue.
+export type ReplayChip = "queue" | "again"
+
 local function fallLabel(tier: string, lane: string): string
 	if tier == "Core" then
 		return "yarn core"
@@ -128,6 +132,36 @@ function EndScreenCopy.timelineLines(falls: { FallBit }?, levi: string?): string
 		table.insert(lines, levi)
 	end
 	return table.concat(lines, "\n")
+end
+
+function EndScreenCopy.replayChip(practice: boolean?): ReplayChip
+	if practice == true then
+		return "again"
+	end
+	return "queue"
+end
+
+function EndScreenCopy.difficultyName(difficulty: string?): string
+	if difficulty == "Easy" or difficulty == "Hard" or difficulty == "Normal" then
+		return difficulty
+	end
+	-- PlayAgain falls back through the same Normal default. Display only.
+	return "Normal"
+end
+
+function EndScreenCopy.againLabel(difficulty: string?): string
+	return `Again · {EndScreenCopy.difficultyName(difficulty)}`
+end
+
+function EndScreenCopy.queueLabel(): string
+	return "Queue"
+end
+
+function EndScreenCopy.replayLabel(practice: boolean?, difficulty: string?): string
+	if EndScreenCopy.replayChip(practice) == "again" then
+		return EndScreenCopy.againLabel(difficulty)
+	end
+	return EndScreenCopy.queueLabel()
 end
 
 function EndScreenCopy.rowMark(isLocal: boolean, isMvp: boolean): string
