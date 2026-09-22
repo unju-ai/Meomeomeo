@@ -4,16 +4,18 @@ local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local Workspace = game:GetService("Workspace")
 
+local AnnouncerLines = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AnnouncerLines"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 
-local AiChatService = require(script.Parent.Parent.Npcs.AiChatService)
+local AnnouncerService = require(script.Parent.AnnouncerService)
 local BotService = require(script.Parent.BotService)
 local CombatService = require(script.Parent.CombatService)
 local MatchTeleport = require(script.Parent.MatchTeleport)
@@ -339,7 +341,7 @@ local function beginFight()
 	VisionService.start()
 	WardService.start()
 	BotService.start()
-	AiChatService.announce("Cats out of the bag — match is LIVE. Scratching posts, then lantern stalls, then the yarn core. Meow.")
+	AnnouncerService.onLive()
 	broadcast()
 end
 
@@ -354,7 +356,7 @@ local function riftHuman(userId: number?): Player?
 	return Players:GetPlayerByUserId(userId)
 end
 
-function MatchService.endMatch(winner: Types.TeamId, reason: string)
+function MatchService.endMatch(winner: Types.TeamId, _reason: string)
 	if not current or current.phase == "Ended" then
 		return
 	end
@@ -370,18 +372,8 @@ function MatchService.endMatch(winner: Types.TeamId, reason: string)
 	BotService.stop()
 	current.mvpUserId = pickMvp()
 	CombatService.clearAll()
-	for _, player in Players:GetPlayers() do
-		local matchPlayer = current.players[tostring(player.UserId)]
-		if matchPlayer then
-			if matchPlayer.team == winner then
-				AiChatService.announceTo(player, "Victory! Enemy nexus destroyed!")
-			else
-				AiChatService.announceTo(player, "Defeat! Your nexus has fallen!")
-			end
-		end
-	end
 	feed("announce", `{winner} destroyed the enemy nexus!`)
-	AiChatService.announce(`{winner} wins! {reason}`)
+	AnnouncerService.onMatchEnd(winner)
 	for _, matchPlayer in current.players do
 		local player = riftHuman(matchPlayer.userId)
 		if player then
@@ -475,11 +467,7 @@ function MatchService.start(
 	}
 
 	VoiceService.onTeamsChanged()
-	AiChatService.announce(
-		if practice
-			then `Practice draft is open. Red is 3 bots ({current.botDifficulty or "Normal"}). Pick your cat.`
-			else "Champion select — lock a cat."
-	)
+	AnnouncerService.onDraft(practice, current.botDifficulty)
 	broadcast()
 
 	task.delay(Config.Match.ChampionSelectSeconds, function()
@@ -534,8 +522,47 @@ function MatchService.setQueueCount(count: number)
 	end
 end
 
+local function catLabel(matchPlayer: Types.MatchPlayer): string
+	local champName: string? = nil
+	if matchPlayer.championId then
+		local champ = ChampionCatalog.get(matchPlayer.championId)
+		if champ then
+			champName = champ.name
+		end
+	end
+	return AnnouncerLines.catName(champName, matchPlayer.displayName)
+end
+
+local function killingKind(victimUserId: number): string?
+	local lines = DamageLog.recap(victimUserId, Workspace:GetServerTimeNow())
+	for _, line in lines do
+		if line.killingBlow then
+			return line.sourceKind
+		end
+	end
+	return nil
+end
+
+local function rosterLiving(team: Types.TeamId): (number, number)
+	local living = 0
+	local size = 0
+	if not current then
+		return living, size
+	end
+	for _, matchPlayer in current.players do
+		if matchPlayer.team == team then
+			size += 1
+			if matchPlayer.respawnAt == nil then
+				living += 1
+			end
+		end
+	end
+	return living, size
+end
+
 function MatchService.init(cleared: () -> ())
 	onMatchCleared = cleared
+	AnnouncerService.init(MatchService.snapshot)
 
 	-- Tower and nexus gold only. Does not touch CS. Last hits go through FarmCredit.
 	local function addGold(userId: number, amount: number)
@@ -574,7 +601,6 @@ function MatchService.init(cleared: () -> ())
 			matchPlayer.ranks = Progression.autoRanks(after)
 			CombatService.applyLevelFor(userId, after)
 			feed("level", `{matchPlayer.displayName} grew another life — level {after}`)
-			AiChatService.announce(`{matchPlayer.displayName} hit level {after}. Sharper claws.`)
 		end
 	end
 
@@ -597,11 +623,11 @@ function MatchService.init(cleared: () -> ())
 				return
 			end
 			local v = current.players[tostring(victimUserId)]
+			local k = if killerUserId then current.players[tostring(killerUserId)] else nil
 			if v then
 				v.deaths += 1
 			end
 			if killerUserId then
-				local k = current.players[tostring(killerUserId)]
 				if k then
 					k.kills += 1
 					FarmCredit.apply(k, FarmCredit.bounty(Config.Match.KillGold))
@@ -628,11 +654,22 @@ function MatchService.init(cleared: () -> ())
 				local killerName = if k then k.displayName else "Someone"
 				local victimName = if v then v.displayName else "a cat"
 				feed("kill", `{killerName} scratched {victimName} into next week{extra}`)
-				AiChatService.announce(`{killerName} deleted {victimName}.{extra}. Brutal.`)
 			else
 				local victimName = if v then v.displayName else "A cat"
 				feed("kill", `{victimName} got batted by a tower (or a kitten)`)
-				AiChatService.announce(`{victimName} face-planted. Fountain time.`)
+			end
+			if v then
+				local living, teamSize = rosterLiving(v.team)
+				local killerLabel = if k then catLabel(k) else nil
+				AnnouncerService.onChampionDown({
+					killerUserId = killerUserId,
+					killerName = killerLabel,
+					victimName = catLabel(v),
+					victimTeam = v.team,
+					cause = AnnouncerLines.causeFrom(killingKind(victimUserId), killerUserId ~= nil),
+					living = living,
+					teamSize = teamSize,
+				})
 			end
 			broadcast()
 		end,
@@ -667,17 +704,19 @@ function MatchService.init(cleared: () -> ())
 			else
 				feed("tower", line)
 			end
-			AiChatService.announce(`{line}!`)
+			local coreOpened = objective.kind ~= "Nexus" and MapBuilder.isNexusVulnerable(objective.team)
+			AnnouncerService.onStructure({
+				kind = objective.kind,
+				tier = objective.tier,
+				team = objective.team,
+				lane = objective.lane,
+				who = if attacker then catLabel(attacker) else "Lane kittens",
+				coreOpened = coreOpened,
+			})
 			if objective.kind == "Nexus" then
 				local winner: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
 				MatchService.endMatch(winner, `{objective.team} nexus is a scratch post.`)
 			else
-				if objective.tier == "Outer" then
-					AiChatService.announce(`{objective.team} {objective.lane} lantern stall is lit.`)
-				end
-				if MapBuilder.isNexusVulnerable(objective.team) then
-					AiChatService.announce(`{objective.team} yarn core is exposed! Every post and lantern stall is down.`)
-				end
 				broadcast()
 			end
 		end,

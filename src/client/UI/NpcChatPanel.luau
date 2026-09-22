@@ -11,6 +11,7 @@ export type ChatApi = {
 	open: (npcId: string, npcName: string) -> (),
 	close: () -> (),
 	append: (who: string, text: string) -> (),
+	note: (who: string, text: string) -> (),
 	onSend: ((npcId: string, text: string, reply: (string, string) -> ()) -> ()) -> (),
 }
 
@@ -200,6 +201,11 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		end,
 		close = closeChat,
 		append = append,
+		note = function(who: string, text: string)
+			if root.Visible and activeId == "KittyCaster" then
+				append(who, text)
+			end
+		end,
 		onSend = function(fn)
 			sendHandler = fn
 		end,
