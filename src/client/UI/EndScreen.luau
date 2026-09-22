@@ -242,16 +242,17 @@ function EndScreen.create(parent: Instance): EndApi
 		update = function(snapshot: Types.MatchSnapshot, localUserId: number)
 			local mine = snapshot.players[tostring(localUserId)]
 			local winner = snapshot.winner
+			local reason = snapshot.endReason
 			local won: boolean? = nil
-			if mine and winner then
+			if reason ~= "remake" and mine and winner then
 				won = mine.team == winner
 			end
-			local tone = EndScreenCopy.outcomeTone(won)
+			local tone = EndScreenCopy.outcomeTone(won, reason)
 			local accent = toneAccent(tone)
 			local color = toneColor(tone)
-			banner.Text = EndScreenCopy.outcomeTitle(won)
+			banner.Text = EndScreenCopy.outcomeTitle(won, reason)
 			banner.TextColor3 = if tone == "win" then Theme.cream else color
-			sub.Text = EndScreenCopy.subLine(won, winner, snapshot.endReason)
+			sub.Text = EndScreenCopy.subLine(won, winner, reason)
 			bannerPlate.BackgroundColor3 = color
 			bannerPlate.BackgroundTransparency = if tone == "win" then 0.55 else 0.62
 			bannerStroke.Color = accent
@@ -259,10 +260,14 @@ function EndScreen.create(parent: Instance): EndApi
 			rootStroke.Color = accent
 			rootStroke.Transparency = 0.12
 
-			local stingId = `{snapshot.id}:{winner or "?"}:{if won == true then "W" elseif won == false then "L" else "N"}`
+			local stingId = `{snapshot.id}:{winner or "?"}:{reason or ""}:{if won == true then "W" elseif won == false then "L" else "N"}`
 			if root.Visible and stungKey ~= stingId then
 				stungKey = stingId
-				ScreenJuice.matchEnd(won == true)
+				if reason == "remake" then
+					ScreenJuice.remake()
+				else
+					ScreenJuice.matchEnd(won == true)
+				end
 			end
 
 			local function structureTally(team: Types.TeamId): string

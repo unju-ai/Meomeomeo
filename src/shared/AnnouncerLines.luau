@@ -123,6 +123,10 @@ local LINES: { [string]: { string } } = {
 		"DEFEAT — your team folded the night market. GG.",
 		"DEFEAT — surrender signed. Fountain's that way.",
 	},
+	Remake = {
+		"REMAKE — fight called early. Nobody takes the night market.",
+		"REMAKE — tape reset. The stall stays open.",
+	},
 	DraftPractice = {
 		"Practice draft is open. Red is 3 bots ({difficulty}). Lock a cat.",
 		"Practice draft. Red bots are on {difficulty}. I already locked caffeine.",
@@ -175,6 +179,7 @@ function AnnouncerLines.cueFor(beat: string): string?
 	if
 		beat == "Defeat"
 		or beat == "SurrenderLoss"
+		or beat == "Remake"
 		or beat == "MatchLive"
 		or beat == "Draft"
 		or beat == "DraftPractice"
@@ -413,6 +418,9 @@ function AnnouncerLines.epic(team: string, who: string?, roll: number?): Callout
 end
 
 function AnnouncerLines.matchEnd(won: boolean, winner: string, roll: number?, reason: string?): Callout
+	if reason == "remake" then
+		return spoken("Remake", {}, roll)
+	end
 	local beat = if won then "Victory" else "Defeat"
 	if reason == "surrender" then
 		beat = if won then "SurrenderWin" else "SurrenderLoss"

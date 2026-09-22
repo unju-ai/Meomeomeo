@@ -55,6 +55,7 @@ local LINES_MOBA: { { string } } = {
 	{ SEC, "Social" },
 	{ "T", "Hold emote wheel · release to cast · Esc cancel" },
 	{ "Tab", "Hold scoreboard. Same gold and CS as the purse chip" },
+	{ "F7", "Remake under 3:00. Majority of living humans. Practice, or a missing teammate. Bots never vote" },
 	{ "F8", "Surrender after 8:00. Living humans, majority. Bots never vote" },
 	{ "Mute", "Voice pill · Mute me (mic only) · teammates, not bots" },
 	{ "Caster", "Kitty Caster: first blood, streaks, posts, stalls, core, Levi, win/lose" },
@@ -270,7 +271,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 				label.Size = UDim2.new(1, -12, 1, 0)
 				label.TextWrapped = false
 			else
-				local tall = pair[1] == "F8"
+				local tall = pair[1] == "F8" or pair[1] == "F7"
 				local rowH = if tall then 36 else 22
 				local row = Instance.new("Frame")
 				row.Name = `Bind{i}`

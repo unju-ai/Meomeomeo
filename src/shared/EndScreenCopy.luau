@@ -23,7 +23,10 @@ local function fallLabel(tier: string, lane: string): string
 	return `{lane} post`
 end
 
-function EndScreenCopy.outcomeTitle(won: boolean?): string
+function EndScreenCopy.outcomeTitle(won: boolean?, reason: string?): string
+	if reason == "remake" then
+		return "REMAKE"
+	end
 	if won == true then
 		return "VICTORY"
 	elseif won == false then
@@ -32,7 +35,10 @@ function EndScreenCopy.outcomeTitle(won: boolean?): string
 	return "MATCH OVER"
 end
 
-function EndScreenCopy.outcomeTone(won: boolean?): OutcomeTone
+function EndScreenCopy.outcomeTone(won: boolean?, reason: string?): OutcomeTone
+	if reason == "remake" then
+		return "neutral"
+	end
 	if won == true then
 		return "win"
 	elseif won == false then
@@ -42,6 +48,9 @@ function EndScreenCopy.outcomeTone(won: boolean?): OutcomeTone
 end
 
 function EndScreenCopy.subLine(won: boolean?, winner: string?, reason: string?): string
+	if reason == "remake" then
+		return "Fight called early"
+	end
 	local side = winner or "??"
 	if reason == "surrender" then
 		if won == true then

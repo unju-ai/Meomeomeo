@@ -268,6 +268,7 @@ local function toast(text: string, color: Color3?)
 	hud.banner(text, color)
 end
 
+hud.remake.onToast(hud.callout)
 hud.surrender.onToast(hud.callout)
 
 local recentCallouts: { string } = {}
@@ -593,6 +594,7 @@ local function applySnapshot(snapshot: Types.MatchSnapshot?)
 	if latestMatch.queue then
 		noteParty(latestMatch.queue)
 	end
+	hud.remake.note(latestMatch, player.UserId)
 	hud.surrender.note(latestMatch, player.UserId)
 	if not inMini() then
 		if latestMatch.phase ~= "Lobby" then
@@ -3224,6 +3226,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		pendingPingPos = aimPoint()
 		pendingPingTarget = pickPingTarget()
 		hud.pings.open()
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.F7 then
+		-- Hub, Yarn Run, Koi, Party, and Arcade stay quiet. Server still refuses a bad vote.
+		if gameMode == "Moba" and latestMatch and latestMatch.phase == "InProgress" then
+			hud.remake.press("start")
+		end
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.F8 then

@@ -33,6 +33,7 @@ export type RemoteName =
 	| "MinimapPing"
 	| "StartRecall"
 	| "SurrenderVote"
+	| "RemakeVote"
 	| "LeaveMatch"
 	| "PlayAgain"
 	| "PlaceWard"
@@ -123,6 +124,7 @@ local FUNCTION_NAMES = {
 	"MinimapPing",
 	"StartRecall",
 	"SurrenderVote",
+	"RemakeVote",
 	"LeaveMatch",
 	"PlayAgain",
 	"PlaceWard",

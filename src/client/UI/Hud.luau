@@ -30,6 +30,7 @@ local RespawnCountdown = require(script.Parent.RespawnCountdown)
 local Minimap = require(script.Parent.Minimap)
 local Scoreboard = require(script.Parent.Scoreboard)
 local HelpPanel = require(script.Parent.HelpPanel)
+local RemakePanel = require(script.Parent.RemakePanel)
 local SurrenderPanel = require(script.Parent.SurrenderPanel)
 local TutorialTips = require(script.Parent.TutorialTips)
 local SettingsPanel = require(script.Parent.SettingsPanel)
@@ -69,6 +70,7 @@ export type HudApi = {
 	endScreen: EndScreen.EndApi,
 	settings: SettingsPanel.SettingsApi,
 	help: HelpPanel.HelpApi,
+	remake: RemakePanel.RemakeApi,
 	surrender: SurrenderPanel.SurrenderApi,
 	tips: TutorialTips.TipsApi,
 	emotes: EmoteWheel.WheelApi,
@@ -189,6 +191,7 @@ function Hud.create(): HudApi
 	local emotes = EmoteWheel.create(gui)
 	local pings = PingWheel.create(gui)
 	local help = HelpPanel.create(gui)
+	local remake = RemakePanel.create(gui)
 	local surrender = SurrenderPanel.create(gui)
 	local tips = TutorialTips.create(gui)
 
@@ -204,6 +207,7 @@ function Hud.create(): HudApi
 		scoreboard.setVisible(false)
 		economy.setVisible(false)
 		clock.setVisible(false)
+		remake.setVisible(false)
 		surrender.setVisible(false)
 	end
 
@@ -254,11 +258,12 @@ function Hud.create(): HudApi
 			writeBanner(if snapshot.practice then "Practice draft" else "Champion select")
 		elseif phase == "InProgress" then
 			writeBanner(if mine
-				then `{mine.team} · H help · Tab · F8 fold · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens · 7 cleave`
+				then `{mine.team} · H help · Tab · F7 remake · F8 fold · V cam · B shop · F recall · T emote · G ping · 4 ward · 5 lens · 7 cleave`
 				else "Spectating")
 		elseif phase == "Ended" then
 			endScreen.update(snapshot, localUserId)
 		end
+		remake.update(snapshot, localUserId)
 		surrender.update(snapshot, localUserId)
 	end
 
@@ -393,6 +398,7 @@ function Hud.create(): HudApi
 		endScreen = endScreen,
 		settings = settings,
 		help = help,
+		remake = remake,
 		surrender = surrender,
 		tips = tips,
 		emotes = emotes,

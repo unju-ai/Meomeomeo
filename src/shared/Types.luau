@@ -237,6 +237,24 @@ export type SurrenderView = {
 	noticeTeam: TeamId?,
 }
 
+-- Same shape as a surrender ballot. Counts are living humans only.
+-- Open only while the match clock is under 3:00.
+export type RemakeBallot = {
+	team: TeamId,
+	endsAt: number,
+	yesUserIds: { number },
+	noUserIds: { number },
+}
+
+export type RemakeView = {
+	ballots: { RemakeBallot },
+	blueCooldownUntil: number?,
+	redCooldownUntil: number?,
+	noticeId: number?,
+	notice: string?,
+	noticeTeam: TeamId?,
+}
+
 export type MatchSnapshot = {
 	id: string,
 	phase: MatchPhase,
@@ -247,6 +265,7 @@ export type MatchSnapshot = {
 	endedAt: number?,
 	winner: TeamId?,
 	-- "nexus" when the yarn core fell. "surrender" when a team folded.
+	-- "remake" when the fight was called early. winner stays nil.
 	endReason: string?,
 	mvpUserId: number?,
 	botDifficulty: BotDifficulty?,
@@ -255,6 +274,7 @@ export type MatchSnapshot = {
 	structureFalls: { StructureFall }?,
 	riverEpic: RiverEpicView?,
 	surrender: SurrenderView?,
+	remake: RemakeView?,
 	queueCount: number,
 	queue: QueueStatus?,
 	lobbyPlaceId: number?,
