@@ -1,6 +1,8 @@
 --!strict
 
--- Server-authoritative Yarn Party. 3 micro-rounds, bots fill to 4 cats.
+-- Server-authoritative Yarn Party. 3 micro-rounds.
+-- Lobby keeps seats 1–4 filled; a human Play reclaims a bot seat.
+-- Mid-round Play waits for the next party and does not enter combat.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,6 +13,9 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
+local YarnPartyLobby = require(Shared:WaitForChild("YarnPartyLobby"))
+
+type Seat = YarnPartyLobby.Seat
 
 local ModeService = require(script.Parent.Parent.Mode.ModeService)
 local CosmeticService = require(script.Parent.Parent.Cosmetics.CosmeticService)
@@ -22,6 +27,8 @@ type Contestant = {
 	name: string,
 	championId: string,
 	isBot: boolean,
+	kind: YarnPartyLobby.SeatKind,
+	botSlot: number?,
 	alive: boolean,
 	score: number,
 	model: Model?,
@@ -68,28 +75,35 @@ local function shout(state: Party, text: string, hold: number?)
 	state.eventUntil = clockNow() + (hold or 1.4)
 end
 
-local function seatOf(con: Contestant): Types.YarnPartySeat
+local function seatOf(con: Contestant, index: number): Types.YarnPartySeat
+	local open = con.kind == "empty"
 	return {
 		id = con.id,
-		name = con.name,
+		name = if open then "Open" else con.name,
 		championId = con.championId,
-		isBot = con.isBot,
-		alive = con.alive,
+		isBot = con.kind == "bot",
+		alive = not open and con.alive,
 		score = con.score,
+		seat = index,
 	}
 end
 
 local function snapshotOf(state: Party): Types.YarnPartySnapshot
 	local seats = {}
-	for _, con in state.contestants do
-		table.insert(seats, seatOf(con))
-	end
-	table.sort(seats, function(a, b)
-		if a.score ~= b.score then
-			return a.score > b.score
+	for i, con in state.contestants do
+		if state.phase ~= "Lobby" and con.kind == "empty" then
+			continue
 		end
-		return a.id < b.id
-	end)
+		table.insert(seats, seatOf(con, i))
+	end
+	if state.phase ~= "Lobby" then
+		table.sort(seats, function(a, b)
+			if a.score ~= b.score then
+				return a.score > b.score
+			end
+			return a.id < b.id
+		end)
+	end
 	local remain = math.max(0, state.phaseEnds - clockNow())
 	return {
 		phase = state.phase,
@@ -176,6 +190,167 @@ local function placeHuman(con: Contestant, index: number)
 	CosmeticService.dress(player)
 end
 
+local function characterReady(player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	return root ~= nil and root:IsA("BasePart")
+end
+
+local function placeHumanSoon(con: Contestant, index: number)
+	local player = con.player
+	if not player then
+		return
+	end
+	if characterReady(player) then
+		placeHuman(con, index)
+		return
+	end
+	task.spawn(function()
+		for _ = 1, 12 do
+			local state = party
+			if not state or state.contestants[index] ~= con then
+				return
+			end
+			if characterReady(player) then
+				placeHuman(con, index)
+				return
+			end
+			task.wait(0.15)
+		end
+	end)
+end
+
+local function dropRuntime(con: Contestant)
+	if con.charConn then
+		con.charConn:Disconnect()
+		con.charConn = nil
+	end
+	if con.model then
+		con.model:Destroy()
+		con.model = nil
+	end
+end
+
+local function makeEmpty(): Contestant
+	return {
+		id = 0,
+		player = nil,
+		name = "",
+		championId = "",
+		isBot = false,
+		kind = "empty",
+		botSlot = nil,
+		alive = false,
+		score = 0,
+		model = nil,
+		walkSpeed = 16,
+		jumpUntil = 0,
+		charConn = nil,
+	}
+end
+
+local function makeBot(seat: Seat): Contestant
+	local id = -500 - seat.index
+	local model = YarnPartyBuilder.spawnBot(id, seat.name, seat.championId, YarnPartyBuilder.spawnCFrame(seat.index))
+	return {
+		id = id,
+		player = nil,
+		name = seat.name,
+		championId = seat.championId,
+		isBot = true,
+		kind = "bot",
+		botSlot = seat.botSlot,
+		alive = true,
+		score = 0,
+		model = model,
+		walkSpeed = 16,
+		jumpUntil = 0,
+		charConn = nil,
+	}
+end
+
+local function makeHuman(player: Player, seat: Seat): Contestant
+	local humanoid = if player.Character then player.Character:FindFirstChildOfClass("Humanoid") else nil
+	local walk = if humanoid then humanoid.WalkSpeed else 16
+	local con: Contestant = {
+		id = player.UserId,
+		player = player,
+		name = if seat.name ~= "" then seat.name else player.DisplayName,
+		championId = if seat.championId ~= "" then seat.championId else YarnPartyLobby.HumanChampion,
+		isBot = false,
+		kind = "human",
+		botSlot = nil,
+		alive = true,
+		score = seat.score,
+		model = nil,
+		walkSpeed = walk,
+		jumpUntil = 0,
+		charConn = nil,
+	}
+	con.charConn = player.CharacterAdded:Connect(function()
+		task.defer(function()
+			local state = party
+			if not state then
+				return
+			end
+			for i, row in state.contestants do
+				if row == con then
+					placeHumanSoon(con, i)
+					return
+				end
+			end
+		end)
+	end)
+	return con
+end
+
+local function seatsFrom(state: Party): { Seat }
+	local seats = {}
+	for i, con in state.contestants do
+		seats[i] = {
+			index = i,
+			kind = con.kind,
+			userId = if con.kind == "human" and con.player then con.player.UserId else nil,
+			name = con.name,
+			botSlot = con.botSlot,
+			championId = con.championId,
+			alive = con.alive,
+			score = con.score,
+		}
+	end
+	return seats
+end
+
+local function sameOccupant(con: Contestant, seat: Seat): boolean
+	if con.kind ~= seat.kind then
+		return false
+	end
+	if seat.kind == "human" then
+		return con.player ~= nil and con.player.UserId == seat.userId
+	end
+	if seat.kind == "bot" then
+		return con.botSlot == seat.botSlot
+	end
+	return true
+end
+
+local function adoptBots(state: Party, seats: { Seat })
+	for i, seat in seats do
+		local prev = state.contestants[i]
+		if seat.kind == "human" or (prev and sameOccupant(prev, seat)) then
+			continue
+		end
+		if prev then
+			dropRuntime(prev)
+		end
+		if seat.kind == "bot" then
+			state.contestants[i] = makeBot(seat)
+		elseif seat.kind == "empty" then
+			state.contestants[i] = makeEmpty()
+		end
+	end
+end
+
 local function rootOf(con: Contestant): BasePart?
 	if con.model then
 		local root = con.model:FindFirstChild("HumanoidRootPart")
@@ -195,7 +370,7 @@ end
 local function aliveCount(state: Party): number
 	local n = 0
 	for _, con in state.contestants do
-		if con.alive then
+		if con.kind ~= "empty" and con.alive then
 			n += 1
 		end
 	end
@@ -205,7 +380,7 @@ end
 local function humanCount(state: Party): number
 	local n = 0
 	for _, con in state.contestants do
-		if con.player then
+		if con.kind == "human" and con.player then
 			n += 1
 		end
 	end
@@ -213,8 +388,11 @@ local function humanCount(state: Party): number
 end
 
 local function findCon(state: Party, id: number): Contestant?
+	if id == 0 then
+		return nil
+	end
 	for _, con in state.contestants do
-		if con.id == id then
+		if con.kind ~= "empty" and con.id == id then
 			return con
 		end
 	end
@@ -234,7 +412,7 @@ end
 local function awardRound(state: Party)
 	local remaining: { Contestant } = {}
 	for _, con in state.contestants do
-		if con.alive then
+		if con.kind ~= "empty" and con.alive then
 			table.insert(remaining, con)
 		end
 	end
@@ -260,7 +438,9 @@ end
 local function crown(state: Party)
 	local rows = {}
 	for _, con in state.contestants do
-		table.insert(rows, { id = con.id, score = con.score, alive = con.alive })
+		if con.kind ~= "empty" then
+			table.insert(rows, { id = con.id, score = con.score, alive = con.alive })
+		end
 	end
 	local ranked = YarnPartyCatalog.rankByScore(rows)
 	local winner = findCon(state, ranked[1])
@@ -287,18 +467,19 @@ local function startIntro(state: Party)
 	state.musicOn = true
 	state.freeze = false
 	state.pulseChecked = 0
-	for _, con in state.contestants do
+	for i, con in state.contestants do
+		if con.kind == "empty" then
+			continue
+		end
 		con.alive = true
 		con.jumpUntil = 0
-	end
-	for i, con in state.contestants do
-		if con.isBot and con.model then
+		if con.kind == "bot" and con.model then
 			local root = con.model:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then
 				root.CFrame = YarnPartyBuilder.spawnCFrame(i)
 			end
-		else
-			placeHuman(con, i)
+		elseif con.kind == "human" then
+			placeHumanSoon(con, i)
 		end
 	end
 	if state.kind == "Dodge" then
@@ -326,39 +507,6 @@ local function startRecap(state: Party)
 	state.phaseEnds = clockNow() + YarnPartyCatalog.RecapSeconds
 	shout(state, `ROUND {state.roundIndex}  DONE`, 1.6)
 	fire(state)
-end
-
-local function fillBots(state: Party)
-	local used: { [string]: boolean } = {}
-	for _, con in state.contestants do
-		used[con.championId] = true
-	end
-	local botIndex = 0
-	while #state.contestants < YarnPartyCatalog.SeatCount do
-		botIndex += 1
-		local champ = YarnPartyCatalog.botChampion(botIndex)
-		if used[champ] then
-			champ = YarnPartyCatalog.botChampion(botIndex + 1)
-		end
-		used[champ] = true
-		local id = -500 - botIndex
-		local name = YarnPartyCatalog.botName(botIndex)
-		local slot = #state.contestants + 1
-		local model = YarnPartyBuilder.spawnBot(id, name, champ, YarnPartyBuilder.spawnCFrame(slot))
-		table.insert(state.contestants, {
-			id = id,
-			player = nil,
-			name = name,
-			championId = champ,
-			isBot = true,
-			alive = true,
-			score = 0,
-			model = model,
-			walkSpeed = 16,
-			jumpUntil = 0,
-			charConn = nil,
-		})
-	end
 end
 
 local function moveBot(con: Contestant, dest: Vector3, dt: number, jumping: boolean)
@@ -547,7 +695,7 @@ local function bind()
 		local now = clockNow()
 		if state.phase == "Lobby" then
 			if now >= state.phaseEnds then
-				fillBots(state)
+				adoptBots(state, YarnPartyLobby.ensureBots(seatsFrom(state)))
 				state.roundIndex = 1
 				startIntro(state)
 			end
@@ -627,69 +775,59 @@ function YarnPartyService.start(player: Player): Types.TradeResult
 	end
 	YarnPartyBuilder.ensure()
 	bind()
-	local humanoid = if player.Character then player.Character:FindFirstChildOfClass("Humanoid") else nil
-	local walk = if humanoid then humanoid.WalkSpeed else 16
-	local con: Contestant = {
-		id = player.UserId,
-		player = player,
-		name = player.DisplayName,
-		championId = "NyanRocket",
-		isBot = false,
-		alive = true,
-		score = 0,
-		model = nil,
-		walkSpeed = walk,
-		jumpUntil = 0,
-		charConn = nil,
-	}
-	con.charConn = player.CharacterAdded:Connect(function()
-		task.defer(function()
-			local state = party
-			if not state then
-				return
-			end
-			for i, row in state.contestants do
-				if row.id == player.UserId then
-					placeHuman(row, i)
-					return
-				end
-			end
-		end)
-	end)
 
 	local state = party
-	if state and state.phase == "Lobby" and #state.contestants < YarnPartyCatalog.SeatCount then
-		table.insert(state.contestants, con)
+	if state then
+		if state.phase ~= "Lobby" then
+			return { ok = false, error = YarnPartyLobby.waitCopy(state.phase) }
+		end
+		local remaining = math.max(0, state.phaseEnds - clockNow())
+		local newSeats, decision = YarnPartyLobby.claim(seatsFrom(state), "Lobby", player.UserId, player.DisplayName, remaining)
+		if decision.action ~= "seated" or not decision.seat then
+			return { ok = false, error = decision.error or "Could not join the party." }
+		end
+		local idx = decision.seat
+		local prev = state.contestants[idx]
+		if prev then
+			dropRuntime(prev)
+		end
+		local con = makeHuman(player, newSeats[idx])
+		state.contestants[idx] = con
+		if decision.countdown and decision.countdown > remaining + 0.001 then
+			state.phaseEnds = clockNow() + decision.countdown
+		end
 		ModeService.set(player, "YarnParty")
-		placeHuman(con, #state.contestants)
-		shout(state, `{con.name} hopped in`, 1.1)
+		placeHumanSoon(con, idx)
+		shout(state, `{con.name} took seat {idx}`, 1.4)
 		fire(state)
 		return { ok = true }
 	end
-	if state and state.phase ~= "Podium" and state.phase ~= "Lobby" then
-		if con.charConn then
-			con.charConn:Disconnect()
-		end
-		return { ok = false, error = "Party in progress — try after the crown." }
-	end
-	if state and state.phase == "Podium" then
-		teardown()
-	end
 
+	local seats = YarnPartyLobby.open(player.UserId, player.DisplayName)
+	local contestants: { Contestant } = {}
+	for i, seat in seats do
+		if seat.kind == "human" then
+			contestants[i] = makeHuman(player, seat)
+		elseif seat.kind == "bot" then
+			contestants[i] = makeBot(seat)
+		else
+			contestants[i] = makeEmpty()
+		end
+	end
 	local fresh: Party = {
 		phase = "Lobby",
 		roundIndex = 1,
 		kind = "Dodge",
 		phaseEnds = clockNow() + YarnPartyCatalog.CountdownSeconds,
-		event = "Yarn Party · bots fill empty seats",
-		eventUntil = clockNow() + 2,
+		event = "Seats 1–4 · bots hold the open ones",
+		eventUntil = clockNow() + 2.2,
 		yarn = origin() + Vector3.new(0, 2.6, 0),
 		yarnVel = Vector3.new(9, 0, 7),
 		safe = { false, false, false, false },
 		musicOn = true,
 		freeze = false,
 		pulseChecked = -1,
-		contestants = { con },
+		contestants = contestants,
 		elimOrder = {},
 		winnerName = nil,
 		winnerId = nil,
@@ -697,7 +835,7 @@ function YarnPartyService.start(player: Player): Types.TradeResult
 	}
 	party = fresh
 	ModeService.set(player, "YarnParty")
-	placeHuman(con, 1)
+	placeHumanSoon(contestants[1], 1)
 	fire(fresh)
 	return { ok = true }
 end
@@ -709,31 +847,46 @@ function YarnPartyService.leave(player: Player): Types.TradeResult
 		sendHome(player)
 		return { ok = true }
 	end
-	local kept: { Contestant } = {}
-	for _, con in state.contestants do
+	local idx = 0
+	for i, con in state.contestants do
 		if con.player == player then
-			if con.charConn then
-				con.charConn:Disconnect()
-			end
-			restoreWalk(con)
-		else
-			table.insert(kept, con)
+			idx = i
+			break
 		end
 	end
-	state.contestants = kept
+	if idx == 0 then
+		ModeService.set(player, "Hub")
+		sendHome(player)
+		return { ok = true }
+	end
+	local con = state.contestants[idx]
+	restoreWalk(con)
+	local newSeats, decision = YarnPartyLobby.release(seatsFrom(state), state.phase, player.UserId)
+	dropRuntime(con)
+	con.player = nil
 	ModeService.set(player, "Hub")
 	sendHome(player)
-	if humanCount(state) <= 0 then
-		YarnPartyBuilder.clearBots()
-		party = nil
-	else
-		fire(state)
+	if decision.partyEmpty then
+		teardown()
+		return { ok = true }
 	end
+	if decision.refilledBot then
+		state.contestants[idx] = makeBot(newSeats[idx])
+		shout(state, `{newSeats[idx].name} took seat {idx}`, 1.2)
+	else
+		state.contestants[idx] = makeEmpty()
+	end
+	fire(state)
 	return { ok = true }
 end
 
 function YarnPartyService.retry(player: Player): Types.TradeResult
+	local wasIn = YarnPartyService.isPlaying(player)
 	YarnPartyService.leave(player)
+	local state = party
+	if wasIn and state and state.phase == "Podium" then
+		teardown()
+	end
 	return YarnPartyService.start(player)
 end
 

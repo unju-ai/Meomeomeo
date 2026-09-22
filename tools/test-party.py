@@ -1,4 +1,4 @@
-"""Yarn Party catalog smoke. Usage: python3 tools/test-party.py /path/to/luau"""
+"""Yarn Party catalog + lobby seat smoke. Usage: python3 tools/test-party.py /path/to/luau"""
 from pathlib import Path
 import re
 import subprocess
@@ -13,7 +13,11 @@ def wrap(name: str, rel: str) -> str:
     source = re.sub(r"^local \w+ = require\([^\n]+\)\n", "", source, flags=re.MULTILINE)
     return f"local {name} = (function()\n{source}\nend)()\n"
 
-script = wrap("YarnPartyCatalog", "src/shared/YarnPartyCatalog.luau") + (root / "tests/yarn-party-smoke.luau").read_text()
+script = (
+    wrap("YarnPartyCatalog", "src/shared/YarnPartyCatalog.luau")
+    + wrap("YarnPartyLobby", "src/shared/YarnPartyLobby.luau")
+    + (root / "tests/yarn-party-smoke.luau").read_text()
+)
 with tempfile.TemporaryDirectory(prefix="meo-party-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)

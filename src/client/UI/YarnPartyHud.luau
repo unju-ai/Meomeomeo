@@ -53,14 +53,14 @@ function YarnPartyHud.create(parent: Instance): PartyHudApi
 	board.Name = "Seats"
 	board.AnchorPoint = Vector2.new(0, 0)
 	board.Position = UDim2.fromOffset(16, 148)
-	board.Size = UDim2.fromOffset(240, 220)
+	board.Size = UDim2.fromOffset(280, 168)
 	board.BackgroundColor3 = Theme.panel
 	board.Parent = root
 	Theme.corner(board, 14)
 	Theme.stroke(board, Theme.peach, 2, 0.3)
 	Theme.pad(board, 10)
 
-	local boardTitle = Theme.text(board, "Title", "Score", 16, Theme.amber, Theme.fontTitle)
+	local boardTitle = Theme.text(board, "Title", "Seats 1–4", 16, Theme.amber, Theme.fontTitle)
 	boardTitle.Size = UDim2.new(1, 0, 0, 20)
 
 	local rows = Instance.new("Frame")
@@ -128,21 +128,53 @@ function YarnPartyHud.create(parent: Instance): PartyHudApi
 		end
 	end)
 
-	local function paintSeats(seats: { Types.YarnPartySeat }, localUserId: number)
+	local function roleOf(seat: Types.YarnPartySeat, localUserId: number): string
+		if seat.id == localUserId then
+			return "YOU"
+		elseif seat.isBot then
+			return "BOT"
+		elseif seat.id == 0 or seat.name == "Open" then
+			return "OPEN"
+		end
+		return "CAT"
+	end
+
+	local function paintSeats(seats: { Types.YarnPartySeat }, localUserId: number, lobby: boolean)
 		for _, child in rows:GetChildren() do
 			if child:IsA("TextLabel") then
 				child:Destroy()
 			end
 		end
-		for i, seat in seats do
-			local tag = if seat.alive then "IN" else "OUT"
-			local me = if seat.id == localUserId then "  · you" else if seat.isBot then "  · bot" else ""
-			local tint = if seat.alive then Theme.cream else Theme.muted
-			if i == 1 then
-				tint = Theme.amber
+		local ordered = table.clone(seats)
+		if lobby then
+			table.sort(ordered, function(a, b)
+				return a.seat < b.seat
+			end)
+		end
+		for i, seat in ordered do
+			local role = roleOf(seat, localUserId)
+			local tint = Theme.cream
+			local lineText: string
+			if lobby then
+				lineText = `{seat.seat}  {role}  {seat.name}`
+				if role == "YOU" then
+					tint = Theme.amber
+				elseif role == "BOT" then
+					tint = Theme.peach
+				elseif role == "OPEN" then
+					tint = Theme.muted
+				end
+			else
+				local tag = if seat.alive then "IN" else "OUT"
+				lineText = `#{i}  {seat.score}  {seat.name}  {tag}  {role}`
+				tint = if seat.alive then Theme.cream else Theme.muted
+				if i == 1 and seat.alive then
+					tint = Theme.amber
+				end
 			end
-			local line = Theme.text(rows, "S" .. i, `#{i}  {seat.score}  {seat.name}  {tag}{me}`, 13, tint, Theme.fontMono)
+			local line = Theme.text(rows, "S" .. i, lineText, 13, tint, Theme.fontMono)
 			line.Size = UDim2.new(1, 0, 0, 20)
+			line.TextTruncate = Enum.TextTruncate.AtEnd
 			line.LayoutOrder = i
 		end
 	end
@@ -156,15 +188,28 @@ function YarnPartyHud.create(parent: Instance): PartyHudApi
 			end
 		end,
 		update = function(snap: Types.YarnPartySnapshot, localUserId: number)
+			local cats = 0
+			local bots = 0
+			for _, seat in snap.seats do
+				if seat.isBot then
+					bots += 1
+				elseif seat.id ~= 0 and seat.name ~= "Open" then
+					cats += 1
+				end
+			end
 			if snap.phase == "Lobby" then
-				title.Text = "YARN PARTY"
-				sub.Text = `Bots fill empty seats  ·  {math.ceil(snap.countdown)}s`
+				local secs = math.max(0, math.ceil(snap.countdown))
+				title.Text = `STARTS IN {secs}`
+				sub.Text = `YARN PARTY  ·  {cats} cats  ·  {bots} bots`
+				boardTitle.Text = "Seats 1–4"
 			elseif snap.phase == "Podium" then
 				title.Text = "CROWNED"
 				sub.Text = snap.winnerName or ""
+				boardTitle.Text = "Score"
 			else
 				title.Text = snap.roundTitle
 				sub.Text = `Round {snap.roundIndex}/{snap.roundCount}  ·  {math.ceil(snap.countdown)}s`
+				boardTitle.Text = "Score"
 			end
 			event.Text = snap.event or ""
 			if snap.event and string.find(snap.event, "CROWNED", 1, true) then
@@ -180,9 +225,13 @@ function YarnPartyHud.create(parent: Instance): PartyHudApi
 				then "WASD  ·  Space hop the coral yarn"
 				else "WASD onto a lit pillow when lanterns blink"
 			if snap.phase == "Lobby" then
-				hint.Text = "Waiting for loafs  ·  bots fill in a moment"
+				hint.Text = "Seats 1–4  ·  a friend takes a bot seat  ·  mid-round waits"
+				if not snap.event then
+					event.Text = "Friends can still hop in"
+				end
+				event.TextColor3 = Theme.amber
 			end
-			paintSeats(snap.seats, localUserId)
+			paintSeats(snap.seats, localUserId, snap.phase == "Lobby")
 			local done = snap.phase == "Podium"
 			crown.Visible = done
 			leave.Visible = not done
@@ -190,7 +239,8 @@ function YarnPartyHud.create(parent: Instance): PartyHudApi
 				crownName.Text = snap.winnerName or "Loaf"
 				local lines = {}
 				for i, seat in snap.seats do
-					table.insert(lines, `#{i}  {seat.name}  {seat.score}`)
+					local role = if seat.isBot then "bot" else "cat"
+					table.insert(lines, `#{i}  {seat.name}  {seat.score}  {role}`)
 				end
 				crownRecap.Text = table.concat(lines, "\n")
 			end
