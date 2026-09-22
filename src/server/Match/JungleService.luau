@@ -7,6 +7,7 @@ local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 
 export type Monster = {
@@ -324,10 +325,15 @@ function JungleService.applyDamage(attackerUserId: number?, jungleId: string, am
 	if attackerUserId then
 		monster.aggroUserId = attackerUserId
 	end
+	local before = monster.health
 	monster.health = math.max(0, monster.health - amount)
+	local dealt = before - monster.health
+	local pos = monster.part.Position
 	stamp(monster)
+	if dealt > 0.05 then
+		FxRelay.float(pos, dealt, "damage", nil, attackerUserId)
+	end
 	if monster.health <= 0 then
-		local pos = monster.part.Position
 		local takenEpic = monster.epic
 		local def = if takenEpic then nil else findDef(monster.id)
 		monster.part:Destroy()

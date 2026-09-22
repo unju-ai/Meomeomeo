@@ -7,6 +7,7 @@ local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
+local FxRelay = require(script.Parent.Parent.World.FxRelay)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 
 export type Minion = {
@@ -182,10 +183,15 @@ function MinionService.applyDamage(attackerUserId: number?, minionId: string, am
 	if not minion or minion.health <= 0 then
 		return false
 	end
+	local before = minion.health
 	minion.health = math.max(0, minion.health - amount)
+	local dealt = before - minion.health
+	local pos = minion.part.Position
 	stamp(minion.part, minion)
+	if dealt > 0.05 then
+		FxRelay.float(pos, dealt, "damage", nil, attackerUserId)
+	end
 	if minion.health <= 0 then
-		local pos = minion.part.Position
 		local team = minion.team
 		minion.part:Destroy()
 		minions[minionId] = nil

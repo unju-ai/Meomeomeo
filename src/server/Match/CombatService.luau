@@ -1081,8 +1081,13 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 		local fangDealt = if fangRaw > 0 and raw > 0 then reduced * (fangRaw / raw) else 0
 		local mainDealt = math.max(0, reduced - fangDealt)
 		local lethal = state.health <= 0
+		local root = rootOf(targetUserId)
+		local floatAt = if root then root.Position else nil
 		if mainDealt > 0.05 then
 			recordDamage(targetUserId, mainDealt, source, lethal)
+			if floatAt then
+				FxRelay.float(floatAt, mainDealt, "damage", targetUserId, attackerUserId)
+			end
 		end
 		if fangDealt > 0.05 then
 			recordDamage(targetUserId, fangDealt, {
@@ -1091,6 +1096,9 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 				sourceId = if attackerUserId then `{ItemKits.FangId}:{attackerUserId}` else ItemKits.FangId,
 				label = if attackerUserId then displayNameOf(attackerUserId) else "Bite",
 			}, lethal and mainDealt <= 0.05)
+			if floatAt then
+				FxRelay.float(floatAt, fangDealt, "execute", targetUserId, attackerUserId)
+			end
 		end
 	end
 	if attackerUserId and matchApi then
@@ -1152,7 +1160,9 @@ local function shieldUser(targetUserId: number, amount: number)
 			origin = root.Position,
 			userId = targetUserId,
 			duration = 1.15,
+			amount = amount,
 		})
+		FxRelay.float(root.Position, amount, "shield", targetUserId, nil)
 	end
 end
 
@@ -1203,7 +1213,11 @@ local function healUser(targetUserId: number, amount: number)
 			kind = "heal",
 			origin = root.Position,
 			userId = targetUserId,
+			amount = amount,
 		})
+		if amount > 0.05 then
+			FxRelay.float(root.Position, amount, "heal", targetUserId, nil)
+		end
 	end
 end
 
@@ -1221,8 +1235,13 @@ local function damageObjective(attackerUserId: number?, part: BasePart, amount: 
 	if not MapBuilder.isObjectiveVulnerable(id) then
 		return
 	end
+	local before = health
 	health = math.max(0, health - amount)
 	part:SetAttribute("Health", health)
+	local dealt = before - health
+	if dealt > 0.05 then
+		FxRelay.float(part.Position, dealt, "damage", nil, attackerUserId)
+	end
 	if health <= 0 then
 		part.Transparency = 0.85
 		part.CanCollide = false

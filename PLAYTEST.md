@@ -73,6 +73,8 @@ Structure + Canal Levi HP bars (same day, later slice): client night-market bill
 
 Lane kitten + jungle camp HP bars (same day, later slice): same `BillboardHp` / `BillboardHpBars` pool now paints small team-tinted bars on lane kittens when damaged or aimed (ally through fog; enemy needs vision) and camp bars on pigeon / golem / crab when damaged or in combat (aim or aggro), fogged when the camp is unseen. Canal Levi keeps the epic always-UP-in-vision bar. Soft cap + reuse so a full healthy wave does not spawn unbounded GUIs. Champion nameplates, Pawmart, bots, and kits unchanged. Verified locally: Luau compiled 139 sources; `tools/test-structure.py` passed (kitten / camp visibility + fog). Rojo 7.4.4 built the place. Studio live-pass under kitten/camp HP bars (scratch a wave; fog a camp).
 
+Floating combat numbers (same day, later slice): Practice hits that the local player deals or takes raise a short cream/coral float at the target (mint for heal/shield; Stall Fang execute larger/bolder). Same `CombatFx` remote — `kind = "float"` with amount + kind — not a second combat system. Client merges near-simultaneous hits and soft-caps on-screen pops so Yarn Cleave / AoE does not carpet. Fogged enemy bodies stay quiet. Hub / Yarn Run / Koi / Party / Arcade stay quiet. HP bars, death recap, and kits unchanged. Verified locally: Luau compiled 140 sources; `tools/test-combat.py` passed (CombatFloat format / merge / fog / spam). `tools/test-structure.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under §8c.
+
 Pawmart clerk shop tips (same day, later slice): `Shared.PawmartGuide` teaches both fountain clerks (`PawmartBlue` / `PawmartRed`) with authored facts and Blue tired-retail / Red upseller asides. Chips: **Shop**, **Actives**, **Wards**, **Builds**, **Help**. Covers **B** fountain-only, start gold 500 / purse CS, Longclaw / Yarnplate / Mana Treat / Pounce Boots, Lens **5** / Control Yarn **6** / Cleave **7**, Stall Fang, Paper Charm, and a Hard bot buy one-liner. Rare Cat Rift ambient on the Talk prompt. Old Tom, hosts, and Kitty Caster unchanged. Mock / HTTP both gate on the guide before generic lines. No API key. Verified locally: Luau compiled 139 sources; `tools/test-pawmart-guide.py` passed; `tools/test-brand.py` and `tools/test-old-tom.py` still passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart clerks.
 
 Match clock (same day, later slice): Cat Rift InProgress shows a top-left **mm:ss** clock and a Canal Levi line. The server publishes `startedAt` and `riverEpic.nextAt` on the match snapshot. The client only paints: a countdown from **Levi 3:00** (`Levi 1:24` on the way), **Levi UP** while it is alive, **Levi 0:47** for the one return, **Levi taken** after the second death. The purse chip still uses **Canal Levi · +8% damage**, and names the other side on that same line when they hold the buff. The minimap pit marker stays. Kitty Caster's take line stays. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show the clock. Verified locally: Luau compiled 136 sources; `tools/test-combat.py` and `tools/test-jungle-bot.py` passed (mm:ss, countdown, UP, respawn, taken, purse holder line). `tools/test-announcer.py` still passed with the take line unchanged. The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to watch the countdown, the wake, the take, and the respawn timer (the live-pass below).
@@ -645,6 +647,18 @@ The current beds reuse `action_get_up.mp3` at different speeds — placeholders 
 ## 8c. Combat VFX (placeholders)
 
 Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Parts (plus one-shot particles). Aim indicators while holding a skill are still local. AA sparks are debounced so wave last-hits do not melt the frame.
+
+**Floating numbers:** damage dealt or taken by the local player also sends `CombatFx` `kind = "float"` with `amount` + `floatKind` (damage / heal / shield / execute). Cream/coral rises and fades at the target; mint for heals and shields; Stall Fang execute pops are larger and coral-bold. The client merges hits inside ~120ms on the same body and soft-caps about 10 on screen so Yarn Cleave / AoE does not carpet. Fogged enemy bodies you cannot see stay quiet. Enabled only while Cat Rift is `InProgress` (hub and other modes stay quiet). HP bars and death recap still use their own paths; they only share the damage events.
+
+Smoke (format / merge / fog / spam helpers): `python3 tools/test-combat.py /path/to/luau`.
+
+### Studio live-pass (floating combat numbers)
+
+1. Hub → Cat Rift → Practice. Scratch a visible kitten or bot: a cream float rises at the target and fades. Take a hit from a bot or post: a float rises on you.
+2. Buy Stall Fang, bring a bot under 20% HP, scratch: a larger coral execute float appears in addition to the main hit.
+3. Yarn Cleave (**7**) into a clump: floats merge / cap — the screen does not carpet with one number per kitten.
+4. Walk a bot into fog and have an ally (or wait for off-screen trades you do not deal/take): no floats on fogged enemy bodies you cannot see. Your own taken damage still shows.
+5. Open Yarn Run / Koi / Party / Arcade or stay on the hub: no Cat Rift combat floats. HP bars and death recap behave as before.
 
 ## 8d. Map art pass
 
