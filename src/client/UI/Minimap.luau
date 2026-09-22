@@ -118,12 +118,6 @@ function Minimap.create(parent: Instance): MinimapApi
 	local explored = table.create(VisionLogic.CellCount, false)
 	local fogBuilt = false
 
-	local function resetExplored()
-		for i = 1, VisionLogic.CellCount do
-			explored[i] = false
-		end
-	end
-
 	local function buildFog()
 		if fogBuilt then
 			return
@@ -158,9 +152,14 @@ function Minimap.create(parent: Instance): MinimapApi
 			return
 		end
 		buildFog()
+		local memory = vision.exploredBits
+		local hasMemory = typeof(memory) == "table" and #memory > 0
 		for index = 1, VisionLogic.CellCount do
 			local cell = fogCells[index]
 			if cell then
+				if hasMemory and memory then
+					explored[index] = VisionLogic.bitOn(memory, index)
+				end
 				local lit = VisionLogic.bitOn(bits, index)
 				if lit then
 					explored[index] = true
@@ -231,7 +230,6 @@ function Minimap.create(parent: Instance): MinimapApi
 			root.Visible = visible
 			if not visible then
 				pingDot.Visible = false
-				resetExplored()
 				for _, cell in fogCells do
 					cell.Visible = false
 				end

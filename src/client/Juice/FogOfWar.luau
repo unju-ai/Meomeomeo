@@ -113,7 +113,7 @@ function FogOfWar.setEnabled(on: boolean)
 	makeFolder()
 end
 
-function FogOfWar.apply(words: { number }?)
+function FogOfWar.apply(words: { number }?, exploredWords: { number }?)
 	if not enabled then
 		return
 	end
@@ -122,6 +122,11 @@ function FogOfWar.apply(words: { number }?)
 	end
 	build()
 	local flags = ensureExplored()
+	if typeof(exploredWords) == "table" and #exploredWords > 0 then
+		for index = 1, VisionLogic.CellCount do
+			flags[index] = VisionLogic.bitOn(exploredWords, index)
+		end
+	end
 	local mask = words
 	lastMask = mask
 	for index = 1, VisionLogic.CellCount do

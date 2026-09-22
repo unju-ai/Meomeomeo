@@ -22,6 +22,25 @@ local VisionService = {}
 local api: Api? = nil
 local running = false
 local frameCache: { [number]: { at: number, frame: Types.VisionFrame } } = {}
+local teamFogCache: { [Types.TeamId]: { number } } = {}
+-- Match-lifetime only. Cleared on start/stop — never DataStore.
+local teamExplored: { [Types.TeamId]: { number } } = {
+	Blue = VisionLogic.emptyMask(),
+	Red = VisionLogic.emptyMask(),
+}
+local lastKnown: { [Types.TeamId]: { [number]: Vector3 } } = {
+	Blue = {},
+	Red = {},
+}
+
+local function resetMemory()
+	teamExplored.Blue = VisionLogic.emptyMask()
+	teamExplored.Red = VisionLogic.emptyMask()
+	table.clear(lastKnown.Blue)
+	table.clear(lastKnown.Red)
+	table.clear(frameCache)
+	table.clear(teamFogCache)
+end
 
 local function sources(team: Types.TeamId): { VisionLogic.Source }
 	local points: { VisionLogic.Source } = {}
@@ -75,6 +94,20 @@ local function sources(team: Types.TeamId): { VisionLogic.Source }
 	return points
 end
 
+local function fogForTeam(team: Types.TeamId): { number }
+	local hit = teamFogCache[team]
+	if hit then
+		return hit
+	end
+	local mask = VisionLogic.mask(sources(team))
+	teamFogCache[team] = mask
+	local memory = teamExplored[team]
+	if memory then
+		VisionLogic.orInto(memory, mask)
+	end
+	return mask
+end
+
 local function emptyFrame(): Types.VisionFrame
 	return {
 		players = {},
@@ -82,6 +115,7 @@ local function emptyFrame(): Types.VisionFrame
 		jungle = {},
 		wards = {},
 		fogBits = VisionLogic.emptyMask(),
+		exploredBits = VisionLogic.emptyMask(),
 	}
 end
 
@@ -99,13 +133,27 @@ local function computeFrame(userId: number): Types.VisionFrame
 	end
 
 	local allySources = sources(mine.team)
+	local fogBits = fogForTeam(mine.team)
+	local known = lastKnown[mine.team]
 
 	local visiblePlayers = {}
 	for _, otherMatch in snapshot.players do
 		local root = api.rootOf(otherMatch.userId)
 		if root then
-			if otherMatch.team == mine.team or VisionLogic.covered(allySources, root.Position.X, root.Position.Z) then
+			local seen = otherMatch.team == mine.team or VisionLogic.covered(allySources, root.Position.X, root.Position.Z)
+			if seen then
 				table.insert(visiblePlayers, otherMatch.userId)
+				if otherMatch.team ~= mine.team and known then
+					if otherMatch.respawnAt == nil then
+						known[otherMatch.userId] = root.Position
+					else
+						known[otherMatch.userId] = nil
+					end
+				end
+			end
+		elseif known then
+			if otherMatch.respawnAt ~= nil then
+				known[otherMatch.userId] = nil
 			end
 		end
 	end
@@ -127,13 +175,23 @@ local function computeFrame(userId: number): Types.VisionFrame
 	local root = api.rootOf(userId)
 	local visibleWards = WardService.visibleToTeam(mine.team, if root then root.Position else nil)
 
+	local memory = teamExplored[mine.team] or VisionLogic.emptyMask()
 	return {
 		players = visiblePlayers,
 		minions = visibleMinions,
 		jungle = visibleJungle,
 		wards = visibleWards,
-		fogBits = VisionLogic.mask(allySources),
+		fogBits = fogBits,
+		exploredBits = VisionLogic.cloneMask(memory),
 	}
+end
+
+function VisionService.lastKnownOf(team: Types.TeamId, userId: number): Vector3?
+	local bag = lastKnown[team]
+	if not bag then
+		return nil
+	end
+	return bag[userId]
 end
 
 function VisionService.frameForUser(userId: number): Types.VisionFrame
@@ -199,6 +257,7 @@ local function broadcast()
 		return
 	end
 	table.clear(frameCache)
+	table.clear(teamFogCache)
 	local snapshot = api.getSnapshot()
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return
@@ -210,10 +269,11 @@ end
 
 function VisionService.stop()
 	running = false
-	table.clear(frameCache)
+	resetMemory()
 end
 
 function VisionService.start()
+	resetMemory()
 	running = true
 	task.spawn(function()
 		broadcast()

@@ -213,6 +213,21 @@ function VisionLogic.emptyMask(): { number }
 	return table.create(VisionLogic.WordCount, 0)
 end
 
+function VisionLogic.cloneMask(words: { number }): { number }
+	local out = table.create(VisionLogic.WordCount, 0)
+	for i = 1, VisionLogic.WordCount do
+		out[i] = words[i] or 0
+	end
+	return out
+end
+
+-- Match-lifetime fog memory: OR src into dest (same WordCount packed bitset).
+function VisionLogic.orInto(dest: { number }, src: { number })
+	for i = 1, VisionLogic.WordCount do
+		dest[i] = bit32.bor(dest[i] or 0, src[i] or 0)
+	end
+end
+
 function VisionLogic.paint(sources: { Source }): { boolean }
 	local flags = table.create(VisionLogic.CellCount, false)
 	for i = 1, VisionLogic.CellCount do
