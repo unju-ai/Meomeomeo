@@ -68,6 +68,9 @@ with tempfile.TemporaryDirectory(prefix="meo-combat-test-") as folder:
     entry.write_text(script)
     result = subprocess.run([str(luau), str(entry)], check=True, capture_output=True, text=True)
 named = (
+    "Golden Parachute",
+    "Encore",
+    "Office Hours",
     "Packet Buffer",
     "Overclock",
     "Honor Bleed",
@@ -85,6 +88,7 @@ named = (
     "Psi Mark",
     "Mind Nudge",
     "CombatFloat",
+    "draft teasers",
 )
 missing = [name for name in named if name not in result.stdout]
 if missing:
