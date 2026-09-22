@@ -11,6 +11,14 @@ local YarnRunCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild
 
 local HubPanel = {}
 
+local BOB_PERIOD = 2.6
+local BOB_SCALE = 1.018
+
+local TweenService: any = nil
+pcall(function()
+	TweenService = game:GetService("TweenService")
+end)
+
 export type HubApi = {
 	root: Frame,
 	setVisible: (visible: boolean) -> (),
@@ -108,11 +116,11 @@ function HubPanel.create(parent: Instance): HubApi
 	mintBtn.Size = UDim2.fromOffset(128, 34)
 	mintBtn.TextSize = 15
 
-	local sub = Theme.text(root, "Sub", `{BrandCatalog.Tagline} Pick a stall.`, 15, Theme.cream)
+	local sub = Theme.text(root, "Sub", `{BrandCatalog.Tagline} Night-market stalls.`, 15, Theme.cream)
 	sub.Position = UDim2.fromOffset(0, 36)
 	sub.Size = UDim2.new(1, 0, 0, 20)
 
-	local hint = Theme.text(root, "Hint", "Pick a game · Live checklist · T emote · Audio · ? help", 12, Theme.muted)
+	local hint = Theme.text(root, "Hint", "Hover a stall · Live checklist · Closet · Audio · T emote · ? help", 12, Theme.muted)
 	hint.Position = UDim2.fromOffset(0, 56)
 	hint.Size = UDim2.new(1, -80, 0, 16)
 
@@ -257,41 +265,74 @@ function HubPanel.create(parent: Instance): HubApi
 	end
 
 	local tiles = ModeCatalog.all()
+	local stallCards: { Frame } = {}
+	local selectedId: string? = nil
+	local hoveredId: string? = nil
+
+	local function paintStall(card: Frame, def: ModeCatalog.ModeTile, stroke: UIStroke, scale: UIScale)
+		local hot = hoveredId == def.id or selectedId == def.id
+		card.BackgroundColor3 = def.wash
+		card.BackgroundTransparency = if hot then 0 else 0.08
+		stroke.Color = if hot then ModeCatalog.glowAccent(def) else def.accent
+		stroke.Thickness = if hot then 3 else 2
+		stroke.Transparency = if not def.playable then 0.55 elseif hot then 0.02 else 0.12
+		if not hot then
+			scale.Scale = 1
+		end
+	end
+
 	for i, def in tiles do
 		local card = Instance.new("Frame")
 		card.Name = def.id
-		card.BackgroundColor3 = Theme.panelAlt
+		card.BackgroundColor3 = def.wash
+		card.BackgroundTransparency = 0.08
 		card.LayoutOrder = i
 		card.Size = UDim2.new(0.32, 0, 0, 208)
 		card.Parent = grid
-		Theme.corner(card, 16)
-		Theme.stroke(card, def.accent, 2, if def.playable then 0.15 else 0.55)
+		Theme.corner(card, 18)
+		local stroke = Theme.stroke(card, def.accent, 2, if def.playable then 0.12 else 0.55)
 		Theme.pad(card, 10)
+		table.insert(stallCards, card)
+
+		local scale = Instance.new("UIScale")
+		scale.Name = "Bob"
+		scale.Scale = 1
+		scale.Parent = card
 
 		swatchArt(card, def.art, def.swatch)
 
-		local tag = Theme.text(card, "Tag", def.tag, 11, def.accent, Theme.fontMono)
-		tag.Position = UDim2.fromOffset(0, 82)
-		tag.Size = UDim2.new(1, 0, 0, 14)
+		local tagChip = Instance.new("TextLabel")
+		tagChip.Name = "Tag"
+		tagChip.BackgroundColor3 = def.accent
+		tagChip.BackgroundTransparency = 0.12
+		tagChip.Text = ModeCatalog.stallTag(def)
+		tagChip.TextColor3 = Theme.ink
+		tagChip.TextSize = 11
+		tagChip.Font = Theme.fontMono
+		tagChip.TextXAlignment = Enum.TextXAlignment.Center
+		tagChip.Position = UDim2.fromOffset(0, 82)
+		tagChip.Size = UDim2.fromOffset(64, 18)
+		tagChip.Parent = card
+		Theme.corner(tagChip, 6)
 
-		local name = Theme.text(card, "Name", def.title, 20, Theme.cream, Theme.fontTitle)
-		name.Position = UDim2.fromOffset(0, 96)
-		name.Size = UDim2.new(1, 0, 0, 22)
+		local name = Theme.text(card, "Name", def.title, 22, Theme.cream, Theme.fontTitle)
+		name.Position = UDim2.fromOffset(0, 102)
+		name.Size = UDim2.new(1, 0, 0, 24)
 
-		local blurb = Theme.text(card, "Blurb", def.blurb, 12, Theme.peach)
-		blurb.Position = UDim2.fromOffset(0, 118)
-		blurb.Size = UDim2.new(1, 0, 0, 32)
+		local blurb = Theme.text(card, "Blurb", ModeCatalog.oneLine(def), 12, Theme.peach)
+		blurb.Position = UDim2.fromOffset(0, 126)
+		blurb.Size = UDim2.new(1, 0, 0, 28)
 
 		local pop = Theme.text(card, "Pop", countText(def.id), 11, Theme.muted)
-		pop.Position = UDim2.fromOffset(0, 150)
+		pop.Position = UDim2.fromOffset(0, 154)
 		pop.Size = UDim2.new(1, 0, 0, 14)
 
 		if def.id == "YarnRun" then
 			local rowBtns = Instance.new("Frame")
 			rowBtns.Name = "Cats"
 			rowBtns.BackgroundTransparency = 1
-			rowBtns.Position = UDim2.fromOffset(0, 164)
-			rowBtns.Size = UDim2.new(1, 0, 0, 18)
+			rowBtns.Position = UDim2.fromOffset(0, 166)
+			rowBtns.Size = UDim2.new(1, 0, 0, 16)
 			rowBtns.Parent = card
 			for r, id in YarnRunCatalog.Runners do
 				local btn = Theme.button(rowBtns, id, string.sub(id, 1, 4), Theme.peach)
@@ -311,7 +352,7 @@ function HubPanel.create(parent: Instance): HubApi
 			end
 		end
 
-		local play = Theme.button(card, "Play", if def.playable then "Play" else "Soon", if def.playable then Theme.amber else Theme.muted)
+		local play = Theme.button(card, "Play", ModeCatalog.playLabel(def), if def.playable then def.accent else Theme.muted)
 		play.Position = UDim2.new(0, 0, 1, -28)
 		play.Size = UDim2.new(1, 0, 0, 26)
 		play.TextSize = 15
@@ -319,6 +360,15 @@ function HubPanel.create(parent: Instance): HubApi
 		play.AutoButtonColor = def.playable
 		if def.playable then
 			play.MouseButton1Click:Connect(function()
+				selectedId = def.id
+				for _, other in stallCards do
+					local otherDef = ModeCatalog.get(other.Name)
+					local otherStroke = other:FindFirstChildWhichIsA("UIStroke")
+					local otherScale = other:FindFirstChild("Bob")
+					if otherDef and otherStroke and otherScale and otherScale:IsA("UIScale") then
+						paintStall(other, otherDef, otherStroke, otherScale)
+					end
+				end
 				if def.id == "CatRift" then
 					if playRift then
 						playRift()
@@ -374,6 +424,70 @@ function HubPanel.create(parent: Instance): HubApi
 				if arcadeBoardHandler then
 					arcadeBoardHandler()
 				end
+			end)
+		end
+
+		local function setHover(active: boolean)
+			hoveredId = if active then def.id else if hoveredId == def.id then nil else hoveredId
+			paintStall(card, def, stroke, scale)
+			if active and def.playable then
+				scale.Scale = 1.03
+				if TweenService then
+					pcall(function()
+						TweenService:Create(scale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							Scale = 1.03,
+						}):Play()
+					end)
+				end
+			end
+		end
+		local enter = card.MouseEnter
+		local leave = card.MouseLeave
+		if enter then
+			enter:Connect(function()
+				setHover(true)
+			end)
+		end
+		if leave then
+			leave:Connect(function()
+				setHover(false)
+			end)
+		end
+
+		-- Soft idle bob: staggered, rate-limited, stops while hovered/selected.
+		if def.playable then
+			pcall(function()
+				task.defer(function()
+					local phase = (i - 1) * 0.38
+					task.wait(phase)
+					while card.Parent do
+						if root.Visible and hoveredId ~= def.id and selectedId ~= def.id then
+							scale.Scale = BOB_SCALE
+							if TweenService then
+								pcall(function()
+									TweenService:Create(scale, TweenInfo.new(BOB_PERIOD * 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+										Scale = BOB_SCALE,
+									}):Play()
+								end)
+							end
+							task.wait(BOB_PERIOD * 0.5)
+							if hoveredId == def.id or selectedId == def.id or not card.Parent then
+								break
+							end
+							scale.Scale = 1
+							if TweenService then
+								pcall(function()
+									TweenService:Create(scale, TweenInfo.new(BOB_PERIOD * 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+										Scale = 1,
+									}):Play()
+								end)
+							end
+							task.wait(BOB_PERIOD * 0.5)
+						else
+							task.wait(0.35)
+						end
+					end
+				end)
 			end)
 		end
 	end
@@ -442,6 +556,7 @@ function HubPanel.create(parent: Instance): HubApi
 			root.Visible = visible
 			if not visible then
 				publish.setVisible(false)
+				hoveredId = nil
 			end
 		end,
 		update = function(status: Types.HubStatus)
