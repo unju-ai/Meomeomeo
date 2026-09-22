@@ -4,7 +4,18 @@ local Types = require(script.Parent.Types)
 
 export type Mode = Types.AbilityTargeting
 
+export type Preview = {
+	mode: Mode,
+	dest: Vector3,
+	clamped: boolean,
+	valid: boolean,
+	showAim: boolean,
+}
+
 local Targeting = {}
+
+-- Ground casts still accept a short slack past max range (CombatService).
+local GROUND_SLACK = 6
 
 function Targeting.of(ability: Types.AbilityDef): Mode
 	if ability.targeting then
@@ -48,6 +59,58 @@ function Targeting.hits(mode: Mode, origin: Vector3, aim: Vector3, point: Vector
 	local dx = point.X - aim.X
 	local dz = point.Z - aim.Z
 	return math.sqrt(dx * dx + dz * dz) <= radius
+end
+
+-- Client aim juice: clamped dest, warn tint, and whether an aim part should draw.
+function Targeting.preview(ability: Types.AbilityDef, origin: Vector3, aim: Vector3): Preview
+	local mode = Targeting.of(ability)
+	if mode == "instant" then
+		return {
+			mode = mode,
+			dest = origin,
+			clamped = false,
+			valid = true,
+			showAim = false,
+		}
+	end
+	local flat = Targeting.flat(origin, aim)
+	local dist = flat.Magnitude
+	if mode == "line" or mode == "dash" then
+		local dest = Targeting.clampAim(origin, aim, ability.range)
+		return {
+			mode = mode,
+			dest = dest,
+			clamped = dist > ability.range + 0.05,
+			valid = true,
+			showAim = true,
+		}
+	end
+	-- ground
+	local function groundDest(point: Vector3): Vector3
+		-- Keep cursor height so the AoE disc sits on the ground hit, not at root height.
+		return Vector3.new(point.X, aim.Y, point.Z)
+	end
+	if dist > ability.range + GROUND_SLACK then
+		return {
+			mode = mode,
+			dest = groundDest(Targeting.clampAim(origin, aim, ability.range)),
+			clamped = true,
+			valid = false,
+			showAim = true,
+		}
+	end
+	local beyondIdeal = dist > ability.range + 0.05
+	return {
+		mode = mode,
+		dest = groundDest(if beyondIdeal then Targeting.clampAim(origin, aim, ability.range) else aim),
+		clamped = beyondIdeal,
+		valid = true,
+		showAim = true,
+	}
+end
+
+function Targeting.groundSlack(): number
+	return GROUND_SLACK
 end
 
 return Targeting

@@ -396,7 +396,7 @@ Confirmed hits and casts broadcast on the `CombatFx` remote (`src/server/World/F
 | Stun | Three stars orbit the head for the stun duration |
 | Recall | Mint cylinder under feet for the 7s channel |
 
-Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is held or a ground AoE is armed. World FX spawn only after the server confirms the cast or projectile tick. Combat numbers stay server-authoritative.
+Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is held or a ground AoE is armed: thin ForceField range ring, line width from `radius`, ground circle at the clamped aim, short dash streak + tip, mint/coral for valid/warn. Instant heals clear immediately. World FX spawn only after the server confirms the cast or projectile tick. Combat numbers stay server-authoritative. Indicators do not reveal fogged enemies.
 
 ## Meme stocks (side system)
 
