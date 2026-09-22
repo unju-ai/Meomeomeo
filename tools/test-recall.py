@@ -7,8 +7,13 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 luau = Path(sys.argv[1] if len(sys.argv) > 1 else "luau")
 
-source = (root / "src/shared/RecallLogic.luau").read_text()
-script = f"local RecallLogic = (function()\n{source}\nend)()\n" + (root / "tests/recall-smoke.luau").read_text()
+logic = (root / "src/shared/RecallLogic.luau").read_text()
+juice = (root / "src/shared/RecallJuice.luau").read_text()
+script = (
+    f"local RecallLogic = (function()\n{logic}\nend)()\n"
+    f"local RecallJuice = (function()\n{juice}\nend)()\n"
+    + (root / "tests/recall-smoke.luau").read_text()
+)
 with tempfile.TemporaryDirectory(prefix="meo-recall-test-") as folder:
     entry = Path(folder) / "smoke.luau"
     entry.write_text(script)
