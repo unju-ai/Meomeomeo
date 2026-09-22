@@ -119,6 +119,15 @@ assert(BillboardHp.structureTitle("Core", "Base") == "Yarn core")
 assert(string.find(BillboardHp.structureCaption("Mid post", "100 / 1400", true), "(gated)", 1, true) ~= nil)
 assert(string.find(BillboardHp.structureCaption("Mid post", "100 / 1400", false), "(gated)", 1, true) == nil)
 assert(BillboardHp.epicCaption("Canal Levi", "1100 / 1100") == "Canal Levi  1100 / 1100")
+assert(BillboardHp.campCaption("Pigeon Pack", "40 / 95") == "Pigeon Pack  40 / 95")
+assert(BillboardHp.MaxUnitBars >= 16)
+
+local blueFill = BillboardHp.teamFillRgb("cream", "Blue")
+local redFill = BillboardHp.teamFillRgb("cream", "Red")
+local plainFill = BillboardHp.teamFillRgb("cream", nil)
+assert(blueFill[3] > plainFill[3], "Blue kitten fill leans cooler")
+assert(redFill[2] < plainFill[2], "Red kitten fill pulls green down toward coral")
+assert(blueFill[3] ~= redFill[3], "Blue and Red kitten washes differ")
 
 assert(
 	BillboardHp.showStructure({
@@ -184,4 +193,113 @@ assert(BillboardHp.showEpic({ alive = true, inVision = true }) == true, "Levi UP
 assert(BillboardHp.showEpic({ alive = true, inVision = false }) == false, "Levi HP does not pierce fog")
 assert(BillboardHp.showEpic({ alive = false, inVision = true }) == false, "spent Levi has no bar")
 
-print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi HP bars")
+assert(
+	BillboardHp.showKitten({
+		alive = true,
+		ally = false,
+		inVision = false,
+		damaged = true,
+		aimed = false,
+	}) == false,
+	"enemy kitten HP stays hidden in fog"
+)
+assert(
+	BillboardHp.showKitten({
+		alive = true,
+		ally = true,
+		inVision = false,
+		damaged = true,
+		aimed = false,
+	}) == true,
+	"ally kitten HP can stay visible through fog"
+)
+assert(
+	BillboardHp.showKitten({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = false,
+	}) == false,
+	"full healthy kitten stays quiet until damaged or aimed"
+)
+assert(
+	BillboardHp.showKitten({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = true,
+	}) == true,
+	"aiming a visible enemy kitten shows the bar"
+)
+assert(
+	BillboardHp.showKitten({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = true,
+		aimed = false,
+	}) == true,
+	"damaged enemy kitten in vision shows the bar"
+)
+assert(
+	BillboardHp.showKitten({
+		alive = false,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = true,
+	}) == false,
+	"dead kittens do not keep an HP bar"
+)
+
+assert(
+	BillboardHp.showCamp({
+		alive = true,
+		inVision = false,
+		damaged = true,
+		inCombat = false,
+	}) == false,
+	"camp HP stays hidden in fog"
+)
+assert(
+	BillboardHp.showCamp({
+		alive = true,
+		inVision = true,
+		damaged = false,
+		inCombat = false,
+	}) == false,
+	"idle full camp stays quiet"
+)
+assert(
+	BillboardHp.showCamp({
+		alive = true,
+		inVision = true,
+		damaged = true,
+		inCombat = false,
+	}) == true,
+	"damaged camp in vision shows the bar"
+)
+assert(
+	BillboardHp.showCamp({
+		alive = true,
+		inVision = true,
+		damaged = false,
+		inCombat = true,
+	}) == true,
+	"camp in combat (aim or aggro) shows the bar"
+)
+assert(
+	BillboardHp.showCamp({
+		alive = false,
+		inVision = true,
+		damaged = false,
+		inCombat = true,
+	}) == false,
+	"spent camp has no bar"
+)
+-- Levi stays on showEpic, not the small-camp rule.
+assert(BillboardHp.showEpic({ alive = true, inVision = true }) == true, "Levi still uses the epic rule")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi/kitten/camp HP bars")

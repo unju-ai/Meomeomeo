@@ -226,6 +226,9 @@ end
 
 local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {}, fogBits = {}, exploredBits = {} }
 local lastKnownPos: { [number]: Vector3 } = {}
+-- Client-side AA lock ids: CombatState.attackTarget is "kitten"/"camp", not the unit id.
+local lockedAimMinionId: string? = nil
+local lockedAimJungleId: string? = nil
 local applyVision: () -> () = function() end
 local syncWorldHpBars: () -> () = function() end
 local armedSlot: Types.AbilitySlot? = nil
@@ -1521,6 +1524,7 @@ Remotes.event("CombatUpdated").OnClientEvent:Connect(function(state)
 		latestCombat = state :: Types.CombatState
 		applyCombatJuice(latestCombat)
 		refreshBars()
+		syncWorldHpBars()
 		if latestCombat.alive == false then
 			hud.emotes.close()
 		else
@@ -2252,30 +2256,54 @@ syncWorldHpBars = function()
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
 		BillboardHpBars.clear()
+		lockedAimMinionId = nil
+		lockedAimJungleId = nil
 		return
 	end
 	local mine = snapshot.players[tostring(player.UserId)]
-	local aimed: string? = nil
+	local aimedObjective: string? = nil
+	local aimedMinion: string? = nil
+	local aimedJungle: string? = nil
 	if latestCombat and typeof(latestCombat.attackTarget) == "string" then
 		local target = latestCombat.attackTarget :: string
-		if target ~= "champion" and target ~= "kitten" and target ~= "camp" and target ~= "ward" and target ~= "structure" then
-			aimed = target
+		if target == "kitten" then
+			aimedMinion = lockedAimMinionId
+		elseif target == "camp" then
+			aimedJungle = lockedAimJungleId
+		elseif target ~= "champion" and target ~= "ward" and target ~= "structure" then
+			aimedObjective = target
 		end
+	else
+		lockedAimMinionId = nil
+		lockedAimJungleId = nil
 	end
 	local hover = pickAttack()
-	if hover and hover.kind == "objective" and typeof(hover.objectiveId) == "string" then
-		aimed = hover.objectiveId
+	if hover then
+		if hover.kind == "objective" and typeof(hover.objectiveId) == "string" then
+			aimedObjective = hover.objectiveId
+		elseif hover.kind == "minion" and typeof(hover.minionId) == "string" then
+			aimedMinion = hover.minionId
+		elseif hover.kind == "jungle" and typeof(hover.jungleId) == "string" then
+			aimedJungle = hover.jungleId
+		end
 	end
 	local jungleVisible: { [string]: boolean } = {}
 	for _, id in (lastVision.jungle or {}) do
 		jungleVisible[id] = true
 	end
+	local minionVisible: { [string]: boolean } = {}
+	for _, id in (lastVision.minions or {}) do
+		minionVisible[id] = true
+	end
 	BillboardHpBars.sync({
 		active = true,
 		localTeam = if mine then mine.team else nil,
 		fogBits = lastVision.fogBits,
-		aimedObjectiveId = aimed,
+		aimedObjectiveId = aimedObjective,
+		aimedMinionId = aimedMinion,
+		aimedJungleId = aimedJungle,
 		jungleVisible = jungleVisible,
+		minionVisible = minionVisible,
 	})
 end
 
@@ -2401,7 +2429,15 @@ local function requestMove(position: Vector3?)
 	end
 end
 
+local lastHpBarSync = 0
 RunService.Heartbeat:Connect(function()
+	if latestMatch and latestMatch.phase == "InProgress" and not inMini() then
+		local now = os.clock()
+		if now - lastHpBarSync >= 0.12 then
+			lastHpBarSync = now
+			syncWorldHpBars()
+		end
+	end
 	if not recallLatch.active or recallMoveSent or recallMoveBusy or gameMode ~= "Moba" then
 		return
 	end
@@ -2774,7 +2810,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		if latestMatch and latestMatch.phase == "InProgress" then
 			attackMoveArmed = false
 			hideAim()
+			lockedAimMinionId = nil
+			lockedAimJungleId = nil
 			reportAttack(Remotes.function_("IssueAttack"):InvokeServer({ kind = "stop" }))
+			syncWorldHpBars()
 		end
 		return
 	end
@@ -2803,9 +2842,22 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		local target = pickAttack()
 		if target then
 			attackMoveArmed = false
+			if target.kind == "minion" and typeof(target.minionId) == "string" then
+				lockedAimMinionId = target.minionId
+				lockedAimJungleId = nil
+			elseif target.kind == "jungle" and typeof(target.jungleId) == "string" then
+				lockedAimJungleId = target.jungleId
+				lockedAimMinionId = nil
+			else
+				lockedAimMinionId = nil
+				lockedAimJungleId = nil
+			end
 			reportAttack(Remotes.function_("IssueAttack"):InvokeServer(target))
+			syncWorldHpBars()
 		elseif attackMoveArmed then
 			attackMoveArmed = false
+			lockedAimMinionId = nil
+			lockedAimJungleId = nil
 			reportAttack(Remotes.function_("AttackMove"):InvokeServer(attackMovePoint()))
 		elseif latestCombat and rootedChannel(latestCombat) then
 			requestMove(aimPoint())
