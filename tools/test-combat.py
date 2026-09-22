@@ -68,6 +68,7 @@ script = (
     + wrap("ActiveJuice", "src/shared/ActiveJuice.luau")
     + wrap("ScratchJuice", "src/shared/ScratchJuice.luau")
     + wrap("AbilityRefuseJuice", "src/shared/AbilityRefuseJuice.luau")
+    + wrap("AbilitySuccessJuice", "src/shared/AbilitySuccessJuice.luau")
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("VisionLogic", "src/shared/VisionLogic.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
@@ -110,6 +111,7 @@ named = (
     "ActiveJuice",
     "ScratchJuice",
     "AbilityRefuseJuice",
+    "AbilitySuccessJuice",
     "draft teasers",
     "wall clip",
 )

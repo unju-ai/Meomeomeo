@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 
 local CameraFollow = require(script.Parent.Parent.CameraFollow)
 local AbilityRefuseJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AbilityRefuseJuice"))
+local AbilitySuccessJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AbilitySuccessJuice"))
 local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrushJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Theme = require(script.Parent.Parent.Theme)
@@ -175,6 +176,21 @@ end
 -- Local ability refuse. Fainter than a hit flash, and it does not banner.
 function ScreenJuice.abilityRefuse()
 	pulse(ScreenJuice.refuseColor(), AbilityRefuseJuice.tickPeak())
+end
+
+function ScreenJuice.successColor(): Color3
+	local rgb = AbilitySuccessJuice.washRgb()
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
+-- Local ability cast. Quieter than the refuse tick, and it does not banner.
+function ScreenJuice.abilitySuccess()
+	pulse(ScreenJuice.successColor(), AbilitySuccessJuice.tickPeak())
+end
+
+-- Server ok in, paint decision out. A refuse stays on noteAbilityRefuse.
+function ScreenJuice.noteAbilitySuccess(gameMode: string, phase: string?, slot: string, ok: boolean, cancelled: boolean?): boolean
+	return AbilitySuccessJuice.wantsCue(gameMode, phase, ok, slot, cancelled)
 end
 
 -- Server error in, paint decision out. Debounce lives here so the client script

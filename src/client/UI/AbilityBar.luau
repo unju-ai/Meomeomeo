@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local AbilityRefuseJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AbilityRefuseJuice"))
+local AbilitySuccessJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AbilitySuccessJuice"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local ItemKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemKits"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
@@ -27,6 +28,7 @@ export type BarApi = {
 	update: (matchPlayer: Types.MatchPlayer, combat: Types.CombatState?) -> (),
 	flashRanks: (slots: { string }) -> (),
 	pulseRefuse: (slot: string) -> (),
+	pulseSuccess: (slot: string) -> (),
 	setFountainRegen: (hpActive: boolean, manaActive: boolean) -> (),
 }
 
@@ -41,6 +43,8 @@ local UNLEARNED_BG = Color3.fromRGB(52, 38, 36)
 local RANK_FLASH = Theme.amber
 local READY_FLASH = Theme.mint
 local REFUSE_CORAL = Color3.fromRGB(AbilityRefuseJuice.Coral[1], AbilityRefuseJuice.Coral[2], AbilityRefuseJuice.Coral[3])
+local CAST_CREAM = Color3.fromRGB(AbilitySuccessJuice.Cream[1], AbilitySuccessJuice.Cream[2], AbilitySuccessJuice.Cream[3])
+local CAST_AMBER = Color3.fromRGB(AbilitySuccessJuice.Amber[1], AbilitySuccessJuice.Amber[2], AbilitySuccessJuice.Amber[3])
 
 local HP_FILL = Color3.fromRGB(ResourceBars.HpFill[1], ResourceBars.HpFill[2], ResourceBars.HpFill[3])
 local HP_TRACK = Color3.fromRGB(ResourceBars.HpTrack[1], ResourceBars.HpTrack[2], ResourceBars.HpTrack[3])
@@ -65,6 +69,7 @@ type SlotPaint = {
 	label: TextLabel,
 	sweep: Frame,
 	flash: Frame,
+	success: Frame,
 	refuse: Frame,
 	stroke: UIStroke,
 	readyAt: number,
@@ -72,6 +77,7 @@ type SlotPaint = {
 	cooling: boolean,
 	flashUntil: number,
 	rankFlashUntil: number,
+	successUntil: number,
 	refuseUntil: number,
 	manaLow: boolean,
 	usable: boolean,
@@ -120,6 +126,19 @@ local function makeSlot(parent: Instance, name: string, size: UDim2, layoutOrder
 	flash.Parent = cell
 	Theme.corner(flash, if tall then 10 else 8)
 
+	-- Cream wash when this key's cast comes back ok. Sits under the coral refuse; does not resize the sweep.
+	local success = Instance.new("Frame")
+	success.Name = "CastPulse"
+	success.BackgroundColor3 = CAST_CREAM
+	success.BackgroundTransparency = 1
+	success.BorderSizePixel = 0
+	success.Size = UDim2.fromScale(1, 1)
+	success.Visible = false
+	success.Active = false
+	success.ZIndex = 3
+	success.Parent = cell
+	Theme.corner(success, if tall then 10 else 8)
+
 	-- Coral wash when the server refuses this key. Sits over the sweep; does not resize it.
 	local refuse = Instance.new("Frame")
 	refuse.Name = "RefusePulse"
@@ -145,6 +164,7 @@ local function makeSlot(parent: Instance, name: string, size: UDim2, layoutOrder
 		label = label,
 		sweep = sweep,
 		flash = flash,
+		success = success,
 		refuse = refuse,
 		stroke = stroke,
 		readyAt = 0,
@@ -152,6 +172,7 @@ local function makeSlot(parent: Instance, name: string, size: UDim2, layoutOrder
 		cooling = false,
 		flashUntil = 0,
 		rankFlashUntil = 0,
+		successUntil = 0,
 		refuseUntil = 0,
 		manaLow = false,
 		usable = false,
@@ -235,6 +256,19 @@ local function paintSlotFrame(slot: SlotPaint, now: number)
 		if rankLeft <= 0 then
 			slot.rankFlashUntil = 0
 		end
+	end
+
+	-- Cast confirmation sits under the refuse wash. Sweep height stays the cooldown fraction above.
+	local successLeft = slot.successUntil - now
+	if successLeft > 0 then
+		slot.success.Visible = true
+		slot.success.BackgroundTransparency = AbilitySuccessJuice.slotTransparency(successLeft)
+		slot.stroke.Color = CAST_AMBER
+		slot.stroke.Transparency = 0.2
+		slot.label.TextColor3 = CAST_AMBER
+	else
+		slot.success.Visible = false
+		slot.successUntil = 0
 	end
 
 	-- Refuse wash is a paint on top. Sweep height stays the cooldown fraction above.
@@ -426,10 +460,14 @@ function AbilityBar.create(parent: Instance): BarApi
 				hp.regen = false
 				mp.regen = false
 				for _, slotName in Constants.Slots do
+					abilitySlots[slotName].successUntil = 0
+					abilitySlots[slotName].success.Visible = false
 					abilitySlots[slotName].refuseUntil = 0
 					abilitySlots[slotName].refuse.Visible = false
 				end
 				for _, slot in itemSlots do
+					slot.successUntil = 0
+					slot.success.Visible = false
 					slot.refuseUntil = 0
 					slot.refuse.Visible = false
 				end
@@ -463,6 +501,26 @@ function AbilityBar.create(parent: Instance): BarApi
 				return
 			end
 			paint.refuseUntil = Workspace:GetServerTimeNow() + AbilityRefuseJuice.PulseSeconds
+			tickFrames()
+		end,
+		pulseSuccess = function(slot: string)
+			if not root.Visible or not AbilitySuccessJuice.isBarSlot(slot) then
+				return
+			end
+			local paint = abilitySlots[slot]
+			if slot == "4" then
+				paint = trinket
+			elseif slot == "5" then
+				paint = lens
+			elseif slot == "6" then
+				paint = pink
+			elseif slot == "7" then
+				paint = cleave
+			end
+			if not paint then
+				return
+			end
+			paint.successUntil = Workspace:GetServerTimeNow() + AbilitySuccessJuice.PulseSeconds
 			tickFrames()
 		end,
 		setFountainRegen = function(hpActive: boolean, manaActive: boolean)

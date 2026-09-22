@@ -2802,6 +2802,13 @@ local function reportAttack(result: any, cue: string?, refuseSlot: string?)
 		elseif cue == "AbilityCast" then
 			Sfx.play("AbilityCast")
 		end
+		if result.ok == true and refuseSlot then
+			local phase = if latestMatch then latestMatch.phase else nil
+			if ScreenJuice.noteAbilitySuccess(gameMode, phase, refuseSlot, true, false) then
+				hud.abilities.pulseSuccess(refuseSlot)
+				ScreenJuice.abilitySuccess()
+			end
+		end
 		if result.combat then
 			latestCombat = result.combat
 			applyCombatJuice(latestCombat)
@@ -2916,6 +2923,13 @@ local function castAbility(slot: Types.AbilitySlot)
 				end
 			end
 			Sfx.play("AbilityCast", pitch)
+		end
+		if result.ok == true then
+			local phase = if latestMatch then latestMatch.phase else nil
+			if ScreenJuice.noteAbilitySuccess(gameMode, phase, slot, true, cancelledChannel) then
+				hud.abilities.pulseSuccess(slot)
+				ScreenJuice.abilitySuccess()
+			end
 		end
 		if result.combat then
 			latestCombat = result.combat
