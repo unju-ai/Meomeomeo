@@ -114,6 +114,7 @@ local Config = {
 	},
 
 	Minions = {
+		-- WaveJuice only predicts these. Do not retune them for the telegraph.
 		FirstWaveDelay = 6,
 		WaveInterval = 22,
 		PerLane = 3,
