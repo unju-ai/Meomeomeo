@@ -1,7 +1,8 @@
 --!strict
 
--- Server-authoritative fog grid, jungle brush, and base-wall LoS.
--- Clients only render the mask.
+-- Server-authoritative fog grid, jungle brush, and mesh line-of-sight.
+-- Keep walls and thick cover are eye-height occlusion volumes. Clients only render the mask.
+-- MeshParts / wedges on the same LoS layer are not hard-blocked as boxes; VisionService raycasts those.
 
 local VisionLogic = {}
 
@@ -17,6 +18,14 @@ VisionLogic.CellCount = 1176
 VisionLogic.WordCount = 37
 VisionLogic.LaneHalf = 10
 VisionLogic.LaneZ = { -80, 0, 80 }
+
+-- Horizontal ray used for every vision sample. Short curbs and overhead signs miss it.
+VisionLogic.EyeHeight = 3.5
+-- Keep walls are 4 studs thick. Thinner props (pillars, lanterns, ears) must not occlude.
+VisionLogic.MinBlockThickness = 3.5
+-- Keep-wall parts are authored at this height (MapBuilder). Bottom sits on the ground.
+VisionLogic.WallY = 5
+VisionLogic.WallHeight = 10
 
 export type BrushSpec = {
 	name: string,
@@ -34,6 +43,29 @@ export type WallSpec = {
 	z: number,
 	sx: number,
 	sz: number,
+}
+
+export type CoverSpec = {
+	name: string,
+	x: number,
+	y: number,
+	z: number,
+	sx: number,
+	sy: number,
+	sz: number,
+}
+
+export type BlockerShape = "box" | "ball" | "cylinder" | "mesh"
+
+export type Blocker = {
+	name: string,
+	x: number,
+	y: number,
+	z: number,
+	sx: number,
+	sy: number,
+	sz: number,
+	shape: BlockerShape,
 }
 
 export type Source = {
@@ -66,6 +98,20 @@ VisionLogic.Walls = {
 	{ name = "RedWestS", x = 146, z = 17, sx = 4, sz = 14 },
 } :: { WallSpec }
 
+-- Upright market drums between the lanes. Diameter is sx/sz; height is sy.
+-- Off the 16-stud lane corridors and off the river so they read as cover, not gates.
+VisionLogic.Cover = {
+	{ name = "CoverNW", x = -36, y = 4, z = -48, sx = 6, sy = 8, sz = 6 },
+	{ name = "CoverNE", x = 36, y = 4, z = -48, sx = 6, sy = 8, sz = 6 },
+	{ name = "CoverSW", x = -36, y = 4, z = 48, sx = 6, sy = 8, sz = 6 },
+	{ name = "CoverSE", x = 36, y = 4, z = 48, sx = 6, sy = 8, sz = 6 },
+} :: { CoverSpec }
+
+local overrideBlockers: { Blocker }? = nil
+local builtinBlockers: { Blocker }? = nil
+-- Returns true when a raycast (or a test double) says the eye segment hits a mesh.
+local meshProbe: ((number, number, number, number) -> boolean)? = nil
+
 local function onLane(z: number): boolean
 	for _, laneZ in VisionLogic.LaneZ do
 		if math.abs(z - laneZ) <= VisionLogic.LaneHalf then
@@ -87,6 +133,78 @@ function VisionLogic.brushAt(x: number, z: number): string?
 		end
 	end
 	return nil
+end
+
+function VisionLogic.qualifies(sx: number, sy: number, sz: number, y: number): boolean
+	if sx <= 0 or sy <= 0 or sz <= 0 then
+		return false
+	end
+	if math.min(sx, sz) < VisionLogic.MinBlockThickness then
+		return false
+	end
+	local bottom = y - sy * 0.5
+	local top = y + sy * 0.5
+	return bottom <= VisionLogic.EyeHeight and top >= VisionLogic.EyeHeight
+end
+
+function VisionLogic.blockerFromExtents(
+	name: string,
+	sx: number,
+	sy: number,
+	sz: number,
+	x: number,
+	y: number,
+	z: number,
+	shape: BlockerShape
+): Blocker?
+	if not VisionLogic.qualifies(sx, sy, sz, y) then
+		return nil
+	end
+	return {
+		name = name,
+		x = x,
+		y = y,
+		z = z,
+		sx = sx,
+		sy = sy,
+		sz = sz,
+		shape = shape,
+	}
+end
+
+-- Local part size + basis → world extents and a shape the eye query understands.
+-- kind matches BasePart.Shape.Name, or "Mesh" for MeshPart. Look is Roblox LookVector (−Z).
+function VisionLogic.worldExtents(
+	sizeX: number,
+	sizeY: number,
+	sizeZ: number,
+	rightX: number,
+	rightY: number,
+	rightZ: number,
+	upX: number,
+	upY: number,
+	upZ: number,
+	lookX: number,
+	lookY: number,
+	lookZ: number,
+	kind: string
+): (number, number, number, BlockerShape)
+	if kind == "Ball" then
+		return sizeX, sizeY, sizeZ, "ball"
+	end
+	if kind == "Cylinder" and math.abs(rightY) >= 0.99 then
+		local diameter = math.max(sizeY, sizeZ)
+		return diameter, sizeX, diameter, "cylinder"
+	end
+	local sx = math.abs(rightX) * sizeX + math.abs(upX) * sizeY + math.abs(lookX) * sizeZ
+	local sy = math.abs(rightY) * sizeX + math.abs(upY) * sizeY + math.abs(lookY) * sizeZ
+	local sz = math.abs(rightZ) * sizeX + math.abs(upZ) * sizeY + math.abs(lookZ) * sizeZ
+	local upright = math.abs(upY) >= 0.99
+	local axis = upright and (math.abs(rightX) >= 0.99 or math.abs(rightZ) >= 0.99)
+	if kind == "Block" and axis then
+		return sx, sy, sz, "box"
+	end
+	return sx, sy, sz, "mesh"
 end
 
 local function segmentHitsAabb(ax: number, az: number, bx: number, bz: number, spec: WallSpec): boolean
@@ -135,11 +253,170 @@ local function segmentHitsAabb(ax: number, az: number, bx: number, bz: number, s
 	return tmin <= tmax
 end
 
-function VisionLogic.clearLine(sx: number, sz: number, tx: number, tz: number): boolean
-	for _, wall in VisionLogic.Walls do
-		if segmentHitsAabb(sx, sz, tx, tz, wall) then
-			return false
+local function crossesEye(blocker: Blocker): boolean
+	local bottom = blocker.y - blocker.sy * 0.5
+	local top = blocker.y + blocker.sy * 0.5
+	local eye = VisionLogic.EyeHeight
+	return eye >= bottom and eye <= top
+end
+
+local function segmentHitsCircle(ax: number, az: number, bx: number, bz: number, cx: number, cz: number, radius: number): boolean
+	local abx = bx - ax
+	local abz = bz - az
+	local acx = cx - ax
+	local acz = cz - az
+	local ab2 = abx * abx + abz * abz
+	if ab2 < 1e-8 then
+		return acx * acx + acz * acz <= radius * radius
+	end
+	local t = math.clamp((acx * abx + acz * abz) / ab2, 0, 1)
+	local px = ax + abx * t - cx
+	local pz = az + abz * t - cz
+	return px * px + pz * pz <= radius * radius
+end
+
+local function segmentHitsBox(ax: number, az: number, bx: number, bz: number, blocker: Blocker): boolean
+	if not crossesEye(blocker) then
+		return false
+	end
+	return segmentHitsAabb(ax, az, bx, bz, {
+		name = blocker.name,
+		x = blocker.x,
+		z = blocker.z,
+		sx = blocker.sx,
+		sz = blocker.sz,
+	})
+end
+
+local function segmentHitsCylinder(ax: number, az: number, bx: number, bz: number, blocker: Blocker): boolean
+	if not crossesEye(blocker) then
+		return false
+	end
+	local radius = math.min(blocker.sx, blocker.sz) * 0.5
+	return segmentHitsCircle(ax, az, bx, bz, blocker.x, blocker.z, radius)
+end
+
+local function segmentHitsBall(ax: number, az: number, bx: number, bz: number, blocker: Blocker): boolean
+	local rx = blocker.sx * 0.5
+	local ry = blocker.sy * 0.5
+	local rz = blocker.sz * 0.5
+	if rx < 1e-4 or ry < 1e-4 or rz < 1e-4 then
+		return false
+	end
+	local dy = (VisionLogic.EyeHeight - blocker.y) / ry
+	if dy <= -1 or dy >= 1 then
+		return false
+	end
+	local scale = math.sqrt(1 - dy * dy)
+	local hx = rx * scale
+	local hz = rz * scale
+	if hx < 1e-4 or hz < 1e-4 then
+		return false
+	end
+	local zScale = hx / hz
+	return segmentHitsCircle(ax, az * zScale, bx, bz * zScale, blocker.x, blocker.z * zScale, hx)
+end
+
+function VisionLogic.hitsBlocker(sx: number, sz: number, tx: number, tz: number, blocker: Blocker): boolean
+	if blocker.shape == "mesh" then
+		return false
+	end
+	if not VisionLogic.qualifies(blocker.sx, blocker.sy, blocker.sz, blocker.y) then
+		return false
+	end
+	if blocker.shape == "ball" then
+		return segmentHitsBall(sx, sz, tx, tz, blocker)
+	end
+	if blocker.shape == "cylinder" then
+		return segmentHitsCylinder(sx, sz, tx, tz, blocker)
+	end
+	return segmentHitsBox(sx, sz, tx, tz, blocker)
+end
+
+-- Broadphase for a mesh: the eye segment meets its world box. Corners are not a hard block.
+function VisionLogic.hitsMesh(sx: number, sz: number, tx: number, tz: number, blocker: Blocker): boolean
+	if blocker.shape ~= "mesh" then
+		return false
+	end
+	if not VisionLogic.qualifies(blocker.sx, blocker.sy, blocker.sz, blocker.y) then
+		return false
+	end
+	return segmentHitsBox(sx, sz, tx, tz, blocker)
+end
+
+function VisionLogic.blockedBy(sx: number, sz: number, tx: number, tz: number, blockers: { Blocker }): boolean
+	for _, blocker in blockers do
+		if VisionLogic.hitsBlocker(sx, sz, tx, tz, blocker) then
+			return true
 		end
+	end
+	return false
+end
+
+function VisionLogic.meshAlong(sx: number, sz: number, tx: number, tz: number, blockers: { Blocker }): boolean
+	for _, blocker in blockers do
+		if VisionLogic.hitsMesh(sx, sz, tx, tz, blocker) then
+			return true
+		end
+	end
+	return false
+end
+
+local function builtin(): { Blocker }
+	if builtinBlockers then
+		return builtinBlockers
+	end
+	local list: { Blocker } = {}
+	for _, wall in VisionLogic.Walls do
+		local blocker = VisionLogic.blockerFromExtents(
+			wall.name,
+			wall.sx,
+			VisionLogic.WallHeight,
+			wall.sz,
+			wall.x,
+			VisionLogic.WallY,
+			wall.z,
+			"box"
+		)
+		if blocker then
+			table.insert(list, blocker)
+		end
+	end
+	for _, cover in VisionLogic.Cover do
+		local blocker = VisionLogic.blockerFromExtents(cover.name, cover.sx, cover.sy, cover.sz, cover.x, cover.y, cover.z, "cylinder")
+		if blocker then
+			table.insert(list, blocker)
+		end
+	end
+	builtinBlockers = list
+	return list
+end
+
+function VisionLogic.activeBlockers(): { Blocker }
+	if overrideBlockers then
+		return overrideBlockers
+	end
+	return builtin()
+end
+
+-- nil restores the authored walls + cover. Used when the map's tagged parts are harvested.
+function VisionLogic.setBlockers(list: { Blocker }?)
+	overrideBlockers = list
+end
+
+-- nil clears the raycast hook. A true result blocks; false does not open an analytical hit.
+function VisionLogic.setMeshProbe(probe: ((number, number, number, number) -> boolean)?)
+	meshProbe = probe
+end
+
+function VisionLogic.clearLine(sx: number, sz: number, tx: number, tz: number): boolean
+	local blockers = VisionLogic.activeBlockers()
+	if VisionLogic.blockedBy(sx, sz, tx, tz, blockers) then
+		return false
+	end
+	local probe = meshProbe
+	if probe ~= nil and probe(sx, sz, tx, tz) then
+		return false
 	end
 	return true
 end

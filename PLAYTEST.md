@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-22: Luau compiled 111 sources; combat projectile + Control Yarn stacks + vision/fog (wall LoS, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 111 sources; combat projectile + Control Yarn stacks + vision/fog (mesh LoS: eye-height walls + thick cover, mesh raycast, 10-stud grid, match-lifetime explored OR, last-seen ghost freeze/fade) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed; Rojo 7.4.4 builds the place. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -210,7 +210,7 @@ Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade
 - **Ground confirm:** first Q/W/E/R on a ground AoE shows the ring; **click or press again** casts at the cursor. **Esc / right-click / S** cancels. Lines and dashes stay **hold-to-aim, release-to-fire**.
 - **Bots:** Normal/Hard lead with the same projectile speed (0.7s cap) and sidestep for `travel + 0.12s` so they still dodge the bolt instead of the old instant ray.
 - **Pink vs trinket:** **4** is a stealthed team-tinted pillar. **6** (after Pawmart **Control Yarn**, 2 charges) is a magenta ball enemies can see. Pinks grant a bit more team vision, slow foes in 22 studs, and keep nearby enemy trinkets revealed. Hard jungle bots still drop one free pink. Both kinds feed the server fog mask.
-- **Fog of war:** unseen ground is a dark overlay (10-stud grid). Vision bubbles come from living ally cats, kittens, towers/nexus, trinkets, and pinks. **Keep walls** block LoS (mid gate open). Minimap uses the same mask. Explored-but-unseen stays a lighter tint after you leave (server match memory, restored on reconnect; not DataStore). Jungle brush hides occupants until an ally source enters that pocket. Enemy traveling bolts hide in fog; yours stay visible. Attack-move / AA will not lock an unseen brush target; attack-move walks into last-known brush. When an enemy cat, kitten, or camp leaves vision, a client ghost fades at the last spot (~1.8s) and does not follow the live body. Server owns the set; the client only paints it. Smoke: `python3 tools/test-vision.py /path/to/luau`.
+- **Fog of war:** unseen ground is a dark overlay (10-stud grid). Vision bubbles come from living ally cats, kittens, towers/nexus, trinkets, and pinks. **Keep walls** and the four **market drums** block eye-height LoS (mid gate open; thin props do not). Minimap uses the same mask. Explored-but-unseen stays a lighter tint after you leave (server match memory, restored on reconnect; not DataStore). Jungle brush hides occupants until an ally source enters that pocket. Enemy traveling bolts hide in fog; yours stay visible. Attack-move / AA will not lock an unseen brush target; attack-move walks into last-known brush. When an enemy cat, kitten, or camp leaves vision, a client ghost fades at the last spot (~1.8s) and does not follow the live body. Server owns the set; the client only paints it. Smoke: `python3 tools/test-vision.py /path/to/luau`.
 - Smoke: `python3 tools/test-combat.py /path/to/luau` (Targeting + ProjectileLogic). `python3 tools/test-items.py /path/to/luau` (Control Yarn stacks). Studio Play is still the real feel check.
 
 ## 6. Meo404 in Studio (no live Robux)
@@ -276,7 +276,7 @@ Server confirms a cast/hit, then `CombatFx` fires. Client pools short-lived Part
 
 ## 8d. Map art pass
 
-`MapBuilder` dresses the same 420×280 bounds (lane Z −80 / 0 / 80). Extra Parts are `CanCollide = false` and `CanQuery = false` so bots, tower ranges, and click-AA stay the same. Lighting is a cozy night-market (`Atmosphere` + mild bloom), not a rave.
+`MapBuilder` dresses the same 420×280 bounds (lane Z −80 / 0 / 80). Extra decor Parts are `CanCollide = false` and `CanQuery = false` so bots, tower ranges, and click-AA stay the same. The four market drums in `VisionCover` are the exception: `CanQuery = true` and `MeoBlocksVision` so fog can raycast them, still `CanCollide = false` (walk-through, same as keep walls). Client click rays exclude that folder. Lighting is a cozy night-market (`Atmosphere` + mild bloom), not a rave.
 
 ## 8e. Cat emotes
 
@@ -290,16 +290,28 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 
 Practice (or a live match) is the check. Hub / Yarn Run / Koi Pond / Yarn Party / Meme Arcade / Closet must **not** show the rift fog overlay.
 
-- At spawn, fountain + nearby living towers are lit. Walk toward river: ground ahead stays dark until you (or a wave / ward) get there. **Base walls** block sight — you should not see through the keep into (or out of) fountain except via the **mid-lane gate**.
+- At spawn, fountain + nearby living towers are lit. Walk toward river: ground ahead stays dark until you (or a wave / ward) get there. **Base walls** block sight — you should not see through the keep into (or out of) fountain except via the **mid-lane gate**. The four clay **market drums** (between mid and the side lanes, off the river) hide whatever is directly behind them. Stepping sideways around a drum reveals that pocket. Fountain pillars, drum-top lamps, lane dots, and brush glass do **not** add dark pockets. Clicking a drum still aims at the ground behind it.
 - Minimap: dark cells = no vision. Explored-but-unseen is a lighter dark and **stays that way after you leave** — it does not black out again. Rejoin / script reload mid-match should restore the same explored tint (server match memory, not DataStore). A new Practice starts unexplored.
 - **4** in jungle lights a team bubble. Red should not see your stealthed trinket unless they walk on it, lens it, or a pink reveals it.
-- **6** magenta pink is visible to Red even in fog, and still grants your team a vision bubble + slow + trinket reveal. Pink vision still respects walls.
+- **6** magenta pink is visible to Red even in fog, and still grants your team a vision bubble + slow + trinket reveal. Pink vision still respects walls and thick cover (a drum between the pink and a cell stays dark).
 - Stand in a labeled brush pocket: you should drop off the enemy minimap until they enter. You can still see the lane from inside. **LMB / attack-move (X)** must **not** lock an unseen brush target. Attack-move toward a last-seen brush pocket walks **into** that last-known tile (never the hidden live body).
 - When a Red cat, kitten, or jungle camp **leaves** your vision, a translucent ghost of that unit stays at the last spot and facing you saw, then fades (about 1.8s). It does not slide toward where they actually went. Seeing that unit again removes the ghost immediately. Ghosts are local juice in `Workspace.MeoLastSeen`: not wards, not minimap dots, and not attack targets. **LMB** still refuses a hidden target. **Attack-move (X)** on the hidden body still walks to last-known brush, not the live tile.
-- Enemy traveling **Q bolts** hide while the projectile is in unseen/unexplored fog. **Your own** bolt stays visible. Server still simulates hits. Pink wards, wall LoS, and hub / Closet / Yarn Run / Koi / Party modes are unchanged.
+- Enemy traveling **Q bolts** hide while the projectile is in unseen/unexplored fog, including ground hidden behind a drum. **Your own** bolt stays visible. Server still simulates hits. Pink wards, brush, fog memory, last-seen ghosts, and hub / Closet / Yarn Run / Koi / Party modes are unchanged.
 - After **Back to lobby**, the overlay and any ghosts are gone and hub hosts / Closet look normal.
 
-Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBits` + visible unit ids (radius + brush + wall LoS). Memory resets on match start/stop only. AA / attack-move / pings refuse fogged champs; attack-move can path to last-known brush. The client fades a last-seen ghost from visibility transitions (`LastSeenGhostLogic`); that ghost is not replicated and does not update `fogBits`. `python3 tools/test-vision.py` covers grid pack, brush, wall LoS, mask OR, and ghost freeze/fade, not Studio rendering.
+Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBits` + visible unit ids (radius + brush + eye-height mesh LoS). Memory resets on match start/stop only. Keep walls and upright cover are occlusion volumes; parts tagged `MeoBlocksVision` that are meshes, wedges, or tilted are `Workspace:Raycast` at eye height (a hit blocks, a miss does not open a wall). AA / attack-move / pings refuse fogged champs; attack-move can path to last-known brush. The client fades a last-seen ghost from visibility transitions (`LastSeenGhostLogic`); that ghost is not replicated and does not update `fogBits`. `python3 tools/test-vision.py` covers grid pack, brush, wall LoS, drum cover, thin/short reject, mesh-corner probe, mask OR, and ghost freeze/fade, not Studio rendering.
+
+### Studio live-pass (mesh LoS)
+
+These are not covered by the Luau smoke:
+
+1. Blue fountain: side lanes stay dark through the keep; the **mid gate** stays lit. A cat just outside the gate is visible; one behind the north wall is not.
+2. Walk to a clay drum between mid and top (west of the river, north of mid). An enemy directly across the drum is hidden; a step to the side reveals them. The lamp on the drum does not grow the shadow.
+3. Drop or temporarily tag a thick `MeshPart` with `MeoBlocksVision`. Sight stops on the mesh, and the square around it does not go fully dark. Untagged neon towers, brush, and pillars stay see-through.
+4. A pink (**6**) on one side of a drum does not light the far side. Your own Q bolt stays visible in that shadow; an enemy bolt does not.
+5. Explored tint, reconnect restore, brush AA refuse, attack-move into last-known brush, and the ~1.8s ghost still behave as before.
+6. After **Back to lobby**, fog and ghosts are gone. Hub, Closet, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade never show the rift overlay.
+7. Click-to-move and attack-move on a drum still hit the ground or the unit behind it, not the drum.
 
 ## 9. If something is quiet / missing
 
@@ -324,13 +336,13 @@ Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBit
 
 ## 10. Still stubbed (do not expect)
 
-Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces. Fog is a 10-stud cell mask + wall AABB LoS + unit hide + client last-seen ghosts — not mesh LoS or per-pixel shaders.
+Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhouettes are primitive Parts today), original SFX / music beds (placeholders loop today), compliance-cleared Robux 404 product, production SIWE domain binding + persisted nonces. Fog is a 10-stud cell mask + eye-height mesh LoS (walls, thick cover, raycast for non-box parts) + unit hide + client last-seen ghosts — not per-pixel shaders.
 
 ## Hub cast integration (2026-09-15)
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 111 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS + match-lifetime exploredBits + last-seen ghost freeze/fade**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 111 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + mesh LoS (walls, drums, thin-prop reject, mesh ray probe) + match-lifetime exploredBits + last-seen ghost freeze/fade**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
 
 ## Responsive hub (2026-09-18)
 

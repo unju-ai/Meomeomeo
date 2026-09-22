@@ -458,11 +458,48 @@ function MapBuilder.build(): Folder
 	})
 	for _, spec in VisionLogic.Walls do
 		local blue = string.sub(spec.name, 1, 4) == "Blue"
-		part(bases, spec.name, Vector3.new(spec.sx, 10, spec.sz), CFrame.new(spec.x, 5, spec.z), if blue then Color3.fromRGB(60, 100, 170) else Color3.fromRGB(170, 70, 70), {
-			Transparency = 0.22,
-			CanCollide = false,
-			Material = Enum.Material.Concrete,
-		})
+		local wall = part(
+			bases,
+			spec.name,
+			Vector3.new(spec.sx, VisionLogic.WallHeight, spec.sz),
+			CFrame.new(spec.x, VisionLogic.WallY, spec.z),
+			if blue then Color3.fromRGB(60, 100, 170) else Color3.fromRGB(170, 70, 70),
+			{
+				Transparency = 0.22,
+				CanCollide = false,
+				CanQuery = true,
+				Material = Enum.Material.Concrete,
+			}
+		)
+		wall:SetAttribute(Constants.Attributes.BlocksVision, true)
+	end
+	-- Thick drums between lanes. Vision blockers; movement stays open (same as keep walls).
+	-- CanQuery is on so the LoS raycast can see MeshParts later. Click rays exclude this folder.
+	local coverFolder = folder(root, Constants.VisionCoverName)
+	for _, spec in VisionLogic.Cover do
+		local drum = part(
+			coverFolder,
+			spec.name,
+			Vector3.new(spec.sy, spec.sx, spec.sz),
+			CFrame.new(spec.x, spec.y, spec.z) * CFrame.Angles(0, 0, math.rad(90)),
+			Color3.fromRGB(118, 74, 58),
+			{
+				Shape = Enum.PartType.Cylinder,
+				Material = Enum.Material.Slate,
+				CanCollide = false,
+				CanQuery = true,
+				CanTouch = false,
+			}
+		)
+		drum:SetAttribute(Constants.Attributes.BlocksVision, true)
+		decor(
+			coverFolder,
+			`{spec.name}Lamp`,
+			Vector3.new(1.1, 1.1, 1.1),
+			CFrame.new(spec.x, spec.y + spec.sy * 0.5 + 0.7, spec.z),
+			Color3.fromRGB(255, 196, 120),
+			{ Shape = Enum.PartType.Ball, Material = Enum.Material.Neon }
+		)
 	end
 	fountainKit(bases, "Blue", Vector3.new(-176, 0, 0))
 	fountainKit(bases, "Red", Vector3.new(176, 0, 0))

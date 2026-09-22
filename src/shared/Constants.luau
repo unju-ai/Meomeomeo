@@ -3,6 +3,8 @@
 local Constants = {
 	RemotesFolderName = "MeoRemotes",
 	MapFolderName = "MeoMap",
+	-- Thick rift cover lives here. Click rays skip it; vision queries do not.
+	VisionCoverName = "VisionCover",
 	YarnRunFolderName = "MeoYarnRun",
 	YarnRunOrigin = Vector3.new(0, 2, 4200),
 	KoiPondFolderName = "MeoKoiPond",
@@ -30,6 +32,7 @@ local Constants = {
 
 	Attributes = {
 		ObjectiveId = "MeoObjectiveId",
+		BlocksVision = "MeoBlocksVision",
 		NpcId = "MeoNpcId",
 		Team = "MeoTeam",
 		ChampionId = "MeoChampionId",
