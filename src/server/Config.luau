@@ -178,7 +178,8 @@ local Config = {
 		QueueFillTo = 3,
 		DefaultDifficulty = "Normal" :: "Easy" | "Normal" | "Hard",
 		Pool = { "NyanRocket", "Bytekit", "Shadowpounce", "ChonkKnight", "SirScratchalot", "Chromeclaw" },
-		-- Easy stays sloppy: slow thinks, early retreat, no CS wait, no lead, two items.
+		-- Easy stays sloppy: slow thinks, early retreat, no CS wait, no lead.
+		-- Shop plan is Shared.BotShopLogic: naked until a fountain return, then one Mana Treat.
 		Easy = {
 			ThinkInterval = 0.55,
 			RetreatHp = 0.42,
@@ -196,7 +197,6 @@ local Config = {
 			AvoidAoe = false,
 			DiveIq = false,
 			UseLens = false,
-			ShopItems = { "Longclaw", "Yarnplate" },
 		},
 		Normal = {
 			ThinkInterval = 0.28,
@@ -215,9 +215,9 @@ local Config = {
 			AvoidAoe = true,
 			DiveIq = true,
 			UseLens = false,
-			ShopItems = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots" },
 		},
 		-- Hard: faster, stingier retreat, last-hits, leads skillshots, mid runs a camp route, early ward.
+		-- Pawmart plan is Shared.BotShopLogic (role build at the opening fountain, then Cleave / Fang / lens).
 		Hard = {
 			ThinkInterval = 0.16,
 			RetreatHp = 0.16,
@@ -234,7 +234,6 @@ local Config = {
 			AvoidAoe = true,
 			DiveIq = true,
 			UseLens = true,
-			ShopItems = { "Longclaw", "Yarnplate", "ManaTreat", "PounceBoots", "WhiskerLens" },
 		},
 	},
 

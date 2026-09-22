@@ -3224,12 +3224,11 @@ function CombatService.useLens(player: Player): Types.AbilityResult
 	return CombatService.useLensFor(player.UserId)
 end
 
-function CombatService.useCleave(player: Player): Types.AbilityResult
+function CombatService.useCleaveFor(userId: number): Types.AbilityResult
 	local snapshot = if matchApi then matchApi.getSnapshot() else nil
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return { ok = false, error = "Match is not in progress." }
 	end
-	local userId = player.UserId
 	local matchPlayer = snapshot.players[tostring(userId)]
 	local state = combat[userId]
 	if not matchPlayer or not state or not state.alive then
@@ -3246,6 +3245,7 @@ function CombatService.useCleave(player: Player): Types.AbilityResult
 	if not root then
 		return { ok = false, error = "No character." }
 	end
+	local player = playerOf(userId)
 	breakRecall(player, "cleave")
 	interruptChannel(userId, "cleave")
 	state.cleaveReadyAt = ItemKits.cleaveReadyAt(t)
@@ -3277,6 +3277,10 @@ function CombatService.useCleave(player: Player): Types.AbilityResult
 	state.lensReadyAt = WardService.lensReadyAt(userId)
 	fireCombat(userId)
 	return { ok = true, combat = state }
+end
+
+function CombatService.useCleave(player: Player): Types.AbilityResult
+	return CombatService.useCleaveFor(player.UserId)
 end
 
 return CombatService

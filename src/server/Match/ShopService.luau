@@ -144,14 +144,24 @@ function ShopService.grant(userId: number, itemId: string): Types.TradeResult
 	return { ok = true }
 end
 
+-- Fountain check, then the gold + stack grant humans and bots share.
+function ShopService.buyAt(userId: number, itemId: string, position: Vector3): Types.TradeResult
+	if not ShopService.nearFountain(userId, position) then
+		return { ok = false, error = "Shop at your fountain (or press B there)." }
+	end
+	return ShopService.grant(userId, itemId)
+end
+
 function ShopService.buy(player: Player, itemId: unknown): Types.TradeResult
 	if typeof(itemId) ~= "string" then
 		return { ok = false, error = "Unknown item." }
 	end
-	if not ShopService.atFountain(player) then
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not (root and root:IsA("BasePart")) then
 		return { ok = false, error = "Shop at your fountain (or press B there)." }
 	end
-	return ShopService.grant(player.UserId, itemId)
+	return ShopService.buyAt(player.UserId, itemId, root.Position)
 end
 
 function ShopService.clear(userId: number)
