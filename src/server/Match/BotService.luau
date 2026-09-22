@@ -3,6 +3,7 @@
 local Workspace = game:GetService("Workspace")
 
 local BotPeelLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotPeelLogic"))
+local BotSiegeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotSiegeLogic"))
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
@@ -451,6 +452,44 @@ local function waveCountUnder(team: Types.TeamId, towerPos: Vector3, range: numb
 	return allies, enemies
 end
 
+local function siegeViews(team: Types.TeamId): { BotSiegeLogic.StructureView }
+	local list: { BotSiegeLogic.StructureView } = {}
+	for _, state in MapBuilder.objectiveStates() do
+		if state.alive and state.team ~= team and state.kind ~= "Nexus" then
+			local def = StructureLogic.get(state.id)
+			local part = MapBuilder.getObjectivePart(state.id)
+			if def and part then
+				local range = StructureLogic.rangeFor(def.kind, def.tier)
+				local allies, enemies = waveCountUnder(team, part.Position, range)
+				local tier: BotSiegeLogic.Tier = state.tier
+				table.insert(list, {
+					id = state.id,
+					x = part.Position.X,
+					z = part.Position.Z,
+					health = state.health,
+					maxHealth = state.maxHealth,
+					vulnerable = state.vulnerable,
+					kind = "Tower",
+					tier = tier,
+					allyKittens = allies,
+					enemyKittens = enemies,
+					focused = state.health < state.maxHealth - 0.5,
+				})
+			end
+		end
+	end
+	return list
+end
+
+local function towerIsSiege(team: Types.TeamId, origin: Vector3, towerPos: Vector3): boolean
+	for _, view in siegeViews(team) do
+		if math.abs(view.x - towerPos.X) <= 4 and math.abs(view.z - towerPos.Z) <= 4 then
+			return BotSiegeLogic.eligible(origin.X, origin.Z, view)
+		end
+	end
+	return false
+end
+
 local function targetHpRatio(hunt: Hunt): number
 	if hunt.kind == "player" and hunt.userId then
 		local combat = CombatService.get(hunt.userId)
@@ -471,6 +510,13 @@ local function allowDive(tune: Tune, brain: BotBrain, team: Types.TeamId, origin
 	end
 	if not tune.DiveIq then
 		return false
+	end
+	-- Hard may stand on a post the wave is already sieging, including after the
+	-- first scratch paints tower aggro on this bot. Champion hunts stay gated.
+	if currentDifficulty == "Hard" and (hunt == nil or hunt.kind == "objective") then
+		if towerIsSiege(team, origin, towerPos) then
+			return true
+		end
 	end
 	local aggro = TowerService.aggroUserId(defender)
 	local allies, enemies = waveCountUnder(team, towerPos, range)
@@ -757,6 +803,30 @@ local function hardPeelGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, roo
 	return goal
 end
 
+-- Vulnerable post or open stall the wave is already under. Nil while fleeing
+-- or during a critical peel. Easy and Normal never get a goal.
+local function hardSiegeGoal(
+	team: Types.TeamId,
+	tune: Tune,
+	root: BasePart,
+	combat: any,
+	peelGoal: BotPeelLogic.PeelGoal?
+): BotSiegeLogic.SiegeGoal?
+	if currentDifficulty ~= "Hard" then
+		return nil
+	end
+	local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+	return BotSiegeLogic.pick({
+		difficulty = "Hard",
+		x = root.Position.X,
+		z = root.Position.Z,
+		selfHp = hpRatio,
+		retreatHp = tune.RetreatHp,
+		peelCritical = peelGoal ~= nil and peelGoal.critical,
+		structures = siegeViews(team),
+	})
+end
+
 -- Returns true when this bot should not fall through into lane combat this think.
 local function pursueJungle(
 	brain: BotBrain,
@@ -765,6 +835,7 @@ local function pursueJungle(
 	root: BasePart,
 	dt: number,
 	peelGoal: BotPeelLogic.PeelGoal?,
+	siegeGoal: BotSiegeLogic.SiegeGoal?,
 	combat: any,
 	matchPlayer: Types.MatchPlayer
 ): boolean
@@ -778,7 +849,15 @@ local function pursueJungle(
 			enemyUserId = peelGoal.enemyUserId,
 		}
 	end
-	if (not tune.Jungle or not brain.jungler) and not hint then
+	local siegeHint: JungleBotLogic.SiegeHint? = nil
+	if siegeGoal then
+		siegeHint = {
+			id = siegeGoal.id,
+			x = siegeGoal.x,
+			z = siegeGoal.z,
+		}
+	end
+	if (not tune.Jungle or not brain.jungler) and not hint and not siegeHint then
 		clearJungleNav(brain)
 		brain.campId = nil
 		return false
@@ -797,6 +876,7 @@ local function pursueJungle(
 		lanes = laneViews(team, brain.userId),
 		brushes = BRUSH_BOXES,
 		peel = hint,
+		siege = siegeHint,
 	})
 	brain.campId = decision.memory.campId
 	brain.routeIndex = decision.memory.routeIndex
@@ -821,6 +901,34 @@ local function pursueJungle(
 			if swung.ok then
 				tryChampionAbilities(brain, tune, root, combat, matchPlayer, Workspace:GetServerTimeNow(), flat.Magnitude, aim, focus)
 			else
+				brain.closing = false
+				stepToward(brain.userId, aim, dt)
+			end
+			return true
+		end
+		brain.closing = false
+		stepToward(brain.userId, Vector3.new(stepX, root.Position.Y, stepZ), dt)
+		return true
+	end
+	if decision.action == "siege" then
+		if brain.navKind == "camp" then
+			CombatService.issueAttackFor(brain.userId, { kind = "stop" })
+		end
+		local stepX = decision.stepX or decision.x or root.Position.X
+		local stepZ = decision.stepZ or decision.z or root.Position.Z
+		brain.navKind = "siege"
+		brain.navX = stepX
+		brain.navZ = stepZ
+		if (root.Position - fountainPos(team)).Magnitude > 40 then
+			brain.visitedLane = true
+		end
+		local aim = Vector3.new(decision.x or stepX, root.Position.Y, decision.z or stepZ)
+		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+		local objectiveId = decision.objectiveId
+		if objectiveId and flat.Magnitude <= Config.AutoAttack.Range then
+			local swung = CombatService.issueAttackFor(brain.userId, { kind = "objective", objectiveId = objectiveId })
+			brain.closing = swung.ok == true
+			if not swung.ok then
 				brain.closing = false
 				stepToward(brain.userId, aim, dt)
 			end
@@ -1006,8 +1114,12 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
+	-- Flee, dodge, and an empty-tower panic already returned. Shop, cleave, lens,
+	-- and Control Yarn stay above goals. Peel, Canal Levi, and a hurt camp beat
+	-- a Hard siege. The siege beats a full-HP camp and last-hit farming.
 	local peelGoal = hardPeelGoal(brain, team, tune, root, combat)
-	if pursueJungle(brain, team, tune, root, dt, peelGoal, combat, matchPlayer) then
+	local siegeGoal = hardSiegeGoal(team, tune, root, combat, peelGoal)
+	if pursueJungle(brain, team, tune, root, dt, peelGoal, siegeGoal, combat, matchPlayer) then
 		return
 	end
 
@@ -1151,6 +1263,8 @@ function BotService.start()
 							elseif matchPlayer and brain.navKind == "rotate" and brain.navX and brain.navZ then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer and brain.navKind == "peel" and brain.navX and brain.navZ and not brain.closing then
+								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+							elseif matchPlayer and brain.navKind == "siege" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer then
 								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, walkTune)
