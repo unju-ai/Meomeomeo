@@ -229,6 +229,10 @@ local function applyHumanoid(userId: number, state: Types.CombatState)
 	if not character then
 		return
 	end
+	-- Mirror combat HP onto attributes so client nameplates match structure bars.
+	local shown = if state.alive then state.health else 0
+	character:SetAttribute("Health", shown)
+	character:SetAttribute("MaxHealth", state.maxHealth)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.MaxHealth = state.maxHealth

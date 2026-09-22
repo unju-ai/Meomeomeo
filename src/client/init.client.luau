@@ -36,6 +36,7 @@ local Music = require(script.Audio.Music)
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
 local BillboardHpBars = require(script.Juice.BillboardHpBars)
+local ChampionPlates = require(script.Juice.ChampionPlates)
 local CombatFx = require(script.Juice.CombatFx)
 local EmoteFx = require(script.Juice.EmoteFx)
 local FogOfWar = require(script.Juice.FogOfWar)
@@ -2336,6 +2337,7 @@ syncWorldHpBars = function()
 	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
 	if not active then
 		BillboardHpBars.clear()
+		ChampionPlates.clear()
 		lockedAimMinionId = nil
 		lockedAimJungleId = nil
 		return
@@ -2384,6 +2386,31 @@ syncWorldHpBars = function()
 		aimedJungleId = aimedJungle,
 		jungleVisible = jungleVisible,
 		minionVisible = minionVisible,
+	})
+	local playerVisible: { [number]: boolean } = { [player.UserId] = true }
+	for _, userId in (lastVision.players or {}) do
+		playerVisible[userId] = true
+	end
+	local platePlayers: {
+		[string]: {
+			team: string?,
+			isBot: boolean?,
+			respawnAt: number?,
+		},
+	} = {}
+	for key, matchPlayer in snapshot.players do
+		platePlayers[key] = {
+			team = matchPlayer.team,
+			isBot = matchPlayer.isBot,
+			respawnAt = matchPlayer.respawnAt,
+		}
+	end
+	ChampionPlates.sync({
+		active = true,
+		localUserId = player.UserId,
+		localTeam = if mine then mine.team else nil,
+		playerVisible = playerVisible,
+		players = platePlayers,
 	})
 end
 

@@ -256,4 +256,10 @@ local exRgb, exA = MinimapPaint.fogCell(true)
 assert(exA > unA, "explored minimap fog is more transparent than unexplored")
 assert(exRgb[1] + exRgb[2] + exRgb[3] > unRgb[1] + unRgb[2] + unRgb[3], "explored RGB is lighter")
 
-print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts, minimap fog tint")
+-- Champion plate fog gate mirrors AA refuse (pure helpers; paint is client-side).
+assert(ChampionPlate.show({ alive = true, ally = false, inVision = false }) == false)
+assert(ChampionPlate.show({ alive = true, ally = true, inVision = false }) == true)
+assert(ChampionPlate.show({ alive = true, ally = false, inVision = true }) == true)
+assert(ChampionPlate.nameLine("Nyan Rocket", true, false) == "Nyan Rocket (Bot)")
+
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts, minimap fog tint, champion plate fog")

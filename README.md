@@ -368,13 +368,15 @@ Each locked cat gets a **distinct silhouette** built from engine `Part`s — bod
 | File | Role |
 | --- | --- |
 | `src/shared/ChampionLooks.luau` | Colors, materials, flair flags per champion id |
-| `src/server/World/ChampionAppearance.luau` | Welds extras onto the character / bot dummy; nameplate; idle ear/tail twitch |
+| `src/shared/ChampionPlate.luau` | Pure plate visibility / name / tag / dirty-key helpers |
+| `src/server/World/ChampionAppearance.luau` | Welds extras onto the character / bot dummy; nameplate + HP track; idle ear/tail twitch |
+| `src/client/Juice/ChampionPlates.luau` | Client dirty paint for plate HP fills |
 
 Rules the builder keeps:
 
 - **`HumanoidRootPart` stays the primary combat box.** Bots keep the existing `2 × 2 × 1` root (it goes transparent; the torso/head/flair are visual only). Player avatars are not resized.
 - Extra parts are `Massless`, `CanCollide = false`, parented under a `MeoAppearance` folder.
-- Nameplates are a `BillboardGui`: champion name + role; bots keep `(Bot)`. Role text uses the team color.
+- Nameplates are a `BillboardGui`: champion name + role · look; bots keep `(Bot)`; local plate can show `YOU ·`. A small team-tinted HP fill sits under the tags (client paints from `Health` / `MaxHealth`). Role text uses the team color. Enemy plates hide in fog with the body.
 - Minimap pips stay **team colors** (local cream / Blue / Red). Champ body tints do not recode the map.
 - A light team wash (~18%) tints the body so sides stay readable while champs stay distinct.
 
