@@ -14,7 +14,7 @@ The Roblox MOBA is the playable world. The talking-cat channel follows its inhab
 
 - Fourteen champions, three lanes, towers, gated nexuses, server-owned combat, items and progression.
 - Solo practice against three bots; underfilled queues are filled toward three per side, while maximum team size is five.
-- Pawmart clerks, Old Tom and Kitty Caster, with authored mock replies and an optional HTTP provider.
+- Pawmart clerks with authored shop tips, Old Tom with jungle coaching, Kitty Caster with mock replies, and an optional HTTP provider.
 - Voice integration with fallbacks; it does not supply NPC spoken audio by itself.
 - Simulated champion tickers and yarn, independent of blockchain prices.
 - Night-market map art, data-driven champion silhouettes, Hard bots, reserved-server-ready queues, first-Practice tips, T emotes, G smart pings, phase music and persisted settings.

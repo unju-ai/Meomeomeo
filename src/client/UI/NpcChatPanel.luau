@@ -3,6 +3,7 @@
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
 local HostGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HostGuide"))
 local OldTomGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("OldTomGuide"))
+local PawmartGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PawmartGuide"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local NpcChatPanel = {}
@@ -103,6 +104,7 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 
 	local topics = topicRow("Topics")
 	local coachTopics = topicRow("CoachTopics")
+	local shopTopics = topicRow("ShopTopics")
 	local topicButtons: { TextButton } = {}
 
 	local activeId = ""
@@ -172,6 +174,9 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 	for _, chip in OldTomGuide.chips() do
 		addTopic(coachTopics, chip.id, chip.label, chip.question)
 	end
+	for _, chip in PawmartGuide.chips() do
+		addTopic(shopTopics, chip.id, chip.label, chip.question)
+	end
 
 	send.MouseButton1Click:Connect(function() submit() end)
 	box.FocusLost:Connect(function(enter)
@@ -202,23 +207,29 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 			root.Visible = true
 			local host = BrandCatalog.host(npcId)
 			local coach = npcId == OldTomGuide.NpcId
-			local chipped = host ~= nil or coach
+			local shop = PawmartGuide.NpcIds[npcId] == true
+			local chipped = host ~= nil or coach or shop
 			topics.Visible = host ~= nil
 			topics.CanvasPosition = Vector2.new(0, 0)
 			coachTopics.Visible = coach
 			coachTopics.CanvasPosition = Vector2.new(0, 0)
+			shopTopics.Visible = shop
+			shopTopics.CanvasPosition = Vector2.new(0, 0)
 			bounds.MaxSize = Vector2.new(340, if chipped then 332 else 280)
 			log.Position = UDim2.fromOffset(0, if chipped then 88 else 36)
 			log.Size = UDim2.new(1, 0, 1, if chipped then -136 else -84)
 			box.PlaceholderText = if host
 				then "Fog, shop, voice, or help"
 				elseif coach then "Camps, wards, fog, or route"
+				elseif shop then "Shop, actives, wards, or builds"
 				else "mrrp?"
 			local opener = "Mrrp. What is on your mind?"
 			if host then
 				opener = host.greeting
 			elseif coach then
 				opener = OldTomGuide.Greeting
+			elseif shop then
+				opener = PawmartGuide.greeting(npcId) or opener
 			end
 			append(npcName, opener)
 		end,

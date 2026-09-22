@@ -2,6 +2,7 @@
 
 local HostGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HostGuide"))
 local OldTomGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("OldTomGuide"))
+local PawmartGuide = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PawmartGuide"))
 
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local BrandCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrandCatalog"))
@@ -50,6 +51,8 @@ function MockAiProvider.complete(message: string, context: ChatContext): string
 	if guidance then return guidance end
 	local coach = OldTomGuide.reply(context.npc.id, message)
 	if coach then return coach end
+	local shop = PawmartGuide.reply(context.npc.id, message)
+	if shop then return shop end
 	local host = BrandCatalog.host(context.npc.id)
 	local pool = if host then host.lines else LINES[context.npc.id] or FALLBACK
 	local template = pool[(string.len(message) % #pool) + 1] or FALLBACK[1]
@@ -60,7 +63,7 @@ function MockAiProvider.complete(message: string, context: ChatContext): string
 		:gsub("{score}", function() return context.scoreline end)
 
 	-- Hosts deliver authored lines without repeating arbitrary player input.
-	-- Old Tom's coaching already returned above; leftover lines stay the old chatter.
+	-- Old Tom and the clerks already returned above; leftover lines stay the old chatter.
 	if host then
 		return reply
 	end

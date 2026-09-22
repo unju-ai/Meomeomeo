@@ -14,6 +14,7 @@ local ChampionCatalog = require(Shared:WaitForChild("ChampionCatalog"))
 local Constants = require(Shared:WaitForChild("Constants"))
 local HostGuide = require(Shared:WaitForChild("HostGuide"))
 local OldTomGuide = require(Shared:WaitForChild("OldTomGuide"))
+local PawmartGuide = require(Shared:WaitForChild("PawmartGuide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -1965,6 +1966,7 @@ end)
 
 local mutterAt = -HostGuide.AmbientGap
 local tomMutterAt = -OldTomGuide.AmbientGap
+local shopMutterAt = -PawmartGuide.AmbientGap
 local FOUNTAIN_RADIUS = 32
 local RIFT_FOUNTAINS = { Vector3.new(-176, 0, 0), Vector3.new(176, 0, 0) }
 
@@ -1993,6 +1995,11 @@ local function oldTomAmbientOk(): boolean
 		return true
 	end
 	return nearRiftFountain()
+end
+
+-- Fountain clerks only mutter in Cat Rift while you are already on their Talk prompt.
+local function pawmartAmbientOk(): boolean
+	return gameMode == "Moba"
 end
 
 local function showHostMutter(part: Instance, line: string)
@@ -2030,6 +2037,7 @@ end
 
 -- Rare line while the Talk prompt is up. Does not open the panel or move the cat.
 -- Hosts mutter in the hub. Old Tom mutters in a live Cat Rift, or at a fountain, and rarely.
+-- Fountain clerks mutter in Cat Rift only, also rarely.
 ProximityPromptService.PromptShown:Connect(function(prompt)
 	if hud.chat.root.Visible then
 		return
@@ -2049,6 +2057,14 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
 		end
 		local line, nextAt = HostGuide.ambient(npcId, now, mutterAt, math.floor(now * 10))
 		mutterAt = nextAt
+		if line then
+			showHostMutter(part, line)
+		end
+		return
+	end
+	if PawmartGuide.NpcIds[npcId] and pawmartAmbientOk() then
+		local line, nextAt = PawmartGuide.ambient(npcId, now, shopMutterAt, math.floor(now * 10))
+		shopMutterAt = nextAt
 		if line then
 			showHostMutter(part, line)
 		end
