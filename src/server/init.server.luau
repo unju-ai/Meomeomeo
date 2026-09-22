@@ -185,6 +185,7 @@ Remotes.function_("GetMatchSnapshot").OnServerInvoke = function(player: Player)
 end
 
 Remotes.function_("UseAbility").OnServerInvoke = function(player: Player, request: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.useAbility(player, request)
 end
 
@@ -241,30 +242,37 @@ Remotes.function_("ClaimMeo404").OnServerInvoke = function(player: Player, purch
 end
 
 Remotes.function_("GetShopStatus").OnServerInvoke = function(player: Player)
+	MatchService.noteActivity(player)
 	return ShopService.status(player)
 end
 
 Remotes.function_("BuyItem").OnServerInvoke = function(player: Player, itemId: unknown)
+	MatchService.noteActivity(player)
 	return ShopService.buy(player, itemId)
 end
 
 Remotes.function_("IssueAttack").OnServerInvoke = function(player: Player, request: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.issueAttack(player, request)
 end
 
 Remotes.function_("AttackMove").OnServerInvoke = function(player: Player, position: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.attackMove(player, position)
 end
 
 Remotes.function_("IssueMove").OnServerInvoke = function(player: Player, position: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.issueMove(player, position)
 end
 
 Remotes.function_("MinimapPing").OnServerInvoke = function(player: Player, position: unknown)
+	MatchService.noteActivity(player)
 	return MatchService.ping(player, position)
 end
 
 Remotes.function_("StartRecall").OnServerInvoke = function(player: Player)
+	MatchService.noteActivity(player)
 	return CombatService.startRecall(player)
 end
 
@@ -285,18 +293,22 @@ Remotes.function_("PlayAgain").OnServerInvoke = function(player: Player)
 end
 
 Remotes.function_("PlaceWard").OnServerInvoke = function(player: Player, position: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.placeWard(player, position)
 end
 
 Remotes.function_("PlaceControl").OnServerInvoke = function(player: Player, position: unknown)
+	MatchService.noteActivity(player)
 	return CombatService.placeControl(player, position)
 end
 
 Remotes.function_("UseLens").OnServerInvoke = function(player: Player)
+	MatchService.noteActivity(player)
 	return CombatService.useLens(player)
 end
 
 Remotes.function_("UseCleave").OnServerInvoke = function(player: Player)
+	MatchService.noteActivity(player)
 	return CombatService.useCleave(player)
 end
 

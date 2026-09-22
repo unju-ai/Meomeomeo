@@ -91,6 +91,13 @@ export type MatchPlayer = {
 	respawnAt: number?,
 	cs: number,
 	connected: boolean,
+	-- True once this human has been idle 90s in a live fight. Teammates read it.
+	afk: boolean?,
+	-- Bumps when this cat should toast afkNotice ("Still there?").
+	afkNoticeId: number?,
+	afkNotice: string?,
+	-- Bumps when teammates should whisper that this cat is away.
+	afkWhisperId: number?,
 	items: { string },
 	damageDealt: number,
 	isBot: boolean,

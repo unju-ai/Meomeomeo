@@ -93,6 +93,8 @@ function RemakeLogic.seat(userId: number, team: string, isBot: boolean, respawnA
 end
 
 -- A human roster slot on this side that never connected, or already left.
+-- MatchService sets connected true again on PlayerAdded and on character
+-- restore, so a rejoin clears this. A seat that stays false is still missing.
 function RemakeLogic.allyMissing(seats: { Seat }, team: string): boolean
 	for _, seat in seats do
 		if seat.team == team and not seat.isBot and not seat.connected then

@@ -15,6 +15,7 @@ local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
+local AfkLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("AfkLogic"))
 local RemakeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RemakeLogic"))
 local SurrenderLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SurrenderLogic"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
@@ -58,6 +59,21 @@ local remakeSerial: { [Types.TeamId]: number } = {
 local onMatchCleared: (() -> ())? = nil
 local nextBotId = -1001
 
+type AfkSeat = {
+	lastInputAt: number,
+	credit: number,
+	pauseBegan: number?,
+	warned: boolean,
+	marked: boolean,
+	noticeId: number,
+	whisperId: number,
+	lastPos: Vector3?,
+	lastSampleAt: number?,
+}
+
+-- Last-input clocks for human seats. Cleared when a fight begins or the lobby returns.
+local afkSeats: { [number]: AfkSeat } = {}
+
 local function blankSurrender(): Types.SurrenderView
 	return {
 		ballots = {},
@@ -97,6 +113,10 @@ local function blankPlayer(userId: number, displayName: string, team: Types.Team
 		respawnAt = nil,
 		cs = 0,
 		connected = true,
+		afk = false,
+		afkNoticeId = 0,
+		afkNotice = nil,
+		afkWhisperId = 0,
 		items = {},
 		damageDealt = 0,
 		isBot = isBot,
@@ -203,6 +223,145 @@ local function feed(kind: Types.FeedKind, text: string)
 	} :: Types.FeedEvent)
 end
 
+local function ensureAfk(userId: number, now: number): AfkSeat
+	local seat = afkSeats[userId]
+	if seat then
+		return seat
+	end
+	local created: AfkSeat = {
+		lastInputAt = now,
+		credit = 0,
+		pauseBegan = nil,
+		warned = false,
+		marked = false,
+		noticeId = 0,
+		whisperId = 0,
+		lastPos = nil,
+		lastSampleAt = nil,
+	}
+	afkSeats[userId] = created
+	return created
+end
+
+local function clearAfkPublished(matchPlayer: Types.MatchPlayer, seat: AfkSeat): boolean
+	local dirty = seat.warned or seat.marked or matchPlayer.afk == true or matchPlayer.afkNotice ~= nil
+	seat.warned = false
+	seat.marked = false
+	matchPlayer.afk = false
+	matchPlayer.afkNotice = nil
+	return dirty
+end
+
+-- Move, AA, cast, ping, shop, recall. Any of these resets the stamp.
+-- AFK never surrenders, kicks, or backfills a bot.
+function MatchService.noteActivity(player: Player)
+	if not current or current.phase ~= "InProgress" then
+		return
+	end
+	local matchPlayer = current.players[tostring(player.UserId)]
+	if not matchPlayer or matchPlayer.isBot then
+		return
+	end
+	local now = Workspace:GetServerTimeNow()
+	local seat = ensureAfk(player.UserId, now)
+	seat.lastInputAt = now
+	seat.credit = 0
+	seat.pauseBegan = nil
+	if clearAfkPublished(matchPlayer, seat) then
+		broadcast()
+	end
+end
+
+local function sampleAfkWalk(player: Player, seat: AfkSeat, now: number): boolean
+	local character = player.Character
+	if not character then
+		return false
+	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return false
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local pos = root.Position
+	local walked = false
+	if humanoid and humanoid.MoveDirection.Magnitude > 0.05 then
+		walked = true
+	elseif seat.lastPos and seat.lastSampleAt then
+		walked = AfkLogic.sampleMove(pos.X - seat.lastPos.X, pos.Z - seat.lastPos.Z, now - seat.lastSampleAt) == "walk"
+	end
+	seat.lastPos = pos
+	seat.lastSampleAt = now
+	return walked
+end
+
+local function tickAfk()
+	if not current then
+		return
+	end
+	-- AFK never surrenders, kicks, or backfills a bot.
+	local now = Workspace:GetServerTimeNow()
+	local dirty = false
+	for _, matchPlayer in current.players do
+		if matchPlayer.isBot then
+			continue
+		end
+		local seat = ensureAfk(matchPlayer.userId, now)
+		local alive = matchPlayer.respawnAt == nil
+		local connected = matchPlayer.connected ~= false
+		local running = current.phase == "InProgress" and alive and connected
+		if not running then
+			if seat.pauseBegan == nil then
+				seat.pauseBegan = now
+			end
+		elseif seat.pauseBegan ~= nil then
+			seat.credit = AfkLogic.creditAfterPause(seat.credit, seat.pauseBegan, now)
+			seat.pauseBegan = nil
+		end
+		if running then
+			local player = Players:GetPlayerByUserId(matchPlayer.userId)
+			if player and sampleAfkWalk(player, seat, now) then
+				seat.lastInputAt = now
+				seat.credit = 0
+				seat.pauseBegan = nil
+			end
+		end
+		local idle = AfkLogic.idleSeconds(now, seat.lastInputAt, seat.credit, running, seat.pauseBegan)
+		local stage = AfkLogic.stage({
+			phase = current.phase,
+			isBot = false,
+			alive = alive,
+			connected = connected,
+			idle = idle,
+		})
+		if stage == "warn" then
+			if not seat.warned then
+				seat.warned = true
+				seat.noticeId += 1
+				matchPlayer.afkNoticeId = seat.noticeId
+				matchPlayer.afkNotice = AfkLogic.Toast
+				dirty = true
+			end
+		elseif stage == "marked" then
+			if not seat.marked then
+				seat.marked = true
+				seat.warned = true
+				seat.whisperId += 1
+				matchPlayer.afk = true
+				matchPlayer.afkWhisperId = seat.whisperId
+				matchPlayer.afkNotice = nil
+				dirty = true
+			end
+		elseif stage == "present" or stage == "quiet" then
+			if clearAfkPublished(matchPlayer, seat) then
+				dirty = true
+			end
+		end
+	end
+	if dirty then
+		broadcast()
+	end
+end
+
 local function teleport(player: Player, team: Types.TeamId?)
 	local spawn = MapBuilder.getSpawn(team)
 	player.RespawnLocation = spawn
@@ -307,6 +466,7 @@ function MatchService.returnToLobby(formQueue: boolean)
 	CombatService.clearAll()
 	ShopService.clearAll()
 	nextBotId = -1001
+	table.clear(afkSeats)
 	for _, player in humans do
 		if
 			not ModeService.is(player, "YarnRun")
@@ -406,6 +566,14 @@ local function beginFight()
 		end
 	end
 
+	-- Champ select does not count as idle. The fight clock starts here.
+	table.clear(afkSeats)
+	for _, matchPlayer in current.players do
+		matchPlayer.afk = false
+		matchPlayer.afkNotice = nil
+		matchPlayer.afkNoticeId = 0
+		matchPlayer.afkWhisperId = 0
+	end
 	VoiceService.onTeamsChanged()
 	MapBuilder.refreshNexusGate()
 	MinionService.start()
@@ -1743,9 +1911,34 @@ function MatchService.init(cleared: () -> ())
 		end
 	end)
 
+	-- A leave sets connected false. Remake treats that seat as missing until
+	-- a rejoin sets it true again. PlayerAdded covers the join; CharacterAdded
+	-- covers the body restore if the flag is still false when the character arrives.
+	local function restoreConnected(player: Player)
+		if not current then
+			return
+		end
+		local matchPlayer = current.players[tostring(player.UserId)]
+		if not matchPlayer then
+			return
+		end
+		local connected, flipped = AfkLogic.restoreConnected(matchPlayer.isBot == true, matchPlayer.connected ~= false)
+		if not flipped then
+			return
+		end
+		matchPlayer.connected = connected
+		assignRobloxTeam(player, matchPlayer.team)
+		ModeService.set(player, "Moba")
+		broadcast()
+		recheckSurrender(matchPlayer.team)
+		recheckRemake(matchPlayer.team)
+	end
+
 	Players.PlayerAdded:Connect(function(player)
+		restoreConnected(player)
 		player.CharacterAdded:Connect(function()
 			task.defer(function()
+				restoreConnected(player)
 				if not current or current.phase ~= "InProgress" then
 					teleport(player, nil)
 					return
@@ -1756,6 +1949,13 @@ function MatchService.init(cleared: () -> ())
 				end
 			end)
 		end)
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			tickAfk()
+		end
 	end)
 end
 

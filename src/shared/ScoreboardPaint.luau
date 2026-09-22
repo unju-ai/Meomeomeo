@@ -101,19 +101,24 @@ function ScoreboardPaint.itemsLine(ids: { string }, maxChars: number?): string
 end
 
 -- Champion label: bots tagged, local YOU, optional live-lead ★.
-function ScoreboardPaint.catLabel(baseName: string, isBot: boolean, isYou: boolean, isCrown: boolean): string
+-- afk appends a small chip for teammates. Bots never wear it.
+function ScoreboardPaint.catLabel(baseName: string, isBot: boolean, isYou: boolean, isCrown: boolean, afk: boolean?): string
 	local name = baseName
 	if isBot and not string.find(name, "%(Bot%)") then
 		name = `{name} (Bot)`
 	end
+	local labeled = name
 	if isYou and isCrown then
-		return `★ YOU · {name}`
+		labeled = `★ YOU · {name}`
 	elseif isYou then
-		return `YOU · {name}`
+		labeled = `YOU · {name}`
 	elseif isCrown then
-		return `★ {name}`
+		labeled = `★ {name}`
 	end
-	return name
+	if afk == true and not isBot then
+		return `{labeled} · AFK`
+	end
+	return labeled
 end
 
 function ScoreboardPaint.sectionTitle(team: string): string
