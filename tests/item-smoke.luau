@@ -129,4 +129,74 @@ for _, row in ItemKits.helpRows() do
 end
 assert(sawCleave and sawFang and sawCharm)
 
-print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm")
+-- ShopPaint: register sections, key chips, gold / fountain copy, buy tint (UI only).
+local function rgbEq(a, b)
+	return a[1] == b[1] and a[2] == b[2] and a[3] == b[3]
+end
+
+assert(ShopPaint.sectionOf("Longclaw") == "Stats")
+assert(ShopPaint.sectionOf("Yarnplate") == "Stats")
+assert(ShopPaint.sectionOf("ManaTreat") == "Stats")
+assert(ShopPaint.sectionOf("PounceBoots") == "Stats")
+assert(ShopPaint.sectionOf("WhiskerLens") == "Vision")
+assert(ShopPaint.sectionOf("ControlYarn") == "Vision")
+assert(ShopPaint.sectionOf(ItemKits.CleaveId) == "Actives")
+assert(ShopPaint.sectionOf(ItemKits.FangId) == "Actives")
+assert(ShopPaint.sectionOf(ItemKits.CharmId) == "Actives")
+
+local sections = ShopPaint.sectionOrder()
+assert(sections[1] == "Stats" and sections[2] == "Vision" and sections[3] == "Actives")
+assert(ShopPaint.sectionTitle("Stats") == "STATS · sticks")
+assert(ShopPaint.sectionTag("Vision") == "VISION")
+assert(ShopPaint.sectionTag("Actives") == "ACTIVES")
+
+assert(ShopPaint.keybind("WhiskerLens") == "5")
+assert(ShopPaint.keybind("ControlYarn") == "6")
+assert(ShopPaint.keybind(ItemKits.CleaveId) == "7")
+assert(ShopPaint.keybind("Longclaw") == nil)
+assert(ShopPaint.keybind(ItemKits.FangId) == nil)
+
+assert(ShopPaint.goldLine(500) == "500g")
+assert(ShopPaint.goldLine(0) == "0g")
+assert(ShopPaint.goldLine(-3) == "0g")
+assert(ShopPaint.fountainLine(true) == "at fountain")
+assert(ShopPaint.fountainLine(false) == "must be at fountain")
+assert(ShopPaint.headerLine(500, true) == "500g · at fountain")
+assert(string.find(ShopPaint.hintLine(), "Stats", 1, true))
+assert(ShopPaint.buyToast("Longclaw") == "Bought Longclaw · Pawmart")
+
+assert(ShopPaint.cardKind(500, true, 0, 1, 250) == "buyable")
+assert(ShopPaint.cardKind(100, true, 0, 1, 250) == "short")
+assert(ShopPaint.cardKind(500, false, 0, 1, 250) == "away")
+assert(ShopPaint.cardKind(500, true, 1, 1, 250) == "owned")
+assert(ShopPaint.cardKind(500, true, 2, 2, 75) == "full")
+assert(ShopPaint.cardKind(500, true, 1, 2, 75) == "buyable")
+assert(ShopPaint.cardKind(50, true, 1, 2, 75) == "short")
+
+local buyable = ShopPaint.cardPaint("buyable")
+assert(buyable.active == true)
+assert(rgbEq(buyable.stroke, ShopPaint.Amber))
+local short = ShopPaint.cardPaint("short")
+assert(short.active == false)
+assert(rgbEq(short.stroke, ShopPaint.Coral))
+local owned = ShopPaint.cardPaint("owned")
+assert(owned.active == false)
+assert(rgbEq(owned.stroke, ShopPaint.Mint))
+local away = ShopPaint.cardPaint("away")
+assert(away.active == false)
+assert(rgbEq(away.text, ShopPaint.Muted))
+
+assert(ShopPaint.nameLine("Control Yarn", 75, 1, 2, "buyable") == "Control Yarn  ·  1/2  ·  75g")
+assert(ShopPaint.nameLine("Longclaw", 250, 1, 1, "owned") == "Longclaw  ·  owned")
+assert(ShopPaint.nameLine("Yarn Cleave", 280, 0, 1, "buyable") == "Yarn Cleave  ·  280g")
+
+-- Every catalog row maps to a section (nine items stay buyable at the register).
+local mapped = 0
+for _, item in ItemCatalog.all() do
+	local sec = ShopPaint.sectionOf(item.id)
+	assert(sec == "Stats" or sec == "Vision" or sec == "Actives")
+	mapped += 1
+end
+assert(mapped == 9)
+
+print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm, ShopPaint")
