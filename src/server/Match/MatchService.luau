@@ -637,9 +637,6 @@ function MatchService.init(cleared: () -> ())
 					if killer then
 						CosmeticService.noteRiftKill(killer)
 					end
-					if k.championId then
-						MemeStockService.bumpChampion(k.championId, 0.12)
-					end
 				end
 				local assistNames = {}
 				for _, helperId in assists do
@@ -658,6 +655,17 @@ function MatchService.init(cleared: () -> ())
 			else
 				local victimName = if v then v.displayName else "A cat"
 				feed("kill", `{victimName} got batted by a tower (or a kitten)`)
+			end
+			-- Champion stocks only. Lane kittens and camps never reach this callback.
+			local tapeEvents = {}
+			if k and k.championId then
+				table.insert(tapeEvents, { id = k.championId, kind = "kill" })
+			end
+			if v and v.championId then
+				table.insert(tapeEvents, { id = v.championId, kind = "death" })
+			end
+			if #tapeEvents > 0 then
+				MemeStockService.reactMany(tapeEvents)
 			end
 			if v then
 				local living, teamSize = rosterLiving(v.team)
@@ -700,6 +708,16 @@ function MatchService.init(cleared: () -> ())
 					CosmeticService.noteRiftStructure(attackerPlayer)
 				end
 			end
+			local allies = {}
+			if not (attacker and attacker.championId) then
+				local attacking: Types.TeamId = if objective.team == "Blue" then "Red" else "Blue"
+				for _, matchPlayer in current.players do
+					if matchPlayer.team == attacking and matchPlayer.championId then
+						table.insert(allies, matchPlayer.championId)
+					end
+				end
+			end
+			MemeStockService.reactStructure(if attacker then attacker.championId else nil, objective.tier, allies)
 			if objective.kind == "Nexus" then
 				feed("nexus", line)
 			else
@@ -729,6 +747,7 @@ function MatchService.init(cleared: () -> ())
 		end,
 		damagePlayerNear = CombatService.damagePlayersNear,
 		damageObjectiveNear = CombatService.damageObjectiveNear,
+		-- Lane kitten last hits pay CS and gold only. They do not move meme tickers.
 		onLastHit = function(userId: number, gold: number)
 			local credited = false
 			if current then
@@ -777,6 +796,7 @@ function MatchService.init(cleared: () -> ())
 		end,
 		damageUser = CombatService.applyDamageToUser,
 		rootOf = CombatService.rootOf,
+		-- Camp last hits stay off the meme tape.
 		onClear = function(userId: number, gold: number, xp: number)
 			local credited = false
 			if current then

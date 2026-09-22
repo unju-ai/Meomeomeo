@@ -431,6 +431,7 @@ export type VisionFrame = {
 }
 
 export type TickerState = {
+	id: string,
 	symbol: string,
 	name: string,
 	price: number,

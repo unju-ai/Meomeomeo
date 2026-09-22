@@ -55,6 +55,8 @@ Kitty Caster callouts (same day, later slice): Luau compiled 127 sources; `tools
 
 Smart pings (same day, later slice): Luau compiled 128 sources; `tools/test-ping.py` passed (named Caution / Attack lines, Attention refuse on a fogged enemy, ground and minimap Attention / Missing still allowed, post / stall / core marker shapes, 2s cooldown). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to ping a bot, a lantern stall, and fogged ground (§8f).
 
+Meme tape (same day, later slice): Luau compiled 130 sources; `tools/test-meme-stock.py` passed (kill up, death down and smaller, post then stall then yarn core, team nudge smaller than a last hit, lane kittens and camps refused, same-kind gap). The other mode smokes still passed. Rojo 7.4.4 built the place. Studio still has to scratch a bot and a post and watch the tape under the kill feed.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -98,7 +100,7 @@ rojo serve
 5. **F** recall (7s) — mint circle under your feet. Stand still and it finishes. A **new** WASD press, a **ground click**, attack, attack-move, a cast, or **7** (Yarn Cleave) cancels immediately and the circle and channel bar disappear. A direction you were already holding does not cancel until you release and press again. Damage still cancels. **B**, **T**, **G**, **H**, and **V** do not. A **purse chip** (above the ability bar) shows your gold, CS, and level. **Tab** scoreboard (bots tagged) uses the same numbers.
 6. Die to a bot or a scratching post. A **Death recap** card lists the recent scratches (cat, post, kitten, camp, or item; ability or **Scratch** when the server knows; approximate damage; killing blow marked). **✕** dismisses it, or it hides about 2.5s before the fountain timer. **Recap** brings it back while you are down. Kill feed and **Tab** stay. The card does not appear in Hub, Yarn Run, Koi, Party, or Arcade.
 7. Push one lane **outer scratching post → inner lantern stall → yarn core**. The stall billboard stays `(gated)` and takes no damage until that lane's post falls (death puff + kill feed). Stall shots are warm lantern gold and use the same aggro as posts. The nexus stays `(gated)` until all **3 posts and 3 stalls** are down, then `(OPEN)`. Scratch the nexus. Kitty Caster names the post, the stall, the open yarn core, and the unplug (see the callout live-pass).
-8. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. The kill feed also gets her sting (**VICTORY** if you won, **DEFEAT** if your core fell). **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog and never play rift callouts. Last-hitting a post or stall, or winning, can ticker `UNLOCKED ·` for Closet drip (see §3f).
+8. End screen shows **VICTORY** or **DEFEAT**, who unplugged the yarn core, post/stall/core counts, and a structure timeline. The kill feed also gets her sting (**VICTORY** if you won, **DEFEAT** if your core fell). **Back to lobby** or **Practice again**. Fog overlay and any last-seen ghosts should vanish. Open **Yarn Run / Koi / Party / Arcade / Closet** and confirm hub stalls never paint rift fog, never play rift callouts, and never show the rift meme tape. Last-hitting a post or stall, or winning, can ticker `UNLOCKED ·` for Closet drip (see §3f).
 
 ### Studio live-pass (death recap)
 
@@ -122,12 +124,24 @@ The Luau smoke checks CS credit: a kitten or camp last hit is +1 CS plus that go
 
 Smoke (not a Studio substitute): `python3 tools/test-farm-credit.py /path/to/luau`.
 
+### Studio live-pass (meme tape)
+
+The Luau smoke checks bump rules only: a champion kill moves that cat up, a death moves it down by less, an outer post / lantern stall / yarn core moves the taker's cat by a bigger playful step, and lane kittens taking a structure nudge every cat on the attacking team by a smaller step. Lane-kitten and camp last hits are refused. A second bump of the same kind inside the gap is refused so a stuck loop cannot pump one symbol. It does not move a character and it does not talk to a broker. Scratch a bot in Practice.
+
+1. Lock in. A dark tape sits just under the kill feed, one chip per cat in the match (you plus the three Red bots): symbol, price, and a green, red, or flat change. Those prices are play yarn, not gold and not Closet yarn. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show this tape. Meme Arcade keeps its own LOAF / NYAN board.
+2. Kill a Red bot. Your chip flashes green and the price steps up. The bot's chip flashes red and steps down a little. The kill-feed scratch line is still there. Kitty Caster, pings, and fog are unchanged.
+3. Last-hit a wave of lane kittens. CS and gold move. The tape does not jump on those last hits. A jungle camp is the same.
+4. Last-hit an outer scratching post. Your chip flashes and steps up more than a kill. The lantern stall does it again, a bit more. The yarn core is the biggest of the three. If lane kittens snuff a post, the attacking side's chips nudge up together instead of one cat printing the full bump.
+5. Die to a bot or a post. Your chip flashes red and dips. There is no yarn button on the tape (`CheerTicker` stays a remote). Prices are fiction. Nothing here spends Robux or touches Meo404.
+
+Smoke (not a Studio substitute): `python3 tools/test-meme-stock.py /path/to/luau`.
+
 ### Studio live-pass (Kitty Caster callouts)
 
 The Luau smoke checks line choice and the quiet rules: first blood, double through penta inside 10 seconds, an 8-second gap on ordinary kills, lane-kitten and camp executions stay quiet unless that death is first blood or an ace on a side of 2 or more, and the post / stall / open-core / unplug / victory / defeat copy. It does not move a character and it does not call an LLM. Hear it in Practice. No OpenAI key.
 
 1. **Draft.** Start Practice. The banner is Kitty Caster: practice draft is open, Red is 3 bots, lock a cat. That line does not play in Yarn Run, Koi Pond, Yarn Party, or Meme Arcade.
-2. **Live.** Lock in. The kill feed (under the stock tape) shows **WE ARE LIVE** — posts, then stalls, then the yarn core. The banner holds her line for a few seconds, then the keybind hint comes back. A short announcer ping plays. Level-ups stay on the kill feed only; she does not narrate every ding.
+2. **Live.** Lock in. The kill feed shows **WE ARE LIVE** — posts, then stalls, then the yarn core. The meme tape sits just under that feed (symbol, price, green or red). The banner holds her line for a few seconds, then the keybind hint comes back. A short announcer ping plays. Level-ups stay on the kill feed only; she does not narrate every ding.
 3. **First blood.** Kill a Red bot, or let one kill you. The scratch line stays, and a second row says **FIRST BLOOD** and names the cat (**Nyan Rocket (Bot)**, or your champion plus your display name). The same cat killing again within about 10 seconds steps **DOUBLE KILL**, **TRIPLE KILL**, **QUADRA**, **PENTA**. A separate cat's isolated kill inside 8 seconds of the last spoken line stays on the scratch feed only.
 4. **Kittens.** Last-hitting lane kittens does not call her. Dying to lane kittens (or a camp) stays quiet unless that death is first blood, or it is the last cat on a side that had 2 or more. Red's three bots going down is an **ACE** when the finisher is not already on a double / triple / penta — one cat chaining them hears the streak instead. You alone on Blue is not an ace. A scratching-post execution can still get a short line once the 8-second gap allows it.
 5. **Structures.** Knock an outer post. She names that scratching post and that the stall is open. Snuff the lantern stall: she names the stall. When the last post or stall on that side falls, a second line says the yarn core is **OPEN**. Unplug the core: she names who did it, then **VICTORY** (you) or **DEFEAT** (your core). Victory uses the match-found sting; defeat uses the soft announcer ping.
@@ -562,6 +576,7 @@ These are not covered by the Luau smoke:
 - No tip card on first Practice: Rojo-sync `TutorialTips` + `GetTutorialStatus`. Replay from lobby **Show tips**. Attribute `MeoTutorialDone` skips auto-start.
 - No emote wheel: Rojo-sync so `MeoRemotes.PlayEmote` / `EmotePlayed` exist, then hold **T** in lobby or Practice (not while down).
 - No ping wheel, or a ping never names the cat: Rojo-sync `PingCatalog`, `PingLogic`, and `MinimapPing`. Hold **G** in Practice (not lobby) on a visible bot. Minimap click is still generic Attention, including into fog. Attention on a hidden enemy says **No vision.**
+- Tape under the kill feed never moves, or the rift tape shows on the hub: Rojo-sync `Shared.MemeStockLogic`, `Server.Economy.MemeStockService`, and `Client.UI.MemeTape`. Champion kills and posts move it. Lane kitten last hits do not. Yarn Run, Koi Pond, Yarn Party, Meme Arcade, and the hub grid do not show it.
 - No death recap after a Practice death: Rojo-sync so `MeoRemotes.DeathRecap` exists, then die again in a new Practice. Hub, Yarn Run, Koi, Party, and Arcade do not show it.
 
 ## 10. Still stubbed (do not expect)

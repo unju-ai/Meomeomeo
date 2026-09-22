@@ -6,7 +6,7 @@ A **night-market cat game hub** for Roblox. The lobby is a **mode-select grid** 
 
 On the Rift, every champion and NPC is a cat, lanes and nexuses are the core loop, and **voice chat is first-class**. Players queue or Practice, lock a cat, and scratch the enemy nexus. Teammates talk over Roblox voice (team routing when the Audio API is available). Fountain shopkeepers, a jungle coach, and a play-by-play announcer talk back through an AI chat interface that **runs on a mock provider** until you plug in a real key.
 
-Meme stocks are a **side system**: champion tickers drift in the HUD and bump on kills. They are not the game.
+Meme stocks are a **side system**: during a Cat Rift fight, champion tickers sit on a tape under the kill feed and bump on kills, deaths, and structures. They are not the game.
 
 **Meo404** is an experimental lobby/meta flow: a Roblox Developer Product (Robux) grants a **claim entitlement**. A separate hosted service may later mint an ERC-404-style asset (1 whole token ↔ 1 NFT) to a linked wallet. This receipt-linked flow has not been established as production-ready or permitted merely because minting happens off-platform. It is not a stock token or a live Robinhood Chain integration.
 
@@ -399,13 +399,13 @@ Aim indicators (`TargetingIndicator`) stay client-predicted while a line/dash is
 
 ## Meme stocks (side system)
 
-`src/server/Economy/MemeStockService.luau` keeps server-authored champion tickers and a **yarn** wallet. Prices wander; kills bump the killer’s cat. The top HUD tape is cosmetic for now (`CheerTicker` remote exists for later shop/wager UI). Turn it off with `Config.Economy.Enabled = false`.
+`src/server/Economy/MemeStockService.luau` keeps server-authored champion tickers. Cheer yarn (the `CheerTicker` remote, no fight button) is not Closet yarn and not the Meme Arcade wallet. Prices wander. A champion kill bumps that cat up, a death bumps it down a little, and last-hitting an outer post, lantern stall, or yarn core bumps the taker's cat harder. If lane kittens take the structure, each cat on the attacking team gets a smaller nudge. Lane kitten and jungle last hits do not move the tape, and a short per-cat gap stops a stuck loop from pumping one symbol. The compact tape under the kill feed shows symbol, price, and green/red change, and flashes the row that just moved. It is on screen only during a Cat Rift fight (and the end card). Turn it off with `Config.Economy.Enabled = false`. This is not a market and not real money.
 
 ## Project layout
 
 ```
 PLAYTEST.md          Studio / publish walkthrough + keybind sheet
-src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **recall cancel rules**, **vision/fog grid**, emote catalog, ping catalog, **ping line / fog rules**
+src/shared/          Types, remotes, constants, mode catalog, yarn-run catalog, koi catalog, yarn-party catalog, arcade catalog, yarn daily-board logic, cosmetic catalog, champion catalog, champion looks, item catalog, progression, targeting, projectile travel, **recall cancel rules**, **vision/fog grid**, emote catalog, ping catalog, **ping line / fog rules**, **meme tape bump rules**
 src/server/
   init.server.luau   Wires remotes + services
   Config.luau        Tunables + AI / Meo404 product placeholders
