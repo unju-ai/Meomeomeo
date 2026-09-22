@@ -2,6 +2,8 @@
 
 -- Per-player "first Practice tips dismissed" flag.
 -- DataStore when available; memory cache always. Studio/API failure is fine.
+-- The value is only true or false. A newer tip deck does not clear it.
+-- Lobby Show tips replays the current cards; this store never force-resets.
 
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
