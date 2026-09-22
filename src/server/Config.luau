@@ -16,6 +16,7 @@
 --   Ai.Endpoint / Ai.ApiKey       only if Ai.Provider = "http"; never commit a real key
 
 export type VoiceMode = "Team" | "Proximity"
+export type VoiceOutsideMatch = "Off" | "Proximity"
 
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 
@@ -242,6 +243,10 @@ local Config = {
 		-- Proximity = default Roblox spatial voice.
 		Mode = "Team" :: VoiceMode,
 		FallbackToProximity = true,
+		-- Hub, lobby, and the other stalls have no side.
+		-- Off = empty allow list (nobody hears you). Proximity = spatial voice
+		-- until a match assigns Blue or Red. Ignored when Mode is Proximity.
+		OutsideMatch = "Off" :: VoiceOutsideMatch,
 	},
 
 	Ai = {

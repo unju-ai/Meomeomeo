@@ -79,9 +79,11 @@ function SettingsPanel.create(parent: Instance, start: SettingsState): SettingsA
 	local title = Theme.text(root, "Title", "Audio", 18, Theme.amber, Theme.fontTitle)
 	title.Size = UDim2.new(1, 0, 0, 22)
 
-	local hint = Theme.text(root, "Hint", "SFX and Music are independent. Music stays quieter.", 11, Theme.peach)
+	local hint = Theme.text(root, "Hint", "SFX and Music only. Mic mute is the voice pill.", 11, Theme.peach)
 	hint.Position = UDim2.fromOffset(0, 22)
 	hint.Size = UDim2.new(1, 0, 0, 16)
+	hint.TextWrapped = false
+	hint.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local muteSfx = Theme.button(root, "MuteSfx", "Mute SFX", Theme.coral)
 	muteSfx.Position = UDim2.fromOffset(0, 42)

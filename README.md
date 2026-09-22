@@ -188,11 +188,15 @@ Teleport payload (`MeoMatch`) carries `matchId`, `lobbyPlaceId`, teams, optional
 
 ## Voice chat
 
-Voice is a first-class feature. The module lives in `src/server/Voice/VoiceService.luau`.
+Voice is a first-class feature. Routing lives in `src/server/Voice/VoiceService.luau`. Copy and allow-list membership live in `src/shared/VoiceLogic.luau` (Luau-tested). The pill is `src/client/UI/VoiceHud.luau`.
 
-**Default mode is team voice:** teammates hear each other; enemies do not. That uses Roblox’s Audio API (`AudioDeviceInput` + `SetUserIdAccessList`) as documented in [Voice Chat](https://create.roblox.com/docs/chat/voice-chat). If those APIs fail (typical in Solo Play), the module **stubs cleanly**, keeps the match running, and the HUD explains why.
+**Default mode is team voice:** human teammates hear each other; enemies do not; bots are not voice peers. That uses Roblox’s Audio API (`AudioDeviceInput` + `SetUserIdAccessList`) as documented in [Voice Chat](https://create.roblox.com/docs/chat/voice-chat). Lists are rewritten when match sides form or change (draft, live, end screen, back to lobby) and again after death or respawn, so a replacement mic device does not fall back to “everyone.” If those APIs fail (typical in Solo Play), the module **stubs cleanly**, keeps the match running, and the HUD says **Voice · Studio**.
 
-Proximity (spatial) voice is the engine default and the fallback when team lists are unavailable (`Config.Voice.FallbackToProximity`).
+**Mute me** on the pill sets the local `AudioDeviceInput.Muted` flag. It does not touch the SFX or Music sliders. **You:** reads **live**, **muted**, or **not eligible**.
+
+A speaking pulse uses the client `AudioAnalyzer` (`RmsLevel` / `PeakLevel`) on your mic and on teammates only. The server property is always 0, so speaking is not replicated. If this engine build cannot construct an analyzer, the pill shows **Mic armed** and nameplates stay quiet. Enemy cats are never given a meter.
+
+Proximity (spatial) voice is `Config.Voice.Mode = "Proximity"`, and also the fallback when team lists throw (`FallbackToProximity`). `Config.Voice.OutsideMatch` is `"Off"` (default: hub and the other stalls are silent) or `"Proximity"` (spatial until a match assigns a side).
 
 ### Enable it in Studio / on the live place
 
@@ -205,13 +209,11 @@ Scripts cannot flip the experience-level voice permission. You must:
 5. Optional: **Show Services… → VoiceChatService**. This repo already declares that service in `default.project.json` with:
    - `EnableDefaultVoice = true` (default spatial emitters on characters)
    - `UseAudioApi = Enabled` (so team routing can parent `AudioDeviceInput`)
-6. **Publish** the place. Voice does not fully work in unpublished Solo Play.
-7. Test with **Team Test** (or two published clients). Eligible testers must be **age-verified 13+** with voice opted in on their account.
+6. **Publish** the place. Voice does not fully work in unpublished Solo Play. The pill should say **Voice · Studio** and **You: not eligible**.
+7. Test with **two published clients**. Eligible testers must be **age-verified 13+** with voice opted in on their account. Team Test is not the live pass. See PLAYTEST.md §4b.
 8. Optional: Communication → **Chat & Voice Groups APIs** if you later use `GetChatGroupsAsync` for matchmaking across servers.
 
-If Studio blocks voice, the HUD shows `StudioBlocked` / `Unavailable` and players can still play. That is expected.
-
-`Config.Voice.Mode` is `"Team"` or `"Proximity"`.
+`Config.Voice.Mode` is `"Team"` or `"Proximity"`. `Config.Voice.OutsideMatch` is `"Off"` or `"Proximity"`.
 
 ## Talking AI cats
 
@@ -439,7 +441,7 @@ Authority rule: money, prices, damage, match state, and purchase entitlements li
 6. Richer post-match (damage graph, CS timeline). The end screen already lists post/stall/core counts and the structure fall order.
 7. Swap placeholder Part silhouettes / map kits for uploaded meshes (keep `HumanoidRootPart` and `MapBounds`). Closet drip stays Parts-only unless you hang accessories on the same `MeoCosmetics` welds.
 8. Publish `MatchPlaceId` and playtest live reserved teleports; `GetChatGroupsAsync` so voice-eligible cats land together.
-9. Accept/decline party invites, cross-server friends, party chat in lobby. Custom voice: push-to-talk, per-player mute.
+9. Accept/decline party invites, cross-server friends, party chat in lobby. Voice still open: push-to-talk and per-teammate mute (self mute is already the voice pill).
 10. Swap the HTTP stub for a hosted proxy so API keys never sit in the place file.
 11. More closet slots (back / emote-only) funded by yarn / meme-stock wagers — still no Robux cosmetic shop unless legal review says otherwise.
 12. Open Cloud re-verify of DataStore entitlements from the bridge; persist SIWE nonces / verified wallets beyond one process.
