@@ -77,6 +77,7 @@ local function ask(partial: {
 	camps: { JungleBotLogic.CampView }?,
 	enemy: JungleBotLogic.EnemyView?,
 	lanes: { JungleBotLogic.LaneView }?,
+	peel: JungleBotLogic.PeelHint?,
 }): JungleBotLogic.JungleDecision
 	return JungleBotLogic.decide({
 		difficulty = partial.difficulty,
@@ -91,6 +92,7 @@ local function ask(partial: {
 		enemy = partial.enemy,
 		lanes = partial.lanes or OPEN_LANES,
 		brushes = BOXES,
+		peel = partial.peel,
 	})
 end
 
@@ -627,4 +629,196 @@ assert(BotShopLogic.shouldPlaceControl("Normal", true, true, true) == false)
 assert(BotShopLogic.chargeReady(true, 0, 5) == false)
 assert(BotShopLogic.releaseWardLatch(true, true, false) == false)
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, camp respawn chip, control yarn plant")
+-- Hard ally peel. Callers already applied fog. Easy and Normal never peel.
+local function cat(id: number, x: number, z: number, hp: number, alive: boolean?): BotPeelLogic.Cat
+	return {
+		userId = id,
+		x = x,
+		z = z,
+		hpRatio = hp,
+		alive = if alive == nil then true else alive,
+	}
+end
+
+local function peelPick(partial: {
+	difficulty: BotPeelLogic.Difficulty?,
+	x: number?,
+	z: number?,
+	selfHp: number?,
+	retreatHp: number?,
+	unsafeDive: boolean?,
+	allies: { BotPeelLogic.Cat }?,
+	enemies: { BotPeelLogic.Cat }?,
+}): BotPeelLogic.PeelGoal?
+	return BotPeelLogic.pick({
+		difficulty = partial.difficulty or "Hard",
+		selfUserId = 1,
+		x = partial.x or 0,
+		z = partial.z or 0,
+		selfHp = if partial.selfHp == nil then 1 else partial.selfHp,
+		retreatHp = if partial.retreatHp == nil then 0.16 else partial.retreatHp,
+		unsafeDive = partial.unsafeDive == true,
+		allies = partial.allies or {},
+		enemies = partial.enemies or {},
+	})
+end
+
+assert(BotPeelLogic.AllyHp == 0.38 and BotPeelLogic.CriticalHp == 0.22)
+assert(BotPeelLogic.FightRadius == 32 and BotPeelLogic.NearbyRadius == 48)
+
+local lowAlly = { cat(2, 20, 0, 0.37) }
+local onThem = { cat(9, 40, 0, 1) }
+assert(peelPick({ difficulty = "Easy", allies = lowAlly, enemies = onThem }) == nil, "Easy does not peel")
+assert(peelPick({ difficulty = "Normal", allies = lowAlly, enemies = onThem }) == nil, "Normal does not peel")
+assert(peelPick({ allies = { cat(2, 20, 0, 0.39) }, enemies = onThem }) == nil, "39% is not low enough")
+assert(peelPick({ allies = { cat(2, 0, 0, 0.3) }, enemies = { cat(9, 33, 0, 1) } }) == nil, "enemy outside the fight radius")
+assert(peelPick({ allies = { cat(2, 0, 0, 0) }, enemies = onThem }) == nil, "a downed ally is not a peel")
+assert(peelPick({ allies = { cat(2, 0, 0, 0.2, false) }, enemies = onThem }) == nil)
+assert(peelPick({ selfHp = 0.16, allies = lowAlly, enemies = onThem }) == nil, "fleeing bot does not peel")
+assert(peelPick({ unsafeDive = true, allies = lowAlly, enemies = onThem }) == nil, "unsafe dive does not peel")
+
+local turned = peelPick({ allies = { cat(2, 10, 0, 0.38) }, enemies = { cat(9, 42, 0, 1) } })
+assert(turned ~= nil and turned.enemyUserId == 9 and turned.x == 42, "38% ally with an enemy on them peels")
+assert(turned.critical == false and turned.nearby == true)
+
+local threat = peelPick({
+	allies = { cat(2, 10, 0, 0.3) },
+	enemies = { cat(8, 10, 30, 1), cat(7, 12, 4, 1) },
+})
+assert(threat ~= nil and threat.enemyUserId == 7, "the enemy closer to the ally is the target")
+
+local worse = peelPick({
+	x = 0,
+	z = 0,
+	allies = { cat(2, 40, 0, 0.3), cat(3, 10, 0, 0.2) },
+	enemies = { cat(8, 40, 10, 1), cat(7, 10, 8, 1) },
+})
+assert(worse ~= nil and worse.allyUserId == 3 and worse.critical == true, "the lower ally wins")
+
+local farCrit = peelPick({
+	allies = { cat(2, 49, 0, 0.22) },
+	enemies = { cat(9, 49, 10, 1) },
+})
+assert(farCrit ~= nil and farCrit.critical == true and farCrit.nearby == false, "critical but not nearby")
+
+local hint = {
+	x = -150,
+	z = 8,
+	critical = false,
+	nearby = true,
+	enemyUserId = 9,
+}
+
+local dropCamp = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	peel = hint,
+})
+assert(dropCamp.action == "peel" and dropCamp.focusUserId == 9, "peel beats a leftover camp")
+assert(dropCamp.memory.campId == "PigeonsNW" and dropCamp.memory.routeIndex == 1, "the route waits")
+
+local softHunt = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	enemy = { x = -58, z = -88 },
+	peel = { x = -40, z = -70, critical = false, nearby = true, enemyUserId = 6 },
+})
+assert(softHunt.action == "peel", "peel breaks a soft hunt on a full-HP camp")
+
+local hurtFirst = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	camps = without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220)),
+	peel = { x = -40, z = -80, critical = true, nearby = true, enemyUserId = 3 },
+})
+assert(hurtFirst.action == "camp" and hurtFirst.campId == "YarnGolemNW", "a hurt camp still finishes before peel")
+
+local leviHolds = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(ALL),
+	peel = { x = -90, z = -70, critical = false, nearby = true, enemyUserId = 8 },
+})
+assert(leviHolds.action == "camp" and leviHolds.campId == "CanalLevi", "a normal peel does not take Levi")
+
+local leviFar = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -80,
+	z = -40,
+	camps = withEpic(ALL),
+	peel = { x = 80, z = 80, critical = true, nearby = false, enemyUserId = 8 },
+})
+assert(leviFar.campId == "CanalLevi", "a far critical ally does not take Levi")
+
+local leviTurns = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 24,
+	campId = "CanalLevi",
+	routeIndex = 2,
+	camps = withEpic(ALL),
+	peel = { x = 12, z = 24, critical = true, nearby = true, enemyUserId = 8 },
+})
+assert(leviTurns.action == "peel" and leviTurns.focusUserId == 8, "critical nearby peel interrupts Levi")
+assert(leviTurns.memory.campId == "CanalLevi", "Levi is resumed after the peel")
+
+local laneTurn = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	peel = { x = 48, z = 80, critical = false, nearby = true, enemyUserId = 4 },
+})
+assert(laneTurn.action == "peel" and laneTurn.focusUserId == 4, "a lane bot peels instead of shoving")
+
+local easyHint = ask({
+	difficulty = "Easy",
+	team = "Red",
+	x = 0,
+	z = 0,
+	jungler = true,
+	peel = hint,
+})
+assert(easyHint.action == "lane", "Easy ignores a peel hint")
+
+local normalHint = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = 0,
+	z = 0,
+	lanePushed = true,
+	peel = hint,
+})
+assert(normalHint.action ~= "peel", "Normal ignores a peel hint")
+
+local peelRotate = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 0,
+	camps = {},
+	lanes = OPEN_LANES,
+	peel = hint,
+})
+assert(peelRotate.action == "peel", "peel beats an idle rotate")
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, camp respawn chip, control yarn plant")

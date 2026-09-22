@@ -2,6 +2,7 @@
 
 local Workspace = game:GetService("Workspace")
 
+local BotPeelLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotPeelLogic"))
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
@@ -657,9 +658,127 @@ local function releaseCamp(brain: BotBrain)
 	clearJungleNav(brain)
 end
 
--- Returns true when the jungler should not fall through into lane combat this think.
-local function pursueJungle(brain: BotBrain, team: Types.TeamId, tune: Tune, root: BasePart, dt: number): boolean
-	if not tune.Jungle or not brain.jungler then
+local function tryChampionAbilities(
+	brain: BotBrain,
+	tune: Tune,
+	root: BasePart,
+	combat: any,
+	matchPlayer: Types.MatchPlayer,
+	now: number,
+	dist: number,
+	aimPos: Vector3,
+	targetUserId: number?
+)
+	if now < brain.nextAbility or math.random() > tune.AbilityChance then
+		return
+	end
+	local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
+	if not champ then
+		return
+	end
+	for _, slot in Constants.Slots do
+		local ability = champ.abilities[slot]
+		local rank = if combat.ranks then combat.ranks[slot] else 0
+		if ability and (rank or 0) > 0 and combat.cooldowns[slot] <= now and combat.mana >= ability.manaCost then
+			if dist <= ability.range + 8 then
+				local aim = aimPos
+				if Targeting.of(ability) == "line" then
+					aim = leadAim(tune, targetUserId, aimPos, root.Position)
+				end
+				CombatService.useAbilityFor(brain.userId, { slot = slot, aimPosition = aim })
+				brain.nextAbility = now + 0.8 + tune.ExtraAaDelay
+				break
+			end
+		end
+	end
+end
+
+-- Visible low ally with a visible enemy on them. Nil while fleeing or when the
+-- walk would be an unsafe tower dive. Easy and Normal never get a goal.
+local function hardPeelGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, root: BasePart, combat: any): BotPeelLogic.PeelGoal?
+	if currentDifficulty ~= "Hard" then
+		return nil
+	end
+	local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+	if hpRatio <= tune.RetreatHp then
+		return nil
+	end
+	local snapshot = matchSnapshot()
+	if not snapshot then
+		return nil
+	end
+	local allies: { BotPeelLogic.Cat } = {}
+	local enemies: { BotPeelLogic.Cat } = {}
+	for _, other in snapshot.players do
+		if other.userId ~= brain.userId then
+			local otherCombat = CombatService.get(other.userId)
+			local otherRoot = CombatService.rootOf(other.userId)
+			if otherCombat and otherRoot and otherCombat.alive and VisionService.canSeeChampion(brain.userId, other.userId) then
+				local ratio = if otherCombat.maxHealth > 0 then otherCombat.health / otherCombat.maxHealth else 1
+				local cat: BotPeelLogic.Cat = {
+					userId = other.userId,
+					x = otherRoot.Position.X,
+					z = otherRoot.Position.Z,
+					hpRatio = ratio,
+					alive = true,
+				}
+				if other.team == team then
+					table.insert(allies, cat)
+				else
+					table.insert(enemies, cat)
+				end
+			end
+		end
+	end
+	local goal = BotPeelLogic.pick({
+		difficulty = "Hard",
+		selfUserId = brain.userId,
+		x = root.Position.X,
+		z = root.Position.Z,
+		selfHp = hpRatio,
+		retreatHp = tune.RetreatHp,
+		unsafeDive = false,
+		allies = allies,
+		enemies = enemies,
+	})
+	if not goal then
+		return nil
+	end
+	local dest = Vector3.new(goal.x, root.Position.Y, goal.z)
+	local hunt: Hunt = {
+		kind = "player",
+		userId = goal.enemyUserId,
+		position = dest,
+		isChampion = true,
+	}
+	if not allowDive(tune, brain, team, root.Position, dest, hunt) then
+		return nil
+	end
+	return goal
+end
+
+-- Returns true when this bot should not fall through into lane combat this think.
+local function pursueJungle(
+	brain: BotBrain,
+	team: Types.TeamId,
+	tune: Tune,
+	root: BasePart,
+	dt: number,
+	peelGoal: BotPeelLogic.PeelGoal?,
+	combat: any,
+	matchPlayer: Types.MatchPlayer
+): boolean
+	local hint: JungleBotLogic.PeelHint? = nil
+	if peelGoal then
+		hint = {
+			x = peelGoal.x,
+			z = peelGoal.z,
+			critical = peelGoal.critical,
+			nearby = peelGoal.nearby,
+			enemyUserId = peelGoal.enemyUserId,
+		}
+	end
+	if (not tune.Jungle or not brain.jungler) and not hint then
 		clearJungleNav(brain)
 		brain.campId = nil
 		return false
@@ -667,7 +786,7 @@ local function pursueJungle(brain: BotBrain, team: Types.TeamId, tune: Tune, roo
 	local decision = JungleBotLogic.decide({
 		difficulty = currentDifficulty,
 		team = team,
-		jungler = true,
+		jungler = brain.jungler,
 		x = root.Position.X,
 		z = root.Position.Z,
 		lanePushed = lanePushed(team, brain.lane),
@@ -677,9 +796,45 @@ local function pursueJungle(brain: BotBrain, team: Types.TeamId, tune: Tune, roo
 		enemy = visibleEnemy(team, root.Position, brain.userId),
 		lanes = laneViews(team, brain.userId),
 		brushes = BRUSH_BOXES,
+		peel = hint,
 	})
 	brain.campId = decision.memory.campId
 	brain.routeIndex = decision.memory.routeIndex
+	if decision.action == "peel" then
+		if brain.navKind == "camp" then
+			CombatService.issueAttackFor(brain.userId, { kind = "stop" })
+		end
+		local stepX = decision.stepX or decision.x or root.Position.X
+		local stepZ = decision.stepZ or decision.z or root.Position.Z
+		brain.navKind = "peel"
+		brain.navX = stepX
+		brain.navZ = stepZ
+		if (root.Position - fountainPos(team)).Magnitude > 40 then
+			brain.visitedLane = true
+		end
+		local aim = Vector3.new(decision.x or stepX, root.Position.Y, decision.z or stepZ)
+		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+		local focus = decision.focusUserId
+		if focus and flat.Magnitude <= Config.AutoAttack.Range then
+			local swung = CombatService.issueAttackFor(brain.userId, { kind = "player", userId = focus })
+			brain.closing = swung.ok == true
+			if swung.ok then
+				tryChampionAbilities(brain, tune, root, combat, matchPlayer, Workspace:GetServerTimeNow(), flat.Magnitude, aim, focus)
+			else
+				brain.closing = false
+				stepToward(brain.userId, aim, dt)
+			end
+			return true
+		end
+		brain.closing = false
+		stepToward(brain.userId, Vector3.new(stepX, root.Position.Y, stepZ), dt)
+		return true
+	end
+	if not tune.Jungle or not brain.jungler then
+		clearJungleNav(brain)
+		brain.campId = nil
+		return false
+	end
 	if decision.action == "lane" or decision.action == "fight" then
 		releaseCamp(brain)
 		return false
@@ -851,7 +1006,8 @@ local function think(brain: BotBrain, dt: number)
 		end
 	end
 
-	if pursueJungle(brain, team, tune, root, dt) then
+	local peelGoal = hardPeelGoal(brain, team, tune, root, combat)
+	if pursueJungle(brain, team, tune, root, dt, peelGoal, combat, matchPlayer) then
 		return
 	end
 
@@ -876,25 +1032,8 @@ local function think(brain: BotBrain, dt: number)
 			end
 		end
 
-		if hunt.isChampion and now >= brain.nextAbility and math.random() <= tune.AbilityChance then
-			local champ = if matchPlayer.championId then ChampionCatalog.get(matchPlayer.championId) else nil
-			if champ then
-				for _, slot in Constants.Slots do
-					local ability = champ.abilities[slot]
-					local rank = if combat.ranks then combat.ranks[slot] else 0
-					if ability and (rank or 0) > 0 and combat.cooldowns[slot] <= now and combat.mana >= ability.manaCost then
-						if dist <= ability.range + 8 then
-							local aim = hunt.position
-							if Targeting.of(ability) == "line" then
-								aim = leadAim(tune, hunt.userId, hunt.position, root.Position)
-							end
-							CombatService.useAbilityFor(brain.userId, { slot = slot, aimPosition = aim })
-							brain.nextAbility = now + 0.8 + tune.ExtraAaDelay
-							break
-						end
-					end
-				end
-			end
+		if hunt.isChampion then
+			tryChampionAbilities(brain, tune, root, combat, matchPlayer, now, dist, hunt.position, hunt.userId)
 		end
 		return
 	end
@@ -1010,6 +1149,8 @@ function BotService.start()
 							elseif matchPlayer and brain.navKind == "camp" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer and brain.navKind == "rotate" and brain.navX and brain.navZ then
+								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+							elseif matchPlayer and brain.navKind == "peel" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer then
 								local hunt = nearestHunt(matchPlayer.team, root.Position, brain.userId, walkTune)
