@@ -92,6 +92,7 @@ type Shot = {
 	duration: number,
 	lastPos: Vector3,
 	hit: { [string]: boolean },
+	fromBrush: boolean,
 }
 
 local abilityCastListener: ((AbilityCast) -> ())? = nil
@@ -422,6 +423,18 @@ local function resetFor(userId: number, championId: string)
 		guardReduction = nil,
 		wickStacks = nil,
 		wickUntil = nil,
+		dataStacks = nil,
+		dataUntil = nil,
+		bleedStacks = nil,
+		bleedUntil = nil,
+		bleedFrom = nil,
+		bleedEchoStacks = nil,
+		bleedEchoUntil = nil,
+		bleedEchoTarget = nil,
+		markUntil = nil,
+		markFrom = nil,
+		markTarget = nil,
+		vanishUntil = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
@@ -747,6 +760,48 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	state.guardReduction = nil
 	state.wickStacks = nil
 	state.wickUntil = nil
+	state.dataStacks = nil
+	state.dataUntil = nil
+	state.bleedStacks = nil
+	state.bleedUntil = nil
+	state.bleedFrom = nil
+	state.bleedEchoStacks = nil
+	state.bleedEchoUntil = nil
+	state.bleedEchoTarget = nil
+	state.markUntil = nil
+	state.markFrom = nil
+	state.vanishUntil = nil
+	local ownedMark = state.markTarget
+	state.markTarget = nil
+	if ownedMark then
+		local marked = combat[ownedMark]
+		if marked and marked.markFrom == victimUserId then
+			marked.markFrom = nil
+			marked.markUntil = nil
+			fireCombat(ownedMark)
+		end
+	end
+	for otherId, other in combat do
+		if otherId ~= victimUserId then
+			if other.bleedFrom == victimUserId then
+				other.bleedStacks = nil
+				other.bleedUntil = nil
+				other.bleedFrom = nil
+				fireCombat(otherId)
+			end
+			if other.bleedEchoTarget == victimUserId then
+				other.bleedEchoStacks = nil
+				other.bleedEchoUntil = nil
+				other.bleedEchoTarget = nil
+				fireCombat(otherId)
+			end
+			if other.markTarget == victimUserId then
+				other.markTarget = nil
+				other.markUntil = nil
+				fireCombat(otherId)
+			end
+		end
+	end
 	locks[victimUserId] = nil
 	interruptChannel(victimUserId, "death")
 	local victimPlayer = playerOf(victimUserId)
@@ -1530,6 +1585,7 @@ type StrikeCtx = {
 	hit: { [string]: boolean }?,
 	championId: string?,
 	slot: Types.AbilitySlot?,
+	fromBrush: boolean?,
 }
 
 local function consumeHit(hit: { [string]: boolean }?, key: string): boolean
@@ -1583,6 +1639,183 @@ local function clearWick(casterUserId: number)
 	fireCombat(casterUserId)
 end
 
+local function liveData(casterUserId: number): number
+	local state = combat[casterUserId]
+	if not state or state.dataUntil == nil or now() >= state.dataUntil then
+		return 0
+	end
+	return state.dataStacks or 0
+end
+
+local function gainData(casterUserId: number, cap: number, seconds: number)
+	if cap <= 0 or seconds <= 0 then
+		return
+	end
+	local state = combat[casterUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.dataUntil ~= nil and now() < state.dataUntil then state.dataStacks or 0 else 0
+	state.dataStacks = ChampionKits.addData(current, cap)
+	state.dataUntil = now() + seconds
+	fireCombat(casterUserId)
+end
+
+local function clearData(casterUserId: number)
+	local state = combat[casterUserId]
+	if not state or ((state.dataStacks or 0) <= 0 and state.dataUntil == nil) then
+		return
+	end
+	state.dataStacks = nil
+	state.dataUntil = nil
+	fireCombat(casterUserId)
+end
+
+local function liveBleed(targetUserId: number, casterUserId: number): number
+	local state = combat[targetUserId]
+	if not state or state.bleedFrom ~= casterUserId or state.bleedUntil == nil or now() >= state.bleedUntil then
+		return 0
+	end
+	return state.bleedStacks or 0
+end
+
+local function gainBleed(targetUserId: number, casterUserId: number, cap: number, seconds: number)
+	if cap <= 0 or seconds <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.bleedFrom == casterUserId and state.bleedUntil ~= nil and now() < state.bleedUntil
+		then state.bleedStacks or 0
+		else 0
+	state.bleedStacks = ChampionKits.addBleed(current, cap)
+	state.bleedUntil = now() + seconds
+	state.bleedFrom = casterUserId
+	fireCombat(targetUserId)
+	local caster = combat[casterUserId]
+	if caster and caster.alive then
+		caster.bleedEchoStacks = state.bleedStacks
+		caster.bleedEchoUntil = state.bleedUntil
+		caster.bleedEchoTarget = targetUserId
+		fireCombat(casterUserId)
+	end
+end
+
+local function clearBleed(targetUserId: number, casterUserId: number)
+	local state = combat[targetUserId]
+	if state and state.bleedFrom == casterUserId then
+		state.bleedStacks = nil
+		state.bleedUntil = nil
+		state.bleedFrom = nil
+		fireCombat(targetUserId)
+	end
+	local caster = combat[casterUserId]
+	if caster and caster.bleedEchoTarget == targetUserId then
+		caster.bleedEchoStacks = nil
+		caster.bleedEchoUntil = nil
+		caster.bleedEchoTarget = nil
+		fireCombat(casterUserId)
+	end
+end
+
+local function liveMark(targetUserId: number, casterUserId: number): boolean
+	local state = combat[targetUserId]
+	return state ~= nil and state.markFrom == casterUserId and state.markUntil ~= nil and now() < state.markUntil
+end
+
+local function clearMark(targetUserId: number, casterUserId: number)
+	local state = combat[targetUserId]
+	if state and state.markFrom == casterUserId then
+		state.markFrom = nil
+		state.markUntil = nil
+		fireCombat(targetUserId)
+	end
+	local caster = combat[casterUserId]
+	if caster and caster.markTarget == targetUserId then
+		caster.markTarget = nil
+		caster.markUntil = nil
+		fireCombat(casterUserId)
+	end
+end
+
+local function gainMark(targetUserId: number, casterUserId: number, seconds: number)
+	if seconds <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	local caster = combat[casterUserId]
+	local previousId = if caster then caster.markTarget else nil
+	if previousId and previousId ~= targetUserId then
+		local previous = combat[previousId]
+		if previous and previous.markFrom == casterUserId then
+			previous.markFrom = nil
+			previous.markUntil = nil
+			fireCombat(previousId)
+		end
+	end
+	state.markFrom = casterUserId
+	state.markUntil = now() + seconds
+	fireCombat(targetUserId)
+	if caster and caster.alive then
+		caster.markTarget = targetUserId
+		caster.markUntil = state.markUntil
+		fireCombat(casterUserId)
+	end
+end
+
+local function liveVanish(casterUserId: number): boolean
+	local state = combat[casterUserId]
+	return state ~= nil and state.vanishUntil ~= nil and now() < state.vanishUntil
+end
+
+local function clearVanish(casterUserId: number)
+	local state = combat[casterUserId]
+	if not state or state.vanishUntil == nil then
+		return
+	end
+	state.vanishUntil = nil
+	fireCombat(casterUserId)
+end
+
+local function applyFortify(
+	userId: number,
+	seconds: number,
+	reduction: number,
+	championId: string,
+	slot: Types.AbilitySlot
+)
+	if seconds <= 0 or reduction <= 0 then
+		return
+	end
+	local state = combat[userId]
+	if not state or not state.alive then
+		return
+	end
+	local active = state.guardUntil ~= nil and now() < state.guardUntil
+	if not ChampionKits.preferGuard(state.guardReduction or 0, active, reduction) then
+		return
+	end
+	state.guardUntil = now() + seconds
+	state.guardReduction = reduction
+	local root = rootOf(userId)
+	if root then
+		FxRelay.emit({
+			kind = "shield",
+			origin = root.Position,
+			userId = userId,
+			duration = seconds,
+			championId = championId,
+			slot = slot,
+		})
+	end
+	fireCombat(userId)
+end
+
 local function applyAuraGuard(
 	targetUserId: number,
 	seconds: number,
@@ -1628,6 +1861,7 @@ local function applyStrikes(ctx: StrikeCtx)
 		healAmount *= ChampionKits.healMultiplier(ctx.championId)
 	end
 	if healAmount > 0 then
+		local healed = false
 		for _, otherMatch in snapshot.players do
 			local otherRoot = rootOf(otherMatch.userId)
 			if otherMatch.team == ctx.team and otherRoot then
@@ -1637,6 +1871,21 @@ local function applyStrikes(ctx: StrikeCtx)
 						applyAuraGuard(otherMatch.userId, kit.auraGuardSeconds, kit.auraGuardReduction, ctx.championId, ctx.slot)
 					end
 					healUser(otherMatch.userId, healAmount)
+					healed = true
+				end
+			end
+		end
+		if healed and kit and kit.overclockPer > 0 then
+			local stacks = liveData(ctx.caster)
+			local plating = ChampionKits.overclockShield(stacks, kit.overclockPer)
+			if plating > 0 then
+				if not ctx.hit then
+					ctx.hit = {}
+				end
+				if not ctx.hit["kit:overclock"] then
+					ctx.hit["kit:overclock"] = true
+					clearData(ctx.caster)
+					shieldUser(ctx.caster, plating)
 				end
 			end
 		end
@@ -1678,6 +1927,9 @@ local function applyStrikes(ctx: StrikeCtx)
 	end
 	local wickStacks = if kit and kit.wickBonus > 0 then liveWick(ctx.caster) else 0
 	local spentWick = false
+	local vanishLive = kit ~= nil and kit.ambushSpend > 0 and liveVanish(ctx.caster)
+	local spentAmbush = false
+	local spentMark = false
 	for _, otherMatch in snapshot.players do
 		local otherRoot = rootOf(otherMatch.userId)
 		if otherMatch.team ~= ctx.team and otherRoot then
@@ -1694,10 +1946,52 @@ local function applyStrikes(ctx: StrikeCtx)
 					dealt = ctx.power * ChampionKits.wickPower(wickStacks, kit.wickBonus)
 					spentWick = true
 				end
+				if kit and kit.bleedSpend > 0 then
+					local stacks = liveBleed(otherMatch.userId, ctx.caster)
+					if stacks > 0 then
+						dealt *= ChampionKits.bleedPower(stacks, kit.bleedBonus)
+						clearBleed(otherMatch.userId, ctx.caster)
+					end
+				elseif kit and kit.bleedBonus > 0 then
+					local stacks = liveBleed(otherMatch.userId, ctx.caster)
+					if stacks > 0 then
+						dealt *= ChampionKits.bleedPower(stacks, kit.bleedBonus)
+					end
+				end
+				if vanishLive and kit and kit.ambushSpend > 0 then
+					local marked = liveMark(otherMatch.userId, ctx.caster)
+					local markPart = if marked then kit.markBonus else 0
+					dealt *= ChampionKits.ambushPower(kit.vanishBonus, markPart)
+					spentAmbush = true
+					if marked then
+						clearMark(otherMatch.userId, ctx.caster)
+						spentMark = true
+					end
+				end
 				damageUser(ctx.caster, otherMatch.userId, dealt)
 				if kit and kit.wickGain > 0 and not hit["kit:wick"] then
 					hit["kit:wick"] = true
 					gainWick(ctx.caster, kit.wickCap, kit.wickSeconds)
+				end
+				if kit and kit.dataGain > 0 and not hit["kit:data"] then
+					hit["kit:data"] = true
+					gainData(ctx.caster, kit.dataCap, kit.dataSeconds)
+				end
+				if kit and kit.bleedGain > 0 then
+					gainBleed(otherMatch.userId, ctx.caster, kit.bleedCap, kit.bleedSeconds)
+				end
+				if kit and kit.fortifySeconds > 0 and ctx.championId and ctx.slot and not hit["kit:fortify"] then
+					hit["kit:fortify"] = true
+					applyFortify(ctx.caster, kit.fortifySeconds, kit.fortifyReduction, ctx.championId, ctx.slot)
+				end
+				if
+					kit
+					and ChampionKits.marksFromBrush(kit.markGain, ctx.fromBrush == true)
+					and not spentMark
+					and not hit["kit:mark"]
+				then
+					hit["kit:mark"] = true
+					gainMark(otherMatch.userId, ctx.caster, kit.markSeconds)
 				end
 				if refund > 0 and not hit["kit:refund"] then
 					hit["kit:refund"] = true
@@ -1712,6 +2006,9 @@ local function applyStrikes(ctx: StrikeCtx)
 	end
 	if spentWick then
 		clearWick(ctx.caster)
+	end
+	if spentAmbush then
+		clearVanish(ctx.caster)
 	end
 	local minionHit = false
 	for _, minion in MinionService.list() do
@@ -1769,7 +2066,8 @@ local function launchShot(
 	stunSeconds: number,
 	kind: Types.AbilityKind,
 	championId: string,
-	slot: Types.AbilitySlot
+	slot: Types.AbilitySlot,
+	fromBrush: boolean?
 )
 	while #shots >= ProjectileLogic.MaxLive do
 		local old = table.remove(shots, 1)
@@ -1790,6 +2088,7 @@ local function launchShot(
 				hit = old.hit,
 				championId = old.championId,
 				slot = old.slot,
+				fromBrush = old.fromBrush,
 			})
 		end
 	end
@@ -1814,6 +2113,7 @@ local function launchShot(
 		duration = duration,
 		lastPos = origin,
 		hit = {},
+		fromBrush = fromBrush == true,
 	}
 	table.insert(shots, shot)
 	FxRelay.emit({
@@ -1865,6 +2165,7 @@ tickShots = function()
 			hit = shot.hit,
 			championId = shot.championId,
 			slot = shot.slot,
+			fromBrush = shot.fromBrush,
 		})
 		shot.lastPos = pos
 		if elapsed >= shot.duration then
@@ -2242,6 +2543,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
 	local stunSeconds = ability.stunSeconds or 0
 	local kit = ChampionKits.plan(champ.id, slot, stunSeconds)
+	local fromBrush = VisionLogic.brushAt(origin.X, origin.Z) ~= nil
 	local travel = if mode == "line" and kit.channelSeconds <= 0
 		then ProjectileLogic.travelSeconds(origin, dest, Config.Combat.ProjectileSpeed)
 		else nil
@@ -2307,6 +2609,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			stunSeconds = stunSeconds,
 			championId = champ.id,
 			slot = slot,
+			fromBrush = fromBrush,
 		})
 		zoneId = scheduleZone(
 			userId,
@@ -2337,7 +2640,8 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			stunSeconds,
 			ability.kind,
 			champ.id,
-			slot
+			slot,
+			fromBrush
 		)
 	else
 		applyStrikes({
@@ -2354,7 +2658,12 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			hit = {},
 			championId = champ.id,
 			slot = slot,
+			fromBrush = fromBrush,
 		})
+	end
+
+	if kit.vanishSeconds > 0 then
+		state.vanishUntil = t + kit.vanishSeconds
 	end
 
 	if kit.guardSeconds > 0 then

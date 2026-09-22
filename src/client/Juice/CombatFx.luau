@@ -495,6 +495,46 @@ local function placeSweater(at: Vector3, radius: number)
 	placeBurst(at, Color3.fromRGB(255, 236, 214), 2.1, 0.28)
 end
 
+local function placeOverclock(at: Vector3, radius: number)
+	local steel = Color3.fromRGB(176, 214, 232)
+	placeRing(at, radius, steel, 0.36)
+	placeRing(at, math.max(radius * 0.45, 3), Color3.fromRGB(210, 236, 255), 0.42)
+end
+
+local function placeBleed(at: Vector3)
+	local cut = Color3.fromRGB(176, 48, 42)
+	placeRing(at, 5, cut, 0.3)
+	for i = 1, 3 do
+		local tick = takePart(`Bleed{i}`)
+		tick.Shape = Enum.PartType.Block
+		tick.Size = Vector3.new(0.18, 2.4, 0.7)
+		local angle = (i / 3) * math.pi
+		tick.CFrame = CFrame.new(at + Vector3.new(math.cos(angle) * 1.2, 1.4, math.sin(angle) * 1.2))
+			* CFrame.Angles(0, angle, math.rad(18))
+		flashPart(tick, cut, 0.15)
+		release(tick, 0.28)
+	end
+end
+
+local function placeFortify(at: Vector3, radius: number)
+	local heater = Color3.fromRGB(196, 80, 70)
+	placeRing(at, radius, heater, 0.38)
+	placeBurst(at, Color3.fromRGB(232, 120, 96), 1.8, 0.22)
+end
+
+local function placeMark(at: Vector3)
+	local ink = Color3.fromRGB(36, 40, 64)
+	local edge = Color3.fromRGB(168, 140, 220)
+	placeRing(at, 6, ink, 0.22)
+	placeRing(at, 3.2, edge, 0.4)
+end
+
+local function placeVanish(origin: Vector3, dest: Vector3)
+	local smoke = Color3.fromRGB(28, 32, 52)
+	placeBeam(origin, dest, smoke, 2.4, 0.34)
+	placeBurst(dest, Color3.fromRGB(120, 110, 160), 1.6, 0.2)
+end
+
 local function followProjectile(event: Types.CombatFxEvent)
 	local dest = event.dest or event.origin
 	local duration = math.max(event.duration or 0.2, 0.08)
@@ -504,6 +544,8 @@ local function followProjectile(event: Types.CombatFxEvent)
 	local color = abilityColor(event.abilityKind)
 	if look == "laser" then
 		color = Color3.fromRGB(126, 214, 255)
+	elseif look == "data" then
+		color = Color3.fromRGB(176, 206, 220)
 	elseif look == "channel" then
 		color = Color3.fromRGB(255, 64, 196)
 	elseif look == "rainbow" then
@@ -513,6 +555,8 @@ local function followProjectile(event: Types.CombatFxEvent)
 	local width = math.max((event.radius or 6) * 0.45, 0.9)
 	if look == "laser" then
 		width = math.max(width * 0.55, 0.65)
+	elseif look == "data" then
+		width = math.max(width * 0.7, 0.7)
 	elseif look == "channel" then
 		width *= 1.35
 	end
@@ -584,6 +628,31 @@ local function playAbility(event: Types.CombatFxEvent)
 		return
 	elseif look == "sweater" then
 		placeSweater(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "overclock" then
+		placeOverclock(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "bleed" then
+		placeBleed(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "fortify" then
+		placeFortify(dest, radius)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "mark" then
+		placeMark(dest)
+		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
+		playKitSound(event, pitch, false)
+		return
+	elseif look == "vanish" then
+		placeVanish(origin, dest)
 		local pitch = if event.championId and event.slot then ChampionKits.castPitch(event.championId, event.slot) else 1
 		playKitSound(event, pitch, false)
 		return
@@ -676,6 +745,8 @@ function CombatFx.play(event: Types.CombatFxEvent)
 			local color = abilityColor(event.abilityKind)
 			if look == "laser" then
 				color = Color3.fromRGB(126, 214, 255)
+			elseif look == "data" then
+				color = Color3.fromRGB(176, 206, 220)
 			elseif look == "channel" or look == "rainbow" then
 				color = Color3.fromRGB(255, 96, 196)
 			end
@@ -692,6 +763,7 @@ function CombatFx.play(event: Types.CombatFxEvent)
 		local tint = if look == "guard"
 			then Color3.fromRGB(196, 148, 72)
 			elseif look == "sweater" then Color3.fromRGB(245, 214, 186)
+			elseif look == "fortify" then Color3.fromRGB(196, 92, 78)
 			else nil
 		followShield(event.userId or 0, event.origin, event.duration or 1.15, tint)
 	elseif event.kind == "stun" then

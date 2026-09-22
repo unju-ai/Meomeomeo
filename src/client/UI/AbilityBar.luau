@@ -180,10 +180,31 @@ function AbilityBar.create(parent: Instance): BarApi
 			if combat and combat.wickUntil and combat.wickStacks and combat.wickUntil > workspace:GetServerTimeNow() and combat.wickStacks > 0 then
 				wickBit = ` · Wick {combat.wickStacks}`
 			end
-			meta.Text = `{(if champ then champ.name else "Cat")} · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
-				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
+			local dataBit = ""
+			if combat and combat.dataUntil and combat.dataStacks and combat.dataUntil > workspace:GetServerTimeNow() and combat.dataStacks > 0 then
+				dataBit = ` · Data {combat.dataStacks}`
+			end
+			local bleedBit = ""
+			if combat and combat.bleedEchoUntil and combat.bleedEchoStacks and combat.bleedEchoUntil > workspace:GetServerTimeNow() and combat.bleedEchoStacks > 0 then
+				bleedBit = ` · Bleed {combat.bleedEchoStacks}`
+			end
+			local markBit = ""
+			if combat and combat.markUntil and combat.markUntil > workspace:GetServerTimeNow() then
+				markBit = " · Mark"
+			end
+			local vanishBit = ""
+			if combat and combat.vanishUntil and combat.vanishUntil > workspace:GetServerTimeNow() then
+				vanishBit = " · Vanish"
+			end
+			meta.Text = `{(if champ then champ.name else "Cat")}`
 				.. guardBit
 				.. wickBit
+				.. dataBit
+				.. bleedBit
+				.. markBit
+				.. vanishBit
+				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
+				.. ` · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. aaBit
 			xpFill.Size = UDim2.fromScale(if need > 0 then into / need else 1, 1)
 			if combat then

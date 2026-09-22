@@ -3,11 +3,28 @@
 -- Per-champion combat hooks. CombatService is the only applier.
 -- Flagship three: guard, pull, takedown reset, channel, refund, zone.
 -- Original three: Settled Loaf + Charge Knock, Open Wick + Hype Candle, Second Helping + Sweater Aura.
--- The eight expansion champions stay on the zero plan.
+-- Expansion three: Packet Buffer + Overclock, Honor Bleed + Shield Fortify, Alley Mark + Smoke Vanish.
+-- Chromeclaw, Oracle Paws, Archmeow, Hexkit, and Mindwhisker stay on the zero plan.
 
 local Types = require(script.Parent.Types)
 
-export type Look = "guard" | "pull" | "channel" | "rainbow" | "laser" | "zone" | "knock" | "wick" | "candle" | "sweater"
+export type Look =
+	"guard"
+	| "pull"
+	| "channel"
+	| "rainbow"
+	| "laser"
+	| "zone"
+	| "knock"
+	| "wick"
+	| "candle"
+	| "sweater"
+	| "data"
+	| "overclock"
+	| "bleed"
+	| "fortify"
+	| "mark"
+	| "vanish"
 
 export type CastPlan = {
 	guardSeconds: number,
@@ -27,6 +44,23 @@ export type CastPlan = {
 	wickBonus: number,
 	auraGuardSeconds: number,
 	auraGuardReduction: number,
+	dataGain: number,
+	dataCap: number,
+	dataSeconds: number,
+	overclockPer: number,
+	bleedGain: number,
+	bleedCap: number,
+	bleedSeconds: number,
+	bleedBonus: number,
+	bleedSpend: number,
+	fortifySeconds: number,
+	fortifyReduction: number,
+	markGain: number,
+	markSeconds: number,
+	ambushSpend: number,
+	vanishBonus: number,
+	markBonus: number,
+	vanishSeconds: number,
 }
 
 export type Identity = {
@@ -54,6 +88,19 @@ local SCAMMY_WICK_BONUS = 0.4
 local GRANDMA_HEAL_AMP = 1.22
 local GRANDMA_AURA_SECONDS = 2.4
 local GRANDMA_AURA_CUT = 0.22
+local BYTE_DATA_CAP = 3
+local BYTE_DATA_SECONDS = 6
+local BYTE_OVERCLOCK_PER = 42
+local SCRATCH_BLEED_CAP = 3
+local SCRATCH_BLEED_SECONDS = 7
+local SCRATCH_BLEED_BONUS = 0.18
+local SCRATCH_SPEND_BONUS = 0.34
+local SCRATCH_FORTIFY_SECONDS = 2
+local SCRATCH_FORTIFY_CUT = 0.28
+local SHADOW_MARK_SECONDS = 6
+local SHADOW_VANISH_SECONDS = 2.5
+local SHADOW_VANISH_BONUS = 0.4
+local SHADOW_MARK_BONUS = 0.55
 
 local ChampionKits = {}
 
@@ -76,6 +123,23 @@ local function zero(): CastPlan
 		wickBonus = 0,
 		auraGuardSeconds = 0,
 		auraGuardReduction = 0,
+		dataGain = 0,
+		dataCap = 0,
+		dataSeconds = 0,
+		overclockPer = 0,
+		bleedGain = 0,
+		bleedCap = 0,
+		bleedSeconds = 0,
+		bleedBonus = 0,
+		bleedSpend = 0,
+		fortifySeconds = 0,
+		fortifyReduction = 0,
+		markGain = 0,
+		markSeconds = 0,
+		ambushSpend = 0,
+		vanishBonus = 0,
+		markBonus = 0,
+		vanishSeconds = 0,
 	}
 end
 
@@ -137,6 +201,60 @@ function ChampionKits.plan(championId: string, slot: Types.AbilitySlot, stunSeco
 		plan.auraGuardReduction = GRANDMA_AURA_CUT
 		return plan
 	end
+	if championId == "Bytekit" and slot == "Q" then
+		local plan = zero()
+		plan.dataGain = 1
+		plan.dataCap = BYTE_DATA_CAP
+		plan.dataSeconds = BYTE_DATA_SECONDS
+		return plan
+	end
+	if championId == "Bytekit" and slot == "W" then
+		local plan = zero()
+		plan.overclockPer = BYTE_OVERCLOCK_PER
+		return plan
+	end
+	if championId == "SirScratchalot" and slot == "Q" then
+		local plan = zero()
+		plan.bleedGain = 1
+		plan.bleedCap = SCRATCH_BLEED_CAP
+		plan.bleedSeconds = SCRATCH_BLEED_SECONDS
+		plan.bleedBonus = SCRATCH_BLEED_BONUS
+		return plan
+	end
+	if championId == "SirScratchalot" and slot == "E" then
+		local plan = zero()
+		plan.bleedSpend = 1
+		plan.bleedBonus = SCRATCH_SPEND_BONUS
+		plan.fortifySeconds = SCRATCH_FORTIFY_SECONDS
+		plan.fortifyReduction = SCRATCH_FORTIFY_CUT
+		return plan
+	end
+	if championId == "SirScratchalot" and slot == "R" then
+		local plan = zero()
+		plan.bleedBonus = SCRATCH_BLEED_BONUS
+		return plan
+	end
+	if championId == "Shadowpounce" and slot == "Q" then
+		local plan = zero()
+		plan.markGain = 1
+		plan.markSeconds = SHADOW_MARK_SECONDS
+		plan.ambushSpend = 1
+		plan.vanishBonus = SHADOW_VANISH_BONUS
+		plan.markBonus = SHADOW_MARK_BONUS
+		return plan
+	end
+	if championId == "Shadowpounce" and (slot == "E" or slot == "R") then
+		local plan = zero()
+		plan.ambushSpend = 1
+		plan.vanishBonus = SHADOW_VANISH_BONUS
+		plan.markBonus = SHADOW_MARK_BONUS
+		return plan
+	end
+	if championId == "Shadowpounce" and slot == "W" then
+		local plan = zero()
+		plan.vanishSeconds = SHADOW_VANISH_SECONDS
+		return plan
+	end
 	return zero()
 end
 
@@ -149,6 +267,15 @@ function ChampionKits.identity(championId: string): Identity?
 	end
 	if championId == "GrandmaFluff" then
 		return { passive = "Second Helping", signature = "Sweater Aura" }
+	end
+	if championId == "Bytekit" then
+		return { passive = "Packet Buffer", signature = "Overclock" }
+	end
+	if championId == "SirScratchalot" then
+		return { passive = "Honor Bleed", signature = "Shield Fortify" }
+	end
+	if championId == "Shadowpounce" then
+		return { passive = "Alley Mark", signature = "Smoke Vanish" }
 	end
 	return nil
 end
@@ -234,6 +361,52 @@ function ChampionKits.wickPower(stacks: number, bonus: number): number
 	return 1 + stacks * bonus
 end
 
+function ChampionKits.addData(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+function ChampionKits.overclockShield(stacks: number, per: number): number
+	if stacks <= 0 or per <= 0 then
+		return 0
+	end
+	return stacks * per
+end
+
+function ChampionKits.addBleed(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+function ChampionKits.bleedPower(stacks: number, bonus: number): number
+	if stacks <= 0 or bonus <= 0 then
+		return 1
+	end
+	return 1 + stacks * bonus
+end
+
+function ChampionKits.marksFromBrush(markGain: number, inBrush: boolean): boolean
+	return markGain > 0 and inBrush
+end
+
+function ChampionKits.ambushPower(vanishBonus: number, markBonus: number): number
+	local bonus = 0
+	if vanishBonus > 0 then
+		bonus += vanishBonus
+	end
+	if markBonus > 0 then
+		bonus += markBonus
+	end
+	if bonus <= 0 then
+		return 1
+	end
+	return 1 + bonus
+end
+
 function ChampionKits.pulsePower(total: number, pulses: number): number
 	if pulses <= 1 then
 		return total
@@ -275,6 +448,24 @@ function ChampionKits.look(championId: string, slot: Types.AbilitySlot): Look?
 	if championId == "GrandmaFluff" and slot == "W" then
 		return "sweater"
 	end
+	if championId == "Bytekit" and slot == "Q" then
+		return "data"
+	end
+	if championId == "Bytekit" and slot == "W" then
+		return "overclock"
+	end
+	if championId == "SirScratchalot" and slot == "Q" then
+		return "bleed"
+	end
+	if championId == "SirScratchalot" and slot == "E" then
+		return "fortify"
+	end
+	if championId == "Shadowpounce" and slot == "Q" then
+		return "mark"
+	end
+	if championId == "Shadowpounce" and slot == "W" then
+		return "vanish"
+	end
 	return nil
 end
 
@@ -294,6 +485,18 @@ function ChampionKits.castPitch(championId: string, slot: Types.AbilitySlot): nu
 		return 1.12
 	elseif look == "sweater" then
 		return 0.82
+	elseif look == "data" then
+		return 1.36
+	elseif look == "overclock" then
+		return 0.9
+	elseif look == "bleed" then
+		return 0.76
+	elseif look == "fortify" then
+		return 0.7
+	elseif look == "mark" then
+		return 1.16
+	elseif look == "vanish" then
+		return 0.62
 	end
 	return 1
 end
@@ -313,6 +516,9 @@ function ChampionKits.helpRows(): { { string } }
 		{ "Chonk", "E: loaf · Q: knock" },
 		{ "Scammy", "Q: wick · E: candle" },
 		{ "Grandma", "Heals amp · W: aura" },
+		{ "Byte", "Q: data · W: overclock" },
+		{ "Scratch", "Q: bleed · E: fortify" },
+		{ "Shadow", "Brush Q: mark · W: vanish" },
 	}
 end
 
@@ -322,6 +528,10 @@ end
 
 function ChampionKits.practiceTipMore(): string
 	return "Chonk — Settled Loaf: E cuts damage after the flop. Charge Knock: Q bowls champs. Scammy — Open Wick stacks on Q (max 3). Hype Candle spends them. Grandma — Second Helping boosts heals. Sweater Aura on W cuts damage."
+end
+
+function ChampionKits.practiceTipExpansion(): string
+	return "Byte — Packet Buffer: Q on a cat stores Data (max 3). Overclock: W spends it as a shield. Scratch — Honor Bleed: Q stacks a cut (max 3). Shield Fortify: E cashes it and you take less. Shadow — Alley Mark: Q from brush. Smoke Vanish: W, then the next cat hit hits harder."
 end
 
 return ChampionKits

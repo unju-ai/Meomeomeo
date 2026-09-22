@@ -52,6 +52,11 @@ local SEQUENCE: { Tip } = {
 		body = ChampionKits.practiceTipMore(),
 	},
 	{
+		id = "kits3",
+		title = "Three expansion kits",
+		body = ChampionKits.practiceTipExpansion(),
+	},
+	{
 		id = "shop",
 		title = "Pawmart (B)",
 		body = "B opens the shop — only at your fountain. Spend match gold on claws and yarn. B is not recall.",
@@ -110,7 +115,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	Theme.stroke(root, Theme.coral, 2, 0.2)
 	Theme.pad(root, 12)
 
-	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 11", 11, Theme.coral, Theme.fontMono)
+	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 12", 11, Theme.coral, Theme.fontMono)
 	kicker.Size = UDim2.new(1, -8, 0, 16)
 
 	local title = Theme.text(root, "Title", "", 18, Theme.cream, Theme.fontTitle)
