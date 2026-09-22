@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ActiveJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ActiveJuice"))
+local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrushJuice"))
 local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local CombatFloat = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CombatFloat"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
@@ -25,6 +26,7 @@ local Theme = require(script.Parent.Parent.Theme)
 local CameraFollow = require(script.Parent.Parent.CameraFollow)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
 local FogOfWar = require(script.Parent.FogOfWar)
+local ScreenJuice = require(script.Parent.ScreenJuice)
 local CombatFx = {}
 
 local FOLDER_NAME = "MeoFx"
@@ -78,6 +80,32 @@ local epicRims: { [number]: Highlight } = {}
 local suppressRecallUntil: { [number]: number } = {}
 local floatPops: { FloatPop } = {}
 local floatMergeSlots: { CombatFloat.MergeSlot } = {}
+
+type BrushPeer = {
+	userId: number,
+	team: string,
+}
+
+local brushState: {
+	watch: BrushJuice.Watch,
+	allies: { [number]: BrushJuice.Watch },
+	peers: { BrushPeer },
+	visible: { [number]: boolean },
+	allowed: boolean,
+	matchId: string?,
+	localId: number,
+	team: string?,
+} = {
+	watch = BrushJuice.blank(),
+	allies = {},
+	peers = {},
+	visible = {},
+	allowed = false,
+	matchId = nil,
+	localId = 0,
+	team = nil,
+}
+local stepBrush: (number) -> ()
 
 local function fxFolder(): Folder
 	if folder and folder.Parent then
@@ -137,6 +165,7 @@ local function resetPart(part: BasePart)
 	part.CastShadow = false
 	part.Massless = true
 	part.Transparency = 1
+	part.LocalTransparencyModifier = 0
 	part.Size = Vector3.new(0.4, 0.4, 0.4)
 	part.CFrame = CFrame.new(0, -50, 0)
 	local spark = part:FindFirstChild("Spark")
@@ -576,6 +605,7 @@ ensureLoop = function()
 	loopBound = true
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
+		stepBrush(now)
 		for key, follow in follows do
 			if now >= follow.expiresAt then
 				clearFollow(key)
@@ -678,6 +708,21 @@ ensureLoop = function()
 					else
 						ring.LocalTransparencyModifier = 0
 					end
+				end
+			elseif follow.kind == "brush" then
+				local ring = follow.parts[1]
+				if ring then
+					local cueName: BrushJuice.CueKind = if follow.cue == "ally" then "ally" else "local"
+					local span = BrushJuice.discSpan(cueName)
+					local baseT = follow.baseTransparency or BrushJuice.washTransparency(cueName, "stay")
+					local pulse = 0.012 * math.sin(now * 1.3)
+					ring.Size = Vector3.new(0.08, span, span)
+					ring.Transparency = math.clamp(baseT + pulse, 0.5, 0.97)
+					ring.Material = Enum.Material.ForceField
+					ring.CFrame = CFrame.new(root.Position.X, root.Position.Y - 2.2, root.Position.Z)
+						* CFrame.Angles(0, now * 0.35, math.rad(90))
+					local show = cueName == "local" or brushState.visible[follow.userId] == true
+					ring.LocalTransparencyModifier = if show then 0 else 1
 				end
 			elseif follow.kind == "shield" then
 				local bubble = follow.parts[1]
@@ -2368,6 +2413,265 @@ local function spawnRespawnBack(at: Vector3)
 		local fade = if age < life * 0.4 then 0.38 else 0.38 + ((age / life) - 0.4) * 1.05
 		label.TextTransparency = math.clamp(fade, 0, 1)
 	end)
+end
+
+local function brushRgb(triple: { number }): Color3
+	return Color3.fromRGB(triple[1], triple[2], triple[3])
+end
+
+local function followBrush(userId: number, cue: BrushJuice.CueKind)
+	local key = `brush:{userId}`
+	local existing = follows[key]
+	local transparency = BrushJuice.washTransparency(cue, "stay")
+	if existing and existing.kind == "brush" then
+		existing.expiresAt = os.clock() + BrushJuice.StayRefresh
+		existing.cue = cue
+		existing.baseTransparency = transparency
+		local ring = existing.parts[1]
+		if ring then
+			ring.LocalTransparencyModifier = 0
+		end
+		return
+	end
+	clearFollow(key)
+	local span = BrushJuice.discSpan(cue)
+	local ring = takePart("BrushStay")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.08, span, span)
+	ring.Material = Enum.Material.ForceField
+	ring.Color = brushRgb(BrushJuice.tint("stay"))
+	ring.Transparency = transparency
+	ring.LocalTransparencyModifier = 0
+	follows[key] = {
+		kind = "brush",
+		userId = userId,
+		parts = { ring },
+		expiresAt = os.clock() + BrushJuice.StayRefresh,
+		offset = 0,
+		cue = cue,
+		baseTransparency = transparency,
+	}
+end
+
+local function brushRing(at: Vector3, cue: BrushJuice.CueKind, edge: BrushJuice.Edge)
+	local span = if edge == "stay" then BrushJuice.discSpan(cue) else BrushJuice.discSpan(cue) * 0.72
+	local ring = takePart("BrushHush")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.08, span, span)
+	ring.Material = Enum.Material.ForceField
+	ring.Color = brushRgb(BrushJuice.tint(edge))
+	ring.Transparency = BrushJuice.washTransparency(cue, edge)
+	ring.CFrame = CFrame.new(at.X, at.Y - 2.05, at.Z) * CFrame.Angles(0, 0, math.rad(90))
+	ring.LocalTransparencyModifier = 0
+	release(ring, BrushJuice.life(edge))
+end
+
+local function brushLeaves(at: Vector3)
+	local color = brushRgb(BrushJuice.Mint)
+	local count = BrushJuice.LeafCount
+	for i = 1, count do
+		local leaf = takePart("BrushLeaf")
+		leaf.Shape = Enum.PartType.Ball
+		leaf.Size = Vector3.new(0.62, 0.2, 0.86)
+		leaf.Material = Enum.Material.ForceField
+		leaf.Color = color
+		leaf.Transparency = 0.5
+		leaf.LocalTransparencyModifier = 0
+		local angle = (i - 1) * (math.pi * 2 / count)
+		leaf.CFrame = CFrame.new(at + Vector3.new(math.cos(angle) * 1.05, -1.35, math.sin(angle) * 1.05))
+		TweenService:Create(leaf, TweenInfo.new(BrushJuice.EnterSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = leaf.CFrame + Vector3.new(0, 1.5, 0),
+			Transparency = 1,
+		}):Play()
+		release(leaf, BrushJuice.EnterSeconds)
+	end
+end
+
+local function paintBrushEdge(userId: number, cue: BrushJuice.CueKind, edge: BrushJuice.Edge, at: Vector3?)
+	if edge == "enter" then
+		if at then
+			brushRing(at, cue, "enter")
+			if BrushJuice.wantsLeaves(cue, "enter") then
+				brushLeaves(at)
+			end
+		end
+		if BrushJuice.wantsVignette(cue, "enter") then
+			ScreenJuice.brushWash("enter")
+		end
+		if BrushJuice.wantsHush(cue, "enter") then
+			Sfx.play("BrushHush")
+		end
+		return
+	end
+	if edge == "leave" then
+		clearFollow(`brush:{userId}`)
+		if at then
+			brushRing(at, cue, "leave")
+		end
+		if BrushJuice.wantsVignette(cue, "leave") then
+			ScreenJuice.brushWash("leave")
+		end
+	end
+end
+
+local function stepOneBrush(userId: number, cue: BrushJuice.CueKind, watch: BrushJuice.Watch, root: BasePart, now: number): BrushJuice.Watch
+	local switched = watch.matchId ~= nil and watch.matchId ~= brushState.matchId
+	if switched then
+		clearFollow(`brush:{userId}`)
+	elseif watch.matchId == brushState.matchId then
+		local held = BrushJuice.pocket(root.Position.X, root.Position.Z)
+		if held == watch.pocket then
+			if held ~= nil then
+				followBrush(userId, cue)
+				if cue == "local" then
+					ScreenJuice.brushWash("stay")
+				end
+			end
+			return watch
+		end
+	end
+	local nextWatch, edge, pocket, burst = BrushJuice.observe(
+		watch,
+		brushState.matchId,
+		root.Position.X,
+		root.Position.Z,
+		true,
+		now
+	)
+	if edge == "enter" and burst then
+		paintBrushEdge(userId, cue, "enter", root.Position)
+	elseif edge == "leave" then
+		clearFollow(`brush:{userId}`)
+		if burst then
+			paintBrushEdge(userId, cue, "leave", root.Position)
+		elseif BrushJuice.wantsVignette(cue, "leave") then
+			ScreenJuice.brushWash("clear")
+		end
+	elseif switched and edge ~= "enter" and BrushJuice.wantsVignette(cue, "leave") then
+		ScreenJuice.brushWash("clear")
+	end
+	if pocket ~= nil and BrushJuice.shouldPaint(cue) then
+		followBrush(userId, cue)
+		if cue == "local" and edge == "stay" then
+			ScreenJuice.brushWash("stay")
+		end
+	end
+	return nextWatch
+end
+
+stepBrush = function(now: number)
+	local localId = brushState.localId
+	if not brushState.allowed then
+		if brushState.watch.pocket == nil and next(brushState.allies) == nil then
+			return
+		end
+		local nextWatch, edge, _, burst = BrushJuice.observe(brushState.watch, brushState.matchId, 0, 0, false, now)
+		brushState.watch = nextWatch
+		if edge == "leave" then
+			clearFollow(`brush:{localId}`)
+			if burst then
+				ScreenJuice.brushWash("leave")
+			end
+		end
+		for userId, watch in brushState.allies do
+			if watch.pocket ~= nil then
+				clearFollow(`brush:{userId}`)
+			end
+		end
+		table.clear(brushState.allies)
+		return
+	end
+
+	local localRoot = rootOf(localId)
+	if localRoot then
+		brushState.watch = stepOneBrush(localId, "local", brushState.watch, localRoot, now)
+	elseif brushState.watch.pocket ~= nil then
+		clearFollow(`brush:{localId}`)
+		ScreenJuice.brushWash("clear")
+		brushState.watch = {
+			matchId = brushState.matchId,
+			pocket = nil,
+			burstAt = brushState.watch.burstAt,
+		}
+	end
+
+	local seen: { [number]: boolean } = {}
+	for _, peer in brushState.peers do
+		if peer.userId == localId then
+			continue
+		end
+		seen[peer.userId] = true
+		local same = brushState.team ~= nil and peer.team == brushState.team
+		local cue = BrushJuice.cueKind(localId, peer.userId, same, brushState.visible[peer.userId] == true)
+		-- Hidden enemies (and allies outside vision) never get a foot mark.
+		if not BrushJuice.shouldPaint(cue) then
+			local prev = brushState.allies[peer.userId]
+			if prev and prev.pocket ~= nil then
+				clearFollow(`brush:{peer.userId}`)
+			end
+			if prev then
+				brushState.allies[peer.userId] = {
+					matchId = brushState.matchId,
+					pocket = nil,
+					burstAt = prev.burstAt,
+				}
+			end
+			continue
+		end
+		local root = rootOf(peer.userId)
+		if not root then
+			continue
+		end
+		local prev = brushState.allies[peer.userId] or BrushJuice.blank()
+		brushState.allies[peer.userId] = stepOneBrush(peer.userId, cue, prev, root, now)
+	end
+	local stale: { number } = {}
+	for userId in brushState.allies do
+		if not seen[userId] then
+			table.insert(stale, userId)
+		end
+	end
+	for _, userId in stale do
+		local watch = brushState.allies[userId]
+		if watch and watch.pocket ~= nil then
+			clearFollow(`brush:{userId}`)
+		end
+		brushState.allies[userId] = nil
+	end
+end
+
+-- Roster + vision ids for the brush wash. The heartbeat samples positions.
+-- Stealth stays in VisionLogic.brushAt; this only stores who may be painted.
+function CombatFx.syncBrush(
+	snapshot: Types.MatchSnapshot?,
+	localUserId: number,
+	gameMode: string,
+	visibleIds: { number }?
+)
+	brushState.localId = localUserId
+	brushState.allowed = snapshot ~= nil and BrushJuice.modeAllows(gameMode, snapshot.phase)
+	if snapshot then
+		brushState.matchId = snapshot.id
+		local mine = snapshot.players[tostring(localUserId)]
+		brushState.team = if mine then mine.team else nil
+		table.clear(brushState.peers)
+		for _, matchPlayer in snapshot.players do
+			table.insert(brushState.peers, {
+				userId = matchPlayer.userId,
+				team = matchPlayer.team,
+			})
+		end
+	else
+		table.clear(brushState.peers)
+	end
+	table.clear(brushState.visible)
+	if visibleIds then
+		for _, userId in visibleIds do
+			brushState.visible[userId] = true
+		end
+	end
+	brushState.visible[localUserId] = true
+	ensureLoop()
 end
 
 -- Local: mint pad puff + delayed silhouette wash.

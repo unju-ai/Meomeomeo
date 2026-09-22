@@ -27,6 +27,7 @@ local DEBOUNCE: { [string]: number } = {
 	PingSoft = 0.18,
 	PingWarn = 0.18,
 	CoinTick = 0.12,
+	BrushHush = 0.32,
 }
 
 local group: SoundGroup

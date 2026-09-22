@@ -5,12 +5,16 @@
 local TweenService = game:GetService("TweenService")
 
 local CameraFollow = require(script.Parent.Parent.CameraFollow)
+local BrushJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BrushJuice"))
 local LevelUpJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LevelUpJuice"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local ScreenJuice = {}
 
 local flash: Frame?
+local brushFrame: Frame?
+local brushHold: string? = nil
+local brushToken = 0
 local levelLabel: TextLabel?
 local levelSub: TextLabel?
 local levelToken = 0
@@ -34,6 +38,16 @@ local function ensure(gui: ScreenGui)
 	flash.Size = UDim2.fromScale(1, 1)
 	flash.ZIndex = 20
 	flash.Parent = overlay
+
+	brushFrame = Instance.new("Frame")
+	brushFrame.Name = "BrushWash"
+	brushFrame.Active = false
+	brushFrame.BackgroundColor3 = Color3.fromRGB(BrushJuice.Shade[1], BrushJuice.Shade[2], BrushJuice.Shade[3])
+	brushFrame.BackgroundTransparency = 1
+	brushFrame.BorderSizePixel = 0
+	brushFrame.Size = UDim2.fromScale(1, 1)
+	brushFrame.ZIndex = 18
+	brushFrame.Parent = overlay
 
 	levelLabel = Theme.text(overlay, "LevelUp", "", 42, Theme.cream, Theme.fontTitle)
 	levelLabel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -76,6 +90,74 @@ end
 
 function ScreenJuice.init(gui: ScreenGui)
 	ensure(gui)
+end
+
+local function brushColor(edge: string): Color3
+	local kind: BrushJuice.Edge = "enter"
+	if edge == "leave" then
+		kind = "leave"
+	elseif edge == "stay" then
+		kind = "stay"
+	end
+	local rgb = BrushJuice.vignetteRgb(kind)
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
+-- Local brush wash. Enter darkens a little, stay holds a faint leaf tint, leave fades cream.
+-- Allies do not call this. A second stay while already held does not restart the tween.
+function ScreenJuice.brushWash(edge: string)
+	local frame = brushFrame
+	if not frame then
+		return
+	end
+	if edge == "stay" then
+		if brushHold == "stay" or brushHold == "enter" then
+			return
+		end
+		brushHold = "stay"
+		frame.BackgroundColor3 = brushColor("stay")
+		TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = BrushJuice.vignettePeak("stay"),
+		}):Play()
+		return
+	end
+	if edge == "clear" or edge == "none" then
+		if brushHold == nil and frame.BackgroundTransparency >= 0.99 then
+			return
+		end
+		brushToken += 1
+		brushHold = nil
+		TweenService:Create(frame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			BackgroundTransparency = 1,
+		}):Play()
+		return
+	end
+	brushToken += 1
+	local token = brushToken
+	brushHold = edge
+	local peakEdge: BrushJuice.Edge = if edge == "leave" then "leave" else "enter"
+	frame.BackgroundColor3 = brushColor(peakEdge)
+	TweenService:Create(frame, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = BrushJuice.vignettePeak(peakEdge),
+	}):Play()
+	local hold = BrushJuice.life(peakEdge)
+	task.delay(hold, function()
+		if token ~= brushToken then
+			return
+		end
+		if edge == "enter" then
+			brushHold = "stay"
+			frame.BackgroundColor3 = brushColor("stay")
+			TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = BrushJuice.vignettePeak("stay"),
+			}):Play()
+			return
+		end
+		brushHold = nil
+		TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			BackgroundTransparency = 1,
+		}):Play()
+	end)
 end
 
 function ScreenJuice.damageFlash()

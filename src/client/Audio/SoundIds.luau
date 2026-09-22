@@ -28,6 +28,7 @@ export type Cue =
 	| "PingSoft"
 	| "PingWarn"
 	| "CoinTick"
+	| "BrushHush"
 
 export type CueDef = {
 	id: string,
@@ -153,6 +154,12 @@ local SoundIds: { [Cue]: CueDef } = {
 		id = "rbxasset://sounds/switch.wav",
 		volume = 0.16,
 		playbackSpeed = 1.42,
+	},
+	-- Foot hush when the local cat steps into brush. Quieter than a cast swoosh.
+	BrushHush = {
+		id = "rbxasset://sounds/swoosh.wav",
+		volume = 0.1,
+		playbackSpeed = 0.68,
 	},
 }
 
