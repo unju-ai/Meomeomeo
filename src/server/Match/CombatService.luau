@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local ChampionCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionCatalog"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Progression = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Progression"))
+local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
@@ -1321,6 +1322,36 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 		2,
 		math.clamp(dest.Z, bounds.MinZ, bounds.MaxZ)
 	)
+	local mine = snapshot.players[tostring(player.UserId)]
+	if mine then
+		local snap = Config.Vision.LastKnownSnap
+		local best: Vector3? = nil
+		local bestD = snap
+		for _, otherMatch in snapshot.players do
+			if otherMatch.team ~= mine.team and not VisionService.canSeeChampion(player.UserId, otherMatch.userId) then
+				local known = VisionService.lastKnownOf(mine.team, otherMatch.userId)
+				local otherRoot = rootOf(otherMatch.userId)
+				-- Clicking a live hidden body would leak their current tile — remap.
+				if otherRoot and (otherRoot.Position - dest).Magnitude <= snap then
+					if known then
+						dest = Vector3.new(known.X, 2, known.Z)
+						best = nil
+						break
+					end
+				end
+				if known and VisionLogic.brushAt(known.X, known.Z) ~= nil then
+					local d = (Vector3.new(known.X, dest.Y, known.Z) - dest).Magnitude
+					if d < bestD then
+						best = Vector3.new(known.X, 2, known.Z)
+						bestD = d
+					end
+				end
+			end
+		end
+		if best then
+			dest = best
+		end
+	end
 	interruptRecall(player)
 	locks[player.UserId] = { kind = "player", moveTo = dest }
 	pushCombat(player.UserId)

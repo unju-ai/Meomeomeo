@@ -47,7 +47,7 @@ rojo build default.project.json -o MeoMeoMeo.rbxlx
 
 Press **Play** to generate the map and host models; these are created by server scripts at runtime. This route does not need an active Rojo connection. Rebuild after source changes. Generated place files are gitignored; commit source changes instead.
 
-Build verification on 2026-09-17: Luau compiled 108 sources; combat projectile + Control Yarn stacks + vision/fog (wall LoS, 10-stud grid) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
+Build verification on 2026-09-22: Luau compiled 109 sources; combat projectile + Control Yarn stacks + vision/fog (wall LoS, 10-stud grid, match-lifetime explored OR) + brand/lobby + cosmetics/arcade/koi/yarn/party smokes passed. This is build verification, not a Studio playtest.
 
 ### Lobby host acceptance check
 
@@ -87,7 +87,7 @@ rojo serve
    - **Normal** — last-hits, leads traveling skillshots (72 studs/s), sidesteps incoming bolts/AoEs (hang uses travel time), dives only with a crashing wave or a short low-HP chase, mid may clear a nearby camp.
    - **Hard** — faster, 1.22× damage, tighter CS, full build, one early **magenta control (pink)** ward, kill-dives, uses Whisker Lens on revealed enemy wards.
 2. You are Blue Whiskers vs **3 Red (Bot)** cats. Draft a cat (Professor Whiskers / Bytekit / Nyan Rocket are easy to read). Cards show a color swatch + ears. After lock-in, you and the Red bots should have **distinct silhouettes** (ears/tail/archetype flair) and nameplates (`Champion · role`, bots keep `(Bot)`). The rift should read as a night-market: gold lane dots, indigo river, fountain lanterns, tower ears / yarn, jungle camp pedestals. **Fog of war** darkens ground outside ally vision. Your fountain, nearby living towers, and ally minions light bubbles. Red bots in river/jungle stay hidden until they walk into a bubble.
-3. Walk a lane. Unseen ground stays dark; the minimap matches (no enemy dots in fog). **LMB** a bot or minion — claw flash + hit spark. You cannot AA a target you cannot see. Hold **Q** if the kit is a line skillshot (aim indicator), **release** to fire a **traveling bolt** (hits on contact, server-authoritative; client VFX follows — bolts are not clipped by the ground fog overlay). Ground AoEs (Paw Slam etc.): **first press** shows the ring, **click or press again** to confirm at the cursor; **Esc / right-click** cancels. Instant heals still fire on press. Dashes stay hold-to-aim + streak.
+3. Walk a lane. Unseen ground stays dark; the minimap matches (no enemy dots in fog). Walk back: cells you already lit stay a lighter **explored-but-unseen** tint (not full black). **LMB** a bot or minion — claw flash + hit spark. You cannot AA a target you cannot see. Hold **Q** if the kit is a line skillshot (aim indicator), **release** to fire a **traveling bolt** (hits on contact, server-authoritative; client VFX follows — bolts are not clipped by the ground fog overlay). Ground AoEs (Paw Slam etc.): **first press** shows the ring, **click or press again** to confirm at the cursor; **Esc / right-click** cancels. Instant heals still fire on press. Dashes stay hold-to-aim + streak.
 4. **4** drop a stealthed team-tinted trinket — the pocket it covers should **light up** for your team (and stay dark for Red). Walk a jungle **brush** pocket (NW/NE/SE/SW or river-crab): you vanish from enemies until they enter. **B** at fountain → buy **Control Yarn** (up to 2) → **6** plants a magenta pink ball (visible to everyone, slows, reveals nearby enemy trinkets, grants team vision). Buy **Whisker Lens** → **5** if you see an enemy ward. On **Hard**, the Red mid jungler may also plant a free pink.
 5. **F** recall (7s) — mint circle under your feet. **Tab** scoreboard (bots tagged).
 6. Kill all **3 Red towers** until the nexus billboard says `(OPEN)` (tower bolts + death puff), then scratch the nexus.
@@ -210,7 +210,7 @@ Hub: **Cat Rift** / **Yarn Run** / **Koi Pond** / **Yarn Party** / **Meme Arcade
 - **Ground confirm:** first Q/W/E/R on a ground AoE shows the ring; **click or press again** casts at the cursor. **Esc / right-click / S** cancels. Lines and dashes stay **hold-to-aim, release-to-fire**.
 - **Bots:** Normal/Hard lead with the same projectile speed (0.7s cap) and sidestep for `travel + 0.12s` so they still dodge the bolt instead of the old instant ray.
 - **Pink vs trinket:** **4** is a stealthed team-tinted pillar. **6** (after Pawmart **Control Yarn**, 2 charges) is a magenta ball enemies can see. Pinks grant a bit more team vision, slow foes in 22 studs, and keep nearby enemy trinkets revealed. Hard jungle bots still drop one free pink. Both kinds feed the server fog mask.
-- **Fog of war:** unseen ground is a dark overlay (10-stud grid). Vision bubbles come from living ally cats, kittens, towers/nexus, trinkets, and pinks. **Keep walls** block LoS (mid gate open). Minimap uses the same mask. Jungle brush hides occupants until an ally source enters that pocket. Enemy traveling bolts hide in fog; yours stay visible. Attack-move / AA will not lock an unseen brush target. Server owns the set; the client only paints it. Smoke: `python3 tools/test-vision.py /path/to/luau`.
+- **Fog of war:** unseen ground is a dark overlay (10-stud grid). Vision bubbles come from living ally cats, kittens, towers/nexus, trinkets, and pinks. **Keep walls** block LoS (mid gate open). Minimap uses the same mask. Explored-but-unseen stays a lighter tint after you leave (server match memory, restored on reconnect; not DataStore). Jungle brush hides occupants until an ally source enters that pocket. Enemy traveling bolts hide in fog; yours stay visible. Attack-move / AA will not lock an unseen brush target; attack-move walks into last-known brush. Server owns the set; the client only paints it. Smoke: `python3 tools/test-vision.py /path/to/luau`.
 - Smoke: `python3 tools/test-combat.py /path/to/luau` (Targeting + ProjectileLogic). `python3 tools/test-items.py /path/to/luau` (Control Yarn stacks). Studio Play is still the real feel check.
 
 ## 6. Meo404 in Studio (no live Robux)
@@ -291,14 +291,14 @@ Hold **G** in a match (Practice counts) for the 6-slice ping wheel. Minimap clic
 Practice (or a live match) is the check. Hub / Yarn Run / Koi Pond / Yarn Party / Meme Arcade / Closet must **not** show the rift fog overlay.
 
 - At spawn, fountain + nearby living towers are lit. Walk toward river: ground ahead stays dark until you (or a wave / ward) get there. **Base walls** block sight — you should not see through the keep into (or out of) fountain except via the **mid-lane gate**.
-- Minimap: dark cells = no vision. Explored-but-unseen is a lighter dark. Enemy bots do not get dots until they enter a bubble.
+- Minimap: dark cells = no vision. Explored-but-unseen is a lighter dark and **stays that way after you leave** — it does not black out again. Rejoin / script reload mid-match should restore the same explored tint (server match memory, not DataStore). A new Practice starts unexplored.
 - **4** in jungle lights a team bubble. Red should not see your stealthed trinket unless they walk on it, lens it, or a pink reveals it.
 - **6** magenta pink is visible to Red even in fog, and still grants your team a vision bubble + slow + trinket reveal. Pink vision still respects walls.
-- Stand in a labeled brush pocket: you should drop off the enemy minimap until they enter. You can still see the lane from inside. **LMB / attack-move (X)** must **not** lock an unseen brush target (walks instead if attack-move).
+- Stand in a labeled brush pocket: you should drop off the enemy minimap until they enter. You can still see the lane from inside. **LMB / attack-move (X)** must **not** lock an unseen brush target. Attack-move toward a last-seen brush pocket walks **into** that last-known tile (never the hidden live body).
 - Enemy traveling **Q bolts** hide while the projectile is in unseen/unexplored fog. **Your own** bolt stays visible. Server still simulates hits.
 - After **Back to lobby**, the overlay is gone and hub hosts / Closet look normal.
 
-Server authority: `VisionService` builds `fogBits` + visible unit ids (radius + brush + wall LoS). AA / attack-move / pings refuse fogged champs. `python3 tools/test-vision.py` covers grid pack, brush, and wall LoS, not Studio rendering.
+Server authority: `VisionService` builds `fogBits` + match-lifetime `exploredBits` + visible unit ids (radius + brush + wall LoS). Memory resets on match start/stop only. AA / attack-move / pings refuse fogged champs; attack-move can path to last-known brush. `python3 tools/test-vision.py` covers grid pack, brush, wall LoS, and mask OR, not Studio rendering.
 
 ## 9. If something is quiet / missing
 
@@ -328,7 +328,7 @@ Live reserved-teleport playtest in this cloud agent, uploaded cat meshes (silhou
 
 The sixth grid slot is **Meet the cats**, beside the five playable modes. Click MEO, ME and MO and verify each opens the matching greeting. Switch cats while a reply is pending and confirm the old reply stays out of the new conversation. Start each game mode from an open chat and confirm the chat closes. Check the portraits and text on desktop and phone; visual Studio validation is still pending.
 
-Verified locally: all 108 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
+Verified locally: all 109 Luau sources compile; combat projectile, Control Yarn stacks, **vision/fog + brush + wall LoS + match-lifetime exploredBits**, brand/hub, Yarn Run (incl. stall-board ranking + Anonymous Cat), Koi Pond, Yarn Party and Meme Arcade smoke suites pass; Rojo 7.4.4 builds `MeoMeoMeo.rbxlx`. These checks do not replace a Studio playtest.
 
 ## Responsive hub (2026-09-18)
 

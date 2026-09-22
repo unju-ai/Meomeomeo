@@ -27,7 +27,7 @@ local LINES_MOBA: { { string } } = {
 	{ "4", "Trinket ward (team tint, stealthed)" },
 	{ "5", "Whisker Lens (buy at Pawmart first)" },
 	{ "6", "Control Yarn / pink (buy, 2 charges). Visible · slow · true sight" },
-	{ "Fog", "Unseen ground is dark. Walls block LoS. Brush hides until entered. Bolts vanish in fog" },
+	{ "Fog", "Unseen ground is dark. Explored stays dim. Walls block LoS. Brush hides until entered. Bolts vanish in fog" },
 	{ "B", "Pawmart at fountain — not recall" },
 	{ "F", "Recall 7s to fountain (damage cancels)" },
 	{ "T", "Hold emote wheel · release or click" },

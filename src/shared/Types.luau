@@ -308,6 +308,8 @@ export type VisionFrame = {
 	wards: { string },
 	-- Packed bitset of currently visible fog cells (VisionLogic). Server-authored.
 	fogBits: { number }?,
+	-- Match-lifetime OR of fogBits for this viewer's team. Not DataStore.
+	exploredBits: { number }?,
 }
 
 export type TickerState = {

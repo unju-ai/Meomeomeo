@@ -76,4 +76,18 @@ assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, 0)) == true)
 assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, -40)) == false, "keep north wall hides cells behind it")
 assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-130, 0)) == true, "mid gate cells stay lit")
 
-print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS")
+-- Match-lifetime fog memory: OR masks without wiping current vision.
+local first = VisionLogic.emptyMask()
+VisionLogic.orInto(first, mask)
+assert(VisionLogic.bitOn(first, VisionLogic.indexOf(-90, -80)) == true, "orInto copies lit cells")
+assert(VisionLogic.bitOn(first, VisionLogic.indexOf(90, 80)) == false)
+local copy = VisionLogic.cloneMask(first)
+assert(VisionLogic.bitOn(copy, VisionLogic.indexOf(-90, -80)) == true)
+local towerIndex = VisionLogic.indexOf(-90, -80)
+copy[math.floor((towerIndex - 1) / 32) + 1] = 0
+assert(VisionLogic.bitOn(first, towerIndex) == true, "cloneMask is a copy")
+VisionLogic.orInto(first, fountainMask)
+assert(VisionLogic.bitOn(first, VisionLogic.indexOf(-176, 0)) == true, "memory keeps prior cells and adds new ones")
+assert(VisionLogic.bitOn(first, VisionLogic.indexOf(-90, -80)) == true, "explored cells persist after another OR")
+
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, fog memory")

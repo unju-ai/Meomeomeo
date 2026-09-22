@@ -13,6 +13,7 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Targeting = require(Shared:WaitForChild("Targeting"))
 local Types = require(Shared:WaitForChild("Types"))
+local VisionLogic = require(Shared:WaitForChild("VisionLogic"))
 local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
@@ -213,7 +214,8 @@ local function tutorialIsDone(): boolean
 	return tutorialDone or player:GetAttribute(Constants.Attributes.TutorialDone) == true
 end
 
-local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {}, fogBits = {} }
+local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {}, fogBits = {}, exploredBits = {} }
+local lastKnownPos: { [number]: Vector3 } = {}
 local applyVision: () -> () = function() end
 local armedSlot: Types.AbilitySlot? = nil
 local armedKind: "hold" | "ground" | nil = nil
@@ -1329,6 +1331,7 @@ applyVision = function()
 		if visionArmed then
 			FogOfWar.setEnabled(false)
 			FogOfWar.resetExplored()
+			table.clear(lastKnownPos)
 			restoreAllVision()
 			visionArmed = false
 		end
@@ -1336,7 +1339,7 @@ applyVision = function()
 	end
 	visionArmed = true
 	FogOfWar.setEnabled(true)
-	FogOfWar.apply(lastVision.fogBits)
+	FogOfWar.apply(lastVision.fogBits, lastVision.exploredBits)
 
 	local mine = snapshot.players[tostring(player.UserId)]
 	local visiblePlayers: { [number]: boolean } = { [player.UserId] = true }
@@ -1347,6 +1350,12 @@ applyVision = function()
 		if other ~= player and other.Character then
 			local show = visiblePlayers[other.UserId] == true
 			hideTree(other.Character, not show)
+			if show then
+				local rootPart = other.Character:FindFirstChild("HumanoidRootPart")
+				if rootPart and rootPart:IsA("BasePart") then
+					lastKnownPos[other.UserId] = rootPart.Position
+				end
+			end
 		end
 	end
 
@@ -1361,6 +1370,12 @@ applyVision = function()
 				local ally = mine ~= nil and otherMatch ~= nil and otherMatch.team == mine.team
 				local show = ally or (typeof(userId) == "number" and visiblePlayers[userId] == true)
 				hideTree(child, not show)
+				if show and typeof(userId) == "number" then
+					local rootPart = child:FindFirstChild("HumanoidRootPart")
+					if rootPart and rootPart:IsA("BasePart") then
+						lastKnownPos[userId] = rootPart.Position
+					end
+				end
 			end
 		end
 	end
@@ -1423,6 +1438,9 @@ Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
 		end
 		if incoming.fogBits == nil then
 			incoming.fogBits = {}
+		end
+		if incoming.exploredBits == nil then
+			incoming.exploredBits = {}
 		end
 		lastVision = incoming
 		applyVision()
@@ -1631,6 +1649,68 @@ local function pickAttack(): Types.AttackRequest?
 		return nil
 	end
 	return req
+end
+
+local LAST_KNOWN_SNAP = 18
+
+local function championIdFromHit(inst: Instance): number?
+	local model = inst:FindFirstAncestorOfClass("Model")
+	if not model then
+		return nil
+	end
+	if not model:FindFirstChildOfClass("Humanoid") then
+		return nil
+	end
+	local other = Players:GetPlayerFromCharacter(model)
+	if other and other ~= player then
+		return other.UserId
+	end
+	local botId = model:GetAttribute(Constants.Attributes.UserId)
+	if typeof(botId) ~= "number" then
+		botId = inst:GetAttribute(Constants.Attributes.UserId)
+	end
+	if typeof(botId) == "number" and botId ~= player.UserId then
+		return botId
+	end
+	return nil
+end
+
+-- Attack-move walks to last-known (into brush), never the live hidden body.
+local function attackMovePoint(): Vector3
+	local dest = aimPoint()
+	local camera = Workspace.CurrentCamera
+	if camera then
+		local mouse = UserInputService:GetMouseLocation()
+		local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		if player.Character then
+			params.FilterDescendantsInstances = { player.Character }
+		end
+		local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
+		if hit then
+			local hiddenId = championIdFromHit(hit.Instance)
+			local remembered = if hiddenId then lastKnownPos[hiddenId] else nil
+			if hiddenId and remembered and not listHas(lastVision.players, hiddenId) then
+				return remembered
+			end
+		end
+	end
+	local best: Vector3? = nil
+	local bestD = LAST_KNOWN_SNAP
+	for userId, pos in lastKnownPos do
+		if not listHas(lastVision.players, userId) and VisionLogic.brushAt(pos.X, pos.Z) ~= nil then
+			local d = (Vector3.new(pos.X, dest.Y, pos.Z) - dest).Magnitude
+			if d < bestD then
+				best = pos
+				bestD = d
+			end
+		end
+	end
+	if best then
+		return best
+	end
+	return dest
 end
 
 local function reportAttack(result: any, cue: string?)
@@ -2012,7 +2092,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			reportAttack(Remotes.function_("IssueAttack"):InvokeServer(target))
 		elseif attackMoveArmed then
 			attackMoveArmed = false
-			reportAttack(Remotes.function_("AttackMove"):InvokeServer(aimPoint()))
+			reportAttack(Remotes.function_("AttackMove"):InvokeServer(attackMovePoint()))
 		end
 		return
 	end
