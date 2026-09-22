@@ -26,6 +26,7 @@ export type RemoteName =
 	| "ReplayReceipt"
 	| "ClaimMeo404"
 	| "BuyItem"
+	| "SellItem"
 	| "GetShopStatus"
 	| "IssueAttack"
 	| "AttackMove"
@@ -117,6 +118,7 @@ local FUNCTION_NAMES = {
 	"ReplayReceipt",
 	"ClaimMeo404",
 	"BuyItem",
+	"SellItem",
 	"GetShopStatus",
 	"IssueAttack",
 	"AttackMove",

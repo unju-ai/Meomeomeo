@@ -1702,6 +1702,21 @@ function MatchService.init(cleared: () -> ())
 			broadcast()
 			return true
 		end,
+		-- Fountain pawn. Purse gold only — not a last hit, not a bounty float.
+		grantGold = function(userId: number, amount: number)
+			if not current or amount < 0 then
+				return false
+			end
+			local matchPlayer = current.players[tostring(userId)]
+			if not matchPlayer then
+				return false
+			end
+			if amount > 0 then
+				matchPlayer.gold += amount
+				broadcast()
+			end
+			return true
+		end,
 		onLoadoutChanged = function(userId: number)
 			if current then
 				local matchPlayer = current.players[tostring(userId)]

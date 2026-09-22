@@ -5,6 +5,7 @@
 
 local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
 local ShopPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ShopPaint"))
+local ShopSell = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ShopSell"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -16,6 +17,7 @@ export type ShopApi = {
 	toggle: () -> (),
 	update: (status: Types.ShopStatus) -> (),
 	onBuy: ((itemId: string) -> ()) -> (),
+	onSell: ((itemId: string) -> ()) -> (),
 }
 
 local function rgb(color: { number }): Color3
@@ -51,7 +53,7 @@ function ShopPanel.create(parent: Instance): ShopApi
 	root.Name = "ShopPanel"
 	root.AnchorPoint = Vector2.new(0, 1)
 	root.Position = UDim2.new(0, 16, 1, -150)
-	root.Size = UDim2.fromOffset(360, 520)
+	root.Size = UDim2.fromOffset(360, 548)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.Parent = parent
@@ -79,20 +81,31 @@ function ShopPanel.create(parent: Instance): ShopApi
 	fountain.TextXAlignment = Enum.TextXAlignment.Right
 	fountain.TextWrapped = false
 
+	local buyMode = Theme.button(root, "BuyMode", "Buy", Theme.amber)
+	buyMode.Position = UDim2.fromOffset(0, 50)
+	buyMode.Size = UDim2.fromOffset(72, 24)
+	buyMode.TextSize = 13
+
+	local sellMode = Theme.button(root, "SellMode", "Sell", Theme.panelAlt)
+	sellMode.Position = UDim2.fromOffset(78, 50)
+	sellMode.Size = UDim2.fromOffset(72, 24)
+	sellMode.TextSize = 13
+	sellMode.TextColor3 = Theme.cream
+
 	local warn = Theme.text(root, "Warn", "", 12, Theme.warn, Theme.fontBody)
-	warn.Position = UDim2.fromOffset(0, 50)
+	warn.Position = UDim2.fromOffset(0, 78)
 	warn.Size = UDim2.new(1, 0, 0, 16)
 	warn.Visible = false
 	warn.TextWrapped = false
 
 	local hint = Theme.text(root, "Hint", ShopPaint.hintLine(), 11, Theme.peach)
-	hint.Position = UDim2.fromOffset(0, 68)
+	hint.Position = UDim2.fromOffset(0, 96)
 	hint.Size = UDim2.new(1, 0, 0, 28)
 
 	local list = Instance.new("ScrollingFrame")
 	list.BackgroundColor3 = Theme.panelAlt
-	list.Position = UDim2.fromOffset(0, 100)
-	list.Size = UDim2.new(1, 0, 1, -100)
+	list.Position = UDim2.fromOffset(0, 128)
+	list.Size = UDim2.new(1, 0, 1, -128)
 	list.ScrollBarThickness = 4
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.fromOffset(0, 0)
@@ -102,6 +115,8 @@ function ShopPanel.create(parent: Instance): ShopApi
 	Theme.list(list, 8)
 
 	local buyHandler: ((string) -> ())? = nil
+	local sellHandler: ((string) -> ())? = nil
+	local selling = false
 	local cards: { [string]: CardBits } = {}
 	local layoutOrder = 0
 
@@ -186,7 +201,11 @@ function ShopPanel.create(parent: Instance): ShopApi
 				if not card.Active then
 					return
 				end
-				if buyHandler then
+				if selling then
+					if sellHandler then
+						sellHandler(item.id)
+					end
+				elseif buyHandler then
 					buyHandler(item.id)
 				end
 			end)
@@ -201,55 +220,99 @@ function ShopPanel.create(parent: Instance): ShopApi
 		end
 	end
 
+	local lastStatus: Types.ShopStatus? = nil
+
+	local function paintModes()
+		buyMode.BackgroundColor3 = if selling then Theme.panelAlt else Theme.amber
+		sellMode.BackgroundColor3 = if selling then Theme.mint else Theme.panelAlt
+		buyMode.TextColor3 = if selling then Theme.cream else Theme.ink
+		sellMode.TextColor3 = if selling then Theme.ink else Theme.cream
+		hint.Text = if selling then ShopPaint.sellHint() else ShopPaint.hintLine()
+	end
+
+	local function paint(status: Types.ShopStatus)
+		gold.Text = ShopPaint.goldLine(status.gold)
+		gold.TextColor3 = Theme.amber
+		fountain.Text = ShopPaint.fountainLine(status.atFountain)
+		fountain.TextColor3 = if status.atFountain then Theme.cream else Theme.warn
+		warn.Visible = not status.atFountain
+		warn.Text = if status.atFountain then "" else ShopPaint.awayLine(selling)
+		paintModes()
+
+		local ownedCount: { [string]: number } = {}
+		for _, id in status.owned do
+			ownedCount[id] = (ownedCount[id] or 0) + 1
+		end
+
+		for id, bits in cards do
+			local item = ItemCatalog.get(id)
+			if not item then
+				continue
+			end
+			local n = ownedCount[id] or 0
+			local maxStack = ItemCatalog.maxStack(id)
+			local kind = ShopPaint.cardKind(status.gold, status.atFountain, n, maxStack, item.cost, selling)
+			local cardPaint = ShopPaint.cardPaint(kind)
+			bits.button.BackgroundColor3 = rgb(cardPaint.fill)
+			bits.button.BackgroundTransparency = cardPaint.fillAlpha
+			bits.button.Active = cardPaint.active
+			bits.button.AutoButtonColor = cardPaint.active
+			bits.stroke.Color = rgb(cardPaint.stroke)
+			bits.stroke.Transparency = cardPaint.strokeAlpha
+			if selling and n > 0 then
+				bits.name.Text = ShopPaint.sellNameLine(item.name, ShopSell.refundGold(item.cost), n, maxStack)
+			else
+				bits.name.Text = ShopPaint.nameLine(item.name, item.cost, n, maxStack, kind)
+			end
+			bits.name.TextColor3 = rgb(cardPaint.text)
+			bits.name.TextTransparency = cardPaint.textAlpha
+			bits.blurb.TextTransparency = cardPaint.textAlpha * 0.5
+		end
+	end
+
+	local function setSelling(nextSelling: boolean)
+		selling = nextSelling
+		paintModes()
+		if lastStatus then
+			paint(lastStatus)
+		end
+	end
+
+	buyMode.MouseButton1Click:Connect(function()
+		setSelling(false)
+	end)
+	sellMode.MouseButton1Click:Connect(function()
+		setSelling(true)
+	end)
+
 	close.MouseButton1Click:Connect(function()
 		root.Visible = false
+		setSelling(false)
 	end)
 
 	return {
 		root = root,
 		setVisible = function(visible: boolean)
 			root.Visible = visible
+			if not visible then
+				setSelling(false)
+			end
 		end,
 		toggle = function()
 			root.Visible = not root.Visible
+			if not root.Visible then
+				setSelling(false)
+			end
 		end,
 		update = function(status: Types.ShopStatus)
-			gold.Text = ShopPaint.goldLine(status.gold)
-			gold.TextColor3 = Theme.amber
-			fountain.Text = ShopPaint.fountainLine(status.atFountain)
-			fountain.TextColor3 = if status.atFountain then Theme.cream else Theme.warn
-			warn.Visible = not status.atFountain
-			warn.Text = if status.atFountain then "" else "Shop open — buy only at your fountain"
-			hint.Text = ShopPaint.hintLine()
-
-			local ownedCount: { [string]: number } = {}
-			for _, id in status.owned do
-				ownedCount[id] = (ownedCount[id] or 0) + 1
-			end
-
-			for id, bits in cards do
-				local item = ItemCatalog.get(id)
-				if not item then
-					continue
-				end
-				local n = ownedCount[id] or 0
-				local maxStack = ItemCatalog.maxStack(id)
-				local kind = ShopPaint.cardKind(status.gold, status.atFountain, n, maxStack, item.cost)
-				local paint = ShopPaint.cardPaint(kind)
-				bits.button.BackgroundColor3 = rgb(paint.fill)
-				bits.button.BackgroundTransparency = paint.fillAlpha
-				bits.button.Active = paint.active
-				bits.button.AutoButtonColor = paint.active
-				bits.stroke.Color = rgb(paint.stroke)
-				bits.stroke.Transparency = paint.strokeAlpha
-				bits.name.Text = ShopPaint.nameLine(item.name, item.cost, n, maxStack, kind)
-				bits.name.TextColor3 = rgb(paint.text)
-				bits.name.TextTransparency = paint.textAlpha
-				bits.blurb.TextTransparency = paint.textAlpha * 0.5
-			end
+			lastStatus = status
+			paint(status)
 		end,
 		onBuy = function(fn)
 			buyHandler = fn
+		end,
+		onSell = function(fn)
+			sellHandler = fn
 		end,
 	}
 end

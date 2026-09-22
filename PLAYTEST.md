@@ -115,6 +115,8 @@ Cat Rift AFK warning (same day, later slice): a human who is alive in a fight an
 
 Cat Rift end-screen replay chips: a Practice end, including a Practice remake, keeps **Again** and names the difficulty that chip will reuse (**Again · Easy** / **Normal** / **Hard**) from the match snapshot `botDifficulty`. A live fight, including a remake of a live fight, shows **Queue** in that same left slot. **Queue** leaves the post-match seat and calls the same `QueueMatch` join as the lobby **Queue** button, so a party leader requeues the party and a member gets the existing "they start the queue" toast. **Back to lobby** and **Hub** stay. PlayAgain math and PostMatchSeconds are unchanged. Verified locally: Luau compiled 185 sources; `tools/test-end-screen.py` and `tools/test-tutorial.py` passed. Rojo 7.4.4 built the place. Studio live-pass under the end screen.
 
+Pawmart fountain sell (same day, later slice): **B** still buys at `ShopService.nearFountain` only. **Sell** on that panel pawns one owned copy for **70%** of the catalog price, floored, back onto purse gold (`Shared.ShopSell`). No CS, no bounty float. Control Yarn is one bag copy per remaining charge, each bought at 75g, so one click refunds 52g — not half of a two-charge bundle. A planted ward is already gone. Actives on cooldown stay sellable; the cooldown stamp stays on the cat and is not paid extra. Off the pad the server toasts **Sell at your fountain (or press B there).** Success toasts **Sold … · +Ng**. Practice bots still only buy (`BotShopLogic.maySell` is false). Buy prices unchanged. Verified locally: Luau compiled 186 sources; `tools/test-items.py` and `tools/test-pawmart-guide.py` passed. Rojo 7.4.4 built the place. Studio live-pass under Pawmart sell.
+
 Champion nameplate HP (same day, later slice): Cat Rift `MeoNameplate` billboards keep champion name + role · look tag, and add a small team-tinted cream/amber/coral HP fill (same paint helpers as structure / kitten bars). Client reads existing `Health` / `MaxHealth` attributes mirrored from combat (Humanoid fallback). Enemy plates hide in fog like AA refuse; ally plates can stay. Bots keep `(Bot)`; local plate can show **YOU ·**. Default Roblox humanoid bar stays off. Structure / kitten / camp `BillboardHp` bars, kits, HUD resource bars, and minimap unchanged. Verified locally: Luau compiled 150 sources; `tools/test-structure.py` + `tools/test-vision.py` passed (plate fog + labels); full smoke suite passed (29). Rojo 7.4.4 built the place. Studio live-pass under champion nameplates.
 
 Skillshot wall collision (same day, later slice): traveling line bolts (`CombatService` + `ProjectileLogic.clipAgainstWalls`) stop on the same solids fog uses — keep walls, market drums, and other `MeoBlocksVision` volumes that pass vision thickness. Mid gate, brush, and thin props stay open. Ally and enemy bolts both collide; units beyond the wall are not hit. Enemy bolt fog show/hide is unchanged. Kits / damage numbers / HP bars / nameplates / Pawmart untouched. Verified locally: Luau compiled 150 sources; `tools/test-combat.py` + `tools/test-vision.py` passed (wallHitT / clipAgainstWalls); Rojo 7.4.4 built the place. Studio live-pass under skillshot wall collision.
@@ -221,7 +223,7 @@ Smoke (not a Studio substitute): `python3 tools/test-old-tom.py /path/to/luau`.
 The Luau smoke checks authored replies for both fountain clerks, the five chips, Blue vs Red asides, the mock fallback, and the ambient gap. It does not move a character and it does not call an LLM. Talk to a clerk in Play. No OpenAI key. Blue stands at the blue fountain; Red at the red fountain.
 
 1. **Practice** (any bot difficulty). After lock-in, walk to your fountain clerk and press **Talk**. Blue opens tired and receipt-minded. Red opens as an upseller. Chips read **Shop**, **Actives**, **Wards**, **Builds**, **Help**. A draft you already typed stays in the box.
-2. **Shop**. **B** opens Pawmart at the fountain only. Recall is still **F**. Start gold is 500. The purse chip and **Tab** show gold and CS. Lane-kitten and camp last hits add 1 CS; kill / assist / tower gold do not. Blue stamps a receipt aside. Red says the register does not take Robux.
+2. **Shop**. **B** opens Pawmart at the fountain only. Recall is still **F**. Start gold is 500. The purse chip and **Tab** show gold and CS. Lane-kitten and camp last hits add 1 CS; kill / assist / tower gold do not. **Sell** on that same pad pawns one copy for 70% of the sticker, rounded down. Control Yarn pawns one charge at a time. A cooldown does not block it. Blue stamps a receipt aside. Red says the register does not take Robux.
 3. **Actives**. Whisker Lens 180g then **5**. Control Yarn 75g, two charges, then **6**. Yarn Cleave 280g then **7** (12-stud slash, 40 damage, 12s). Prices and keys stay the same on both clerks; only the aside changes.
 4. **Wards**. Free trinket on **4**. Pink vision / slow numbers, Paper Charm 220g (about 2.4s then about 20s), Hard bots drop one free pink, then buy Control Yarn and plant it toward the river.
 5. **Builds**. Longclaw 250 / Yarnplate 250 / Mana Treat 200 / Pounce Boots 200 / Stall Fang 300, plus the Hard opening fountain role plan one-liner. No fake investments.
@@ -463,6 +465,18 @@ UI only. Costs, stack caps, fountain gate, clerk tips, and ItemKits hooks stay a
 4. Walk off the fountain with the shop still open. A warn line says you must buy at the fountain; cards mute. Press **B** again to close. Purse chip, Tab, clerks, and tips behave as in their own passes.
 
 Smoke (helpers only, not a Studio substitute): `python3 tools/test-items.py /path/to/luau`.
+
+### Studio live-pass (Pawmart sell)
+
+Buy prices, stack caps, and the fountain disk stay as they were. Sell uses that same `ShopService.nearFountain` check. The Luau smoke checks the 70% floor, the Control Yarn per-charge rule, the away-from-fountain refuse, and that bots do not sell. It does not move a character. Walk this in Practice.
+
+1. Hub → **Cat Rift → Practice**. Lock in. Stand on your fountain and press **B**. **Buy** is the amber mode. Buy **Longclaw** (250g). Gold drops by 250. Click **Sell**. The Longclaw row reads **sell +175g** with a mint edge. One click. Toast: **Sold Longclaw · +175g**. The purse chip gains 175 and CS does not move. The row is no longer owned.
+2. Buy **Control Yarn** twice (75g each, 2/2). **Sell** once: the row goes to **1/2** and the toast is **Sold Control Yarn · +52g**. Sell again for the other charge. A planted pink is already spent — it is not a third refund.
+3. Buy **Yarn Cleave**, press **7**, and while it is counting down toggle **Sell** and pawn it. The toast still pays **+196g**. The cooldown is not a bonus and does not move onto another item.
+4. Walk off the fountain with **Sell** still on and an item owned. The row mutes. Click it. Toast: **Sell at your fountain (or press B there).** Gold does not change. **H** or **?** lists **Sell** under Shop: 70% back, one click, at the fountain.
+5. Talk to the fountain clerk and tap **Shop**. The answer includes the 70% pawn, one charge at a time. Bots do not pawn their own items. Buy prices on the register are unchanged.
+
+Smoke (helpers only, not a Studio substitute): `python3 tools/test-items.py /path/to/luau` and `python3 tools/test-pawmart-guide.py /path/to/luau`.
 
 ### Studio live-pass (Pawmart items)
 

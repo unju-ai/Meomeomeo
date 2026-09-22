@@ -1529,6 +1529,25 @@ hud.shop.onBuy(function(itemId: string)
 	end
 end)
 
+hud.shop.onSell(function(itemId: string)
+	-- Required here so the client chunk stays under Luau's local-register cap.
+	local sellCopy = require(Shared:WaitForChild("ShopSell"))
+	local result = Remotes.function_("SellItem"):InvokeServer(itemId)
+	if result and result.ok == false then
+		toast(result.error or "Clerk said no")
+	else
+		Sfx.play("ShopBuy")
+		local def = ItemCatalog.get(itemId)
+		local name = if def then def.name else itemId
+		local refund = if result and typeof(result.gold) == "number" then result.gold else sellCopy.refundGold(if def then def.cost else 0)
+		toast(sellCopy.toast(name, refund))
+	end
+	local status = Remotes.function_("GetShopStatus"):InvokeServer()
+	if typeof(status) == "table" then
+		hud.shop.update(status :: Types.ShopStatus)
+	end
+end)
+
 hud.chat.onSend(function(npcId: string, text: string, reply: (string, string) -> ())
 	local ok, result = pcall(function()
 		return Remotes.function_("ChatWithNpc"):InvokeServer(npcId, text)

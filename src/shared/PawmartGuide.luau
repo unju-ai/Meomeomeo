@@ -52,8 +52,11 @@ local GUIDE: { GuideTopic } = {
 			"buy",
 			"register",
 			"fountain",
+			"sell",
+			"pawn",
+			"refund",
 		},
-		fact = "B opens Pawmart at your fountain only. Not recall — that is F. You start with 500 gold. The purse chip above the ability bar shows gold, CS, and level. Tab matches gold and CS. A lane-kitten or camp last hit adds 1 CS. Kill, assist, and tower gold do not. Spending here spends gold and leaves CS alone.",
+		fact = "B opens Pawmart at your fountain only. Not recall — that is F. You start with 500 gold. The purse chip above the ability bar shows gold, CS, and level. Tab matches gold and CS. A lane-kitten or camp last hit adds 1 CS. Kill, assist, and tower gold do not. Spending here spends gold and leaves CS alone. Toggle Sell on that same pad: one click pawns one copy for 70% of the sticker, rounded down. Control Yarn pawns one charge at a time. A cooldown does not block the pawn.",
 	},
 	{
 		id = "Actives",

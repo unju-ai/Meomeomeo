@@ -251,6 +251,11 @@ Remotes.function_("BuyItem").OnServerInvoke = function(player: Player, itemId: u
 	return ShopService.buy(player, itemId)
 end
 
+Remotes.function_("SellItem").OnServerInvoke = function(player: Player, itemId: unknown)
+	MatchService.noteActivity(player)
+	return ShopService.sell(player, itemId)
+end
+
 Remotes.function_("IssueAttack").OnServerInvoke = function(player: Player, request: unknown)
 	MatchService.noteActivity(player)
 	return CombatService.issueAttack(player, request)
