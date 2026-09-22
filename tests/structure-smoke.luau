@@ -106,4 +106,82 @@ assert(StructureLogic.fallLabel("Core", "Base") == "yarn core")
 local partial: { [string]: boolean } = { RedNexus = true }
 assert(StructureLogic.isVulnerable(redCore, partial) == false, "unknown towers do not count as down")
 
-print("PASS: inner lantern stalls, lane gates, yarn-core gate")
+-- Night-market HP bar visibility (Shared.BillboardHp). Presentation is client-side.
+assert(BillboardHp.formatHp(842.7, 1400) == "842 / 1400")
+assert(BillboardHp.damaged(1400, 1400) == false)
+assert(BillboardHp.damaged(1399, 1400) == true)
+assert(BillboardHp.fillTone(0.2) == "coral")
+assert(BillboardHp.fillTone(0.4) == "amber")
+assert(BillboardHp.fillTone(0.9) == "cream")
+assert(BillboardHp.structureTitle("Outer", "Mid") == "Mid post")
+assert(BillboardHp.structureTitle("Inner", "Bot") == "Bot stall")
+assert(BillboardHp.structureTitle("Core", "Base") == "Yarn core")
+assert(string.find(BillboardHp.structureCaption("Mid post", "100 / 1400", true), "(gated)", 1, true) ~= nil)
+assert(string.find(BillboardHp.structureCaption("Mid post", "100 / 1400", false), "(gated)", 1, true) == nil)
+assert(BillboardHp.epicCaption("Canal Levi", "1100 / 1100") == "Canal Levi  1100 / 1100")
+
+assert(
+	BillboardHp.showStructure({
+		alive = true,
+		ally = false,
+		inVision = false,
+		damaged = true,
+		aimed = false,
+	}) == false,
+	"enemy structure HP stays hidden in fog"
+)
+assert(
+	BillboardHp.showStructure({
+		alive = true,
+		ally = true,
+		inVision = false,
+		damaged = true,
+		aimed = false,
+	}) == true,
+	"ally structure HP can stay visible through fog"
+)
+assert(
+	BillboardHp.showStructure({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = false,
+	}) == false,
+	"full enemy post stays quiet until damaged or aimed"
+)
+assert(
+	BillboardHp.showStructure({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = true,
+	}) == true,
+	"aiming a visible enemy post shows the bar"
+)
+assert(
+	BillboardHp.showStructure({
+		alive = true,
+		ally = false,
+		inVision = true,
+		damaged = true,
+		aimed = false,
+	}) == true,
+	"damaged enemy post in vision shows the bar"
+)
+assert(
+	BillboardHp.showStructure({
+		alive = false,
+		ally = false,
+		inVision = true,
+		damaged = false,
+		aimed = true,
+	}) == false,
+	"fallen structures do not keep an HP bar"
+)
+assert(BillboardHp.showEpic({ alive = true, inVision = true }) == true, "Levi UP in vision shows the epic bar")
+assert(BillboardHp.showEpic({ alive = true, inVision = false }) == false, "Levi HP does not pierce fog")
+assert(BillboardHp.showEpic({ alive = false, inVision = true }) == false, "spent Levi has no bar")
+
+print("PASS: inner lantern stalls, lane gates, yarn-core gate, structure/Levi HP bars")

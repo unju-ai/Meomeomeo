@@ -29,6 +29,7 @@ local SoundIds = require(script.Audio.SoundIds)
 local Music = require(script.Audio.Music)
 local Sfx = require(script.Audio.Sfx)
 local CameraFollow = require(script.CameraFollow)
+local BillboardHpBars = require(script.Juice.BillboardHpBars)
 local CombatFx = require(script.Juice.CombatFx)
 local EmoteFx = require(script.Juice.EmoteFx)
 local FogOfWar = require(script.Juice.FogOfWar)
@@ -225,6 +226,7 @@ end
 local lastVision: Types.VisionFrame = { players = {}, minions = {}, jungle = {}, wards = {}, fogBits = {}, exploredBits = {} }
 local lastKnownPos: { [number]: Vector3 } = {}
 local applyVision: () -> () = function() end
+local syncWorldHpBars: () -> () = function() end
 local armedSlot: Types.AbilitySlot? = nil
 local armedKind: "hold" | "ground" | nil = nil
 local lastErrorAt = 0
@@ -1847,6 +1849,8 @@ applyVision = function()
 			end
 		end
 	end
+
+	syncWorldHpBars()
 end
 
 Remotes.event("VisionUpdated").OnClientEvent:Connect(function(frame)
@@ -2225,6 +2229,38 @@ local function pickAttack(): Types.AttackRequest?
 		return nil
 	end
 	return req
+end
+
+syncWorldHpBars = function()
+	local snapshot = latestMatch
+	local active = snapshot ~= nil and snapshot.phase == "InProgress" and not inMini()
+	if not active then
+		BillboardHpBars.clear()
+		return
+	end
+	local mine = snapshot.players[tostring(player.UserId)]
+	local aimed: string? = nil
+	if latestCombat and typeof(latestCombat.attackTarget) == "string" then
+		local target = latestCombat.attackTarget :: string
+		if target ~= "champion" and target ~= "kitten" and target ~= "camp" and target ~= "ward" and target ~= "structure" then
+			aimed = target
+		end
+	end
+	local hover = pickAttack()
+	if hover and hover.kind == "objective" and typeof(hover.objectiveId) == "string" then
+		aimed = hover.objectiveId
+	end
+	local jungleVisible: { [string]: boolean } = {}
+	for _, id in (lastVision.jungle or {}) do
+		jungleVisible[id] = true
+	end
+	BillboardHpBars.sync({
+		active = true,
+		localTeam = if mine then mine.team else nil,
+		fogBits = lastVision.fogBits,
+		aimedObjectiveId = aimed,
+		jungleVisible = jungleVisible,
+	})
 end
 
 -- Includes a fogged enemy body so the server can refuse Attention. Minions stay ground pings.
