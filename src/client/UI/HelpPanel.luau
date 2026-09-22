@@ -67,7 +67,7 @@ local LINES_MOBA: { { string } } = {
 	{ "Levi", "Clock: countdown → UP → return → taken. Last hit +8% damage" },
 	{ "Clock", "Top-left match time + Canal Levi line" },
 	{ "HP bars", "Posts, stalls, core, Levi, damaged/aimed kits & camps · fog hides enemy bars" },
-	{ "Practice", "Solo vs 3 bots · party shares Blue" },
+	{ "Practice", "You + 2 Blue bots vs 3 Red · party shares Blue" },
 	{ "Closet", "Lantern Cap (post/stall) · Stall Spark (win) · Scratch Tally (5 kills)" },
 	{ "Audio", "SFX + Music sliders · mute (top-right)" },
 	{ "H / ?", "This help (hold H or click ?)" },
