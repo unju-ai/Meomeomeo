@@ -132,7 +132,7 @@ local Config = {
 	},
 
 	Vision = {
-		-- Source radii (studs). Grid / brush live in Shared.VisionLogic.
+		-- Source radii (studs). Grid, brush, eye-height mesh LoS live in Shared.VisionLogic.
 		-- LastKnownSnap: attack-move remaps a click near a hidden last-seen champ.
 		-- Client ghosts (Shared.LastSeenGhostLogic) only draw that last pose. Not vision.
 		LastKnownSnap = 18,

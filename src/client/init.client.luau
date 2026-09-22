@@ -1562,6 +1562,27 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 	end
 end)
 
+-- Vision cover is CanQuery so mesh LoS can hit it. Clicks should still land on the ground.
+local function clickRayParams(): RaycastParams
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore: { Instance } = {}
+	if player.Character then
+		table.insert(ignore, player.Character)
+	end
+	local map = Workspace:FindFirstChild(Constants.MapFolderName)
+	if map then
+		local cover = map:FindFirstChild(Constants.VisionCoverName)
+		if cover then
+			table.insert(ignore, cover)
+		end
+	end
+	if #ignore > 0 then
+		params.FilterDescendantsInstances = ignore
+	end
+	return params
+end
+
 local function aimPoint(): Vector3
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -1569,12 +1590,7 @@ local function aimPoint(): Vector3
 	end
 	local mouse = UserInputService:GetMouseLocation()
 	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	if player.Character then
-		params.FilterDescendantsInstances = { player.Character }
-	end
-	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
+	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, clickRayParams())
 	if hit then
 		return hit.Position
 	end
@@ -1619,12 +1635,7 @@ local function pickAttack(): Types.AttackRequest?
 	end
 	local mouse = UserInputService:GetMouseLocation()
 	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	if player.Character then
-		params.FilterDescendantsInstances = { player.Character }
-	end
-	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
+	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, clickRayParams())
 	if not hit then
 		return nil
 	end
@@ -1710,13 +1721,9 @@ local function attackMovePoint(): Vector3
 	if camera then
 		local mouse = UserInputService:GetMouseLocation()
 		local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		if player.Character then
-			params.FilterDescendantsInstances = { player.Character }
-		end
 		-- Last-seen ghosts are CanQuery false, so this ray still hits the live hidden body.
-		local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, params)
+		-- Vision cover is excluded so a drum does not steal the ground click.
+		local hit = Workspace:Raycast(ray.Origin, ray.Direction * 400, clickRayParams())
 		if hit then
 			local hiddenId = championIdFromHit(hit.Instance)
 			local remembered = if hiddenId then lastKnownPos[hiddenId] else nil

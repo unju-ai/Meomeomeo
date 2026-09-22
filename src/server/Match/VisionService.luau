@@ -1,8 +1,10 @@
 --!strict
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 local VisionLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VisionLogic"))
 
@@ -32,6 +34,8 @@ local lastKnown: { [Types.TeamId]: { [number]: Vector3 } } = {
 	Blue = {},
 	Red = {},
 }
+local rayCache: { [string]: boolean } = {}
+local rayParams: RaycastParams? = nil
 
 local function resetMemory()
 	teamExplored.Blue = VisionLogic.emptyMask()
@@ -40,6 +44,127 @@ local function resetMemory()
 	table.clear(lastKnown.Red)
 	table.clear(frameCache)
 	table.clear(teamFogCache)
+	table.clear(rayCache)
+end
+
+local function shapeKind(part: BasePart): string
+	if part:IsA("MeshPart") then
+		return "Mesh"
+	end
+	return part.Shape.Name
+end
+
+local function harvestBlockers(map: Instance): ({ VisionLogic.Blocker }, { Instance })
+	local blockers: { VisionLogic.Blocker } = {}
+	local meshes: { Instance } = {}
+	for _, inst in map:GetDescendants() do
+		if inst:IsA("BasePart") and inst:GetAttribute(Constants.Attributes.BlocksVision) == true then
+			local cf = inst.CFrame
+			local right = cf.RightVector
+			local up = cf.UpVector
+			local look = cf.LookVector
+			local sx, sy, sz, shape = VisionLogic.worldExtents(
+				inst.Size.X,
+				inst.Size.Y,
+				inst.Size.Z,
+				right.X,
+				right.Y,
+				right.Z,
+				up.X,
+				up.Y,
+				up.Z,
+				look.X,
+				look.Y,
+				look.Z,
+				shapeKind(inst)
+			)
+			local blocker = VisionLogic.blockerFromExtents(inst.Name, sx, sy, sz, cf.Position.X, cf.Position.Y, cf.Position.Z, shape)
+			if blocker then
+				table.insert(blockers, blocker)
+				if shape == "mesh" then
+					table.insert(meshes, inst)
+				end
+			end
+		end
+	end
+	return blockers, meshes
+end
+
+local function harvestIsComplete(blockers: { VisionLogic.Blocker }): boolean
+	local names: { [string]: boolean } = {}
+	for _, blocker in blockers do
+		names[blocker.name] = true
+	end
+	for _, wall in VisionLogic.Walls do
+		if not names[wall.name] then
+			return false
+		end
+	end
+	for _, cover in VisionLogic.Cover do
+		if not names[cover.name] then
+			return false
+		end
+	end
+	return true
+end
+
+local function clearLos()
+	VisionLogic.setBlockers(nil)
+	VisionLogic.setMeshProbe(nil)
+	rayParams = nil
+	table.clear(rayCache)
+end
+
+-- Curated LoS layer: authored boxes/cylinders stay analytical. MeshParts raycast.
+local function installLos()
+	clearLos()
+	local map = MapBuilder.get()
+	local blockers, meshes = harvestBlockers(map)
+	if harvestIsComplete(blockers) then
+		VisionLogic.setBlockers(blockers)
+	elseif #meshes > 0 then
+		local merged = table.clone(VisionLogic.activeBlockers())
+		for _, blocker in blockers do
+			if blocker.shape == "mesh" then
+				table.insert(merged, blocker)
+			end
+		end
+		VisionLogic.setBlockers(merged)
+	end
+	if #meshes == 0 then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = meshes
+	params.RespectCanCollide = false
+	params.IgnoreWater = true
+	rayParams = params
+	VisionLogic.setMeshProbe(function(sx: number, sz: number, tx: number, tz: number): boolean
+		if not VisionLogic.meshAlong(sx, sz, tx, tz, VisionLogic.activeBlockers()) then
+			return false
+		end
+		local paramsNow = rayParams
+		if not paramsNow then
+			return false
+		end
+		local key = `{math.floor(sx + 0.5)}:{math.floor(sz + 0.5)}:{math.floor(tx + 0.5)}:{math.floor(tz + 0.5)}`
+		local cached = rayCache[key]
+		if cached ~= nil then
+			return cached
+		end
+		local origin = Vector3.new(sx, VisionLogic.EyeHeight, sz)
+		local dest = Vector3.new(tx, VisionLogic.EyeHeight, tz)
+		local delta = dest - origin
+		if delta.Magnitude < 0.2 then
+			rayCache[key] = false
+			return false
+		end
+		local hit = Workspace:Raycast(origin, delta, paramsNow)
+		local blocked = hit ~= nil
+		rayCache[key] = blocked
+		return blocked
+	end)
 end
 
 local function sources(team: Types.TeamId): { VisionLogic.Source }
@@ -258,6 +383,7 @@ local function broadcast()
 	end
 	table.clear(frameCache)
 	table.clear(teamFogCache)
+	table.clear(rayCache)
 	local snapshot = api.getSnapshot()
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		return
@@ -270,10 +396,12 @@ end
 function VisionService.stop()
 	running = false
 	resetMemory()
+	clearLos()
 end
 
 function VisionService.start()
 	resetMemory()
+	installLos()
 	running = true
 	task.spawn(function()
 		broadcast()

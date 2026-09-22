@@ -5,7 +5,10 @@ assert(VisionLogic.Rows * VisionLogic.CellSize == VisionLogic.MaxZ - VisionLogic
 assert(VisionLogic.CellCount == VisionLogic.Cols * VisionLogic.Rows)
 assert(#VisionLogic.Brushes == 6)
 assert(#VisionLogic.Walls == 10)
+assert(#VisionLogic.Cover == 4)
 assert(VisionLogic.CellSize == 10)
+assert(VisionLogic.EyeHeight > 2 and VisionLogic.EyeHeight < 6)
+assert(VisionLogic.MinBlockThickness >= 3 and VisionLogic.MinBlockThickness <= 4)
 
 local mid = VisionLogic.indexOf(0, 0)
 local cx, cz = VisionLogic.center(mid)
@@ -75,6 +78,85 @@ local fountainMask = VisionLogic.mask({ fountain })
 assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, 0)) == true)
 assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-176, -40)) == false, "keep north wall hides cells behind it")
 assert(VisionLogic.bitOn(fountainMask, VisionLogic.indexOf(-130, 0)) == true, "mid gate cells stay lit")
+
+-- Mesh LoS: eye-height volumes. Thick drums block; thin props, curbs, and overhead signs do not.
+assert(#VisionLogic.activeBlockers() == #VisionLogic.Walls + #VisionLogic.Cover)
+for _, cover in VisionLogic.Cover do
+	assert(VisionLogic.brushAt(cover.x, cover.z) == nil, "cover is not brush")
+	assert(math.abs(cover.x) >= 20, "cover stays off the river")
+	local onLane = false
+	for _, laneZ in VisionLogic.LaneZ do
+		if math.abs(cover.z - laneZ) <= VisionLogic.LaneHalf + 2 then
+			onLane = true
+		end
+	end
+	assert(onLane == false, "cover stays off the lanes")
+end
+assert(VisionLogic.blockerFromExtents("Lantern", 1.1, 8, 1.1, 0, 4, 0, "box") == nil, "thin props do not occlude")
+assert(VisionLogic.blockerFromExtents("Curb", 12, 1.2, 8, 0, 0.4, 0, "box") == nil, "short curbs stay under the eye ray")
+assert(VisionLogic.blockerFromExtents("Sign", 8, 3, 6, 0, 12, 0, "box") == nil, "overhead signs do not occlude")
+local thinPole = { name = "Pole", x = 0, y = 4, z = 0, sx = 1.2, sy = 8, sz = 1.2, shape = "box" }
+assert(VisionLogic.hitsBlocker(-8, 0, 8, 0, thinPole) == false, "a tagged thin pole still fails the thickness rule")
+
+assert(VisionLogic.clearLine(-36, -60, -36, -36) == false, "a ray through a market drum is blocked")
+assert(VisionLogic.clearLine(-28, -48, -20, -48) == true, "the gap beside a drum stays open")
+assert(VisionLogic.clearLine(-38.9, -50.8, -38.5, -50.6) == true, "drum corners are round, not a square pocket")
+assert(VisionLogic.covered({ { x = -36, z = -70, radius = 54 } }, -36, -30) == false, "a champion cannot see through cover")
+assert(VisionLogic.covered({ { x = -36, z = -70, radius = 40 } }, -20, -70) == true, "open ground beside cover stays visible")
+
+local pink = { x = -36, z = -70, radius = 48 }
+local pinkMask = VisionLogic.mask({ pink })
+assert(VisionLogic.bitOn(pinkMask, VisionLogic.indexOf(-36, -70)) == true, "pink lights its own cell")
+assert(VisionLogic.bitOn(pinkMask, VisionLogic.indexOf(-36, -30)) == false, "pink bubble does not light through a drum")
+
+local crystal = VisionLogic.blockerFromExtents("Crystal", 14, 18, 14, 0, 10, 0, "ball")
+assert(crystal ~= nil, "a thick ball that crosses the eye plane qualifies")
+assert(VisionLogic.hitsBlocker(-10, 0, 10, 0, crystal) == true, "eye ray through the ball is blocked")
+assert(VisionLogic.hitsBlocker(-10, 8, 10, 8, crystal) == false, "a ray beside the ball's eye slice is clear")
+
+local wsx, wsy, wsz, wshape = VisionLogic.worldExtents(4, 10, 48, 1, 0, 0, 0, 1, 0, 0, 0, -1, "Block")
+assert(wshape == "box" and wsx == 4 and wsy == 10 and wsz == 48, "axis-aligned walls keep their size")
+wsx, wsy, wsz, wshape = VisionLogic.worldExtents(48, 10, 4, 0, 0, -1, 0, 1, 0, -1, 0, 0, "Block")
+assert(wshape == "box" and math.abs(wsx - 4) < 1e-4 and wsy == 10 and math.abs(wsz - 48) < 1e-4, "yawed walls swap X/Z")
+wsx, wsy, wsz, wshape = VisionLogic.worldExtents(8, 6, 6, 0, 1, 0, -1, 0, 0, 0, 0, -1, "Cylinder")
+assert(wshape == "cylinder" and wsx == 6 and wsy == 8 and wsz == 6, "upright cylinders use diameter and height")
+wsx, wsy, wsz, wshape = VisionLogic.worldExtents(8, 8, 8, 1, 0, 0, 0, 1, 0, 0, 0, -1, "Mesh")
+assert(wshape == "mesh" and wsx == 8 and wsy == 8 and wsz == 8, "mesh parts stay on the raycast path")
+wsx, wsy, wsz, wshape = VisionLogic.worldExtents(8, 8, 4, 0.7, 0, 0.7, 0, 1, 0, -0.7, 0, 0.7, "Block")
+assert(wshape == "mesh", "tilted blocks are not treated as full squares")
+
+local stall = VisionLogic.blockerFromExtents("StallMesh", 8, 8, 8, 0, 4, 80, "mesh")
+assert(stall ~= nil)
+assert(VisionLogic.hitsBlocker(-5, 80, 5, 80, stall) == false, "a mesh AABB is not a hard block")
+assert(VisionLogic.hitsMesh(-5, 80, 5, 80, stall) == true, "the mesh broadphase still sees the segment")
+assert(VisionLogic.hitsMesh(-5, 70, 5, 70, stall) == false)
+VisionLogic.setBlockers({ stall })
+local probes = 0
+VisionLogic.setMeshProbe(function(sx, sz, tx, tz)
+	probes += 1
+	if not VisionLogic.meshAlong(sx, sz, tx, tz, VisionLogic.activeBlockers()) then
+		return false
+	end
+	return math.abs((sz + tz) * 0.5 - 80) < 0.6
+end)
+assert(VisionLogic.clearLine(-6, 80, 6, 80) == false, "a ray through the mesh core is blocked")
+assert(VisionLogic.clearLine(-3.6, 83.6, -3.2, 83.4) == true, "mesh corners do not paint an unfair pocket")
+assert(probes >= 1, "the mesh probe runs when a segment meets the volume")
+VisionLogic.setBlockers(nil)
+VisionLogic.setMeshProbe(function()
+	return false
+end)
+assert(VisionLogic.clearLine(-176, 0, -90, -80) == false, "a clear probe does not open keep walls")
+assert(VisionLogic.clearLine(-36, -60, -36, -36) == false, "a clear probe does not open thick cover")
+VisionLogic.setMeshProbe(nil)
+local only = VisionLogic.blockerFromExtents("Temp", 6, 8, 6, 0, 4, 20, "cylinder")
+assert(only ~= nil)
+VisionLogic.setBlockers({ only })
+assert(VisionLogic.clearLine(-176, 0, -90, -80) == true, "an override replaces the authored walls")
+assert(VisionLogic.clearLine(0, 10, 0, 30) == false, "the override cylinder blocks its own ray")
+VisionLogic.setBlockers(nil)
+assert(VisionLogic.clearLine(-176, 0, -90, -80) == false, "clearing the override restores keep walls")
+assert(VisionLogic.clearLine(-10, 20, 10, 20) == true, "open ground is clear again")
 
 -- Match-lifetime fog memory: OR masks without wiping current vision.
 local first = VisionLogic.emptyMask()
@@ -168,4 +250,4 @@ LastSeenGhostLogic.clear(ghosts)
 assert(LastSeenGhostLogic.lost(ghosts, "m:blue", 40) == nil, "match end wipes ghost memory")
 assert(LastSeenGhostLogic.ghostOf(ghosts, "j:YarnGolemSE") == nil)
 
-print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, fog memory, last-seen ghosts")
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts")
