@@ -79,6 +79,7 @@ local function ask(partial: {
 	lanes: { JungleBotLogic.LaneView }?,
 	peel: JungleBotLogic.PeelHint?,
 	siege: JungleBotLogic.SiegeHint?,
+	finish: JungleBotLogic.FinishHint?,
 }): JungleBotLogic.JungleDecision
 	return JungleBotLogic.decide({
 		difficulty = partial.difficulty,
@@ -95,6 +96,7 @@ local function ask(partial: {
 		brushes = BOXES,
 		peel = partial.peel,
 		siege = partial.siege,
+		finish = partial.finish,
 	})
 end
 
@@ -1038,4 +1040,250 @@ local normalSiege = ask({
 })
 assert(normalSiege.action ~= "siege", "Normal ignores a siege hint")
 
-print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, camp respawn chip, control yarn plant")
+-- Hard finish. Callers already scored HP, range, and dive. Easy and Normal never finish-hunt.
+local function foe(id: number, x: number, z: number, hp: number, diveOk: boolean?): BotFinishLogic.Cat
+	return {
+		userId = id,
+		x = x,
+		z = z,
+		hpRatio = hp,
+		alive = true,
+		diveOk = if diveOk == nil then true else diveOk,
+	}
+end
+
+local function finishPick(partial: {
+	difficulty: BotFinishLogic.Difficulty?,
+	x: number?,
+	z: number?,
+	selfHp: number?,
+	retreatHp: number?,
+	enemies: { BotFinishLogic.Cat }?,
+}): BotFinishLogic.FinishGoal?
+	return BotFinishLogic.pick({
+		difficulty = partial.difficulty or "Hard",
+		x = partial.x or 0,
+		z = partial.z or 0,
+		selfHp = if partial.selfHp == nil then 1 else partial.selfHp,
+		retreatHp = if partial.retreatHp == nil then 0.16 else partial.retreatHp,
+		enemies = partial.enemies or {},
+	})
+end
+
+assert(BotFinishLogic.CloseHp == 0.4 and BotFinishLogic.LongHp == 0.28)
+assert(BotFinishLogic.Chase == 64 and BotFinishLogic.Long == 112)
+assert(BotFinishLogic.limit(64) == 0.4)
+assert(BotFinishLogic.limit(65) == 0.28)
+assert(BotFinishLogic.limit(112) == 0.28)
+assert(BotFinishLogic.limit(113) == nil)
+assert(BotFinishLogic.worth(0.4, 64) == true)
+assert(BotFinishLogic.worth(0.41, 10) == false)
+assert(BotFinishLogic.worth(0.28, 112) == true)
+assert(BotFinishLogic.worth(0.29, 80) == false)
+assert(BotFinishLogic.worth(0.1, 113) == false)
+assert(BotFinishLogic.worth(0, 10) == false)
+assert(BotFinishLogic.urgency(0.2, 60) ~= nil)
+assert(BotFinishLogic.urgency(0.41, 10) == nil)
+local closeUrgency = BotFinishLogic.urgency(0.4, 10)
+local farUrgency = BotFinishLogic.urgency(0.2, 60)
+assert(closeUrgency ~= nil and farUrgency ~= nil and farUrgency > closeUrgency, "a clearly lower cat outranks a closer one")
+
+assert(finishPick({ difficulty = "Easy", enemies = { foe(9, 10, 0, 0.2) } }) == nil, "Easy does not finish-hunt")
+assert(finishPick({ difficulty = "Normal", enemies = { foe(9, 10, 0, 0.2) } }) == nil, "Normal does not finish-hunt")
+assert(finishPick({ selfHp = 0.16, enemies = { foe(9, 10, 0, 0.2) } }) == nil, "fleeing bot does not finish")
+assert(finishPick({ enemies = { foe(9, 10, 0, 0.41) } }) == nil, "41% is not low enough")
+assert(finishPick({ enemies = { foe(9, 65, 0, 0.4) } }) == nil, "40% past the short chase is not a rotate")
+assert(finishPick({ enemies = { foe(9, 113, 0, 0.1) } }) == nil, "past the long chase is not a hunt")
+assert(finishPick({ enemies = { foe(9, 10, 0, 0) } }) == nil, "a downed cat is not a finish")
+assert(finishPick({ enemies = { foe(9, 10, 0, 0.2, false) } }) == nil, "an empty tower is not a finish")
+
+local closeFinish = finishPick({ enemies = { foe(9, 64, 0, 0.4) } })
+assert(closeFinish ~= nil and closeFinish.userId == 9 and closeFinish.long == false, "40% inside the short chase finishes")
+local rotated = finishPick({ enemies = { foe(9, 112, 0, 0.28) } })
+assert(rotated ~= nil and rotated.long == true, "28% takes the longer rotate")
+assert(finishPick({ enemies = { foe(9, 112, 0, 0.29) } }) == nil, "just above 28% does not rotate")
+
+local lowerWins = finishPick({
+	enemies = { foe(4, 10, 0, 0.4), foe(8, 60, 0, 0.2) },
+})
+assert(lowerWins ~= nil and lowerWins.userId == 8, "the lower cat wins a clear HP gap")
+local nearerWins = finishPick({
+	enemies = { foe(4, 50, 0, 0.39), foe(8, 10, 0, 0.4) },
+})
+assert(nearerWins ~= nil and nearerWins.userId == 8, "a hundredth of HP does not beat a shorter walk")
+local idTie = finishPick({
+	enemies = { foe(8, 10, 0, 0.3), foe(3, 10, 0, 0.3) },
+})
+assert(idTie ~= nil and idTie.userId == 3, "equal HP and distance prefers the smaller id")
+local safeDive = finishPick({
+	enemies = { foe(9, 10, 0, 0.1, false), foe(4, 20, 0, 0.35, true) },
+})
+assert(safeDive ~= nil and safeDive.userId == 4, "an unsafe dive is skipped for a legal finish")
+
+local finishHint = { x = -20, z = -100, userId = 9, hpRatio = 0.3 }
+local leaveCamp = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	finish = finishHint,
+})
+assert(leaveCamp.action == "finish" and leaveCamp.focusUserId == 9, "finish beats a full-HP camp")
+assert(leaveCamp.x == -20 and leaveCamp.memory.campId == "YarnGolemNW", "the camp waits")
+
+local hurtBeforeFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	camps = without("YarnGolemNW", camp("YarnGolemNW", -70, -100, 50, 220)),
+	finish = finishHint,
+})
+assert(hurtBeforeFinish.action == "camp" and hurtBeforeFinish.campId == "YarnGolemNW", "a hurt camp still finishes before the chase")
+
+local faceKeepsCamp = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	enemy = { x = -60, z = -90 },
+	finish = finishHint,
+})
+assert(faceKeepsCamp.action == "fight" and faceKeepsCamp.memory.campId == "YarnGolemNW", "a cat in face range still resumes the camp")
+
+local peelBeforeFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	peel = { x = -40, z = -70, critical = false, nearby = true, enemyUserId = 6 },
+	finish = finishHint,
+})
+assert(peelBeforeFinish.action == "peel" and peelBeforeFinish.focusUserId == 6, "peel beats a wounded finish")
+
+local siegeBeforeFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	siege = siegeHint,
+	finish = finishHint,
+})
+assert(siegeBeforeFinish.action == "siege" and siegeBeforeFinish.objectiveId == "RedMidOuter", "an active siege beats a wounded finish")
+
+local leviBeforeFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = -100,
+	z = -88,
+	campId = "PigeonsNW",
+	routeIndex = 1,
+	camps = withEpic(ALL),
+	finish = finishHint,
+})
+assert(leviBeforeFinish.action == "camp" and leviBeforeFinish.campId == "CanalLevi", "Levi beats a wounded finish")
+
+local leviStillPeelsFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 12,
+	z = 24,
+	campId = "CanalLevi",
+	routeIndex = 2,
+	camps = withEpic(ALL),
+	peel = { x = 12, z = 24, critical = true, nearby = true, enemyUserId = 8 },
+	finish = finishHint,
+})
+assert(leviStillPeelsFinish.action == "peel" and leviStillPeelsFinish.focusUserId == 8, "critical nearby peel still interrupts Levi")
+
+local finishRotate = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 0,
+	z = 0,
+	camps = { camp("YarnGolemSE", 70, 100, 220, 220) },
+	lanes = {
+		lane("Top", -80, 10, nil, nil),
+		lane("Mid", 0, 10, nil, nil),
+		lane("Bot", 80, 40, nil, nil),
+	},
+	finish = { x = 40, z = 0, userId = 5, hpRatio = 0.25 },
+})
+assert(finishRotate.action == "finish" and finishRotate.focusUserId == 5, "finish beats an idle rotate")
+
+local laneFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	finish = { x = 40, z = 30, userId = 7, hpRatio = 0.22 },
+})
+assert(laneFinish.action == "finish" and laneFinish.focusUserId == 7, "a lane bot finishes instead of last-hitting")
+
+local laneSiegeFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	siege = { id = "RedBotOuter", x = 90, z = 80 },
+	finish = { x = 40, z = 30, userId = 7, hpRatio = 0.2 },
+})
+assert(laneSiegeFinish.action == "siege", "a lane bot sieges before finishing")
+
+local laneFaceFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	enemy = { x = 48, z = 80 },
+	finish = { x = 40, z = 20, userId = 7, hpRatio = 0.2 },
+})
+assert(laneFaceFinish.action == "fight", "a cat in face range beats the longer finish")
+
+local laneAcquireFinish = ask({
+	difficulty = "Hard",
+	team = "Blue",
+	x = 40,
+	z = 80,
+	jungler = false,
+	enemy = { x = 80, z = 80 },
+	finish = { x = 40, z = 20, userId = 7, hpRatio = 0.2 },
+})
+assert(laneAcquireFinish.action == "fight", "a champion already in hunt range beats the longer finish")
+
+local easyFinish = ask({
+	difficulty = "Easy",
+	team = "Red",
+	x = 40,
+	z = 0,
+	jungler = true,
+	finish = finishHint,
+})
+assert(easyFinish.action == "lane", "Easy ignores a finish hint")
+
+local normalFinishHunt = ask({
+	difficulty = "Normal",
+	team = "Blue",
+	x = -70,
+	z = -100,
+	campId = "YarnGolemNW",
+	routeIndex = 2,
+	lanePushed = true,
+	finish = finishHint,
+})
+assert(normalFinishHunt.action ~= "finish", "Normal ignores a finish hint")
+
+print("PASS: jungle route, commit, contest, rotate, brush skirt, canal levi priority, hard ally peel, hard siege, hard wounded finish, camp respawn chip, control yarn plant")

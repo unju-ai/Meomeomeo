@@ -9,8 +9,11 @@
 -- and idle lane shove. A hurt camp still finishes. Canal Levi still wins
 -- unless that ally is critically low and the fight is nearby.
 -- Hard may also siege a post the caller already chose. That loses to peel,
--- Levi, a hurt camp, and a cat in face range. It beats a full-HP camp and
--- an idle rotate. Easy and Normal ignore the hint.
+-- Levi, a hurt camp, and a cat in face range. It beats a wounded-champion
+-- finish, a full-HP camp, and an idle rotate.
+-- Hard may also finish a wounded enemy the caller already chose. That loses
+-- to peel, Levi, a hurt camp, a cat in face range, and an active siege.
+-- It beats a full-HP camp and soft lane farming. Easy and Normal ignore it.
 
 local RiverEpic = require(script.Parent:WaitForChild("RiverEpic"))
 
@@ -85,6 +88,14 @@ export type SiegeHint = {
 	z: number,
 }
 
+-- Already chosen by BotFinishLogic. Jungle only ranks it. HP and range were scored there.
+export type FinishHint = {
+	x: number,
+	z: number,
+	userId: number,
+	hpRatio: number,
+}
+
 export type JungleQuery = {
 	difficulty: Difficulty,
 	team: TeamId,
@@ -100,9 +111,10 @@ export type JungleQuery = {
 	brushes: { BrushBox },
 	peel: PeelHint?,
 	siege: SiegeHint?,
+	finish: FinishHint?,
 }
 
-export type JungleAction = "camp" | "rotate" | "lane" | "fight" | "peel" | "siege"
+export type JungleAction = "camp" | "rotate" | "lane" | "fight" | "peel" | "siege" | "finish"
 
 export type JungleDecision = {
 	action: JungleAction,
@@ -489,6 +501,29 @@ local function siegeDecision(query: JungleQuery, routeIndex: number): JungleDeci
 	}
 end
 
+local function finishDecision(query: JungleQuery, routeIndex: number): JungleDecision
+	local hint = query.finish
+	local goalX = query.x
+	local goalZ = query.z
+	local focus: number? = nil
+	if hint then
+		goalX = hint.x
+		goalZ = hint.z
+		focus = hint.userId
+	end
+	local stepX, stepZ = approach(query, goalX, goalZ)
+	local resume = if findCamp(query.camps, query.memory.campId) then query.memory.campId else nil
+	return {
+		action = "finish",
+		x = goalX,
+		z = goalZ,
+		stepX = stepX,
+		stepZ = stepZ,
+		focusUserId = focus,
+		memory = memoryOf(resume, routeIndex),
+	}
+end
+
 local function peelDecision(query: JungleQuery, routeIndex: number): JungleDecision
 	local hint = query.peel
 	local goalX = query.x
@@ -517,10 +552,11 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	if routeIndex < 1 then
 		routeIndex = 1
 	end
-	-- Top and bot stay in lane. A Hard peel still beats that shove, then a siege.
-	-- Easy never peels or sieges, even if a caller passes a hint.
+	-- Top and bot stay in lane. A Hard peel still beats that shove, then a siege,
+	-- then a wounded-champion finish. Easy never peels, sieges, or finish-hunts.
 	local peel = if query.difficulty == "Hard" then query.peel else nil
 	local siege = if query.difficulty == "Hard" then query.siege else nil
+	local finish = if query.difficulty == "Hard" then query.finish else nil
 	if not query.jungler or query.difficulty == "Easy" then
 		if peel then
 			return peelDecision(query, routeIndex)
@@ -531,6 +567,15 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 				return fightDecision(nil, routeIndex)
 			end
 			return siegeDecision(query, routeIndex)
+		end
+		if finish then
+			-- A champion already inside the normal hunt stays on that hunt.
+			-- Finish only pulls a lane bot off last-hitting when the wounded
+			-- cat is outside that bubble.
+			if query.enemy then
+				return fightDecision(nil, routeIndex)
+			end
+			return finishDecision(query, routeIndex)
 		end
 		return laneDecision(routeIndex)
 	end
@@ -549,9 +594,10 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	local epic = findEpic(query.camps)
 
 	-- Hard sticks to the route camp until it dies — unless Canal Levi is up and
-	-- this camp is only a leftover (full HP) walk, a Hard peel is calling, or
-	-- a siege is already on a post. A hurt camp still finishes. Normal only
-	-- locks in once the fight has started.
+	-- this camp is only a leftover (full HP) walk, a Hard peel is calling, a
+	-- siege is already on a post, or a wounded champion is worth finishing.
+	-- A hurt camp still finishes. A face-range fight still resumes this camp.
+	-- Normal only locks in once the fight has started.
 	local hold = committed
 	if hold and hold.epic ~= true then
 		if query.difficulty == "Hard" and epic and RiverEpic.wantsHardPath(query.difficulty, query.jungler, false) then
@@ -574,6 +620,11 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 	if hold and contesting(query, hold) then
 		local index = routeIndexOf(query.team, hold.id) or routeIndex
 		return fightDecision(hold.id, index)
+	end
+	-- Drop a full-HP camp for a wounded champion only after the face-range
+	-- fight above has had a chance to keep the camp id.
+	if hold and finish and hold.epic ~= true and not startedCamp(hold) then
+		hold = nil
 	end
 	if hold then
 		local index = routeIndexOf(query.team, hold.id) or routeIndex
@@ -608,10 +659,15 @@ function JungleBotLogic.decide(query: JungleQuery): JungleDecision
 		return campDecision(query, epic, routeIndex)
 	end
 
-	-- Siege beats a full-HP route camp and the post-clear rotate. Peel, Levi,
-	-- a hurt camp, and a face-range fight already returned above.
+	-- Siege beats a wounded finish, a full-HP route camp, and the post-clear
+	-- rotate. Peel, Levi, a hurt camp, and a face-range fight already returned.
 	if siege then
 		return siegeDecision(query, routeIndex)
+	end
+
+	-- A wounded champion beats a full-HP route camp and the idle rotate.
+	if finish then
+		return finishDecision(query, routeIndex)
 	end
 
 	if query.difficulty == "Hard" then

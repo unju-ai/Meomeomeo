@@ -8,7 +8,10 @@ death; Normal mid-river assist; Easy ignore. Hard ally peel (BotPeelLogic) beats
 leftover camps and lane shove, and interrupts Levi only when the ally is
 critically low and the fight is nearby. Hard siege (BotSiegeLogic) hits a
 vulnerable post the wave is already under. It loses to peel, Levi, a hurt
-camp, and a face-range fight, and beats a full-HP camp. Easy and Normal ignore it.
+camp, and a face-range fight, and beats a wounded finish and a full-HP camp.
+Hard finish (BotFinishLogic) hunts a visible wounded champion over a full-HP
+camp and a lane shove. It loses to flee, peel, Levi, a hurt camp, a face-range
+fight, and an active siege. Easy and Normal ignore both.
 """
 from pathlib import Path
 import re
@@ -38,6 +41,7 @@ script = (
     + wrap("RiverEpic", "src/shared/RiverEpic.luau")
     + wrap("RiverEpicJuice", "src/shared/RiverEpicJuice.luau")
     + wrap_deps("CampRespawnJuice", "src/shared/CampRespawnJuice.luau", ["VisionLogic", "RiverEpic"])
+    + wrap("BotFinishLogic", "src/shared/BotFinishLogic.luau")
     + wrap("BotPeelLogic", "src/shared/BotPeelLogic.luau")
     + wrap("BotSiegeLogic", "src/shared/BotSiegeLogic.luau")
     + wrap("JungleBotLogic", "src/shared/JungleBotLogic.luau")

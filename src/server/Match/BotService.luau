@@ -2,6 +2,7 @@
 
 local Workspace = game:GetService("Workspace")
 
+local BotFinishLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotFinishLogic"))
 local BotPeelLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotPeelLogic"))
 local BotSiegeLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotSiegeLogic"))
 local BotShopLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BotShopLogic"))
@@ -803,6 +804,55 @@ local function hardPeelGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, roo
 	return goal
 end
 
+-- Visible wounded enemy champion. Nil while fleeing. Easy and Normal never
+-- get a goal. An empty-tower walk is marked diveOk false and dropped.
+local function hardFinishGoal(brain: BotBrain, team: Types.TeamId, tune: Tune, root: BasePart, combat: any): BotFinishLogic.FinishGoal?
+	if currentDifficulty ~= "Hard" then
+		return nil
+	end
+	local hpRatio = if combat.maxHealth > 0 then combat.health / combat.maxHealth else 1
+	if hpRatio <= tune.RetreatHp then
+		return nil
+	end
+	local snapshot = matchSnapshot()
+	if not snapshot then
+		return nil
+	end
+	local enemies: { BotFinishLogic.Cat } = {}
+	for _, other in snapshot.players do
+		if other.team ~= team and other.userId ~= brain.userId then
+			local otherCombat = CombatService.get(other.userId)
+			local otherRoot = CombatService.rootOf(other.userId)
+			if otherCombat and otherRoot and otherCombat.alive and VisionService.canSeeChampion(brain.userId, other.userId) then
+				local ratio = if otherCombat.maxHealth > 0 then otherCombat.health / otherCombat.maxHealth else 1
+				local dest = otherRoot.Position
+				local hunt: Hunt = {
+					kind = "player",
+					userId = other.userId,
+					position = dest,
+					isChampion = true,
+				}
+				table.insert(enemies, {
+					userId = other.userId,
+					x = dest.X,
+					z = dest.Z,
+					hpRatio = ratio,
+					alive = true,
+					diveOk = allowDive(tune, brain, team, root.Position, dest, hunt),
+				})
+			end
+		end
+	end
+	return BotFinishLogic.pick({
+		difficulty = "Hard",
+		x = root.Position.X,
+		z = root.Position.Z,
+		selfHp = hpRatio,
+		retreatHp = tune.RetreatHp,
+		enemies = enemies,
+	})
+end
+
 -- Vulnerable post or open stall the wave is already under. Nil while fleeing
 -- or during a critical peel. Easy and Normal never get a goal.
 local function hardSiegeGoal(
@@ -836,6 +886,7 @@ local function pursueJungle(
 	dt: number,
 	peelGoal: BotPeelLogic.PeelGoal?,
 	siegeGoal: BotSiegeLogic.SiegeGoal?,
+	finishGoal: BotFinishLogic.FinishGoal?,
 	combat: any,
 	matchPlayer: Types.MatchPlayer
 ): boolean
@@ -857,7 +908,16 @@ local function pursueJungle(
 			z = siegeGoal.z,
 		}
 	end
-	if (not tune.Jungle or not brain.jungler) and not hint and not siegeHint then
+	local finishHint: JungleBotLogic.FinishHint? = nil
+	if finishGoal then
+		finishHint = {
+			x = finishGoal.x,
+			z = finishGoal.z,
+			userId = finishGoal.userId,
+			hpRatio = finishGoal.hpRatio,
+		}
+	end
+	if (not tune.Jungle or not brain.jungler) and not hint and not siegeHint and not finishHint then
 		clearJungleNav(brain)
 		brain.campId = nil
 		return false
@@ -877,6 +937,7 @@ local function pursueJungle(
 		brushes = BRUSH_BOXES,
 		peel = hint,
 		siege = siegeHint,
+		finish = finishHint,
 	})
 	brain.campId = decision.memory.campId
 	brain.routeIndex = decision.memory.routeIndex
@@ -887,6 +948,36 @@ local function pursueJungle(
 		local stepX = decision.stepX or decision.x or root.Position.X
 		local stepZ = decision.stepZ or decision.z or root.Position.Z
 		brain.navKind = "peel"
+		brain.navX = stepX
+		brain.navZ = stepZ
+		if (root.Position - fountainPos(team)).Magnitude > 40 then
+			brain.visitedLane = true
+		end
+		local aim = Vector3.new(decision.x or stepX, root.Position.Y, decision.z or stepZ)
+		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+		local focus = decision.focusUserId
+		if focus and flat.Magnitude <= Config.AutoAttack.Range then
+			local swung = CombatService.issueAttackFor(brain.userId, { kind = "player", userId = focus })
+			brain.closing = swung.ok == true
+			if swung.ok then
+				tryChampionAbilities(brain, tune, root, combat, matchPlayer, Workspace:GetServerTimeNow(), flat.Magnitude, aim, focus)
+			else
+				brain.closing = false
+				stepToward(brain.userId, aim, dt)
+			end
+			return true
+		end
+		brain.closing = false
+		stepToward(brain.userId, Vector3.new(stepX, root.Position.Y, stepZ), dt)
+		return true
+	end
+	if decision.action == "finish" then
+		if brain.navKind == "camp" then
+			CombatService.issueAttackFor(brain.userId, { kind = "stop" })
+		end
+		local stepX = decision.stepX or decision.x or root.Position.X
+		local stepZ = decision.stepZ or decision.z or root.Position.Z
+		brain.navKind = "finish"
 		brain.navX = stepX
 		brain.navZ = stepZ
 		if (root.Position - fountainPos(team)).Magnitude > 40 then
@@ -1116,10 +1207,12 @@ local function think(brain: BotBrain, dt: number)
 
 	-- Flee, dodge, and an empty-tower panic already returned. Shop, cleave, lens,
 	-- and Control Yarn stay above goals. Peel, Canal Levi, and a hurt camp beat
-	-- a Hard siege. The siege beats a full-HP camp and last-hit farming.
+	-- a Hard siege. The siege beats a wounded-champion finish. That finish beats
+	-- a full-HP camp and last-hit farming.
 	local peelGoal = hardPeelGoal(brain, team, tune, root, combat)
 	local siegeGoal = hardSiegeGoal(team, tune, root, combat, peelGoal)
-	if pursueJungle(brain, team, tune, root, dt, peelGoal, siegeGoal, combat, matchPlayer) then
+	local finishGoal = hardFinishGoal(brain, team, tune, root, combat)
+	if pursueJungle(brain, team, tune, root, dt, peelGoal, siegeGoal, finishGoal, combat, matchPlayer) then
 		return
 	end
 
@@ -1263,6 +1356,8 @@ function BotService.start()
 							elseif matchPlayer and brain.navKind == "rotate" and brain.navX and brain.navZ then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer and brain.navKind == "peel" and brain.navX and brain.navZ and not brain.closing then
+								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
+							elseif matchPlayer and brain.navKind == "finish" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
 							elseif matchPlayer and brain.navKind == "siege" and brain.navX and brain.navZ and not brain.closing then
 								stepToward(brain.userId, Vector3.new(brain.navX, root.Position.Y, brain.navZ), dt)
