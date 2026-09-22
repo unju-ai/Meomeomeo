@@ -25,6 +25,7 @@ local ArcadeCatalog = require(Shared:WaitForChild("ArcadeCatalog"))
 local CosmeticCatalog = require(Shared:WaitForChild("CosmeticCatalog"))
 local KoiCatalog = require(Shared:WaitForChild("KoiCatalog"))
 local PingCatalog = require(Shared:WaitForChild("PingCatalog"))
+local YarnPartyCatalog = require(Shared:WaitForChild("YarnPartyCatalog"))
 local PingLogic = require(Shared:WaitForChild("PingLogic"))
 local SoundIds = require(script.Audio.SoundIds)
 
@@ -1448,17 +1449,28 @@ Remotes.event("YarnPartyUpdated").OnClientEvent:Connect(function(payload)
 			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 196, 74))
 			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
 			hud.ticker(`YARN PARTY · {snap.winnerName or "loaf"} crowned`)
-		elseif snap.event == "YARN DODGE" or snap.event == "STALL FREEZE" then
+		elseif snap.event == "YARN DODGE" then
 			Sfx.play("LevelUp")
 			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 122, 98))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 122, 98))
+			hud.ticker(`YARN PARTY · {YarnPartyCatalog.ruleBanner("Dodge")}`)
+		elseif snap.event == "STALL FREEZE" then
+			Sfx.play("LevelUp")
+			ScreenJuice.banner(snap.event, Color3.fromRGB(120, 196, 150))
+			ScreenJuice.powerFlash(Color3.fromRGB(120, 196, 150))
+			hud.ticker(`YARN PARTY · {YarnPartyCatalog.ruleBanner("Pillows")}`)
 		elseif snap.event == "GO" then
 			Sfx.play("MatchFound")
+			ScreenJuice.banner("GO", Color3.fromRGB(255, 196, 74))
+			ScreenJuice.powerFlash(Color3.fromRGB(255, 196, 74))
 		elseif string.find(snap.event, "took seat", 1, true) then
 			Sfx.play("LevelUp")
 			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 196, 74))
-		elseif string.find(snap.event, "YARN BONK", 1, true) or string.find(snap.event, "WRONG PILLOW", 1, true) then
+		elseif YarnPartyCatalog.isElimPop(snap.event) then
 			Sfx.play("Kill")
+			ScreenJuice.banner(snap.event, Color3.fromRGB(255, 122, 98))
 			ScreenJuice.damageFlash()
+			YarnPartyCamera.kick(0.65, 0.18)
 		end
 	end
 	lastPartyEvent = snap.event
