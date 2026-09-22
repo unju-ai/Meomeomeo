@@ -224,6 +224,8 @@ local function placeWardFor(userId: number, team: Types.TeamId, position: Vector
 	popOwnerKind(userId, kind)
 	nextId += 1
 	local id = `ward-{nextId}`
+	local hp = if kind == "control" then Config.Vision.ControlHealth else Config.Vision.WardHealth
+	local life = if kind == "control" then Config.Vision.ControlDuration else Config.Vision.TrinketDuration
 	local part = Instance.new("Part")
 	part.Name = id
 	part.Anchored = true
@@ -239,6 +241,9 @@ local function placeWardFor(userId: number, team: Types.TeamId, position: Vector
 	part:SetAttribute(Constants.Attributes.WardId, id)
 	part:SetAttribute(Constants.Attributes.Team, team)
 	part:SetAttribute(Constants.Attributes.WardKind, kind)
+	part:SetAttribute(Constants.Attributes.UserId, userId)
+	part:SetAttribute(Constants.Attributes.PlacedAt, t)
+	part:SetAttribute(Constants.Attributes.ExpiresAt, t + life)
 	part.Parent = folder()
 
 	local gui = Instance.new("BillboardGui")
@@ -253,11 +258,9 @@ local function placeWardFor(userId: number, team: Types.TeamId, position: Vector
 	text.Font = Enum.Font.GothamBold
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(255, 243, 224)
-	text.Text = if kind == "control" then `pink {Config.Vision.ControlHealth}` else `ward {Config.Vision.WardHealth}`
+	text.Text = if kind == "control" then `pink {hp}` else `ward {hp}`
 	text.Parent = gui
 
-	local hp = if kind == "control" then Config.Vision.ControlHealth else Config.Vision.WardHealth
-	local life = if kind == "control" then Config.Vision.ControlDuration else Config.Vision.TrinketDuration
 	local ward: Ward = {
 		id = id,
 		team = team,

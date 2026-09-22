@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local MinimapPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MinimapPaint"))
+local WardJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WardJuice"))
 local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -410,7 +411,12 @@ function Minimap.create(parent: Instance): MinimapApi
 						local kind = child:GetAttribute(Constants.Attributes.WardKind)
 						local teamId = if typeof(team) == "string" then team else nil
 						local kindId = if typeof(kind) == "string" then kind else nil
-						placePaint(`w-{child.Name}`, child.Position, MinimapPaint.ward(kindId, teamId), 3)
+						local style = MinimapPaint.ward(kindId, teamId)
+						local expiresAt = child:GetAttribute(Constants.Attributes.ExpiresAt)
+						if typeof(expiresAt) == "number" then
+							style.transparency = WardJuice.minimapTransparency(style.transparency, expiresAt, Workspace:GetServerTimeNow())
+						end
+						placePaint(`w-{child.Name}`, child.Position, style, 3)
 						seen[`w-{child.Name}`] = true
 					end
 				end

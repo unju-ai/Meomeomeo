@@ -40,6 +40,7 @@ local CameraFollow = require(script.CameraFollow)
 local BillboardHpBars = require(script.Juice.BillboardHpBars)
 local ChampionPlates = require(script.Juice.ChampionPlates)
 local CombatFx = require(script.Juice.CombatFx)
+local WardFx = require(script.Juice.WardFx)
 local EmoteFx = require(script.Juice.EmoteFx)
 local FogOfWar = require(script.Juice.FogOfWar)
 local LastSeenGhosts = require(script.Juice.LastSeenGhosts)
@@ -2028,6 +2029,7 @@ applyVision = function()
 	if not active then
 		CombatFx.setFloatsEnabled(false)
 		CombatFx.setRecallAllowed(false)
+		WardFx.clear()
 		Sfx.stopLoop("RecallLoop")
 		if lastFountainRegen then
 			clearFountainJuice()
@@ -2139,6 +2141,8 @@ applyVision = function()
 			end
 		end
 	end
+	local wardTeam = if mine then mine.team else nil
+	WardFx.sync(player.UserId, wardTeam, lastVision.wards or {})
 
 	syncWorldHpBars()
 end

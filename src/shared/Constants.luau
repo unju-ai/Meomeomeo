@@ -40,6 +40,9 @@ local Constants = {
 		JungleId = "MeoJungleId",
 		WardId = "MeoWardId",
 		WardKind = "MeoWardKind",
+		-- Display surface for ward juice. Place rules still live in WardService.
+		PlacedAt = "MeoPlacedAt",
+		ExpiresAt = "MeoExpiresAt",
 		Recalling = "MeoRecalling",
 		Channeling = "MeoChanneling",
 		UserId = "MeoUserId",
