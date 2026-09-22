@@ -151,7 +151,7 @@ end
 function Sfx.cueForFeed(kind: string): SoundIds.Cue?
 	if kind == "kill" then
 		return "Kill"
-	elseif kind == "tower" then
+	elseif kind == "tower" or kind == "stall" then
 		return "TowerDown"
 	elseif kind == "nexus" then
 		return "NexusDown"

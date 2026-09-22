@@ -1722,7 +1722,7 @@ Remotes.event("KillFeed").OnClientEvent:Connect(function(event)
 		if feed.kind == "nexus" then
 			Music.duck(2.2)
 		end
-		if feed.kind == "tower" then
+		if feed.kind == "tower" or feed.kind == "stall" then
 			ScreenJuice.shakeTower()
 			if latestMatch and latestMatch.practice then
 				hud.tips.notifyTower()

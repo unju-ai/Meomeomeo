@@ -53,7 +53,8 @@ function MemeTape.create(parent: Instance): TapeApi
 	local root = Instance.new("Frame")
 	root.Name = "MemeTape"
 	root.AnchorPoint = Vector2.new(0.5, 0)
-	root.Position = UDim2.new(0.5, 0, 0, 130)
+	-- Below the kill-feed chip stack (feed Y≈36, ~4×20px rows) with a clear gap.
+	root.Position = UDim2.new(0.5, 0, 0, 136)
 	root.Size = UDim2.fromOffset(720, 28)
 	root.BackgroundColor3 = Theme.ink
 	root.BackgroundTransparency = 0.22
