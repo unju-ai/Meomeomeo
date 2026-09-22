@@ -250,4 +250,10 @@ LastSeenGhostLogic.clear(ghosts)
 assert(LastSeenGhostLogic.lost(ghosts, "m:blue", 40) == nil, "match end wipes ghost memory")
 assert(LastSeenGhostLogic.ghostOf(ghosts, "j:YarnGolemSE") == nil)
 
-print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts")
+-- Minimap fog cell paint: explored stays lighter than unexplored (client only).
+local unRgb, unA = MinimapPaint.fogCell(false)
+local exRgb, exA = MinimapPaint.fogCell(true)
+assert(exA > unA, "explored minimap fog is more transparent than unexplored")
+assert(exRgb[1] + exRgb[2] + exRgb[3] > unRgb[1] + unRgb[2] + unRgb[3], "explored RGB is lighter")
+
+print("PASS: fog grid, packed mask, source radii, brush occludes, wall LoS, mesh cover, fog memory, last-seen ghosts, minimap fog tint")

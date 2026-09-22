@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local MinimapPaint = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MinimapPaint"))
 local RiverEpic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RiverEpic"))
 local PingCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PingCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -50,6 +51,23 @@ local function mark(parent: Instance, name: string, size: number, color: Color3)
 	return dot
 end
 
+local function applyPaint(frame: Frame, paint: MinimapPaint.Paint)
+	frame.BackgroundColor3 = MinimapPaint.rgb(paint.fill)
+	frame.BackgroundTransparency = paint.transparency
+	frame.Size = UDim2.fromOffset(paint.size, paint.size)
+	local cornerInst = frame:FindFirstChildOfClass("UICorner")
+	local corner = if cornerInst and cornerInst:IsA("UICorner") then cornerInst else Theme.corner(frame, paint.corner)
+	corner.CornerRadius = UDim.new(0, paint.corner)
+	local strokeInst = frame:FindFirstChildOfClass("UIStroke")
+	local stroke = if strokeInst and strokeInst:IsA("UIStroke")
+		then strokeInst
+		else Theme.stroke(frame, Theme.cream, 1, 0.1)
+	stroke.Color = MinimapPaint.rgb(paint.stroke)
+	stroke.Thickness = paint.strokeThickness
+	stroke.Transparency = if paint.strokeThickness <= 0 then 1 else math.clamp(paint.transparency * 0.5, 0, 0.6)
+	stroke.Enabled = paint.strokeThickness > 0
+end
+
 function Minimap.create(parent: Instance): MinimapApi
 	local root = Instance.new("TextButton")
 	root.Name = "Minimap"
@@ -62,7 +80,7 @@ function Minimap.create(parent: Instance): MinimapApi
 	root.Visible = false
 	root.Parent = parent
 	Theme.corner(root, 12)
-	Theme.stroke(root, Theme.amber, 2, 0.25)
+	local rootStroke = Theme.stroke(root, Theme.amber, 2, 0.25)
 
 	local river = Instance.new("Frame")
 	river.Name = "River"
@@ -107,7 +125,7 @@ function Minimap.create(parent: Instance): MinimapApi
 		Theme.corner(patch, 6)
 	end
 
-	local title = Theme.text(root, "Title", "Rift  ·  fog  ·  G wheel", 11, Theme.cream, Theme.fontMono)
+	local title = Theme.text(root, "Title", "Rift  ·  fog  ·  click ping", 11, Theme.cream, Theme.fontMono)
 	title.Position = UDim2.fromOffset(8, 4)
 	title.Size = UDim2.new(1, -16, 0, 14)
 	title.ZIndex = 4
@@ -132,8 +150,8 @@ function Minimap.create(parent: Instance): MinimapApi
 			local cell = Instance.new("Frame")
 			cell.Name = `f{index}`
 			cell.BorderSizePixel = 0
-			cell.BackgroundColor3 = Color3.fromRGB(8, 10, 16)
-			cell.BackgroundTransparency = 0.12
+			cell.BackgroundColor3 = MinimapPaint.rgb(MinimapPaint.FogUnexplored)
+			cell.BackgroundTransparency = MinimapPaint.FogUnexploredAlpha
 			cell.Position = UDim2.fromScale(col * w, row * h)
 			cell.Size = UDim2.fromScale(w + 0.002, h + 0.002)
 			cell.ZIndex = 2
@@ -167,13 +185,9 @@ function Minimap.create(parent: Instance): MinimapApi
 					cell.Visible = false
 				else
 					cell.Visible = true
-					if explored[index] then
-						cell.BackgroundColor3 = Color3.fromRGB(22, 34, 42)
-						cell.BackgroundTransparency = 0.38
-					else
-						cell.BackgroundColor3 = Color3.fromRGB(8, 10, 16)
-						cell.BackgroundTransparency = 0.08
-					end
+					local rgb, alpha = MinimapPaint.fogCell(explored[index] == true)
+					cell.BackgroundColor3 = MinimapPaint.rgb(rgb)
+					cell.BackgroundTransparency = alpha
 				end
 			end
 		end
@@ -187,56 +201,53 @@ function Minimap.create(parent: Instance): MinimapApi
 	pingDot.Visible = false
 	pingDot.ZIndex = 6
 
+	local clickFlash = mark(root, "ClickFlash", 12, Theme.amber)
+	clickFlash.Visible = false
+	clickFlash.ZIndex = 5
+	clickFlash.BackgroundTransparency = 0.35
+	Theme.stroke(clickFlash, Theme.cream, 2, 0.15)
+
 	local history = Instance.new("Folder")
 	history.Name = "PingHistory"
 	history.Parent = root
 
-	local LANTERN = Color3.fromRGB(255, 176, 72)
-	local WOOD = Color3.fromRGB(122, 74, 46)
-	local YARN = Color3.fromRGB(255, 196, 90)
-
-	-- Posts stay square and stalls stay lantern-amber so a structure ping is not a bare dot in fog.
 	local function paintMarker(frame: Frame, marker: string?, team: string?, pingColor: Color3, size: number)
-		local shape = marker or "dot"
-		local cornerInst = frame:FindFirstChildOfClass("UICorner")
-		local corner = if cornerInst and cornerInst:IsA("UICorner") then cornerInst else nil
-		local strokeInst = frame:FindFirstChildOfClass("UIStroke")
-		local stroke = if strokeInst and strokeInst:IsA("UIStroke")
-			then strokeInst
-			else Theme.stroke(frame, Theme.cream, 1.5, 0.1)
-		frame.Size = UDim2.fromOffset(size, size)
-		if shape == "post" then
-			frame.BackgroundColor3 = if team == "Blue" then Theme.blue elseif team == "Red" then Theme.red else LANTERN
-			if corner then
-				corner.CornerRadius = UDim.new(0, 2)
-			end
-			stroke.Color = LANTERN
-			stroke.Thickness = 2
-		elseif shape == "stall" then
-			frame.BackgroundColor3 = LANTERN
-			if corner then
-				corner.CornerRadius = UDim.new(1, 0)
-			end
-			stroke.Color = WOOD
-			stroke.Thickness = 2
-		elseif shape == "core" then
-			frame.BackgroundColor3 = Theme.pink
-			if corner then
-				corner.CornerRadius = UDim.new(1, 0)
-			end
-			stroke.Color = YARN
-			stroke.Thickness = 2
-		else
-			frame.BackgroundColor3 = pingColor
-			if corner then
-				corner.CornerRadius = UDim.new(0, 99)
-			end
-			stroke.Color = Theme.cream
-			stroke.Thickness = 1
-		end
+		local rgb = { math.floor(pingColor.R * 255 + 0.5), math.floor(pingColor.G * 255 + 0.5), math.floor(pingColor.B * 255 + 0.5) }
+		applyPaint(frame, MinimapPaint.ping(marker, team, rgb, size))
 	end
 
 	local pingHandler: ((Vector3) -> ())? = nil
+	local clickToken = 0
+
+	local function flashClick(sx: number, sy: number)
+		clickToken += 1
+		local token = clickToken
+		clickFlash.Position = UDim2.fromScale(sx, sy)
+		clickFlash.Visible = true
+		clickFlash.Size = UDim2.fromOffset(14, 14)
+		clickFlash.BackgroundTransparency = 0.2
+		rootStroke.Color = Theme.amber
+		rootStroke.Transparency = 0.05
+		local started = os.clock()
+		task.spawn(function()
+			while token == clickToken do
+				local elapsed = os.clock() - started
+				local flash = MinimapPaint.clickFlash(elapsed)
+				if flash <= 0 then
+					break
+				end
+				clickFlash.BackgroundTransparency = 0.2 + (1 - flash) * 0.75
+				local grow = 14 + math.floor((1 - flash) * 8)
+				clickFlash.Size = UDim2.fromOffset(grow, grow)
+				rootStroke.Transparency = 0.05 + (1 - flash) * 0.2
+				task.wait()
+			end
+			if token == clickToken then
+				clickFlash.Visible = false
+				rootStroke.Transparency = 0.25
+			end
+		end)
+	end
 
 	root.MouseButton1Click:Connect(function()
 		if not pingHandler then
@@ -250,22 +261,17 @@ function Minimap.create(parent: Instance): MinimapApi
 		end
 		local x = (mouse.X - abs.X) / size.X
 		local y = (mouse.Y - abs.Y) / size.Y
+		flashClick(x, y)
 		pingHandler(scaleToWorld(x, y))
 	end)
 
-	local function place(name: string, position: Vector3, size: number, color: Color3, square: boolean?)
+	local function placePaint(name: string, position: Vector3, paint: MinimapPaint.Paint, zIndex: number?)
 		local existing = dots:FindFirstChild(name)
-		local dot = if existing and existing:IsA("Frame") then existing else mark(dots, name, size, color)
-		dot.BackgroundColor3 = color
-		dot.Size = UDim2.fromOffset(size, size)
+		local dot = if existing and existing:IsA("Frame") then existing else mark(dots, name, paint.size, MinimapPaint.rgb(paint.fill))
+		applyPaint(dot, paint)
 		local sx, sy = worldToScale(position)
 		dot.Position = UDim2.fromScale(sx, sy)
-		if square then
-			local corner = dot:FindFirstChildOfClass("UICorner")
-			if corner then
-				corner.CornerRadius = UDim.new(0, 2)
-			end
-		end
+		dot.ZIndex = zIndex or 3
 		dot.Visible = true
 		return dot
 	end
@@ -276,6 +282,7 @@ function Minimap.create(parent: Instance): MinimapApi
 			root.Visible = visible
 			if not visible then
 				pingDot.Visible = false
+				clickFlash.Visible = false
 				for _, cell in fogCells do
 					cell.Visible = false
 				end
@@ -306,19 +313,8 @@ function Minimap.create(parent: Instance): MinimapApi
 				end
 				local pos = if part then part.Position else Vector3.zero
 				if part then
-					local color = if not objective.alive
-						then Color3.fromRGB(50, 50, 50)
-						elseif objective.team == "Blue" then Theme.blue
-						else Theme.red
-					if objective.alive and objective.tier == "Inner" then
-						color = color:Lerp(Color3.fromRGB(255, 176, 72), if objective.vulnerable then 0.4 else 0.12)
-						if not objective.vulnerable then
-							color = color:Lerp(Color3.fromRGB(28, 28, 32), 0.45)
-						end
-					end
-					local size = if objective.kind == "Nexus" then 10 elseif objective.tier == "Inner" then 8 else 7
-					-- Posts are squares. Lantern stalls and the yarn core are round.
-					place(`obj-{id}`, pos, size, color, objective.kind == "Tower" and objective.tier ~= "Inner")
+					local style = MinimapPaint.structure(objective.tier, objective.team, objective.alive, objective.vulnerable)
+					placePaint(`obj-{id}`, pos, style, 3)
 					seen[`obj-{id}`] = true
 				end
 			end
@@ -329,13 +325,9 @@ function Minimap.create(parent: Instance): MinimapApi
 				if not (ally or visiblePlayers[userId]) then
 					return
 				end
-				-- Team colors only — champ body tints stay off the map so sides stay readable.
-				local color = if userId == localUserId
-					then Theme.cream
-					elseif matchPlayer.team == "Blue" then Theme.blue
-					else Theme.red
-				local size = if userId == localUserId then 9 elseif matchPlayer.isBot then 6 else 7
-				place(`p-{userId}`, rootPart.Position, size, color)
+				local style = MinimapPaint.champ(userId == localUserId, ally, matchPlayer.team, matchPlayer.isBot == true)
+				-- You sit above other pips so the cream ring stays readable in a pile-up.
+				placePaint(`p-{userId}`, rootPart.Position, style, if userId == localUserId then 5 else 4)
 				seen[`p-{userId}`] = true
 			end
 
@@ -372,8 +364,8 @@ function Minimap.create(parent: Instance): MinimapApi
 						local team = child:GetAttribute(Constants.Attributes.Team)
 						local ally = mine ~= nil and team == mine.team
 						if ally or visibleMinions[child.Name] then
-							local color = if team == "Blue" then Color3.fromRGB(160, 200, 255) else Color3.fromRGB(255, 170, 170)
-							place(`m-{child.Name}`, child.Position, 4, color)
+							local teamId = if typeof(team) == "string" then team else nil
+							placePaint(`m-{child.Name}`, child.Position, MinimapPaint.minion(teamId), 3)
 							seen[`m-{child.Name}`] = true
 						end
 					end
@@ -389,8 +381,7 @@ function Minimap.create(parent: Instance): MinimapApi
 				for _, child in jungle:GetChildren() do
 					if child:IsA("BasePart") and visibleJungle[child.Name] then
 						local epicBody = child.Name == RiverEpic.Id
-						local color = if epicBody then Color3.fromRGB(255, 150, 64) else Theme.amber
-						place(`j-{child.Name}`, child.Position, if epicBody then 8 else 5, color)
+						placePaint(`j-{child.Name}`, child.Position, MinimapPaint.camp(epicBody), if epicBody then 4 else 3)
 						seen[`j-{child.Name}`] = true
 					end
 				end
@@ -400,9 +391,10 @@ function Minimap.create(parent: Instance): MinimapApi
 			local epicView = snapshot.riverEpic
 			local epicPhase = if epicView then epicView.phase else "waiting"
 			local epicMark = RiverEpic.marker(epicPhase, visibleJungle[RiverEpic.Id] == true)
-			if epicMark == "pit" or epicMark == "down" then
-				local pitColor = if epicMark == "down" then Color3.fromRGB(120, 78, 42) else Color3.fromRGB(255, 150, 64)
-				place("j-epic-pit", Vector3.new(RiverEpic.X, 0, RiverEpic.Z), if epicMark == "down" then 6 else 8, pitColor, true)
+			local leviPaint = MinimapPaint.levi(epicMark)
+			if leviPaint and epicMark ~= "body" then
+				-- Body already painted from the Jungle part when in vision.
+				placePaint("j-epic-pit", Vector3.new(RiverEpic.X, 0, RiverEpic.Z), leviPaint, 3)
 				seen["j-epic-pit"] = true
 			end
 
@@ -416,11 +408,9 @@ function Minimap.create(parent: Instance): MinimapApi
 					if child:IsA("BasePart") and visibleWards[child.Name] then
 						local team = child:GetAttribute(Constants.Attributes.Team)
 						local kind = child:GetAttribute(Constants.Attributes.WardKind)
-						local color = if kind == "control"
-							then Theme.pink
-							elseif team == "Blue" then Color3.fromRGB(140, 210, 255)
-							else Color3.fromRGB(255, 150, 170)
-						place(`w-{child.Name}`, child.Position, 4, color, true)
+						local teamId = if typeof(team) == "string" then team else nil
+						local kindId = if typeof(kind) == "string" then kind else nil
+						placePaint(`w-{child.Name}`, child.Position, MinimapPaint.ward(kindId, teamId), 3)
 						seen[`w-{child.Name}`] = true
 					end
 				end
