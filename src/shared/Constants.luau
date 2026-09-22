@@ -41,6 +41,7 @@ local Constants = {
 		WardId = "MeoWardId",
 		WardKind = "MeoWardKind",
 		Recalling = "MeoRecalling",
+		Channeling = "MeoChanneling",
 		UserId = "MeoUserId",
 		TutorialDone = "MeoTutorialDone",
 		SfxVolume = "MeoSfxVolume",

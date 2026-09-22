@@ -47,12 +47,18 @@ local mt = {
 function Vector3.new(x, y, z)
     return setmetatable({ X = x or 0, Y = y or 0, Z = z or 0 }, mt)
 end
+local Color3 = {}
+function Color3.fromRGB(r, g, b)
+    return { R = r, G = g, B = b }
+end
 """
 
 script = (
     prelude
     + wrap("Targeting", "src/shared/Targeting.luau")
     + wrap("ProjectileLogic", "src/shared/ProjectileLogic.luau")
+    + wrap("ChampionCatalog", "src/shared/ChampionCatalog.luau")
+    + wrap("ChampionKits", "src/shared/ChampionKits.luau")
     + (root / "tests/combat-smoke.luau").read_text()
 )
 with tempfile.TemporaryDirectory(prefix="meo-combat-test-") as folder:

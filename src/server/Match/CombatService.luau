@@ -11,6 +11,7 @@ local RecallLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("S
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Targeting = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Targeting"))
 local ProjectileLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ProjectileLogic"))
+local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
 local Config = require(script.Parent.Parent.Config)
@@ -85,6 +86,8 @@ type Shot = {
 	shieldAmount: number,
 	stunSeconds: number,
 	kind: Types.AbilityKind,
+	championId: string,
+	slot: Types.AbilitySlot,
 	born: number,
 	duration: number,
 	lastPos: Vector3,
@@ -94,6 +97,51 @@ type Shot = {
 local abilityCastListener: ((AbilityCast) -> ())? = nil
 local shots: { Shot } = {}
 local nextShotId = 0
+
+type Channel = {
+	token: number,
+	userId: number,
+	team: Types.TeamId,
+	championId: string,
+	slot: Types.AbilitySlot,
+	origin: Vector3,
+	dest: Vector3,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind,
+	interruptCooldown: number,
+	interruptMana: number,
+}
+
+type Zone = {
+	id: number,
+	caster: number,
+	team: Types.TeamId,
+	championId: string,
+	slot: Types.AbilitySlot,
+	pos: Vector3,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind,
+	pulsesLeft: number,
+	nextAt: number,
+	tick: number,
+	expires: number,
+}
+
+local channels: { [number]: Channel } = {}
+local channelToken: { [number]: number } = {}
+local channelOrigin: { [number]: Vector3 } = {}
+local zones: { Zone } = {}
+local nextZoneId = 0
+local interruptChannel: (userId: number, reason: string) -> ()
+local completeChannel: (userId: number, token: number) -> ()
 
 function CombatService.onAbilityCast(fn: (AbilityCast) -> ())
 	abilityCastListener = fn
@@ -274,6 +322,9 @@ function CombatService.startRecall(player: Player): Types.AbilityResult
 	if not matchPlayer or not state or not state.alive then
 		return { ok = false, error = "You are down. Wait for respawn." }
 	end
+	if channels[player.UserId] then
+		interruptChannel(player.UserId, "recall")
+	end
 	if state.recalling then
 		interruptRecall(player)
 		return { ok = true, combat = state }
@@ -364,6 +415,11 @@ local function resetFor(userId: number, championId: string)
 		recalling = false,
 		recallEndsAt = nil,
 		recallStartedAt = nil,
+		channelSlot = nil,
+		channelEndsAt = nil,
+		channelStartedAt = nil,
+		guardUntil = nil,
+		guardReduction = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
@@ -373,10 +429,14 @@ local function resetFor(userId: number, championId: string)
 	nextAA[userId] = 0
 	recallOrigin[userId] = nil
 	recallToken[userId] = (recallToken[userId] or 0) + 1
+	channels[userId] = nil
+	channelOrigin[userId] = nil
+	channelToken[userId] = (channelToken[userId] or 0) + 1
 	local player = playerOf(userId)
 	if player then
 		player:SetAttribute(Constants.Attributes.ChampionId, champ.id)
 		player:SetAttribute(Constants.Attributes.Recalling, nil)
+		player:SetAttribute(Constants.Attributes.Channeling, nil)
 		ShopService.applyMovement(player)
 	end
 	local model = modelOf(userId)
@@ -480,15 +540,27 @@ function CombatService.clear(userId: number)
 	outgoingAmp[userId] = nil
 	deathToken[userId] = (deathToken[userId] or 0) + 1
 	recallToken[userId] = (recallToken[userId] or 0) + 1
+	channels[userId] = nil
+	channelOrigin[userId] = nil
+	channelToken[userId] = (channelToken[userId] or 0) + 1
+	local kept: { Zone } = {}
+	for _, zone in zones do
+		if zone.caster ~= userId then
+			table.insert(kept, zone)
+		end
+	end
+	zones = kept
 	local player = playerOf(userId)
 	if player then
 		player:SetAttribute(Constants.Attributes.Recalling, nil)
+		player:SetAttribute(Constants.Attributes.Channeling, nil)
 	end
 end
 
 function CombatService.clearAll()
 	for _, player in Players:GetPlayers() do
 		player:SetAttribute(Constants.Attributes.Recalling, nil)
+		player:SetAttribute(Constants.Attributes.Channeling, nil)
 	end
 	table.clear(combat)
 	table.clear(locks)
@@ -500,7 +572,16 @@ function CombatService.clearAll()
 	table.clear(boundModels)
 	table.clear(outgoingAmp)
 	table.clear(shots)
+	table.clear(channels)
+	table.clear(channelOrigin)
+	table.clear(channelToken)
+	table.clear(zones)
 	nextShotId = 0
+	nextZoneId = 0
+end
+
+function CombatService.isChanneling(userId: number): boolean
+	return channels[userId] ~= nil
 end
 
 function CombatService.init(api: MatchApi)
@@ -576,7 +657,7 @@ function CombatService.init(api: MatchApi)
 						interruptRecall(player)
 					end
 				end
-				if state.alive and not state.recalling then
+				if state.alive and not state.recalling and not channels[userId] then
 					local root = rootOf(userId)
 					local matchPlayer = snapshot.players[tostring(userId)]
 					local model = modelOf(userId)
@@ -584,6 +665,13 @@ function CombatService.init(api: MatchApi)
 					if root and matchPlayer and humanoid and humanoid.JumpPower > 0 then
 						local base = 16 + ShopService.bonuses(userId).walkSpeed
 						humanoid.WalkSpeed = base * WardService.slowMul(matchPlayer.team, root.Position)
+					end
+				end
+				if channels[userId] and state.alive then
+					local root = rootOf(userId)
+					local origin = channelOrigin[userId]
+					if root and origin and RecallLogic.movedTooFar((root.Position - origin).Magnitude, Config.Combat.RecallMoveCancel) then
+						interruptChannel(userId, "shove")
 					end
 				end
 				if locks[userId] then
@@ -653,7 +741,10 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	end
 	state.alive = false
 	state.health = 0
+	state.guardUntil = nil
+	state.guardReduction = nil
 	locks[victimUserId] = nil
+	interruptChannel(victimUserId, "death")
 	local victimPlayer = playerOf(victimUserId)
 	if victimPlayer then
 		interruptRecall(victimPlayer)
@@ -693,6 +784,20 @@ local function killUser(victimUserId: number, killerUserId: number?)
 			end
 		end
 		matchApi.onPlayerKilled(killerUserId, victimUserId, assists)
+		if killerUserId and snapshot then
+			local killerMatch = snapshot.players[tostring(killerUserId)]
+			local killerState = combat[killerUserId]
+			if killerMatch and killerMatch.championId and killerState and killerState.alive then
+				local resetSlots = ChampionKits.onTakedown(killerMatch.championId)
+				if resetSlots then
+					local readyAt = now()
+					for _, resetSlot in resetSlots do
+						killerState.cooldowns[resetSlot] = readyAt
+					end
+					fireCombat(killerUserId)
+				end
+			end
+		end
 	end
 end
 
@@ -713,9 +818,11 @@ local function damageUser(attackerUserId: number?, targetUserId: number, amount:
 	if not state or not state.alive then
 		return
 	end
-	local reduced = amount * (1 - (state.armor or 0))
+	local guarded = state.guardUntil ~= nil and now() < state.guardUntil
+	local reduced = amount * (1 - (state.armor or 0)) * ChampionKits.guardMultiplier(state.guardReduction or 0, guarded)
 	if reduced > 0 then
 		breakRecall(playerOf(targetUserId), "damage")
+		interruptChannel(targetUserId, "damage")
 	end
 	local remaining = reduced
 	if (state.shield or 0) > 0 then
@@ -1216,6 +1323,7 @@ function CombatService.issueAttackFor(userId: number, request: unknown): Types.A
 	local player = playerOf(userId)
 	if kind == "stop" then
 		breakRecall(player, "stop")
+		interruptChannel(userId, "stop")
 		locks[userId] = nil
 		pushCombat(userId)
 		return { ok = true, combat = state }
@@ -1299,6 +1407,7 @@ function CombatService.issueAttackFor(userId: number, request: unknown): Types.A
 	end
 
 	breakRecall(player, "attack")
+	interruptChannel(userId, "attack")
 	locks[userId] = lock
 	pushCombat(userId)
 	tickAutoAttack(userId)
@@ -1359,6 +1468,7 @@ function CombatService.attackMove(player: Player, position: unknown): Types.Abil
 		end
 	end
 	breakRecall(player, "attackMove")
+	interruptChannel(player.UserId, "attackMove")
 	locks[player.UserId] = { kind = "player", moveTo = dest }
 	pushCombat(player.UserId)
 	tickAutoAttack(player.UserId)
@@ -1376,10 +1486,15 @@ function CombatService.issueMove(player: Player, position: unknown): Types.Abili
 	if not state or not state.alive then
 		return { ok = false, error = "You are down. Wait for respawn." }
 	end
-	if not state.recalling then
+	if not state.recalling and channels[player.UserId] == nil then
 		return { ok = true, combat = state }
 	end
-	breakRecall(player, "move")
+	if state.recalling then
+		breakRecall(player, "move")
+	end
+	if channels[player.UserId] then
+		interruptChannel(player.UserId, "move")
+	end
 	if typeof(position) == "Vector3" then
 		local dest = position :: Vector3
 		local bounds = Constants.MapBounds
@@ -1409,6 +1524,8 @@ type StrikeCtx = {
 	shieldAmount: number,
 	stunSeconds: number,
 	hit: { [string]: boolean }?,
+	championId: string?,
+	slot: Types.AbilitySlot?,
 }
 
 local function consumeHit(hit: { [string]: boolean }?, key: string): boolean
@@ -1458,16 +1575,25 @@ local function applyStrikes(ctx: StrikeCtx)
 			end
 		end
 	end
+	local pullStuds = 0
+	if ctx.stunSeconds > 0 and ctx.championId and ctx.slot then
+		pullStuds = ChampionKits.plan(ctx.championId, ctx.slot, ctx.stunSeconds).pullStuds
+	end
 	if ctx.stunSeconds > 0 then
 		for _, otherMatch in snapshot.players do
 			local otherRoot = rootOf(otherMatch.userId)
 			if otherMatch.team ~= ctx.team and otherRoot then
 				if pointHits(ctx, otherRoot.Position, 0) and consumeHit(ctx.hit, `t:{otherMatch.userId}`) then
+					if pullStuds > 0 then
+						local pulled = ChampionKits.pullPosition(otherRoot.Position, ctx.dest, pullStuds)
+						otherRoot.CFrame = CFrame.new(pulled.X, otherRoot.Position.Y, pulled.Z)
+					end
 					stunUser(otherMatch.userId, ctx.stunSeconds)
 				end
 			end
 		end
 	end
+	local refund = if ctx.championId and ctx.slot then ChampionKits.refundMana(ctx.championId, ctx.slot) else 0
 	if ctx.power <= 0 then
 		return
 	end
@@ -1476,6 +1602,14 @@ local function applyStrikes(ctx: StrikeCtx)
 		if otherMatch.team ~= ctx.team and otherRoot then
 			if pointHits(ctx, otherRoot.Position, 0) and consumeHit(ctx.hit, `p:{otherMatch.userId}`) then
 				damageUser(ctx.caster, otherMatch.userId, ctx.power)
+				if refund > 0 and ctx.hit and not ctx.hit["kit:refund"] then
+					ctx.hit["kit:refund"] = true
+					local casterState = combat[ctx.caster]
+					if casterState and casterState.alive then
+						casterState.mana = math.min(casterState.maxMana, casterState.mana + refund)
+						fireCombat(ctx.caster)
+					end
+				end
 			end
 		end
 	end
@@ -1533,7 +1667,9 @@ local function launchShot(
 	healAmount: number,
 	shieldAmount: number,
 	stunSeconds: number,
-	kind: Types.AbilityKind
+	kind: Types.AbilityKind,
+	championId: string,
+	slot: Types.AbilitySlot
 )
 	while #shots >= ProjectileLogic.MaxLive do
 		local old = table.remove(shots, 1)
@@ -1552,6 +1688,8 @@ local function launchShot(
 				shieldAmount = old.shieldAmount,
 				stunSeconds = old.stunSeconds,
 				hit = old.hit,
+				championId = old.championId,
+				slot = old.slot,
 			})
 		end
 	end
@@ -1570,6 +1708,8 @@ local function launchShot(
 		shieldAmount = shieldAmount,
 		stunSeconds = stunSeconds,
 		kind = kind,
+		championId = championId,
+		slot = slot,
 		born = now(),
 		duration = duration,
 		lastPos = origin,
@@ -1588,6 +1728,8 @@ local function launchShot(
 		duration = duration,
 		speed = Config.Combat.ProjectileSpeed,
 		id = shot.id,
+		championId = championId,
+		slot = slot,
 	})
 end
 
@@ -1596,6 +1738,9 @@ tickShots = function()
 	if not snapshot or snapshot.phase ~= "InProgress" then
 		if #shots > 0 then
 			table.clear(shots)
+		end
+		if #zones > 0 then
+			table.clear(zones)
 		end
 		return
 	end
@@ -1618,6 +1763,8 @@ tickShots = function()
 			shieldAmount = shot.shieldAmount,
 			stunSeconds = shot.stunSeconds,
 			hit = shot.hit,
+			championId = shot.championId,
+			slot = shot.slot,
 		})
 		shot.lastPos = pos
 		if elapsed >= shot.duration then
@@ -1629,12 +1776,277 @@ tickShots = function()
 				team = shot.team,
 				abilityKind = shot.kind,
 				radius = shot.radius,
+				championId = shot.championId,
+				slot = shot.slot,
 			})
 		else
 			table.insert(keep, shot)
 		end
 	end
 	shots = keep
+
+	local zoneKeep: { Zone } = {}
+	for _, zone in zones do
+		if zone.pulsesLeft > 0 and t >= zone.nextAt and t <= zone.expires + 0.05 then
+			applyStrikes({
+				caster = zone.caster,
+				team = zone.team,
+				mode = "ground",
+				origin = zone.pos,
+				dest = zone.pos,
+				radius = zone.radius,
+				power = zone.power,
+				healAmount = zone.healAmount,
+				shieldAmount = zone.shieldAmount,
+				stunSeconds = zone.stunSeconds,
+				hit = {},
+				championId = zone.championId,
+				slot = zone.slot,
+			})
+			zone.pulsesLeft -= 1
+			zone.nextAt = t + zone.tick
+		end
+		if zone.pulsesLeft > 0 and t < zone.expires then
+			table.insert(zoneKeep, zone)
+		end
+	end
+	zones = zoneKeep
+end
+
+local function setChannelingFlag(userId: number, on: boolean)
+	local player = playerOf(userId)
+	if not player then
+		return
+	end
+	if on then
+		player:SetAttribute(Constants.Attributes.Channeling, true)
+	else
+		player:SetAttribute(Constants.Attributes.Channeling, nil)
+	end
+end
+
+local function restoreMovement(userId: number)
+	local state = combat[userId]
+	if not state or not state.alive or state.recalling then
+		return
+	end
+	local player = playerOf(userId)
+	if player then
+		ShopService.applyMovement(player)
+	else
+		ShopService.applyMovementToModel(modelOf(userId), userId)
+	end
+end
+
+local function clearChannelState(userId: number)
+	local state = combat[userId]
+	if state then
+		state.channelSlot = nil
+		state.channelEndsAt = nil
+		state.channelStartedAt = nil
+	end
+	channelOrigin[userId] = nil
+	setChannelingFlag(userId, false)
+end
+
+interruptChannel = function(userId: number, reason: string)
+	local pending = channels[userId]
+	if not pending then
+		return
+	end
+	channels[userId] = nil
+	channelToken[userId] = (channelToken[userId] or 0) + 1
+	local state = combat[userId]
+	if state and reason ~= "death" and state.alive then
+		state.cooldowns[pending.slot] = now() + pending.interruptCooldown
+		if pending.interruptMana > 0 then
+			state.mana = math.min(state.maxMana, state.mana + pending.interruptMana)
+		end
+	end
+	clearChannelState(userId)
+	if reason ~= "death" then
+		restoreMovement(userId)
+	end
+	fireCombat(userId)
+	FxRelay.emit({
+		kind = "ability",
+		origin = pending.origin,
+		dest = pending.dest,
+		userId = userId,
+		team = pending.team,
+		mode = "line",
+		abilityKind = pending.kind,
+		radius = pending.radius,
+		duration = 0,
+		championId = pending.championId,
+		slot = pending.slot,
+	})
+end
+
+completeChannel = function(userId: number, token: number)
+	if channelToken[userId] ~= token then
+		return
+	end
+	local pending = channels[userId]
+	if not pending then
+		return
+	end
+	channels[userId] = nil
+	local snapshot = if matchApi then matchApi.getSnapshot() else nil
+	local state = combat[userId]
+	clearChannelState(userId)
+	if not snapshot or snapshot.phase ~= "InProgress" or not state or not state.alive then
+		fireCombat(userId)
+		return
+	end
+	restoreMovement(userId)
+	local travel = ProjectileLogic.travelSeconds(pending.origin, pending.dest, Config.Combat.ProjectileSpeed)
+	if abilityCastListener then
+		abilityCastListener({
+			userId = userId,
+			team = pending.team,
+			mode = "line",
+			kind = pending.kind,
+			origin = pending.origin,
+			dest = pending.dest,
+			radius = pending.radius,
+			travel = travel,
+		})
+	end
+	launchShot(
+		userId,
+		pending.team,
+		pending.origin,
+		pending.dest,
+		pending.radius,
+		pending.power,
+		pending.healAmount,
+		pending.shieldAmount,
+		pending.stunSeconds,
+		pending.kind,
+		pending.championId,
+		pending.slot
+	)
+	fireCombat(userId)
+end
+
+local function beginChannel(
+	userId: number,
+	team: Types.TeamId,
+	championId: string,
+	slot: Types.AbilitySlot,
+	origin: Vector3,
+	dest: Vector3,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind,
+	seconds: number,
+	interruptCooldown: number,
+	interruptMana: number
+)
+	local token = (channelToken[userId] or 0) + 1
+	channelToken[userId] = token
+	local started = now()
+	channels[userId] = {
+		token = token,
+		userId = userId,
+		team = team,
+		championId = championId,
+		slot = slot,
+		origin = origin,
+		dest = dest,
+		radius = radius,
+		power = power,
+		healAmount = healAmount,
+		shieldAmount = shieldAmount,
+		stunSeconds = stunSeconds,
+		kind = kind,
+		interruptCooldown = interruptCooldown,
+		interruptMana = interruptMana,
+	}
+	channelOrigin[userId] = origin
+	locks[userId] = nil
+	local state = combat[userId]
+	if state then
+		state.channelSlot = slot
+		state.channelStartedAt = started
+		state.channelEndsAt = started + seconds
+		state.attackTarget = nil
+	end
+	setChannelingFlag(userId, true)
+	local model = modelOf(userId)
+	local humanoid = if model then model:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+	end
+	fireCombat(userId)
+	FxRelay.emit({
+		kind = "ability",
+		origin = origin,
+		dest = dest,
+		userId = userId,
+		team = team,
+		mode = "line",
+		abilityKind = kind,
+		radius = radius,
+		duration = seconds,
+		championId = championId,
+		slot = slot,
+	})
+	task.delay(seconds, function()
+		completeChannel(userId, token)
+	end)
+end
+
+local function scheduleZone(
+	caster: number,
+	team: Types.TeamId,
+	championId: string,
+	slot: Types.AbilitySlot,
+	pos: Vector3,
+	radius: number,
+	power: number,
+	healAmount: number,
+	shieldAmount: number,
+	stunSeconds: number,
+	kind: Types.AbilityKind,
+	seconds: number,
+	tickEvery: number,
+	pulses: number
+)
+	local remain = pulses - 1
+	if remain <= 0 then
+		return 0
+	end
+	nextZoneId += 1
+	local t = now()
+	local zone: Zone = {
+		id = nextZoneId,
+		caster = caster,
+		team = team,
+		championId = championId,
+		slot = slot,
+		pos = pos,
+		radius = radius,
+		power = power,
+		healAmount = healAmount,
+		shieldAmount = shieldAmount,
+		stunSeconds = stunSeconds,
+		kind = kind,
+		pulsesLeft = remain,
+		nextAt = t + tickEvery,
+		tick = tickEvery,
+		expires = t + seconds,
+	}
+	table.insert(zones, zone)
+	while #zones > 8 do
+		table.remove(zones, 1)
+	end
+	return zone.id
 end
 
 function CombatService.useAbilityFor(userId: number, request: unknown): Types.AbilityResult
@@ -1681,6 +2093,15 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		return { ok = false, error = "That ability is not learned yet." }
 	end
 
+	local pending = channels[userId]
+	if pending then
+		if pending.slot == slot then
+			interruptChannel(userId, "ability")
+			return { ok = true, combat = state }
+		end
+		interruptChannel(userId, "ability")
+	end
+
 	local t = now()
 	if state.cooldowns[slot] > t then
 		return { ok = false, error = "Ability on cooldown." }
@@ -1720,9 +2141,13 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 	local healAmount = if ability.heal > 0 then ability.heal * scale + ap * 0.25 else 0
 	local shieldAmount = if (ability.shield or 0) > 0 then (ability.shield or 0) * scale + ap * 0.2 else 0
 	local stunSeconds = ability.stunSeconds or 0
-	local travel = if mode == "line" then ProjectileLogic.travelSeconds(origin, dest, Config.Combat.ProjectileSpeed) else nil
+	local kit = ChampionKits.plan(champ.id, slot, stunSeconds)
+	local travel = if mode == "line" and kit.channelSeconds <= 0
+		then ProjectileLogic.travelSeconds(origin, dest, Config.Combat.ProjectileSpeed)
+		else nil
 	-- Notify before hits resolve so bots can sidestep this cast (and lead using travel time).
-	if abilityCastListener and (mode == "line" or mode == "ground") then
+	-- A channeled line notifies when the bolt actually leaves, so the windup can still be broken.
+	if abilityCastListener and kit.channelSeconds <= 0 and (mode == "line" or mode == "ground") then
 		abilityCastListener({
 			userId = userId,
 			team = matchPlayer.team,
@@ -1735,6 +2160,29 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		})
 	end
 
+	if kit.channelSeconds > 0 then
+		beginChannel(
+			userId,
+			matchPlayer.team,
+			champ.id,
+			slot,
+			origin,
+			dest,
+			ability.radius,
+			power,
+			healAmount,
+			shieldAmount,
+			stunSeconds,
+			ability.kind,
+			kit.channelSeconds,
+			kit.interruptCooldown,
+			kit.interruptMana
+		)
+		state.trinketReadyAt = WardService.trinketReadyAt(userId)
+		state.lensReadyAt = WardService.lensReadyAt(userId)
+		return { ok = true, combat = state }
+	end
+
 	if mode == "dash" then
 		local dash = Targeting.flat(origin, dest)
 		if dash.Magnitude > 1 then
@@ -1742,8 +2190,55 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		end
 	end
 
-	if mode == "line" then
-		launchShot(userId, matchPlayer.team, origin, dest, ability.radius, power, healAmount, shieldAmount, stunSeconds, ability.kind)
+	local strikePower = power
+	local zoneId = 0
+	if kit.zonePulses > 1 then
+		strikePower = ChampionKits.pulsePower(power, kit.zonePulses)
+		applyStrikes({
+			caster = userId,
+			team = matchPlayer.team,
+			mode = mode,
+			origin = origin,
+			dest = dest,
+			radius = ability.radius,
+			power = strikePower,
+			healAmount = healAmount,
+			shieldAmount = shieldAmount,
+			stunSeconds = stunSeconds,
+			championId = champ.id,
+			slot = slot,
+		})
+		zoneId = scheduleZone(
+			userId,
+			matchPlayer.team,
+			champ.id,
+			slot,
+			dest,
+			ability.radius,
+			strikePower,
+			0,
+			0,
+			stunSeconds,
+			ability.kind,
+			kit.zoneSeconds,
+			kit.zoneTick,
+			kit.zonePulses
+		)
+	elseif mode == "line" then
+		launchShot(
+			userId,
+			matchPlayer.team,
+			origin,
+			dest,
+			ability.radius,
+			power,
+			healAmount,
+			shieldAmount,
+			stunSeconds,
+			ability.kind,
+			champ.id,
+			slot
+		)
 	else
 		applyStrikes({
 			caster = userId,
@@ -1756,6 +2251,22 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			healAmount = healAmount,
 			shieldAmount = shieldAmount,
 			stunSeconds = stunSeconds,
+			championId = champ.id,
+			slot = slot,
+		})
+	end
+
+	if kit.guardSeconds > 0 then
+		state.guardUntil = t + kit.guardSeconds
+		state.guardReduction = kit.guardReduction
+		FxRelay.emit({
+			kind = "shield",
+			origin = origin,
+			userId = userId,
+			team = matchPlayer.team,
+			duration = kit.guardSeconds,
+			championId = champ.id,
+			slot = slot,
 		})
 	end
 
@@ -1772,6 +2283,10 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			mode = mode,
 			abilityKind = ability.kind,
 			radius = ability.radius,
+			duration = if kit.zonePulses > 1 then kit.zoneSeconds else nil,
+			id = if zoneId > 0 then zoneId else nil,
+			championId = champ.id,
+			slot = slot,
 		})
 	end
 	return { ok = true, combat = state }
@@ -1795,6 +2310,7 @@ function CombatService.placeWard(player: Player, position: unknown): Types.Abili
 		return { ok = false, error = "Need a ground point." }
 	end
 	breakRecall(player, "ward")
+	interruptChannel(player.UserId, "ward")
 	local result = WardService.placeTrinket(player, matchPlayer.team, position :: Vector3)
 	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
 	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
@@ -1817,6 +2333,7 @@ function CombatService.placeControl(player: Player, position: unknown): Types.Ab
 		return { ok = false, error = "Need a ground point." }
 	end
 	breakRecall(player, "control")
+	interruptChannel(player.UserId, "control")
 	local result = WardService.placeControl(player, matchPlayer.team, position :: Vector3)
 	state.trinketReadyAt = WardService.trinketReadyAt(player.UserId)
 	state.lensReadyAt = WardService.lensReadyAt(player.UserId)
@@ -1840,6 +2357,7 @@ function CombatService.useLensFor(userId: number): Types.AbilityResult
 		return { ok = false, error = "No character." }
 	end
 	breakRecall(playerOf(userId), "lens")
+	interruptChannel(userId, "lens")
 	local player = playerOf(userId)
 	local result = WardService.useLensFor(userId, matchPlayer.team, root)
 	state.trinketReadyAt = WardService.trinketReadyAt(userId)

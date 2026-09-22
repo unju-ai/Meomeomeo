@@ -2,6 +2,7 @@
 
 -- Non-modal first-match tips. Play continues underneath. Help (H/?) is separate.
 
+local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
 
@@ -39,6 +40,11 @@ local SEQUENCE: { Tip } = {
 		id = "qwer",
 		title = "Abilities",
 		body = "Q W E R. Hold a line skillshot or dash to see the path, then release to fire a traveling bolt. Ground AoEs: first press shows the ring, click or press again to confirm. Esc / right-click cancels. Instant kits still fire on press.",
+	},
+	{
+		id = "kits",
+		title = "Three flagship kits",
+		body = ChampionKits.practiceTip(),
 	},
 	{
 		id = "shop",
@@ -89,7 +95,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	root.Name = "TutorialTips"
 	root.AnchorPoint = Vector2.new(0, 0)
 	root.Position = UDim2.new(0, 16, 0, 72)
-	root.Size = UDim2.fromOffset(348, 148)
+	root.Size = UDim2.fromOffset(348, 176)
 	root.BackgroundColor3 = Theme.panel
 	root.Visible = false
 	root.ZIndex = 26
@@ -99,7 +105,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 	Theme.stroke(root, Theme.coral, 2, 0.2)
 	Theme.pad(root, 12)
 
-	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 8", 11, Theme.coral, Theme.fontMono)
+	local kicker = Theme.text(root, "Kicker", "Practice tip  1 / 10", 11, Theme.coral, Theme.fontMono)
 	kicker.Size = UDim2.new(1, -8, 0, 16)
 
 	local title = Theme.text(root, "Title", "", 18, Theme.cream, Theme.fontTitle)
@@ -108,7 +114,7 @@ function TutorialTips.create(parent: Instance): TipsApi
 
 	local body = Theme.text(root, "Body", "", 13, Theme.peach)
 	body.Position = UDim2.fromOffset(0, 42)
-	body.Size = UDim2.new(1, 0, 0, 52)
+	body.Size = UDim2.new(1, 0, 0, 78)
 
 	local nextBtn = Theme.button(root, "Next", "Next", Theme.cream)
 	nextBtn.Position = UDim2.new(0, 0, 1, -36)

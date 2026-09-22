@@ -2,6 +2,7 @@
 
 -- Client-only keybind overlay. Toggle with ? or hold H. No remotes.
 
+local ChampionKits = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ChampionKits"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local HelpPanel = {}
@@ -44,6 +45,19 @@ local LINES_MOBA: { { string } } = {
 	{ "Party", "Leader + members, or solo · 20s" },
 	{ "Tips", "First Practice cards · replay from lobby" },
 }
+
+local function withKitRows(lines: { { string } }): { { string } }
+	local out: { { string } } = {}
+	for _, row in lines do
+		table.insert(out, row)
+		if row[1] == "Q W E R" then
+			for _, kit in ChampionKits.helpRows() do
+				table.insert(out, kit)
+			end
+		end
+	end
+	return out
+end
 
 local LINES_HUB: { { string } } = {
 	{ "Click tile", "Cat Rift · Yarn Run · Koi Pond · Yarn Party · Meme Arcade" },
@@ -237,7 +251,7 @@ function HelpPanel.create(parent: Instance): HelpApi
 			elseif ctx == "moba" then
 				title.Text = "Cat Rift"
 				sub.Text = "Hold H or click ?  ·  PLAYTEST.md"
-				paintLines(LINES_MOBA)
+				paintLines(withKitRows(LINES_MOBA))
 			else
 				title.Text = "Hub"
 				sub.Text = "Pick a stall  ·  PLAYTEST.md"

@@ -177,6 +177,9 @@ local function matchSnapshot(): Types.MatchSnapshot?
 end
 
 local function stepToward(userId: number, dest: Vector3, dt: number)
+	if CombatService.isChanneling(userId) then
+		return
+	end
 	local root = CombatService.rootOf(userId)
 	if not root then
 		return
@@ -667,6 +670,9 @@ local function think(brain: BotBrain, dt: number)
 		return
 	end
 	if not combat.alive then
+		return
+	end
+	if CombatService.isChanneling(brain.userId) then
 		return
 	end
 

@@ -83,7 +83,7 @@ function ShopService.applyMovementToModel(model: Model?, userId: number)
 		return
 	end
 	local player = Players:GetPlayerByUserId(userId)
-	if player and player:GetAttribute(Constants.Attributes.Recalling) == true then
+	if player and (player:GetAttribute(Constants.Attributes.Recalling) == true or player:GetAttribute(Constants.Attributes.Channeling) == true) then
 		humanoid.WalkSpeed = 0
 		humanoid.JumpPower = 0
 		return

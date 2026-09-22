@@ -114,6 +114,11 @@ export type CombatState = {
 	recalling: boolean,
 	recallEndsAt: number?,
 	recallStartedAt: number?,
+	channelSlot: AbilitySlot?,
+	channelEndsAt: number?,
+	channelStartedAt: number?,
+	guardUntil: number?,
+	guardReduction: number?,
 	trinketReadyAt: number,
 	lensReadyAt: number,
 }
@@ -265,6 +270,8 @@ export type CombatFxEvent = {
 	duration: number?,
 	speed: number?,
 	id: number?,
+	championId: string?,
+	slot: AbilitySlot?,
 	structureKind: "Tower" | "Nexus"?,
 	tier: StructureTier?,
 }
