@@ -442,6 +442,18 @@ local function resetFor(userId: number, championId: string)
 		omenCut = nil,
 		chargeStacks = nil,
 		chargeUntil = nil,
+		curseStacks = nil,
+		curseUntil = nil,
+		curseFrom = nil,
+		cursePer = nil,
+		curseTick = nil,
+		curseNext = nil,
+		curseEchoStacks = nil,
+		curseEchoUntil = nil,
+		curseEchoTarget = nil,
+		psiUntil = nil,
+		psiFrom = nil,
+		psiTarget = nil,
 		trinketReadyAt = 0,
 		lensReadyAt = 0,
 	}
@@ -785,6 +797,19 @@ local function killUser(victimUserId: number, killerUserId: number?)
 	state.omenCut = nil
 	state.chargeStacks = nil
 	state.chargeUntil = nil
+	state.curseStacks = nil
+	state.curseUntil = nil
+	state.curseFrom = nil
+	state.cursePer = nil
+	state.curseTick = nil
+	state.curseNext = nil
+	state.curseEchoStacks = nil
+	state.curseEchoUntil = nil
+	state.curseEchoTarget = nil
+	state.psiUntil = nil
+	state.psiFrom = nil
+	local ownedPsi = state.psiTarget
+	state.psiTarget = nil
 	local ownedMark = state.markTarget
 	state.markTarget = nil
 	if ownedMark then
@@ -795,12 +820,45 @@ local function killUser(victimUserId: number, killerUserId: number?)
 			fireCombat(ownedMark)
 		end
 	end
+	if ownedPsi then
+		local marked = combat[ownedPsi]
+		if marked and marked.psiFrom == victimUserId then
+			marked.psiFrom = nil
+			marked.psiUntil = nil
+			fireCombat(ownedPsi)
+		end
+	end
 	for otherId, other in combat do
 		if otherId ~= victimUserId then
 			if other.bleedFrom == victimUserId then
 				other.bleedStacks = nil
 				other.bleedUntil = nil
 				other.bleedFrom = nil
+				fireCombat(otherId)
+			end
+			if other.curseFrom == victimUserId then
+				other.curseStacks = nil
+				other.curseUntil = nil
+				other.curseFrom = nil
+				other.cursePer = nil
+				other.curseTick = nil
+				other.curseNext = nil
+				fireCombat(otherId)
+			end
+			if other.curseEchoTarget == victimUserId then
+				other.curseEchoStacks = nil
+				other.curseEchoUntil = nil
+				other.curseEchoTarget = nil
+				fireCombat(otherId)
+			end
+			if other.psiFrom == victimUserId then
+				other.psiFrom = nil
+				other.psiUntil = nil
+				fireCombat(otherId)
+			end
+			if other.psiTarget == victimUserId then
+				other.psiTarget = nil
+				other.psiUntil = nil
 				fireCombat(otherId)
 			end
 			if other.bleedEchoTarget == victimUserId then
@@ -1610,6 +1668,7 @@ type StrikeCtx = {
 	championId: string?,
 	slot: Types.AbilitySlot?,
 	fromBrush: boolean?,
+	fromZone: boolean?,
 }
 
 local function consumeHit(hit: { [string]: boolean }?, key: string): boolean
@@ -1944,6 +2003,115 @@ local function clearCharge(casterUserId: number)
 	fireCombat(casterUserId)
 end
 
+local function liveCurse(targetUserId: number, casterUserId: number): number
+	local state = combat[targetUserId]
+	if not state or state.curseFrom ~= casterUserId or state.curseUntil == nil or now() >= state.curseUntil then
+		return 0
+	end
+	return state.curseStacks or 0
+end
+
+local function clearCurse(targetUserId: number, casterUserId: number)
+	local state = combat[targetUserId]
+	local owner = if state then state.curseFrom else nil
+	if state and (casterUserId == 0 or owner == casterUserId) then
+		state.curseStacks = nil
+		state.curseUntil = nil
+		state.curseFrom = nil
+		state.cursePer = nil
+		state.curseTick = nil
+		state.curseNext = nil
+		fireCombat(targetUserId)
+	end
+	local echoId = if casterUserId ~= 0 then casterUserId else owner
+	if echoId then
+		local caster = combat[echoId]
+		if caster and caster.curseEchoTarget == targetUserId then
+			caster.curseEchoStacks = nil
+			caster.curseEchoUntil = nil
+			caster.curseEchoTarget = nil
+			fireCombat(echoId)
+		end
+	end
+end
+
+local function gainCurse(targetUserId: number, casterUserId: number, cap: number, seconds: number, tickEvery: number, per: number)
+	if cap <= 0 or seconds <= 0 or tickEvery <= 0 or per <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	local current = if state.curseFrom == casterUserId and state.curseUntil ~= nil and now() < state.curseUntil
+		then state.curseStacks or 0
+		else 0
+	state.curseStacks = ChampionKits.addCurse(current, cap)
+	state.curseUntil = now() + seconds
+	state.curseFrom = casterUserId
+	state.cursePer = per
+	state.curseTick = tickEvery
+	if state.curseNext == nil or now() >= state.curseNext then
+		state.curseNext = now() + tickEvery
+	end
+	fireCombat(targetUserId)
+	local caster = combat[casterUserId]
+	if caster and caster.alive then
+		caster.curseEchoStacks = state.curseStacks
+		caster.curseEchoUntil = state.curseUntil
+		caster.curseEchoTarget = targetUserId
+		fireCombat(casterUserId)
+	end
+end
+
+local function livePsi(targetUserId: number, casterUserId: number): boolean
+	local state = combat[targetUserId]
+	return state ~= nil and state.psiFrom == casterUserId and state.psiUntil ~= nil and now() < state.psiUntil
+end
+
+local function clearPsi(targetUserId: number, casterUserId: number)
+	local state = combat[targetUserId]
+	if state and state.psiFrom == casterUserId then
+		state.psiFrom = nil
+		state.psiUntil = nil
+		fireCombat(targetUserId)
+	end
+	local caster = combat[casterUserId]
+	if caster and caster.psiTarget == targetUserId then
+		caster.psiTarget = nil
+		caster.psiUntil = nil
+		fireCombat(casterUserId)
+	end
+end
+
+local function gainPsi(targetUserId: number, casterUserId: number, seconds: number)
+	if seconds <= 0 then
+		return
+	end
+	local state = combat[targetUserId]
+	if not state or not state.alive then
+		return
+	end
+	local caster = combat[casterUserId]
+	local previousId = if caster then caster.psiTarget else nil
+	if previousId and previousId ~= targetUserId then
+		local previous = combat[previousId]
+		if previous and previous.psiFrom == casterUserId then
+			previous.psiFrom = nil
+			previous.psiUntil = nil
+			fireCombat(previousId)
+		end
+	end
+	state.psiFrom = casterUserId
+	state.psiUntil = now() + seconds
+	fireCombat(targetUserId)
+	if caster and caster.alive then
+		caster.psiTarget = targetUserId
+		caster.psiUntil = state.psiUntil
+		fireCombat(casterUserId)
+	end
+end
+
 local function applyAuraGuard(
 	targetUserId: number,
 	seconds: number,
@@ -2075,6 +2243,7 @@ local function applyStrikes(ctx: StrikeCtx)
 	local spentPlate = false
 	local chargeStacks = if kit and kit.chargeSpend > 0 then liveCharge(ctx.caster) else 0
 	local spentCharge = false
+	local fromZone = ctx.fromZone == true
 	for _, otherMatch in snapshot.players do
 		local otherRoot = rootOf(otherMatch.userId)
 		if otherMatch.team ~= ctx.team and otherRoot then
@@ -2121,7 +2290,25 @@ local function applyStrikes(ctx: StrikeCtx)
 					dealt *= ChampionKits.chargePower(chargeStacks, kit.chargeBonus)
 					spentCharge = true
 				end
+				if fromZone and kit and kit.hexBonus > 0 then
+					local cursed = liveCurse(otherMatch.userId, ctx.caster)
+					if cursed > 0 then
+						dealt *= ChampionKits.hexPower(cursed, kit.hexBonus)
+					end
+				end
+				local psiLive = kit ~= nil and (kit.psiBonus > 0 or kit.nudgeStuds > 0) and livePsi(otherMatch.userId, ctx.caster)
+				if psiLive and kit and kit.psiBonus > 0 then
+					local seen = VisionService.canSeeChampion(ctx.caster, otherMatch.userId)
+					dealt *= ChampionKits.psiPower(kit.psiBonus, seen)
+				end
+				if psiLive and kit and kit.nudgeStuds > 0 then
+					local nudged = ChampionKits.pullPosition(otherRoot.Position, ctx.origin, kit.nudgeStuds)
+					otherRoot.CFrame = CFrame.new(nudged.X, otherRoot.Position.Y, nudged.Z)
+				end
 				damageUser(ctx.caster, otherMatch.userId, dealt)
+				if psiLive and kit and kit.nudgeStuds > 0 then
+					clearPsi(otherMatch.userId, ctx.caster)
+				end
 				if kit and kit.wickGain > 0 and not hit["kit:wick"] then
 					hit["kit:wick"] = true
 					gainWick(ctx.caster, kit.wickCap, kit.wickSeconds)
@@ -2140,6 +2327,13 @@ local function applyStrikes(ctx: StrikeCtx)
 				if kit and kit.chargeGain > 0 and not hit["kit:charge"] then
 					hit["kit:charge"] = true
 					gainCharge(ctx.caster, kit.chargeCap, kit.chargeSeconds)
+				end
+				if kit and kit.curseGain > 0 then
+					gainCurse(otherMatch.userId, ctx.caster, kit.curseCap, kit.curseSeconds, kit.curseTick, kit.cursePer)
+				end
+				if kit and kit.psiGain > 0 and not hit["kit:psi"] then
+					hit["kit:psi"] = true
+					gainPsi(otherMatch.userId, ctx.caster, kit.psiSeconds)
 				end
 				if kit and kit.fortifySeconds > 0 and ctx.championId and ctx.slot and not hit["kit:fortify"] then
 					hit["kit:fortify"] = true
@@ -2372,6 +2566,7 @@ tickShots = function()
 				hit = {},
 				championId = zone.championId,
 				slot = zone.slot,
+				fromZone = true,
 			})
 			zone.pulsesLeft -= 1
 			zone.nextAt = t + zone.tick
@@ -2381,6 +2576,34 @@ tickShots = function()
 		end
 	end
 	zones = zoneKeep
+
+	local cursedIds: { number } = {}
+	for userId, state in combat do
+		if state.curseUntil ~= nil then
+			table.insert(cursedIds, userId)
+		end
+	end
+	for _, userId in cursedIds do
+		local state = combat[userId]
+		if state and state.curseUntil ~= nil and state.alive then
+			local due = (state.curseStacks or 0) > 0
+				and (state.curseNext == nil or t >= state.curseNext)
+				and t <= state.curseUntil + 0.05
+			if due then
+				local tickEvery = if (state.curseTick or 0) > 0 then state.curseTick :: number else 1
+				state.curseNext = t + tickEvery
+				local dot = ChampionKits.curseDamage(state.curseStacks or 0, state.cursePer or 0)
+				local owner = state.curseFrom
+				if dot > 0 and owner then
+					damageUser(owner, userId, dot)
+				end
+			end
+		end
+		local still = combat[userId]
+		if still and still.curseUntil ~= nil and (not still.alive or t >= still.curseUntil) then
+			clearCurse(userId, still.curseFrom or 0)
+		end
+	end
 end
 
 local function setChannelingFlag(userId: number, on: boolean)
@@ -2763,8 +2986,10 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 
 	local strikePower = power
 	local zoneId = 0
+	local zoneSeconds = 0
 	if kit.zonePulses > 1 then
 		strikePower = ChampionKits.pulsePower(power, kit.zonePulses)
+		zoneSeconds = kit.zoneSeconds
 		applyStrikes({
 			caster = userId,
 			team = matchPlayer.team,
@@ -2831,6 +3056,26 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 		})
 	end
 
+	if kit.hexPulses > 1 and kit.hexShare > 0 and power > 0 then
+		zoneSeconds = kit.hexSeconds
+		zoneId = scheduleZone(
+			userId,
+			matchPlayer.team,
+			champ.id,
+			slot,
+			dest,
+			ability.radius,
+			power * kit.hexShare,
+			0,
+			0,
+			0,
+			ability.kind,
+			kit.hexSeconds,
+			kit.hexTick,
+			kit.hexPulses + 1
+		)
+	end
+
 	if kit.vanishSeconds > 0 then
 		state.vanishUntil = t + kit.vanishSeconds
 	end
@@ -2862,7 +3107,7 @@ function CombatService.useAbilityFor(userId: number, request: unknown): Types.Ab
 			mode = mode,
 			abilityKind = ability.kind,
 			radius = ability.radius,
-			duration = if kit.zonePulses > 1 then kit.zoneSeconds else nil,
+			duration = if zoneSeconds > 0 then zoneSeconds else nil,
 			id = if zoneId > 0 then zoneId else nil,
 			championId = champ.id,
 			slot = slot,

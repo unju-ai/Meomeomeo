@@ -5,7 +5,7 @@
 -- Original three: Settled Loaf + Charge Knock, Open Wick + Hype Candle, Second Helping + Sweater Aura.
 -- Expansion three: Packet Buffer + Overclock, Honor Bleed + Shield Fortify, Alley Mark + Smoke Vanish.
 -- Expansion three more: Chrome Plate + Lunge Reload, Ward Omen + Foresight Veil, Spell Charge + Charged Meteor.
--- Hexkit and Mindwhisker stay on the zero plan.
+-- Last two: Curse Stacks + Hex Zone, Psi Mark + Mind Nudge.
 
 local Types = require(script.Parent.Types)
 
@@ -31,6 +31,10 @@ export type Look =
 	| "omen"
 	| "charge"
 	| "meteor"
+	| "curse"
+	| "hex"
+	| "psi"
+	| "nudge"
 
 export type CastPlan = {
 	guardSeconds: number,
@@ -83,6 +87,20 @@ export type CastPlan = {
 	chargeSeconds: number,
 	chargeSpend: number,
 	chargeBonus: number,
+	curseGain: number,
+	curseCap: number,
+	curseSeconds: number,
+	curseTick: number,
+	cursePer: number,
+	hexSeconds: number,
+	hexTick: number,
+	hexPulses: number,
+	hexShare: number,
+	hexBonus: number,
+	psiGain: number,
+	psiSeconds: number,
+	psiBonus: number,
+	nudgeStuds: number,
 }
 
 export type Identity = {
@@ -135,6 +153,18 @@ local ORACLE_OMEN_CUT = 0.3
 local ARCH_CHARGE_CAP = 3
 local ARCH_CHARGE_SECONDS = 8
 local ARCH_METEOR_BONUS = 0.3
+local HEX_CURSE_CAP = 3
+local HEX_CURSE_SECONDS = 6
+local HEX_CURSE_TICK = 1
+local HEX_CURSE_PER = 8
+local HEX_ZONE_SECONDS = 2.4
+local HEX_ZONE_TICK = 0.8
+local HEX_ZONE_PULSES = 3
+local HEX_ZONE_SHARE = 0.16
+local HEX_ZONE_BONUS = 0.25
+local PSI_MARK_SECONDS = 6
+local PSI_SEEN_BONUS = 0.35
+local MIND_NUDGE_STUDS = 8
 
 local ChampionKits = {}
 
@@ -190,6 +220,20 @@ local function zero(): CastPlan
 		chargeSeconds = 0,
 		chargeSpend = 0,
 		chargeBonus = 0,
+		curseGain = 0,
+		curseCap = 0,
+		curseSeconds = 0,
+		curseTick = 0,
+		cursePer = 0,
+		hexSeconds = 0,
+		hexTick = 0,
+		hexPulses = 0,
+		hexShare = 0,
+		hexBonus = 0,
+		psiGain = 0,
+		psiSeconds = 0,
+		psiBonus = 0,
+		nudgeStuds = 0,
 	}
 end
 
@@ -347,6 +391,42 @@ function ChampionKits.plan(championId: string, slot: Types.AbilitySlot, stunSeco
 		plan.chargeBonus = ARCH_METEOR_BONUS
 		return plan
 	end
+	if championId == "Hexkit" and slot == "Q" then
+		local plan = zero()
+		plan.curseGain = 1
+		plan.curseCap = HEX_CURSE_CAP
+		plan.curseSeconds = HEX_CURSE_SECONDS
+		plan.curseTick = HEX_CURSE_TICK
+		plan.cursePer = HEX_CURSE_PER
+		return plan
+	end
+	if championId == "Hexkit" and slot == "R" then
+		local plan = zero()
+		plan.hexSeconds = HEX_ZONE_SECONDS
+		plan.hexTick = HEX_ZONE_TICK
+		plan.hexPulses = HEX_ZONE_PULSES
+		plan.hexShare = HEX_ZONE_SHARE
+		plan.hexBonus = HEX_ZONE_BONUS
+		return plan
+	end
+	if championId == "Mindwhisker" and slot == "Q" then
+		local plan = zero()
+		plan.psiGain = 1
+		plan.psiSeconds = PSI_MARK_SECONDS
+		plan.psiBonus = PSI_SEEN_BONUS
+		return plan
+	end
+	if championId == "Mindwhisker" and slot == "E" then
+		local plan = zero()
+		plan.nudgeStuds = MIND_NUDGE_STUDS
+		plan.psiBonus = PSI_SEEN_BONUS
+		return plan
+	end
+	if championId == "Mindwhisker" and slot == "R" then
+		local plan = zero()
+		plan.psiBonus = PSI_SEEN_BONUS
+		return plan
+	end
 	return zero()
 end
 
@@ -377,6 +457,12 @@ function ChampionKits.identity(championId: string): Identity?
 	end
 	if championId == "Archmeow" then
 		return { passive = "Spell Charge", signature = "Charged Meteor" }
+	end
+	if championId == "Hexkit" then
+		return { passive = "Curse Stacks", signature = "Hex Zone" }
+	end
+	if championId == "Mindwhisker" then
+		return { passive = "Psi Mark", signature = "Mind Nudge" }
 	end
 	return nil
 end
@@ -564,6 +650,37 @@ function ChampionKits.chargePower(stacks: number, bonus: number): number
 	return 1 + stacks * bonus
 end
 
+function ChampionKits.addCurse(stacks: number, cap: number): number
+	if cap <= 0 then
+		return 0
+	end
+	return math.min(cap, math.max(0, stacks) + 1)
+end
+
+-- Flat burn per tick. Armor still applies when the server deals it.
+function ChampionKits.curseDamage(stacks: number, per: number): number
+	if stacks <= 0 or per <= 0 then
+		return 0
+	end
+	return stacks * per
+end
+
+-- Zone ticks only. The nova's first hit stays on the printed number.
+function ChampionKits.hexPower(stacks: number, bonus: number): number
+	if stacks <= 0 or bonus <= 0 then
+		return 1
+	end
+	return 1 + stacks * bonus
+end
+
+-- The mark only amplifies a hit the caster can currently see.
+function ChampionKits.psiPower(bonus: number, seen: boolean): number
+	if not seen or bonus <= 0 then
+		return 1
+	end
+	return 1 + bonus
+end
+
 function ChampionKits.ambushPower(vanishBonus: number, markBonus: number): number
 	local bonus = 0
 	if vanishBonus > 0 then
@@ -652,6 +769,18 @@ function ChampionKits.look(championId: string, slot: Types.AbilitySlot): Look?
 	if championId == "Archmeow" and slot == "R" then
 		return "meteor"
 	end
+	if championId == "Hexkit" and slot == "Q" then
+		return "curse"
+	end
+	if championId == "Hexkit" and slot == "R" then
+		return "hex"
+	end
+	if championId == "Mindwhisker" and slot == "Q" then
+		return "psi"
+	end
+	if championId == "Mindwhisker" and slot == "E" then
+		return "nudge"
+	end
 	return nil
 end
 
@@ -693,6 +822,14 @@ function ChampionKits.castPitch(championId: string, slot: Types.AbilitySlot): nu
 		return 1.34
 	elseif look == "meteor" then
 		return 0.64
+	elseif look == "curse" then
+		return 1.22
+	elseif look == "hex" then
+		return 0.7
+	elseif look == "psi" then
+		return 1.3
+	elseif look == "nudge" then
+		return 0.74
 	end
 	return 1
 end
@@ -718,6 +855,8 @@ function ChampionKits.helpRows(): { { string } }
 		{ "Chrome", "Q: plate · E: reload" },
 		{ "Oracle", "Near ward: amp · E: omen" },
 		{ "Arch", "Q: charge · R: meteor" },
+		{ "Hex", "Q: curse · R: hex" },
+		{ "Mind", "Q: psi · E: nudge" },
 	}
 end
 
@@ -735,6 +874,10 @@ end
 
 function ChampionKits.practiceTipExpansionMore(): string
 	return "Chrome — Chrome Plate: Q on a cat stores Plate (max 3) and you take less. Lunge Reload: E spends it, hits harder, and the dash returns sooner. Oracle — Ward Omen: heals and shields are stronger beside your ward. Foresight Veil: E, then the next hit is lighter. Arch — Spell Charge: Q stores Charge (max 3). Charged Meteor: R spends it."
+end
+
+function ChampionKits.practiceTipLast(): string
+	return "Hex — Curse Stacks: Q on a cat stores Curse (max 3) and it burns. Hex Zone: R leaves a hex that ticks harder on cursed cats. Mind — Psi Mark: Q marks a cat; hits hurt more while you can see them. Mind Nudge: E spends the mark and pulls them in."
 end
 
 return ChampionKits

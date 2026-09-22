@@ -62,6 +62,11 @@ local SEQUENCE: { Tip } = {
 		body = ChampionKits.practiceTipExpansionMore(),
 	},
 	{
+		id = "kits5",
+		title = "Last two expansion kits",
+		body = ChampionKits.practiceTipLast(),
+	},
+	{
 		id = "shop",
 		title = "Pawmart (B)",
 		body = "B opens the shop — only at your fountain. Spend match gold on claws and yarn. B is not recall.",

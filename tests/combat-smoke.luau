@@ -68,48 +68,43 @@ assert(ProjectileLogic.sweepHits(last, now, Vector3.new(4, 2, 24), 8) == false)
 assert(ProjectileLogic.MaxLive >= 16)
 
 assert(#ChampionCatalog.ids() == 14)
-local kitted = {
-	ChairmanMeow = true,
-	NyanRocket = true,
-	ProfessorWhiskers = true,
-	ChonkKnight = true,
-	ScammyMcMittens = true,
-	GrandmaFluff = true,
-	Bytekit = true,
-	SirScratchalot = true,
-	Shadowpounce = true,
-	Chromeclaw = true,
-	OraclePaws = true,
-	Archmeow = true,
-}
-local expansion = 0
-for _, id in ChampionCatalog.ids() do
-	if not kitted[id] then
-		expansion += 1
-		assert(ChampionKits.identity(id) == nil, id)
-		assert(ChampionKits.healMultiplier(id) == 1, id)
-		assert(ChampionKits.onTakedown(id) == nil, id)
-		for _, slot in { "Q", "W", "E", "R" } do
-			local plan = ChampionKits.plan(id, slot, 5)
-			assert(plan.guardSeconds == 0 and plan.channelSeconds == 0 and plan.pullStuds == 0 and plan.zonePulses == 0, id .. " " .. slot)
-			assert(plan.knockStuds == 0 and plan.knockStun == 0, id .. " " .. slot)
-			assert(plan.wickGain == 0 and plan.wickBonus == 0 and plan.wickCap == 0, id .. " " .. slot)
-			assert(plan.auraGuardSeconds == 0 and plan.auraGuardReduction == 0, id .. " " .. slot)
-			assert(plan.dataGain == 0 and plan.dataCap == 0 and plan.overclockPer == 0, id .. " " .. slot)
-			assert(plan.bleedGain == 0 and plan.bleedSpend == 0 and plan.bleedBonus == 0 and plan.fortifySeconds == 0, id .. " " .. slot)
-			assert(plan.markGain == 0 and plan.ambushSpend == 0 and plan.vanishSeconds == 0 and plan.vanishBonus == 0, id .. " " .. slot)
-			assert(plan.plateGain == 0 and plan.plateSpend == 0 and plan.plateBonus == 0 and plan.plateReload == 0 and plan.platePer == 0, id .. " " .. slot)
-			assert(plan.wardAmp == 0 and plan.wardRange == 0 and plan.omenSeconds == 0 and plan.omenCut == 0, id .. " " .. slot)
-			assert(plan.chargeGain == 0 and plan.chargeSpend == 0 and plan.chargeBonus == 0 and plan.chargeCap == 0, id .. " " .. slot)
-			assert(ChampionKits.refundMana(id, slot) == 0, id)
-			assert(ChampionKits.look(id, slot) == nil, id)
+local function planLive(id: string): boolean
+	if ChampionKits.healMultiplier(id) > 1 or ChampionKits.onTakedown(id) ~= nil then
+		return true
+	end
+	for _, slot in { "Q", "W", "E", "R" } do
+		local plan = ChampionKits.plan(id, slot, 5)
+		if ChampionKits.refundMana(id, slot) > 0 then
+			return true
+		end
+		if plan.guardSeconds > 0 or plan.channelSeconds > 0 or plan.pullStuds > 0 or plan.zonePulses > 0 then
+			return true
+		end
+		if plan.knockStuds > 0 or plan.wickGain > 0 or plan.wickBonus > 0 or plan.auraGuardSeconds > 0 then
+			return true
+		end
+		if plan.dataGain > 0 or plan.overclockPer > 0 or plan.bleedGain > 0 or plan.bleedSpend > 0 then
+			return true
+		end
+		if plan.markGain > 0 or plan.vanishSeconds > 0 or plan.plateGain > 0 or plan.plateSpend > 0 then
+			return true
+		end
+		if plan.wardAmp > 0 or plan.omenSeconds > 0 or plan.chargeGain > 0 or plan.chargeSpend > 0 then
+			return true
+		end
+		if plan.curseGain > 0 or plan.hexPulses > 0 or plan.psiGain > 0 or plan.nudgeStuds > 0 or plan.psiBonus > 0 then
+			return true
 		end
 	end
+	return false
 end
-assert(expansion == 2, "Hexkit and Mindwhisker stay on the zero plan")
-for _, id in { "Hexkit", "Mindwhisker" } do
-	assert(ChampionKits.identity(id) == nil, id)
+local uncovered = 0
+for _, id in ChampionCatalog.ids() do
+	if not planLive(id) then
+		uncovered += 1
+	end
 end
+assert(uncovered == 0, "every champion has a non-zero kit plan")
 
 local byte = ChampionCatalog.get("Bytekit")
 assert(byte and byte.abilities.Q.damage == 88 and byte.abilities.W.heal == 95 and Targeting.of(byte.abilities.Q) == "line")
@@ -167,7 +162,8 @@ assert(ChampionKits.identity("NyanRocket") == nil)
 assert(ChampionKits.identity("ProfessorWhiskers") == nil)
 assert(ChampionKits.castPitch("ChairmanMeow", "R") < 1)
 assert(ChampionKits.castPitch("NyanRocket", "R") > 1)
-assert(ChampionKits.castPitch("Hexkit", "Q") == 1)
+assert(ChampionKits.castPitch("Hexkit", "W") == 1)
+assert(ChampionKits.castPitch("Mindwhisker", "W") == 1)
 assert(ChampionKits.castPitch("Mindwhisker", "R") == 1)
 assert(ChampionKits.breakPitch("NyanRocket", "R") ~= nil)
 assert(ChampionKits.breakPitch("ChairmanMeow", "R") == nil)
@@ -434,10 +430,77 @@ assert(ChampionKits.plan("Archmeow", "R", 0).plateSpend == 0)
 assert(ChampionKits.plan("Chromeclaw", "Q", 0).chargeGain == 0)
 assert(ChampionKits.plan("Chromeclaw", "E", 0).wardAmp == 0)
 assert(ChampionKits.plan("OraclePaws", "E", 0).chargeSpend == 0)
-assert(ChampionKits.identity("Hexkit") == nil)
-assert(ChampionKits.identity("Mindwhisker") == nil)
+assert(ChampionKits.plan("Archmeow", "Q", 0).curseGain == 0)
+assert(ChampionKits.plan("Archmeow", "R", 0).hexPulses == 0)
+assert(ChampionKits.plan("Shadowpounce", "Q", 0).psiGain == 0)
+assert(ChampionKits.plan("ChairmanMeow", "R", 0).nudgeStuds == 0)
 
-assert(#ChampionKits.helpRows() == 12)
+local hex = ChampionCatalog.get("Hexkit")
+assert(hex and hex.abilities.Q.damage == 86 and hex.abilities.R.damage == 205 and hex.abilities.E.stunSeconds == 1.4)
+assert(string.find(hex.blurb, "Curse Stacks", 1, true))
+assert(string.find(hex.blurb, "Hex Zone", 1, true))
+local hexId = ChampionKits.identity("Hexkit")
+assert(hexId and hexId.passive == "Curse Stacks" and hexId.signature == "Hex Zone")
+local spark = ChampionKits.plan("Hexkit", "Q", 0)
+assert(spark.curseGain == 1 and spark.curseCap == 3 and spark.curseSeconds == 6 and spark.curseTick == 1 and spark.cursePer == 8)
+assert(spark.hexPulses == 0 and spark.zonePulses == 0 and spark.chargeGain == 0)
+local nova = ChampionKits.plan("Hexkit", "R", 0)
+assert(nova.hexPulses == 3 and nova.hexSeconds == 2.4 and math.abs(nova.hexTick - 0.8) < 1e-6)
+assert(math.abs(nova.hexShare - 0.16) < 1e-6 and math.abs(nova.hexBonus - 0.25) < 1e-6)
+assert(nova.curseGain == 0 and nova.zonePulses == 0)
+assert(ChampionKits.plan("Hexkit", "W", 0).curseGain == 0)
+assert(ChampionKits.plan("Hexkit", "E", 0).hexPulses == 0)
+assert(ChampionKits.addCurse(0, 3) == 1)
+assert(ChampionKits.addCurse(3, 3) == 3)
+assert(ChampionKits.curseDamage(0, 8) == 0)
+assert(ChampionKits.curseDamage(1, 8) == 8)
+assert(ChampionKits.curseDamage(3, 8) == 24)
+assert(ChampionKits.hexPower(0, 0.25) == 1)
+assert(math.abs(ChampionKits.hexPower(3, 0.25) - 1.75) < 1e-6)
+assert(ChampionKits.hexPower(3, 0.25) > ChampionKits.hexPower(1, 0.25))
+assert(math.abs(ChampionKits.pulsePower(100 * nova.hexShare, 1) - 16) < 1e-6)
+assert(ChampionKits.look("Hexkit", "Q") == "curse")
+assert(ChampionKits.look("Hexkit", "R") == "hex")
+assert(ChampionKits.look("Hexkit", "E") == nil)
+assert(ChampionKits.castPitch("Hexkit", "Q") > 1)
+assert(ChampionKits.castPitch("Hexkit", "R") < 1)
+assert(ChampionKits.plan("Hexkit", "Q", 0).bleedGain == 0)
+assert(ChampionKits.healMultiplier("Hexkit") == 1)
+
+local mind = ChampionCatalog.get("Mindwhisker")
+assert(mind and mind.abilities.Q.damage == 84 and mind.abilities.E.stunSeconds == 1.3 and mind.abilities.R.stunSeconds == 0.9)
+assert(string.find(mind.blurb, "Psi Mark", 1, true))
+assert(string.find(mind.blurb, "Mind Nudge", 1, true))
+local mindId = ChampionKits.identity("Mindwhisker")
+assert(mindId and mindId.passive == "Psi Mark" and mindId.signature == "Mind Nudge")
+local flick = ChampionKits.plan("Mindwhisker", "Q", 0)
+assert(flick.psiGain == 1 and flick.psiSeconds == 6 and math.abs(flick.psiBonus - 0.35) < 1e-6)
+assert(flick.nudgeStuds == 0 and flick.markGain == 0 and flick.pullStuds == 0)
+local shove = ChampionKits.plan("Mindwhisker", "E", mind.abilities.E.stunSeconds)
+assert(shove.nudgeStuds == 8 and shove.psiGain == 0 and math.abs(shove.psiBonus - 0.35) < 1e-6)
+assert(shove.pullStuds == 0 and shove.knockStuds == 0)
+local storm = ChampionKits.plan("Mindwhisker", "R", mind.abilities.R.stunSeconds)
+assert(storm.psiGain == 0 and storm.nudgeStuds == 0 and math.abs(storm.psiBonus - 0.35) < 1e-6)
+assert(storm.pullStuds == 0)
+assert(ChampionKits.plan("Mindwhisker", "W", 0).psiGain == 0)
+assert(ChampionKits.plan("Mindwhisker", "W", 0).nudgeStuds == 0)
+assert(ChampionKits.psiPower(0.35, false) == 1)
+assert(math.abs(ChampionKits.psiPower(0.35, true) - 1.35) < 1e-6)
+assert(ChampionKits.psiPower(0.35, true) > ChampionKits.psiPower(0.35, false))
+local nudged = ChampionKits.pullPosition(Vector3.new(20, 2, 0), Vector3.new(0, 2, 0), shove.nudgeStuds)
+assert(math.abs(nudged.X - 12) < 1e-4)
+assert(ChampionKits.look("Mindwhisker", "Q") == "psi")
+assert(ChampionKits.look("Mindwhisker", "E") == "nudge")
+assert(ChampionKits.look("Mindwhisker", "R") == nil)
+assert(ChampionKits.castPitch("Mindwhisker", "Q") > 1)
+assert(ChampionKits.castPitch("Mindwhisker", "E") < 1)
+assert(ChampionKits.plan("Mindwhisker", "Q", 0).curseGain == 0)
+assert(ChampionKits.plan("Mindwhisker", "E", 0).hexPulses == 0)
+assert(ChampionKits.healMultiplier("Mindwhisker") == 1)
+assert(ChampionKits.plan("Hexkit", "R", 0).psiBonus == 0)
+assert(ChampionKits.plan("Hexkit", "Q", 0).nudgeStuds == 0)
+
+assert(#ChampionKits.helpRows() == 14)
 local help = ""
 for _, row in ChampionKits.helpRows() do
 	help ..= row[1] .. " " .. row[2] .. "\n"
@@ -451,6 +514,8 @@ assert(string.find(help, "Shadow", 1, true) and string.find(help, "mark", 1, tru
 assert(string.find(help, "Chrome", 1, true) and string.find(help, "plate", 1, true) and string.find(help, "reload", 1, true))
 assert(string.find(help, "Oracle", 1, true) and string.find(help, "ward", 1, true) and string.find(help, "omen", 1, true))
 assert(string.find(help, "Arch", 1, true) and string.find(help, "charge", 1, true) and string.find(help, "meteor", 1, true))
+assert(string.find(help, "Hex", 1, true) and string.find(help, "curse", 1, true) and string.find(help, "hex", 1, true))
+assert(string.find(help, "Mind", 1, true) and string.find(help, "psi", 1, true) and string.find(help, "nudge", 1, true))
 local tip = ChampionKits.practiceTip()
 assert(string.find(tip, "damage cut", 1, true))
 assert(string.find(tip, "pull", 1, true))
@@ -479,5 +544,10 @@ assert(string.find(expansionMore, "Ward Omen", 1, true))
 assert(string.find(expansionMore, "Foresight Veil", 1, true))
 assert(string.find(expansionMore, "Spell Charge", 1, true))
 assert(string.find(expansionMore, "Charged Meteor", 1, true))
+local lastTip = ChampionKits.practiceTipLast()
+assert(string.find(lastTip, "Curse Stacks", 1, true))
+assert(string.find(lastTip, "Hex Zone", 1, true))
+assert(string.find(lastTip, "Psi Mark", 1, true))
+assert(string.find(lastTip, "Mind Nudge", 1, true))
 
-print("PASS: targeting modes, traveling projectile timing, sweep hits, flagship kit hooks, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor")
+print("PASS: targeting modes, traveling projectile timing, sweep hits, flagship kit hooks, Settled Loaf, Charge Knock, Open Wick, Hype Candle, Second Helping, Sweater Aura, Packet Buffer, Overclock, Honor Bleed, Shield Fortify, Alley Mark, Smoke Vanish, Chrome Plate, Lunge Reload, Ward Omen, Foresight Veil, Spell Charge, Charged Meteor, Curse Stacks, Hex Zone, Psi Mark, Mind Nudge")

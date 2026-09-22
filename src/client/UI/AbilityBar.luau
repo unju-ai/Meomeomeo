@@ -208,6 +208,16 @@ function AbilityBar.create(parent: Instance): BarApi
 			if combat and combat.chargeUntil and combat.chargeStacks and combat.chargeUntil > workspace:GetServerTimeNow() and combat.chargeStacks > 0 then
 				chargeBit = ` · Charge {combat.chargeStacks}`
 			end
+			local curseBit = ""
+			if combat and combat.curseEchoUntil and combat.curseEchoStacks and combat.curseEchoUntil > workspace:GetServerTimeNow() and combat.curseEchoStacks > 0 then
+				curseBit = ` · Curse {combat.curseEchoStacks}`
+			elseif combat and combat.curseUntil and combat.curseStacks and combat.curseUntil > workspace:GetServerTimeNow() and combat.curseStacks > 0 then
+				curseBit = ` · Curse {combat.curseStacks}`
+			end
+			local psiBit = ""
+			if combat and combat.psiUntil and combat.psiUntil > workspace:GetServerTimeNow() then
+				psiBit = " · Psi"
+			end
 			meta.Text = `{(if champ then champ.name else "Cat")}`
 				.. guardBit
 				.. wickBit
@@ -218,6 +228,8 @@ function AbilityBar.create(parent: Instance): BarApi
 				.. plateBit
 				.. omenBit
 				.. chargeBit
+				.. curseBit
+				.. psiBit
 				.. if shield > 0 then ` · {math.floor(shield)}🛡` else ""
 				.. ` · Lv {level} · {matchPlayer.kills} / {matchPlayer.deaths} / {matchPlayer.assists} · {matchPlayer.cs or 0} CS · {matchPlayer.gold}g`
 				.. aaBit
