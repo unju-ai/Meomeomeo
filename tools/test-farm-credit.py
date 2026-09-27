@@ -16,7 +16,8 @@ def wrap(name: str, rel: str) -> str:
 
 
 script = (
-    wrap("CombatFloat", "src/shared/CombatFloat.luau")
+    wrap("CannonKitten", "src/shared/CannonKitten.luau")
+    + wrap("CombatFloat", "src/shared/CombatFloat.luau")
     + wrap("FarmCredit", "src/shared/FarmCredit.luau")
     + wrap("LastHitJuice", "src/shared/LastHitJuice.luau")
     + wrap("BountyJuice", "src/shared/BountyJuice.luau")

@@ -12,6 +12,7 @@ local PingLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local DamageLog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DamageLog"))
 local BountyJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BountyJuice"))
+local CannonKitten = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CannonKitten"))
 local FarmCredit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("FarmCredit"))
 local LastHitJuice = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LastHitJuice"))
 local PracticeRoster = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PracticeRoster"))
@@ -1306,6 +1307,16 @@ local function killingKind(victimUserId: number): string?
 	return nil
 end
 
+local function killingSourceName(victimUserId: number): string?
+	local lines = DamageLog.recap(victimUserId, Workspace:GetServerTimeNow())
+	for _, line in lines do
+		if line.killingBlow then
+			return line.sourceName
+		end
+	end
+	return nil
+end
+
 local function rosterLiving(team: Types.TeamId): (number, number)
 	local living = 0
 	local size = 0
@@ -1462,7 +1473,10 @@ function MatchService.init(cleared: () -> ())
 				feed("kill", `{killerName} scratched {victimName} into next week{extra}`)
 			else
 				local victimName = if v then v.displayName else "A cat"
-				feed("kill", `{victimName} got batted by a tower (or a kitten)`)
+				local by = if killingSourceName(victimUserId) == CannonKitten.Name
+					then `a {CannonKitten.Name}`
+					else "a tower (or a kitten)"
+				feed("kill", `{victimName} got batted by {by}`)
 			end
 			-- Champion stocks only. Lane kittens and camps never reach this callback.
 			local tapeEvents = {}

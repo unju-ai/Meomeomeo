@@ -2,6 +2,7 @@
 
 local Workspace = game:GetService("Workspace")
 
+local CannonKitten = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CannonKitten"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local StructureLogic = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("StructureLogic"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -14,9 +15,14 @@ export type Minion = {
 	id: string,
 	team: Types.TeamId,
 	lane: string,
+	kind: "kitten" | "cannon",
 	health: number,
 	maxHealth: number,
+	damage: number,
+	gold: number,
+	speed: number,
 	part: BasePart,
+	yarn: BasePart?,
 	nextAttack: number,
 }
 
@@ -76,41 +82,107 @@ local function stampWaveClock(anchor: number)
 	bin:SetAttribute(Constants.Attributes.WaveStep, KITTEN_STEP)
 end
 
+local function rgb(color: { number }): Color3
+	return Color3.fromRGB(color[1] or 0, color[2] or 0, color[3] or 0)
+end
+
+local function seat(minion: Minion, cf: CFrame)
+	minion.part.CFrame = cf
+	local yarn = minion.yarn
+	if yarn then
+		-- Gold ball on the rear, toward that team's fountain, so the cannon
+		-- reads behind the ordinary kittens that stepped out ahead of it.
+		local back = if minion.team == "Blue" then -1 else 1
+		local tuck = minion.part.Size.X * 0.28
+		local rise = minion.part.Size.Y * 0.42
+		yarn.CFrame = cf * CFrame.new(back * tuck, rise, 0)
+	end
+end
+
+local function biteNote(minion: Minion): Types.DamageNote
+	if minion.kind == "cannon" then
+		return {
+			sourceKind = "minion",
+			sourceName = CannonKitten.Name,
+			sourceId = CannonKitten.SourceId,
+			label = CannonKitten.HitLabel,
+		}
+	end
+	return {
+		sourceKind = "minion",
+		sourceName = "Kitten",
+		sourceId = "kitten",
+		label = "Nibble",
+	}
+end
+
 local function stamp(part: BasePart, minion: Minion)
 	part:SetAttribute(Constants.Attributes.MinionId, minion.id)
 	part:SetAttribute(Constants.Attributes.Team, minion.team)
+	part:SetAttribute("MinionKind", minion.kind)
 	part:SetAttribute("Health", minion.health)
 	part:SetAttribute("MaxHealth", minion.maxHealth)
+	local yarn = minion.yarn
+	if yarn then
+		yarn:SetAttribute(Constants.Attributes.MinionId, minion.id)
+		yarn:SetAttribute(Constants.Attributes.Team, minion.team)
+		yarn:SetAttribute("MinionKind", minion.kind)
+	end
 	local label = part:FindFirstChild("Label")
 	if label and label:IsA("BillboardGui") then
 		local text = label:FindFirstChildWhichIsA("TextLabel")
 		if text then
-			text.Text = `{minion.team} kitten  {math.floor(minion.health)}`
+			local title = if minion.kind == "cannon" then CannonKitten.Name else "kitten"
+			text.Text = `{minion.team} {title}  {math.floor(minion.health)}`
 		end
 	end
 end
 
-local function spawnOne(team: Types.TeamId, lane: string, index: number)
+local function spawnOne(team: Types.TeamId, lane: string, index: number, cannon: boolean)
 	wave = math.max(wave, 1)
 	local id = `{team}-{lane}-w{wave}-{index}-{os.clock()}`
 	local z = MapBuilder.laneZ(lane)
 	local x = if team == "Blue" then -148 else 148
 	local color = if team == "Blue" then Color3.fromRGB(110, 170, 230) else Color3.fromRGB(230, 120, 120)
+	local height = 2.2
+	if cannon then
+		local body = if team == "Blue" then CannonKitten.BlueBodyRgb else CannonKitten.RedBodyRgb
+		color = rgb(body)
+		height = CannonKitten.BodyY
+	end
+	-- Same ground line as an ordinary kitten (center 2.2 on a 2.2-tall body).
+	local y = 1.1 + height / 2
 
 	local part = Instance.new("Part")
 	part.Name = id
 	part.Anchored = true
 	part.CanCollide = false
-	part.Size = Vector3.new(2.4, 2.2, 3.2)
-	part.CFrame = CFrame.new(x, 2.2, z)
+	part.Size = if cannon
+		then Vector3.new(CannonKitten.BodyX, CannonKitten.BodyY, CannonKitten.BodyZ)
+		else Vector3.new(2.4, 2.2, 3.2)
 	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
+	part.Material = if cannon then Enum.Material.Fabric else Enum.Material.SmoothPlastic
 	part.Parent = folder()
+
+	local yarnPart: BasePart? = nil
+	if cannon then
+		local ball = Instance.new("Part")
+		ball.Name = "Yarn"
+		ball.Shape = Enum.PartType.Ball
+		ball.Size = Vector3.new(CannonKitten.YarnSize, CannonKitten.YarnSize, CannonKitten.YarnSize)
+		ball.Color = rgb(CannonKitten.YarnRgb)
+		ball.Material = Enum.Material.Neon
+		ball.Anchored = true
+		ball.CanCollide = false
+		ball.CanTouch = false
+		ball.Parent = part
+		yarnPart = ball
+	end
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Label"
-	gui.Size = UDim2.fromOffset(90, 18)
-	gui.StudsOffset = Vector3.new(0, 2.2, 0)
+	gui.Size = if cannon then UDim2.fromOffset(148, 22) else UDim2.fromOffset(90, 18)
+	gui.StudsOffset = Vector3.new(0, if cannon then 2.8 else 2.2, 0)
 	gui.AlwaysOnTop = true
 	gui.Parent = part
 	local text = Instance.new("TextLabel")
@@ -125,12 +197,18 @@ local function spawnOne(team: Types.TeamId, lane: string, index: number)
 		id = id,
 		team = team,
 		lane = lane,
-		health = Config.Minions.Health,
-		maxHealth = Config.Minions.Health,
+		kind = if cannon then "cannon" else "kitten",
+		health = if cannon then CannonKitten.Health else Config.Minions.Health,
+		maxHealth = if cannon then CannonKitten.Health else Config.Minions.Health,
+		damage = if cannon then CannonKitten.Damage else Config.Minions.Damage,
+		gold = if cannon then CannonKitten.Gold else Config.Match.MinionGold,
+		speed = if cannon then CannonKitten.Speed else Config.Minions.Speed,
 		part = part,
+		yarn = yarnPart,
 		nextAttack = 0,
 	}
 	minions[id] = minion
+	seat(minion, CFrame.new(x, y, z))
 	stamp(part, minion)
 end
 
@@ -159,8 +237,8 @@ local function march(minion: Minion, dt: number)
 	if delta.Magnitude < 1 then
 		return
 	end
-	local step = math.min(Config.Minions.Speed * dt, delta.Magnitude)
-	minion.part.CFrame = CFrame.new(pos + delta.Unit * step)
+	local step = math.min(minion.speed * dt, delta.Magnitude)
+	seat(minion, CFrame.new(pos + delta.Unit * step))
 end
 
 local function tickMinion(minion: Minion, dt: number, now: number)
@@ -172,7 +250,7 @@ local function tickMinion(minion: Minion, dt: number, now: number)
 	if foe then
 		if now >= minion.nextAttack then
 			minion.nextAttack = now + Config.Minions.AttackInterval
-			MinionService.applyDamage(nil, foe.id, Config.Minions.Damage)
+			MinionService.applyDamage(nil, foe.id, minion.damage)
 		end
 		return
 	end
@@ -180,13 +258,19 @@ local function tickMinion(minion: Minion, dt: number, now: number)
 	if api then
 		if now >= minion.nextAttack then
 			minion.nextAttack = now + Config.Minions.AttackInterval
-			api.damagePlayerNear(minion.team, minion.part.Position, Config.Minions.AttackRange, Config.Minions.Damage, {
-				sourceKind = "minion",
-				sourceName = "Kitten",
-				sourceId = "kitten",
-				label = "Nibble",
-			})
-			api.damageObjectiveNear(minion.team, minion.part.Position, Config.Minions.AttackRange + 6, Config.Minions.Damage)
+			api.damagePlayerNear(
+				minion.team,
+				minion.part.Position,
+				Config.Minions.AttackRange,
+				minion.damage,
+				biteNote(minion)
+			)
+			api.damageObjectiveNear(
+				minion.team,
+				minion.part.Position,
+				Config.Minions.AttackRange + 6,
+				minion.damage
+			)
 		end
 	end
 
@@ -224,11 +308,12 @@ function MinionService.applyDamage(attackerUserId: number?, minionId: string, am
 	end
 	if minion.health <= 0 then
 		local team = minion.team
+		local gold = minion.gold
 		minion.part:Destroy()
 		minions[minionId] = nil
 		if api then
 			if attackerUserId then
-				api.onLastHit(attackerUserId, Config.Match.MinionGold, pos)
+				api.onLastHit(attackerUserId, gold, pos)
 			end
 			api.onMinionDied(pos, team, attackerUserId)
 		end
@@ -277,8 +362,10 @@ function MinionService.start()
 			wave += 1
 			for _, lane in Constants.Lanes do
 				for i = 1, Config.Minions.PerLane do
-					spawnOne("Blue", lane, i)
-					spawnOne("Red", lane, i)
+					-- Last slot of every 3rd wave. The KittenStep wait stays put.
+					local cannon = CannonKitten.isCannonSlot(wave, i, Config.Minions.PerLane)
+					spawnOne("Blue", lane, i, cannon)
+					spawnOne("Red", lane, i, cannon)
 					task.wait(KITTEN_STEP)
 					if not running then
 						return
