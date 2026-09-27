@@ -136,4 +136,18 @@ assert(XpJuice.canSpawn(CombatFloat.MaxOnScreen) == false)
 assert(XpJuice.modeAllows("Moba", "InProgress") == true)
 assert(XpJuice.modeAllows("Hub", "InProgress") == false)
 
-print("farm credit ok: kitten and camp last hits, bounties skip CS, cleave purse, last-hit float skips bounties, bounty float skips last hits, xp float skips zero and gold")
+-- Yarn Cannon is still a last hit: one CS, premium gold, amber float, not a bounty.
+assert(CannonKitten.Gold == 36)
+assert(CannonKitten.Gold > 18)
+local cannonHit = FarmCredit.lastHit(CannonKitten.Gold)
+assert(cannonHit.cs == 1 and cannonHit.gold == 36)
+assert(LastHitJuice.wantsFloat(cannonHit.cs, cannonHit.gold) == true)
+assert(LastHitJuice.goldLabel(cannonHit.gold) == "+36g")
+assert(BountyJuice.wantsFloat(cannonHit.cs, cannonHit.gold) == false)
+local cannonPurse = { gold = 500, cs = 0 }
+FarmCredit.apply(cannonPurse, cannonHit)
+assert(cannonPurse.cs == 1 and cannonPurse.gold == 536)
+FarmCredit.apply(cannonPurse, FarmCredit.lastHit(18))
+assert(cannonPurse.cs == 2 and cannonPurse.gold == 554, "an ordinary kitten after a cannon is still 18g and +1 CS")
+
+print("farm credit ok: kitten and camp last hits, bounties skip CS, cleave purse, last-hit float skips bounties, bounty float skips last hits, xp float skips zero and gold, yarn cannon is a premium last hit")

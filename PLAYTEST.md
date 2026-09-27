@@ -173,6 +173,8 @@ Ability aim indicators (same day, later slice): client-only `TargetingIndicator`
 
 Emote wheel + Closet flair (same day, later slice): hold **T** wheel gets clearer wedge highlight, release-to-cast, and **Esc** cancel. Server attaches Closet `emoteFlair` tint on `EmotePlayed`; EmoteFx paints a larger bob, stroke, and sparkle when Moon Dust / Canal Crown / Braincell Orbs / Stall Spark is equipped. Nearby hub + mode players still see the billboard (foes in Cat Rift too); cooldown stays ~2.6s. **G** pings unchanged outside the Rift. Combat / Levi / aim indicators untouched. Verified locally: Luau compiled 136 sources; `tools/test-emote.py` and `tools/test-cosmetics.py` passed. Rojo 7.4.4 built the place. Studio live-pass under §8e.
 
+Yarn Cannon (same day, later slice): every 3rd lane wave, first on wave 3, the last kitten in each lane for each team is a **Yarn Cannon**. Waves 1 and 2, and the first two slots of a cannon wave, stay ordinary kittens (95 HP, 14 damage, 18 gold). The cannon is 170 HP, 18 damage, 16 speed, and a last hit of **36** gold with the same +1 CS (`FarmCredit.lastHit`). It is taller, yarn-wrapped, and carries a gold yarn ball. The label and the kill-feed source both say **Yarn Cannon** (recap line **Yarn Shot**). Wave waits stay 6s / 0.35s / 22s, and the existing mouth lantern still marks the first kitten of the lane. Bots, fog, structure gates, and Hub / Yarn Run / Koi / Party / Arcade are unchanged. Verified locally: Luau compiled 186 sources; `tools/test-wave-juice.py` passed (wave 3, last slot only, cadence unchanged); `tools/test-farm-credit.py` passed (36g, +1 CS, not a bounty). Full smoke suite passed (36). Rojo 7.4.4 built the place. Studio live-pass under Yarn Cannon.
+
 ### Lobby host acceptance check
 
 1. Start Play and check the **hub grid** title (**meo meo meo**) plus Cat Rift's **Three lanes. One shared braincell.**
@@ -427,11 +429,23 @@ Wave timing stays in `MinionService`. `tools/test-wave-juice.py` checks the 6s f
 
 1. Hub → **Cat Rift → Practice**. Stand on your fountain and watch the lane mouth in front of it (mid).
 2. A few seconds into the fight, about 2.5 seconds before kittens step out of that mouth, a soft cream lantern glow appears there. It stays a small lantern, without a banner or a countdown number.
-3. When those kittens appear, the glow becomes a brief cream puff and then leaves. They still walk the same path, three per lane, on the same cadence as before.
+3. When those kittens appear, the glow becomes a brief cream puff and then leaves. They still walk the same path, three per lane, on the same cadence as before. On every 3rd wave the last of those three is a Yarn Cannon (see that live-pass).
 4. The minimap may blink a tiny cream dot on that mouth during the glow. Top and bot do the same once you have seen those mouths. An enemy mouth you have not explored stays dark. Jungle camp chips stay on their own timers.
 5. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade stay quiet. Tower aggro and bounty floats are unchanged.
 
 Smoke (not a Studio substitute): `python3 tools/test-wave-juice.py /path/to/luau`.
+
+### Studio live-pass (Yarn Cannon)
+
+`Shared.CannonKitten` picks the slot. `MinionService` still waits 6s, then 0.35s between kittens, then 22s. Wave 3 is the first cannon wave, then 6, 9, and so on. The last kitten of each lane, on both teams, is the cannon. The two in front stay ordinary. The mouth lantern is still the existing telegraph for that lane's first kitten. This pass does not move a character from here.
+
+1. Hub → **Cat Rift → Practice**. Stand where you can see a lane mouth (mid is enough).
+2. The first two waves are three ordinary kittens per mouth. Labels read **Blue kitten** / **Red kitten**. The lantern still glows about 2.5s before the first kitten, then a cream puff when it steps out. The later kittens in that lane do not add a second glow.
+3. The third wave is a bit under a minute after the fight starts. It telegraphs the same way. Two ordinary kittens step out, then one bigger **Yarn Cannon** — taller, yarn-wrapped, gold ball on the back. The label reads **Yarn Cannon**. One per lane mouth, Blue and Red. Top, mid, and bot each do this on that wave. Wave 4 goes back to three ordinary kittens.
+4. Last-hit the Yarn Cannon. The purse gains **36** gold and **+1 CS** (amber **+36g** and cream **+1 CS**). An ordinary kitten in front of it is still **18** gold and **+1 CS**. A kill or a post is still not CS. If the cannon finishes you, the kill feed says you got batted by a Yarn Cannon, and death recap names **Yarn Cannon · Yarn Shot**.
+5. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not spawn these. Posts, stalls, and the yarn core still gate the same way.
+
+Smoke (not a Studio substitute): `python3 tools/test-wave-juice.py /path/to/luau` and `python3 tools/test-farm-credit.py /path/to/luau`.
 
 ### Studio live-pass (match start)
 
@@ -958,7 +972,7 @@ Smoke (not a Studio substitute): `python3 tools/test-afk.py /path/to/luau`. Rema
 
 ### Combat notes (Cat Rift)
 
-- **Purse:** the server stores `gold` and `cs` on each match player (humans and bots). A last hit on a lane kitten is +1 CS and 18 gold. A jungle camp last hit is +1 CS and that camp's gold. Nearby XP, denied minions, kill gold (180), assist gold (60), tower gold (120), and Pawmart spends do not change CS. The chip above the ability bar and Tab read that snapshot. The chip is Cat Rift InProgress only. Smoke: `python3 tools/test-farm-credit.py /path/to/luau`.
+- **Purse:** the server stores `gold` and `cs` on each match player (humans and bots). A last hit on an ordinary lane kitten is +1 CS and 18 gold. A Yarn Cannon last hit (every 3rd wave, last slot) is +1 CS and 36 gold. A jungle camp last hit is +1 CS and that camp's gold. Nearby XP, denied minions, kill gold (180), assist gold (60), tower gold (120), and Pawmart spends do not change CS. The chip above the ability bar and Tab read that snapshot. The chip is Cat Rift InProgress only. Smoke: `python3 tools/test-farm-credit.py /path/to/luau`.
 - **XP float:** Cat Rift InProgress only. `grantXp` still adds nearby kitten XP (10), nearby camp XP (12), last-hit XP, kill XP (80), and assist XP (30). The client paints that same delta as a cream/lavender **+N XP** for the local cat. Zero stays quiet. Near-simultaneous grants merge and soft-cap. The **LEVEL UP** banner is still the level edge, not this tick. Hub and the other stalls stay quiet. Smoke: `python3 tools/test-farm-credit.py /path/to/luau` and `python3 tools/test-combat.py /path/to/luau`.
 - **Death recap:** the server keeps the last 24 damage hits on each cat for this match only (not a DataStore, not a replay). On death the victim gets a short card: champion, tower, minion, jungle, or item, with **Scratch** / the ability / **Bolt** / **Nibble** / **Swipe** / the item when that label is known, approximate damage, and the killing blow marked. It hides about 2.5s before respawn; **Recap** reopens it while you are down. Kill feed, Tab, and the end screen stay. Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not show it. Smoke: `python3 tools/test-death-recap.py /path/to/luau`.
 - **Kitty Caster:** authored lines in `Shared.AnnouncerLines`, pushed by `AnnouncerService` to Cat Rift players only (`AnnouncerMessage`). She calls first blood, champion kills, double through penta (10s), an ace on a side of 2+, outer posts, lantern stalls, yarn core open, yarn core destroyed, **Canal Levi**, and a victory or defeat sting. Ordinary kills share an 8-second gap. Lane-kitten and camp executions stay quiet unless they are first blood or that ace. Last-hitting kittens does not call her. Canal Levi does. The kill feed keeps the scratch line and adds her row; the banner holds it for 5 seconds. Talking to her still goes through `AiChatService` (mock, no key). Hub, Yarn Run, Koi Pond, Yarn Party, and Meme Arcade do not get the remote. Smoke: `python3 tools/test-announcer.py /path/to/luau`.

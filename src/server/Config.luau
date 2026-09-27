@@ -114,7 +114,9 @@ local Config = {
 	},
 
 	Minions = {
-		-- WaveJuice only predicts these. Do not retune them for the telegraph.
+		-- Ordinary lane kittens. Yarn Cannon (every 3rd wave, last slot) lives
+		-- in Shared.CannonKitten. WaveJuice only predicts these waits.
+		-- Do not retune them for the telegraph or for the cannon.
 		FirstWaveDelay = 6,
 		WaveInterval = 22,
 		PerLane = 3,

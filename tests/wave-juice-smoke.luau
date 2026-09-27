@@ -125,4 +125,66 @@ local blinkGone = WaveJuice.blinkTransparency("arrival", 0.95)
 assert(blinkOn >= 0 and blinkOn <= 1)
 assert(blinkGone > blinkOff, "the arrival blink fades")
 
+-- Yarn Cannon. Wave numbers are 1-based. WaveJuice departs are 0-based.
+-- Wave 3 is depart index 2, on the same cadence. The cannon does not add a telegraph.
+local KITTEN_HP = 95
+local KITTEN_DAMAGE = 14
+local KITTEN_GOLD = 18
+local KITTEN_SPEED = 18
+assert(CannonKitten.Name == "Yarn Cannon")
+assert(CannonKitten.SourceId == "yarn-cannon")
+assert(CannonKitten.HitLabel ~= "Nibble" and CannonKitten.HitLabel ~= "")
+assert(CannonKitten.Every == 3)
+local hpRatio = CannonKitten.Health / KITTEN_HP
+assert(hpRatio >= 1.6 and hpRatio <= 2, "cannon is about 1.6–2× a kitten")
+assert(CannonKitten.Health < 400, "not a second Levi")
+assert(CannonKitten.Damage > KITTEN_DAMAGE and CannonKitten.Damage < KITTEN_DAMAGE * 1.6)
+assert(CannonKitten.Gold > KITTEN_GOLD and CannonKitten.Gold >= KITTEN_GOLD * 1.5)
+assert(CannonKitten.Gold < 180, "still a last hit, not kill gold")
+assert(CannonKitten.Gold == 36)
+assert(CannonKitten.Speed <= KITTEN_SPEED and CannonKitten.Speed >= KITTEN_SPEED * 0.75)
+assert(CannonKitten.BodyX > 2.4 and CannonKitten.BodyY > 2.2 and CannonKitten.BodyZ > 3.2)
+assert(CannonKitten.YarnSize >= 1.5)
+assert(CannonKitten.YarnRgb[1] > 200, "yarn accent stays gold")
+
+assert(not CannonKitten.isCannonWave(0))
+assert(not CannonKitten.isCannonWave(1))
+assert(not CannonKitten.isCannonWave(2))
+assert(CannonKitten.isCannonWave(3), "first cannon is wave 3")
+assert(not CannonKitten.isCannonWave(4))
+assert(not CannonKitten.isCannonWave(5))
+assert(CannonKitten.isCannonWave(6))
+assert(CannonKitten.isCannonWave(9))
+assert(not CannonKitten.isCannonWave(-3))
+
+local perLane = WaveJuice.PerLane
+for waveNumber = 1, 9 do
+	local cannons = 0
+	for slot = 1, perLane do
+		local cannon = CannonKitten.isCannonSlot(waveNumber, slot, perLane)
+		if cannon then
+			cannons += 1
+			assert(slot == perLane, "only the last kitten of the lane")
+		end
+	end
+	if waveNumber % 3 == 0 then
+		assert(cannons == 1, "one cannon slot per lane on a cannon wave")
+	else
+		assert(cannons == 0, "ordinary waves stay ordinary")
+	end
+end
+assert(not CannonKitten.isCannonSlot(3, 1, 3))
+assert(not CannonKitten.isCannonSlot(3, 2, 3))
+assert(CannonKitten.isCannonSlot(3, 3, 3))
+assert(not CannonKitten.isCannonSlot(2, 3, 3))
+assert(CannonKitten.isCannonSlot(3, 1, 1), "a one-kitten lane's only slot is the last")
+assert(not CannonKitten.isCannonSlot(3, 3, 4), "a longer lane keeps the cannon in the new last slot")
+assert(CannonKitten.isCannonSlot(3, 4, 4))
+
+local thirdWaveTop = WaveJuice.departElapsed(2, 0, sched)
+assert(math.abs(thirdWaveTop - (WaveJuice.FirstWaveDelay + 2 * cycle)) < 1e-6, "wave 3 still leaves on the same cadence")
+assert(CannonKitten.isCannonWave(3))
+local thirdLead = findCue(WaveJuice.cues(thirdWaveTop - WaveJuice.LeadSeconds, sched), "Blue-Top")
+assert(thirdLead ~= nil and thirdLead.kind == "telegraph", "wave 3 reuses the existing mouth telegraph")
+
 print("wave-juice-smoke ok")
