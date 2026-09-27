@@ -464,6 +464,8 @@ export type AbilityResult = {
 export type TradeResult = {
 	ok: boolean,
 	error: string?,
+	-- Fountain pawn refund. Buy and other trades leave this unset.
+	gold: number?,
 }
 
 export type EmoteEvent = {

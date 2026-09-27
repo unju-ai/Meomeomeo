@@ -19,7 +19,7 @@ ShopPaint.Pink = { 255, 92, 196 }
 
 export type Section = "Stats" | "Vision" | "Actives"
 
-export type CardKind = "buyable" | "short" | "owned" | "full" | "away"
+export type CardKind = "buyable" | "short" | "owned" | "full" | "away" | "sellable" | "sellAway"
 
 export type CardPaint = {
 	kind: CardKind,
@@ -110,6 +110,17 @@ function ShopPaint.hintLine(): string
 	return "4 trinket · Stats / Vision / Actives · 5 lens · 6 pink · 7 cleave"
 end
 
+function ShopPaint.sellHint(): string
+	return "Sell · 70% back · one click · fountain only"
+end
+
+function ShopPaint.awayLine(selling: boolean): string
+	if selling then
+		return "Pawn only at your fountain"
+	end
+	return "Shop open — buy only at your fountain"
+end
+
 -- Title under the item name: cost, stack, or owned.
 function ShopPaint.nameLine(name: string, cost: number, owned: number, maxStack: number, kind: CardKind): string
 	if maxStack > 1 then
@@ -125,8 +136,30 @@ function ShopPaint.buyToast(name: string): string
 	return `Bought {name} · Pawmart`
 end
 
+-- Sell-mode title. `refund` is ShopSell.refundGold(cost) for one copy.
+function ShopPaint.sellNameLine(name: string, refund: number, owned: number, maxStack: number): string
+	local n = math.floor(refund)
+	if n < 0 then
+		n = 0
+	end
+	if maxStack > 1 then
+		return `{name}  ·  {owned}/{maxStack}  ·  sell +{n}g`
+	end
+	return `{name}  ·  sell +{n}g`
+end
+
 -- Resolve register state. Prices untouched — only whether the card looks buyable.
-function ShopPaint.cardKind(gold: number, atFountain: boolean, owned: number, maxStack: number, cost: number): CardKind
+-- `selling` flips owned rows into a one-click pawn. Unowned rows stay quiet.
+function ShopPaint.cardKind(gold: number, atFountain: boolean, owned: number, maxStack: number, cost: number, selling: boolean?): CardKind
+	if selling == true then
+		if owned <= 0 then
+			return "away"
+		end
+		if not atFountain then
+			return "sellAway"
+		end
+		return "sellable"
+	end
 	local cap = if maxStack > 1 then maxStack else 1
 	if owned >= cap and owned > 0 then
 		return if cap > 1 then "full" else "owned"
@@ -173,6 +206,29 @@ function ShopPaint.cardPaint(kind: CardKind): CardPaint
 			strokeAlpha = 0.4,
 			textAlpha = 0,
 			active = false,
+		}
+	elseif kind == "sellable" then
+		return {
+			kind = kind,
+			fill = ShopPaint.Ink,
+			stroke = ShopPaint.Mint,
+			text = ShopPaint.Cream,
+			fillAlpha = 0,
+			strokeAlpha = 0.25,
+			textAlpha = 0,
+			active = true,
+		}
+	elseif kind == "sellAway" then
+		-- Muted, but the click still asks the server so the refuse toast fires.
+		return {
+			kind = kind,
+			fill = ShopPaint.Panel,
+			stroke = ShopPaint.Muted,
+			text = ShopPaint.Muted,
+			fillAlpha = 0.25,
+			strokeAlpha = 0.55,
+			textAlpha = 0.35,
+			active = true,
 		}
 	else
 		-- away from fountain

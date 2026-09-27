@@ -10,6 +10,8 @@
 -- or Control Yarn cannot spend the gold a Fang or Cleave is waiting on.
 -- Easy is one Mana Treat after they have already left home. Normal is two
 -- stat sticks on a fountain return. Only Hard buys Control Yarn.
+-- Humans can pawn a copy at the fountain (ShopService.sellAt). Bots do not.
+-- A full-build swap is not a sell plan. maySell stays false.
 
 local ItemCatalog = require(script.Parent.ItemCatalog)
 
@@ -115,6 +117,11 @@ function BotShopLogic.nextItem(difficulty: Difficulty, role: string, gold: numbe
 		end
 	end
 	return nil
+end
+
+-- Humans pawn. Practice bots only buy, including a finished Hard plan.
+function BotShopLogic.maySell(): boolean
+	return false
 end
 
 -- Hard shops on the spawn fountain (visitedLane still false). Easy and Normal

@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 
 local ItemCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ItemCatalog"))
+local ShopSell = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ShopSell"))
 local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Types"))
@@ -13,6 +14,8 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 type Api = {
 	getSnapshot: () -> Types.MatchSnapshot?,
 	spendGold: (userId: number, amount: number) -> boolean,
+	-- Purse only. Not farm, not a bounty float, not CS.
+	grantGold: (userId: number, amount: number) -> boolean,
 	goldOf: (userId: number) -> number,
 	onLoadoutChanged: (userId: number) -> (),
 }
@@ -162,6 +165,64 @@ function ShopService.buy(player: Player, itemId: unknown): Types.TradeResult
 		return { ok = false, error = "Shop at your fountain (or press B there)." }
 	end
 	return ShopService.buyAt(player.UserId, itemId, root.Position)
+end
+
+local function pawnOne(userId: number, itemId: string): Types.TradeResult
+	local item = ItemCatalog.get(itemId)
+	if not item then
+		return { ok = false, error = "Unknown item." }
+	end
+	local bag = listOf(userId)
+	local index = table.find(bag, itemId)
+	if not index then
+		return { ok = false, error = ShopSell.EmptyError }
+	end
+	-- One copy. Control Yarn copies are remaining charges, each bought at
+	-- full price, so this is full-item 70% once — not a slice of the cap.
+	-- Cooldown is ignored. The stamp stays on the cat.
+	local refund = ShopSell.refundGold(item.cost)
+	table.remove(bag, index)
+	if not api or not api.grantGold(userId, refund) then
+		table.insert(bag, index, itemId)
+		return { ok = false, error = "Could not return gold." }
+	end
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		ShopService.applyMovement(player)
+		Remotes.event("ShopUpdated"):FireClient(player, ShopService.status(player))
+	end
+	api.onLoadoutChanged(userId)
+	return { ok = true, gold = refund }
+end
+
+-- Same fountain disk as buy. Away from the pad refuses, even for a bad id.
+-- Bots do not call this.
+function ShopService.sellAt(userId: number, itemId: string, position: Vector3): Types.TradeResult
+	local atFountain = ShopService.nearFountain(userId, position)
+	if not atFountain then
+		local _, reason = ShopSell.gate(false, 1)
+		return { ok = false, error = reason }
+	end
+	if not ItemCatalog.get(itemId) then
+		return { ok = false, error = "Unknown item." }
+	end
+	local allowed, reason = ShopSell.gate(true, ShopService.count(userId, itemId))
+	if not allowed then
+		return { ok = false, error = reason }
+	end
+	return pawnOne(userId, itemId)
+end
+
+function ShopService.sell(player: Player, itemId: unknown): Types.TradeResult
+	if typeof(itemId) ~= "string" then
+		return { ok = false, error = "Unknown item." }
+	end
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not (root and root:IsA("BasePart")) then
+		return { ok = false, error = ShopSell.AwayError }
+	end
+	return ShopService.sellAt(player.UserId, itemId, root.Position)
 end
 
 function ShopService.clear(userId: number)

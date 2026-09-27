@@ -49,6 +49,7 @@ local LINES_MOBA: { { string } } = {
 
 	{ SEC, "Shop" },
 	{ "B", "Pawmart at fountain — not recall · Stats / Vision / Actives" },
+	{ "Sell", "Toggle Sell on B, at the fountain. 70% back, one click. Cooldown still pawns." },
 	{ "Purse", "Gold, CS, level, and Yarn Cleave cost above the ability bar" },
 	{ "Tape", "Meme prices under the kill feed. Play yarn, not gold or Closet" },
 

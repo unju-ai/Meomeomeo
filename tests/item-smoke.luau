@@ -190,6 +190,59 @@ assert(ShopPaint.nameLine("Control Yarn", 75, 1, 2, "buyable") == "Control Yarn 
 assert(ShopPaint.nameLine("Longclaw", 250, 1, 1, "owned") == "Longclaw  ·  owned")
 assert(ShopPaint.nameLine("Yarn Cleave", 280, 0, 1, "buyable") == "Yarn Cleave  ·  280g")
 
+-- Fountain pawn. 70% of the sticker, floored, once per bag copy.
+-- Control Yarn is one copy per remaining charge, so one sell is 52g (not 26).
+assert(ShopSell.RefundPercent == 70)
+assert(ShopSell.BagStoresChargeCount == false)
+assert(ShopSell.IgnoresCooldown == true)
+assert(ShopSell.refundGold(250) == 175)
+assert(ShopSell.refundGold(200) == 140)
+assert(ShopSell.refundGold(180) == 126)
+assert(ShopSell.refundGold(75) == 52)
+assert(ShopSell.refundGold(280) == 196)
+assert(ShopSell.refundGold(300) == 210)
+assert(ShopSell.refundGold(220) == 154)
+assert(ShopSell.refundGold(1) == 0)
+assert(ShopSell.refundGold(0) == 0)
+assert(ShopSell.refundGold(-5) == 0)
+assert(ShopSell.refundIfChargeSlot(75, 2, 2) == 52)
+assert(ShopSell.refundIfChargeSlot(75, 1, 2) == 26)
+assert(ShopSell.refundIfChargeSlot(75, 0, 2) == 0)
+for _, item in ItemCatalog.all() do
+	assert(ShopSell.refundGold(item.cost) == (math.floor(item.cost) * 70) // 100)
+end
+local sellOk, sellErr = ShopSell.gate(false, 1)
+assert(sellOk == false and sellErr == ShopSell.AwayError)
+sellOk, sellErr = ShopSell.gate(false, 0)
+assert(sellOk == false and sellErr == ShopSell.AwayError)
+sellOk, sellErr = ShopSell.gate(true, 0)
+assert(sellOk == false and sellErr == ShopSell.EmptyError)
+sellOk, sellErr = ShopSell.gate(true, 1)
+assert(sellOk == true and sellErr == nil)
+sellOk, sellErr = ShopSell.gate(true, 2)
+assert(sellOk == true and sellErr == nil)
+assert(ShopSell.toast("Longclaw", 175) == "Sold Longclaw · +175g")
+assert(ShopSell.toast("Control Yarn", 52) == "Sold Control Yarn · +52g")
+assert(BotShopLogic.maySell() == false)
+
+assert(ShopPaint.cardKind(500, true, 1, 1, 250, true) == "sellable")
+assert(ShopPaint.cardKind(0, true, 1, 1, 250, true) == "sellable")
+assert(ShopPaint.cardKind(500, false, 1, 1, 250, true) == "sellAway")
+assert(ShopPaint.cardKind(500, true, 0, 1, 250, true) == "away")
+assert(ShopPaint.cardKind(500, true, 2, 2, 75, true) == "sellable")
+assert(ShopPaint.cardKind(500, false, 2, 2, 75, true) == "sellAway")
+local sellable = ShopPaint.cardPaint("sellable")
+assert(sellable.active == true)
+assert(rgbEq(sellable.stroke, ShopPaint.Mint))
+local sellAway = ShopPaint.cardPaint("sellAway")
+assert(sellAway.active == true)
+assert(rgbEq(sellAway.text, ShopPaint.Muted))
+assert(ShopPaint.sellNameLine("Longclaw", 175, 1, 1) == "Longclaw  ·  sell +175g")
+assert(ShopPaint.sellNameLine("Control Yarn", 52, 1, 2) == "Control Yarn  ·  1/2  ·  sell +52g")
+assert(string.find(ShopPaint.sellHint(), "70%", 1, true))
+assert(ShopPaint.awayLine(false) == "Shop open — buy only at your fountain")
+assert(ShopPaint.awayLine(true) == "Pawn only at your fountain")
+
 -- Hard buys Control Yarn after Cleave and before Lens. Cost and stack stay put.
 -- Easy and Normal do not. A short purse cannot skip Fang or Cleave for the ward.
 local function indexOf(list: { string }, id: string): number?
@@ -223,4 +276,4 @@ for _, item in ItemCatalog.all() do
 end
 assert(mapped == 9)
 
-print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm, ShopPaint, Hard plan buys Control Yarn")
+print("PASS: Control Yarn stack cap, unique lens, Yarn Cleave, Stall Fang, Paper Charm, ShopPaint, Hard plan buys Control Yarn, fountain sell")
