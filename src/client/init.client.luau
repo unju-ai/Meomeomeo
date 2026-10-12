@@ -1552,15 +1552,16 @@ hud.chat.onSend(function(npcId: string, text: string, reply: (string, string) ->
 	local ok, result = pcall(function()
 		return Remotes.function_("ChatWithNpc"):InvokeServer(npcId, text)
 	end)
-	if not ok then
-		reply("System", "That meow got lost. Try again.")
-	elseif typeof(result) == "table" then
-		if result.ok and typeof(result.reply) == "string" then
-			reply(result.speaker or "Cat", result.reply)
-		elseif typeof(result.error) == "string" then
+	if ok and typeof(result) == "table" then
+		if result.ok and typeof(result.reply) == "string" and result.reply ~= "" then
+			reply(if typeof(result.speaker) == "string" then result.speaker else "Cat", result.reply)
+			return
+		elseif typeof(result.error) == "string" and result.error ~= "" then
 			reply("System", result.error)
+			return
 		end
 	end
+	reply("System", "That meow got lost. Try again.")
 end)
 
 Remotes.event("MatchStateChanged").OnClientEvent:Connect(function(snapshot)

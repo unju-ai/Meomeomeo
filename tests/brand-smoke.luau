@@ -553,3 +553,44 @@ assert(panel.Visible == true)
 hub.setVisible(false)
 assert(panel.Visible == false, "Leaving the hub closes the checklist")
 print("PASS: hub Live panel, studio stub rows, and id scrub")
+
+-- Timeout, duplicate callbacks and old timers must never unlock a newer request.
+local recovery = NpcChatPanel.create(parent)
+local recoveryInput = recovery.root:FindFirstChild("Input")
+local recoverySend = recovery.root:FindFirstChild("Send")
+local recoveryLog = recovery.root:FindFirstChild("Log")
+local function recoveryLines()
+	local count = 0
+	for _, row in recoveryLog.children do if row.Name == "Line" then count += 1 end end
+	return count
+end
+local callbacks = {}
+recovery.onSend(function(_, _, reply) table.insert(callbacks, reply) end)
+recovery.open("HostMeo", "MEO")
+recoveryInput.Text = "hello"
+recoverySend.MouseButton1Click:Fire()
+recoveryInput.Text = "next draft"
+assert(not recoverySend.Active)
+expireChatTimers()
+assert(recoverySend.Active and recoveryInput.Text == "next draft")
+assert(recoveryLines() == 3, "Greeting, question, timeout")
+recoverySend.MouseButton1Click:Fire()
+callbacks[1]("MEO", "too late")
+assert(not recoverySend.Active and recoveryLines() == 4)
+callbacks[2]("MEO", "on time")
+callbacks[2]("MEO", "duplicate")
+assert(recoverySend.Active and recoveryLines() == 5)
+expireChatTimers()
+assert(recoveryLines() == 5, "Completed request timer must be inert")
+recoveryInput.Text = "old conversation"
+recoverySend.MouseButton1Click:Fire()
+recovery.open("HostMo", "MO")
+expireChatTimers()
+assert(recoveryLines() == 1, "Timeout must not enter another conversation")
+recovery.onSend(function() error("provider failed") end)
+recoveryInput.Text = "hello"
+recoverySend.MouseButton1Click:Fire()
+assert(recoverySend.Active and recoveryLines() == 3)
+expireChatTimers()
+assert(recoveryLines() == 3, "Error must settle only once")
+print("PASS: chat timeout recovery, draft preservation, late/duplicate callbacks and handler errors")

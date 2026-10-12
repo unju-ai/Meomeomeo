@@ -146,14 +146,24 @@ function NpcChatPanel.create(parent: Instance): ChatApi
 		followLatest = true
 		setPending(true)
 		append("You", text)
-		if sendHandler then
-			local requestSession = session
-			sendHandler(activeId, text, function(who: string, reply: string)
-				if session == requestSession and root.Visible then
-					setPending(false)
-					append(who, reply)
-				end
-			end)
+		local requestSession = session
+		local settled = false
+		local function finish(who: string, reply: string)
+			if settled then return end
+			settled = true
+			if session == requestSession and root.Visible then
+				setPending(false)
+				append(who, reply)
+			end
+		end
+		-- Unlock the UI even if InvokeServer never returns. This does not cancel
+		-- the server request; its eventual callback is ignored after settlement.
+		task.delay(15, function()
+			finish("System", "That cat is taking a while. Try your question again.")
+		end)
+		local ok = pcall(sendHandler, activeId, text, finish)
+		if not ok then
+			finish("System", "That meow got lost. Try again.")
 		end
 	end
 
