@@ -19,6 +19,14 @@ if compiler.is_file():
     print(f"Compiled {len(sources)} Luau source files", flush=True)
 
 prelude = r'''
+-- Queue Roblox timers; these guide tests resolve their requests synchronously.
+-- Timeout execution and race coverage live in test-brand.py.
+local timers = {}
+local task = { delay = function(seconds, fn)
+    assert(seconds == 15)
+    table.insert(timers, fn)
+end }
+
 local Color3 = {}
 function Color3.fromRGB(r, g, b) return { _kind = "Color3", R = r, G = g, B = b } end
 local Enum = setmetatable({}, { __index = function(_, category)
